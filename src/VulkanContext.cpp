@@ -20,7 +20,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugReport(
     [[maybe_unused]] int32_t message_code,
     [[maybe_unused]] const char* layer_prefix,
     const char* message,
-    [[maybe_unused]] void* user_data)
+    [[maybe_unused]] void* user_data)  // NOLINT(misc-const-correctness)
 {
     std::fprintf(stderr, "[vulkan] Debug report from ObjectType: %i\nMessage: %s\n\n",
                  object_type, message);
@@ -38,11 +38,15 @@ VulkanContext::VulkanContext(std::vector<const char*> instance_extensions)
 
         physical_device_ = ImGui_ImplVulkanH_SelectPhysicalDevice(instance_);
         if (physical_device_ == VK_NULL_HANDLE)
+        {
             throw std::runtime_error("Failed to select a Vulkan physical device");
+        }
 
         queue_family_ = ImGui_ImplVulkanH_SelectQueueFamilyIndex(physical_device_);
         if (queue_family_ == static_cast<uint32_t>(-1))
+        {
             throw std::runtime_error("Failed to select a Vulkan queue family");
+        }
 
         createDevice();
         createDescriptorPool();
@@ -70,7 +74,9 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
     checkVkResult(vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, properties.data()));
 
     if (hasExtension(properties, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
+    {
         instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    }
 
 #ifdef VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
     if (hasExtension(properties, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME))
@@ -95,7 +101,9 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
     const auto vkCreateDebugReportCallbackEXT = reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(
         vkGetInstanceProcAddr(instance_, "vkCreateDebugReportCallbackEXT"));
     if (vkCreateDebugReportCallbackEXT == nullptr)
+    {
         throw std::runtime_error("vkCreateDebugReportCallbackEXT is not available");
+    }
 
     VkDebugReportCallbackCreateInfoEXT debug_report_info{};
     debug_report_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
@@ -117,7 +125,9 @@ void VulkanContext::createDevice()
 
 #ifdef VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
     if (hasExtension(properties, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME))
+    {
         device_extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+    }
 #endif
 
     const float queue_priority = 1.0f;
@@ -142,14 +152,16 @@ void VulkanContext::createDescriptorPool()
     const std::array<VkDescriptorPoolSize, 2> pool_sizes{{
         {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE},
         {VK_DESCRIPTOR_TYPE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE},
-    }};
+    },};
 
     VkDescriptorPoolCreateInfo pool_info{};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.maxSets = 0;
     for (const VkDescriptorPoolSize& pool_size : pool_sizes)
+    {
         pool_info.maxSets += pool_size.descriptorCount;
+    }
     pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
     pool_info.pPoolSizes = pool_sizes.data();
     checkVkResult(vkCreateDescriptorPool(device_, &pool_info, allocator_, &descriptor_pool_));
@@ -169,7 +181,9 @@ void VulkanContext::destroy() noexcept
         const auto vkDestroyDebugReportCallbackEXT = reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(
             vkGetInstanceProcAddr(instance_, "vkDestroyDebugReportCallbackEXT"));
         if (vkDestroyDebugReportCallbackEXT != nullptr)
+        {
             vkDestroyDebugReportCallbackEXT(instance_, debug_report_, allocator_);
+        }
         debug_report_ = VK_NULL_HANDLE;
     }
 #endif

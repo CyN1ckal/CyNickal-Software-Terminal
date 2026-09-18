@@ -19,7 +19,7 @@ public:
     GlfwContext(GlfwContext&&) = delete;
     GlfwContext& operator=(GlfwContext&&) = delete;
 
-    [[nodiscard]] std::vector<const char*> requiredVulkanInstanceExtensions() const;
+    [[nodiscard]] static std::vector<const char*> requiredVulkanInstanceExtensions();
 };
 
 class Window {
@@ -37,7 +37,7 @@ public:
     [[nodiscard]] bool isIconified() const noexcept;
     [[nodiscard]] std::pair<int, int> framebufferSize() const;
 
-    void pollEvents() const;
+    static void pollEvents();
     [[nodiscard]] VkSurfaceKHR createSurface(VkInstance instance,
                                              const VkAllocationCallbacks* allocator) const;
 

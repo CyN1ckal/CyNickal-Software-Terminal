@@ -11,9 +11,12 @@ namespace myapp {
 class Application {
 public:
     Application();
+    ~Application() = default;
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
+    Application(Application&&) = delete;
+    Application& operator=(Application&&) = delete;
 
     int run();
 

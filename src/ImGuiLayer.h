@@ -22,8 +22,8 @@ public:
     ImGuiLayer(ImGuiLayer&&) = delete;
     ImGuiLayer& operator=(ImGuiLayer&&) = delete;
 
-    void newFrame();
-    void render(VulkanSwapchain& swapchain, const ImVec4& clear_color);
+    static void newFrame();
+    static void render(VulkanSwapchain& swapchain, const ImVec4& clear_color);
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;

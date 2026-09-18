@@ -19,7 +19,9 @@ GlfwContext::GlfwContext()
 {
     glfwSetErrorCallback(glfwErrorCallback);
     if (glfwInit() == GLFW_FALSE)
+    {
         throw std::runtime_error("Failed to initialize GLFW");
+    }
 }
 
 GlfwContext::~GlfwContext()
@@ -27,12 +29,14 @@ GlfwContext::~GlfwContext()
     glfwTerminate();
 }
 
-std::vector<const char*> GlfwContext::requiredVulkanInstanceExtensions() const
+std::vector<const char*> GlfwContext::requiredVulkanInstanceExtensions()
 {
     uint32_t count = 0;
     const char** extensions = glfwGetRequiredInstanceExtensions(&count);
     if (extensions == nullptr)
+    {
         throw std::runtime_error("GLFW: Vulkan not supported");
+    }
 
     return {extensions, extensions + count};
 }
@@ -42,11 +46,15 @@ Window::Window(int width, int height, const char* title)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     if (glfwVulkanSupported() == GLFW_FALSE)
+    {
         throw std::runtime_error("GLFW: Vulkan not supported");
+    }
 
     window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (window_ == nullptr)
+    {
         throw std::runtime_error("Failed to create GLFW window");
+    }
 }
 
 Window::~Window()
@@ -72,7 +80,7 @@ std::pair<int, int> Window::framebufferSize() const
     return {width, height};
 }
 
-void Window::pollEvents() const
+void Window::pollEvents()
 {
     glfwPollEvents();
 }

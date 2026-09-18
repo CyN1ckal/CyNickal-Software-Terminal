@@ -35,7 +35,9 @@ void VulkanSwapchain::setup(int width, int height)
     vkGetPhysicalDeviceSurfaceSupportKHR(context_.physicalDevice(), context_.queueFamily(),
                                          window_data_.Surface, &supported);
     if (supported != VK_TRUE)
+    {
         throw std::runtime_error("Error: no WSI support on physical device 0");
+    }
 
     const std::array<VkFormat, 4> request_formats{
         VK_FORMAT_B8G8R8A8_UNORM,
@@ -78,19 +80,28 @@ void VulkanSwapchain::setClearColor(const ImVec4& color) noexcept
 
 void VulkanSwapchain::render(ImDrawData* draw_data)
 {
-    VkSemaphore image_acquired_semaphore = window_data_.FrameSemaphores[window_data_.SemaphoreIndex].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore = window_data_.FrameSemaphores[window_data_.SemaphoreIndex].RenderCompleteSemaphore;
+    const int semaphore_index = static_cast<int>(window_data_.SemaphoreIndex);
+    VkSemaphore image_acquired_semaphore = window_data_.FrameSemaphores[semaphore_index].ImageAcquiredSemaphore;
+    VkSemaphore render_complete_semaphore = window_data_.FrameSemaphores[semaphore_index].RenderCompleteSemaphore;
 
-    VkResult err = vkAcquireNextImageKHR(context_.device(), window_data_.Swapchain, UINT64_MAX,
-                                         image_acquired_semaphore, VK_NULL_HANDLE, &window_data_.FrameIndex);
+    const VkResult err = vkAcquireNextImageKHR(context_.device(), window_data_.Swapchain, UINT64_MAX,
+                                               image_acquired_semaphore, VK_NULL_HANDLE,
+                                               &window_data_.FrameIndex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
+    {
         rebuild_ = true;
+    }
     if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         return;
+    }
     if (err != VK_SUBOPTIMAL_KHR)
+    {
         checkVkResult(err);
+    }
 
-    ImGui_ImplVulkanH_Frame* frame = &window_data_.Frames[window_data_.FrameIndex];
+    const ImGui_ImplVulkanH_Frame* frame =
+        &window_data_.Frames[static_cast<int>(window_data_.FrameIndex)];
     checkVkResult(vkWaitForFences(context_.device(), 1, &frame->Fence, VK_TRUE, UINT64_MAX));
     checkVkResult(vkResetFences(context_.device(), 1, &frame->Fence));
 
@@ -131,9 +142,12 @@ void VulkanSwapchain::render(ImDrawData* draw_data)
 void VulkanSwapchain::present()
 {
     if (rebuild_)
+    {
         return;
+    }
 
-    VkSemaphore render_complete_semaphore = window_data_.FrameSemaphores[window_data_.SemaphoreIndex].RenderCompleteSemaphore;
+    const int semaphore_index = static_cast<int>(window_data_.SemaphoreIndex);
+    VkSemaphore render_complete_semaphore = window_data_.FrameSemaphores[semaphore_index].RenderCompleteSemaphore;
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
@@ -144,11 +158,17 @@ void VulkanSwapchain::present()
 
     const VkResult err = vkQueuePresentKHR(context_.queue(), &present_info);
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
+    {
         rebuild_ = true;
+    }
     if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         return;
+    }
     if (err != VK_SUBOPTIMAL_KHR)
+    {
         checkVkResult(err);
+    }
 
     window_data_.SemaphoreIndex = (window_data_.SemaphoreIndex + 1) % window_data_.SemaphoreCount;
 }
@@ -156,8 +176,10 @@ void VulkanSwapchain::present()
 void VulkanSwapchain::destroy() noexcept
 {
     if (window_data_.Swapchain != VK_NULL_HANDLE || window_data_.RenderPass != VK_NULL_HANDLE)
+    {
         ImGui_ImplVulkanH_DestroyWindow(context_.instance(), context_.device(), &window_data_,
                                         context_.allocator());
+    }
 
     if (window_data_.Surface != VK_NULL_HANDLE)
     {

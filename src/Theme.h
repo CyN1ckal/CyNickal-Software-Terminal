@@ -2,12 +2,12 @@
 
 #include "imgui.h"
 
-namespace myapp {
-namespace Theme {
+namespace myapp::Theme {
 
 constexpr ImVec4 FromRgb(int r, int g, int b, float a = 1.0f)
 {
-    return {r / 255.0f, g / 255.0f, b / 255.0f, a};
+    return {static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f,
+            static_cast<float>(b) / 255.0f, a};
 }
 
 constexpr ImVec4 WithAlpha(const ImVec4& color, float alpha)
@@ -55,5 +55,5 @@ void LoadFonts(ImGuiIO& io);
 [[nodiscard]] ImFont* sansFont() noexcept;
 [[nodiscard]] ImFont* monoFont() noexcept;
 
-}  // namespace Theme
-}  // namespace myapp
+}  // namespace myapp::Theme
+

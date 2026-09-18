@@ -3,12 +3,20 @@
 #include <array>
 #include <cstdio>
 
-namespace myapp {
-namespace Theme {
+namespace myapp::Theme {
 namespace {
 
-ImFont* g_sans = nullptr;
-ImFont* g_mono = nullptr;
+struct LoadedFonts
+{
+    ImFont* sans = nullptr;
+    ImFont* mono = nullptr;
+};
+
+LoadedFonts& loadedFonts() noexcept
+{
+    static LoadedFonts fonts;
+    return fonts;
+}
 
 ImFont* loadFirstAvailable(ImGuiIO& io, const std::array<const char*, 4>& paths, float size_px,
                            const char* debug_name, const ImWchar* ranges)
@@ -16,13 +24,17 @@ ImFont* loadFirstAvailable(ImGuiIO& io, const std::array<const char*, 4>& paths,
     for (const char* path : paths)
     {
         if (path == nullptr)
+        {
             continue;
+        }
 
         ImFontConfig config;
         config.SizePixels = size_px;
         std::snprintf(config.Name, sizeof(config.Name), "%s", debug_name);
         if (ImFont* font = io.Fonts->AddFontFromFileTTF(path, size_px, &config, ranges))
+        {
             return font;
+        }
     }
     return nullptr;
 }
@@ -148,22 +160,25 @@ void LoadFonts(ImGuiIO& io)
         nullptr,
     };
 
-    g_sans = loadFirstAvailable(io, sans_paths, kSizePx, "Sans", kRanges);
-    g_mono = loadFirstAvailable(io, mono_paths, kSizePx, "Mono", kRanges);
+    LoadedFonts& fonts = loadedFonts();
+    fonts.sans = loadFirstAvailable(io, sans_paths, kSizePx, "Sans", kRanges);
+    fonts.mono = loadFirstAvailable(io, mono_paths, kSizePx, "Mono", kRanges);
 
-    if (g_sans != nullptr)
-        io.FontDefault = g_sans;
+    if (fonts.sans != nullptr)
+    {
+        io.FontDefault = fonts.sans;
+    }
 }
 
 ImFont* sansFont() noexcept
 {
-    return g_sans;
+    return loadedFonts().sans;
 }
 
 ImFont* monoFont() noexcept
 {
-    return g_mono;
+    return loadedFonts().mono;
 }
 
-}  // namespace Theme
-}  // namespace myapp
+}  // namespace myapp::Theme
+

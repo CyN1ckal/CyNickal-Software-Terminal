@@ -19,7 +19,7 @@ Application::Application()
     , window_(static_cast<int>(kBaseWindowWidth * scale_),
               static_cast<int>(kBaseWindowHeight * scale_),
               kWindowTitle)
-    , vulkan_(glfw_.requiredVulkanInstanceExtensions())
+    , vulkan_(GlfwContext::requiredVulkanInstanceExtensions())
     , swapchain_(vulkan_, window_.createSurface(vulkan_.instance(), vulkan_.allocator()),
                  window_.framebufferSize())
     , imgui_(window_.handle(), vulkan_, swapchain_, scale_)
@@ -30,7 +30,7 @@ int Application::run()
 {
     while (!window_.shouldClose())
     {
-        window_.pollEvents();
+        Window::pollEvents();
         rebuildSwapchainIfNeeded();
 
         if (window_.isIconified())
@@ -39,9 +39,9 @@ int Application::run()
             continue;
         }
 
-        imgui_.newFrame();
+        ImGuiLayer::newFrame();
         ui_.draw();
-        imgui_.render(swapchain_, ui_.clearColor());
+        ImGuiLayer::render(swapchain_, Workspace::clearColor());
     }
 
     return 0;

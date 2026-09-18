@@ -38,13 +38,17 @@ constexpr Quote kQuotes[] = {
 void pushMonoFont()
 {
     if (ImFont* mono = Theme::monoFont())
+    {
         ImGui::PushFont(mono);
+    }
 }
 
 void popMonoFont()
 {
     if (Theme::monoFont() != nullptr)
+    {
         ImGui::PopFont();
+    }
 }
 
 void drawStrip(const char* code, const char* hint)
@@ -57,7 +61,15 @@ void drawStrip(const char* code, const char* hint)
 
 void textSigned(float value, const char* fmt)
 {
-    const ImVec4 color = value > 0.0f ? Theme::kUp : (value < 0.0f ? Theme::kDown : Theme::kInk);
+    ImVec4 color = Theme::kInk;
+    if (value > 0.0f)
+    {
+        color = Theme::kUp;
+    }
+    else if (value < 0.0f)
+    {
+        color = Theme::kDown;
+    }
     pushMonoFont();
     ImGui::TextColored(color, fmt, value);
     popMonoFont();
@@ -65,7 +77,7 @@ void textSigned(float value, const char* fmt)
 
 }  // namespace
 
-const ImVec4& Workspace::clearColor() const noexcept
+const ImVec4& Workspace::clearColor() noexcept
 {
     return Theme::kCanvas;
 }
@@ -75,13 +87,21 @@ void Workspace::draw()
     drawDockHost();
 
     if (show_monitor_)
+    {
         drawMonitor();
+    }
     if (show_chart_)
+    {
         drawChart();
+    }
     if (show_detail_)
+    {
         drawDetail();
+    }
     if (show_log_)
+    {
         drawLog();
+    }
 }
 
 void Workspace::drawDockHost()
@@ -91,7 +111,7 @@ void Workspace::drawDockHost()
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
                              ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
                              ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_MenuBar;
@@ -112,7 +132,9 @@ void Workspace::drawDockHost()
             ImGui::MenuItem("Log", nullptr, &show_log_);
             ImGui::Separator();
             if (ImGui::MenuItem("Reset layout"))
+            {
                 reset_layout_ = true;
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -126,7 +148,9 @@ void Workspace::drawDockHost()
         show_monitor_ = show_chart_ = show_detail_ = show_log_ = true;
     }
     if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+    {
         buildDefaultLayout(dockspace_id, viewport->WorkPos, viewport->WorkSize);
+    }
 
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
     ImGui::End();
@@ -188,9 +212,13 @@ void Workspace::drawMonitor()
 
             ImGui::TableNextColumn();
             if (quote.pct > 0.0f)
+            {
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(Theme::kHeatUp));
+            }
             else if (quote.pct < 0.0f)
+            {
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(Theme::kHeatDown));
+            }
             textSigned(quote.pct, "%+.2f%%");
         }
         ImGui::EndTable();
@@ -213,9 +241,9 @@ void Workspace::drawChart()
     float values_b[96];
     for (int i = 0; i < 96; ++i)
     {
-        const float t = static_cast<float>(i);
-        values_a[i] = 0.52f + 0.28f * std::sin(t * 0.13f) + 0.08f * std::sin(t * 0.47f);
-        values_b[i] = 0.48f + 0.22f * std::cos(t * 0.11f);
+        const auto t = static_cast<float>(i);
+        values_a[i] = 0.52f + (0.28f * std::sin(t * 0.13f)) + (0.08f * std::sin(t * 0.47f));
+        values_b[i] = 0.48f + (0.22f * std::cos(t * 0.11f));
     }
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kCanvas);

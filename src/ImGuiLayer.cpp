@@ -31,7 +31,7 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
     io.ConfigDpiScaleFonts = true;
     io.ConfigDpiScaleViewports = true;
 
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0)
     {
         style.WindowRounding = 0.0f;
         style.Colors[ImGuiCol_WindowBg].w = 1.0f;
@@ -60,7 +60,9 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
 ImGuiLayer::~ImGuiLayer()
 {
     if (device_ != VK_NULL_HANDLE)
+    {
         checkVkResult(vkDeviceWaitIdle(device_));
+    }
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -82,16 +84,20 @@ void ImGuiLayer::render(VulkanSwapchain& swapchain, const ImVec4& clear_color)
 
     swapchain.setClearColor(clear_color);
     if (!minimized)
+    {
         swapchain.render(draw_data);
+    }
 
-    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    if ((ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0)
     {
         ImGui::UpdatePlatformWindows();
         ImGui::RenderPlatformWindowsDefault();
     }
 
     if (!minimized)
+    {
         swapchain.present();
+    }
 }
 
 }  // namespace myapp

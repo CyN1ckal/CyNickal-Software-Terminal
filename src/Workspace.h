@@ -7,11 +7,11 @@ namespace myapp {
 class Workspace {
 public:
     void draw();
-    [[nodiscard]] const ImVec4& clearColor() const noexcept;
+    [[nodiscard]] static const ImVec4& clearColor() noexcept;
 
 private:
     void drawDockHost();
-    void buildDefaultLayout(ImGuiID dockspace_id, ImVec2 pos, ImVec2 size);
+    static void buildDefaultLayout(ImGuiID dockspace_id, ImVec2 pos, ImVec2 size);
     void drawMonitor();
     void drawChart();
     void drawDetail();
