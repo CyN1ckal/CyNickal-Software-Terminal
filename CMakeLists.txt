@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 4.0)
 project(MyApp LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -27,6 +27,29 @@ add_executable(MyApp
     imgui/imgui_impl_glfw.cpp
     imgui/imgui_impl_vulkan.cpp
 )
+
+option(MYAPP_ENABLE_CLANG_TIDY "Run clang-tidy while compiling MyApp" ON)
+
+if(MYAPP_ENABLE_CLANG_TIDY)
+    message("clang-tidy running with build!")
+    find_program(CLANG_TIDY_EXE
+            NAMES clang-tidy
+            REQUIRED
+    )
+    set_target_properties(MyApp PROPERTIES
+            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+    )
+    set_source_files_properties(
+            imgui/imgui.cpp
+            imgui/imgui_draw.cpp
+            imgui/imgui_tables.cpp
+            imgui/imgui_widgets.cpp
+            imgui/imgui_demo.cpp
+            imgui/imgui_impl_glfw.cpp
+            imgui/imgui_impl_vulkan.cpp
+            PROPERTIES SKIP_LINTING ON
+    )
+endif()
 
 target_compile_options(MyApp PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

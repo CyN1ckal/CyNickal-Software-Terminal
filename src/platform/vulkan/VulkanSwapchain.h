@@ -36,7 +36,7 @@ private:
     void destroy() noexcept;
 
     const VulkanContext& context_;
-    ImGui_ImplVulkanH_Window window_data_{};
+    ImGui_ImplVulkanH_Window window_data_;
     bool rebuild_ = false;
 };
 

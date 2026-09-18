@@ -42,5 +42,5 @@ Checks: >
   -readability-magic-numbers,
   -readability-uppercase-literal-suffix
 HeaderFilterRegex: '.*/src/.*'
-ExcludeHeaderFilterRegex: '.*/imgui/.*'
 FormatStyle: none
+WarningsAsErrors: '*'
