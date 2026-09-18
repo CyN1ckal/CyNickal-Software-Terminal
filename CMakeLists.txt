@@ -28,6 +28,10 @@ add_executable(MyApp
     imgui/imgui_impl_vulkan.cpp
 )
 
+target_compile_options(MyApp PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
+)
+
 target_include_directories(MyApp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui
