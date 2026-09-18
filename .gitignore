@@ -1,0 +1,59 @@
+# CMake / Ninja out-of-source builds (CLion uses cmake-build-*)
+build/
+cmake-build-*/
+out/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# In-tree CMake / Ninja / CTest leftovers
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CMakeUserPresets.json
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+Testing/
+install_manifest.txt
+*.cmake.user
+
+# Objects, libraries, and the app binary
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+/MyApp
+
+# ImGui runtime window/dock layout
+imgui.ini
+
+# CLion / JetBrains
+.idea/
+*.iml
+*.user
+*.user.*
+
+# clangd and other language-server caches
+.cache/
+.clangd/
+
+# Editor / OS
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
