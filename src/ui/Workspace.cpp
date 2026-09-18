@@ -1,6 +1,6 @@
-#include "Workspace.h"
+#include "ui/Workspace.h"
 
-#include "Theme.h"
+#include "ui/Theme.h"
 
 #include "imgui_internal.h"
 

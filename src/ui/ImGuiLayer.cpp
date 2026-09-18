@@ -1,9 +1,9 @@
-#include "ImGuiLayer.h"
+#include "ui/ImGuiLayer.h"
 
-#include "Theme.h"
-#include "VulkanContext.h"
-#include "VulkanSwapchain.h"
-#include "VulkanUtils.h"
+#include "platform/vulkan/VulkanContext.h"
+#include "platform/vulkan/VulkanSwapchain.h"
+#include "platform/vulkan/VulkanUtils.h"
+#include "ui/Theme.h"
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"

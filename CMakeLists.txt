@@ -11,14 +11,14 @@ find_package(glfw3 3.3 REQUIRED)
 
 add_executable(MyApp
     src/main.cpp
-    src/Application.cpp
-    src/ImGuiLayer.cpp
-    src/Theme.cpp
-    src/Workspace.cpp
-    src/VulkanContext.cpp
-    src/VulkanSwapchain.cpp
-    src/VulkanUtils.cpp
-    src/Window.cpp
+    src/app/Application.cpp
+    src/platform/vulkan/VulkanContext.cpp
+    src/platform/vulkan/VulkanSwapchain.cpp
+    src/platform/vulkan/VulkanUtils.cpp
+    src/platform/window/Window.cpp
+    src/ui/ImGuiLayer.cpp
+    src/ui/Theme.cpp
+    src/ui/Workspace.cpp
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp

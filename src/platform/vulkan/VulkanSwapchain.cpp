@@ -1,7 +1,7 @@
-#include "VulkanSwapchain.h"
+#include "platform/vulkan/VulkanSwapchain.h"
 
-#include "VulkanContext.h"
-#include "VulkanUtils.h"
+#include "platform/vulkan/VulkanContext.h"
+#include "platform/vulkan/VulkanUtils.h"
 
 #include <array>
 #include <stdexcept>

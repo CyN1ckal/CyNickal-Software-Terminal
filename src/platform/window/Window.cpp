@@ -1,6 +1,6 @@
-#include "Window.h"
+#include "platform/window/Window.h"
 
-#include "VulkanUtils.h"
+#include "platform/vulkan/VulkanUtils.h"
 
 #include <cstdio>
 #include <stdexcept>

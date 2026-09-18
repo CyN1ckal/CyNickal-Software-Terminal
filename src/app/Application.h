@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ImGuiLayer.h"
-#include "Workspace.h"
-#include "VulkanContext.h"
-#include "VulkanSwapchain.h"
-#include "Window.h"
+#include "platform/vulkan/VulkanContext.h"
+#include "platform/vulkan/VulkanSwapchain.h"
+#include "platform/window/Window.h"
+#include "ui/ImGuiLayer.h"
+#include "ui/Workspace.h"
 
 namespace myapp {
 
