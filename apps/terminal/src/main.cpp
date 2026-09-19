@@ -1,4 +1,4 @@
-#include "app/Application.h"
+#include "terminal/Application.h"
 
 #include <exception>
 #include <iostream>
