@@ -290,7 +290,7 @@ Suggested shape, when the theme is applied:
 
 Keep tokens in one header so plots, tables, and buttons cannot drift.
 
-Do not restyle inside `imgui/` sources. The bundled Dear ImGui tree stays upstream-clean.
+Do not restyle inside `deps/imgui/` sources. The bundled Dear ImGui tree stays upstream-clean.
 
 ---
 
