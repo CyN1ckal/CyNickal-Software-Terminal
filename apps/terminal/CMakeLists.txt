@@ -14,10 +14,6 @@ add_executable(terminal
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
     src/ui/Workspace.cpp
-    src/data/CBarData.cpp
-    src/data/CBarData.h
-    src/data/CBarLoader.cpp
-    src/data/CBarLoader.h
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_draw.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_tables.cpp
@@ -57,6 +53,7 @@ target_compile_definitions(terminal PRIVATE
 )
 
 target_link_libraries(terminal PRIVATE
+    market-data
     glfw
     Vulkan::Vulkan
 )
@@ -69,14 +66,15 @@ if(CYN_TESTING)
     add_executable(terminal_tests
         tests/test_main.cpp
         tests/data/bar_loading_tests.h
-        src/data/CBarData.cpp
-        src/data/CBarLoader.cpp
         ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp
     )
     target_include_directories(terminal_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
         ${TERMINAL_CATCH_DIR}
+    )
+    target_link_libraries(terminal_tests PRIVATE
+        market-data
     )
     target_compile_options(terminal_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

@@ -28,4 +28,5 @@ if(CYN_TESTING)
     enable_testing()
 endif()
 
+add_subdirectory(libs/market-data)
 add_subdirectory(apps/terminal)
