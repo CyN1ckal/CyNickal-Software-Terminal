@@ -28,4 +28,12 @@ bool hasExtension(const std::vector<VkExtensionProperties>& properties, std::str
                        });
 }
 
+bool hasLayer(const std::vector<VkLayerProperties>& properties, std::string_view layer)
+{
+    return std::any_of(properties.begin(), properties.end(),
+                       [layer](const VkLayerProperties& property) {
+                           return layer == property.layerName;
+                       });
+}
+
 }  // namespace myapp

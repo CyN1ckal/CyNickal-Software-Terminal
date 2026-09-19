@@ -86,12 +86,31 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
     }
 #endif
 
+    std::vector<const char*> enabled_layers;
 #ifndef NDEBUG
-    const char* layers[] = {"VK_LAYER_KHRONOS_validation"};
-    create_info.enabledLayerCount = 1;
-    create_info.ppEnabledLayerNames = layers;
-    instance_extensions.push_back("VK_EXT_debug_report");
+    uint32_t layer_count = 0;
+    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+    std::vector<VkLayerProperties> layer_properties(layer_count);
+    checkVkResult(vkEnumerateInstanceLayerProperties(&layer_count, layer_properties.data()));
+
+    if (hasLayer(layer_properties, "VK_LAYER_KHRONOS_validation"))
+    {
+        enabled_layers.push_back("VK_LAYER_KHRONOS_validation");
+    }
+    else
+    {
+        std::fprintf(stderr,
+                     "[vulkan] Warning: VK_LAYER_KHRONOS_validation is not present; "
+                     "continuing without validation layers.\n");
+    }
+
+    if (hasExtension(properties, "VK_EXT_debug_report"))
+    {
+        instance_extensions.push_back("VK_EXT_debug_report");
+    }
 #endif
+    create_info.enabledLayerCount = static_cast<uint32_t>(enabled_layers.size());
+    create_info.ppEnabledLayerNames = enabled_layers.data();
 
     create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
     create_info.ppEnabledExtensionNames = instance_extensions.data();
@@ -100,17 +119,15 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
 #ifndef NDEBUG
     const auto vkCreateDebugReportCallbackEXT = reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(
         vkGetInstanceProcAddr(instance_, "vkCreateDebugReportCallbackEXT"));
-    if (vkCreateDebugReportCallbackEXT == nullptr)
+    if (vkCreateDebugReportCallbackEXT != nullptr)
     {
-        throw std::runtime_error("vkCreateDebugReportCallbackEXT is not available");
+        VkDebugReportCallbackCreateInfoEXT debug_report_info{};
+        debug_report_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+        debug_report_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                                  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+        debug_report_info.pfnCallback = debugReport;
+        checkVkResult(vkCreateDebugReportCallbackEXT(instance_, &debug_report_info, allocator_, &debug_report_));
     }
-
-    VkDebugReportCallbackCreateInfoEXT debug_report_info{};
-    debug_report_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-    debug_report_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
-                              VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-    debug_report_info.pfnCallback = debugReport;
-    checkVkResult(vkCreateDebugReportCallbackEXT(instance_, &debug_report_info, allocator_, &debug_report_));
 #endif
 }
 
