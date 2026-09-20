@@ -1,6 +1,8 @@
 add_library(market-data
     src/CBarData.cpp
     src/CBarData.h
+    src/CBarSeries.cpp
+    src/CBarSeries.h
     src/market-data.h
 )
 
