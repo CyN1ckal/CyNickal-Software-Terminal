@@ -6,6 +6,7 @@
 #include "market_data/Types.h"
 
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace myapp {
@@ -78,6 +79,63 @@ void bindOptionalInt64(SqliteStmt& stmt, int idx, const std::optional<UnixSecond
     return row;
 }
 
+[[nodiscard]] CoverageDay coverageFromStmt(SqliteStmt& stmt)
+{
+    CoverageDay row;
+    row.instrument_id = stmt.columnInt64(0);
+    row.timeframe_s = static_cast<int>(stmt.columnInt64(1));
+    row.session_date = static_cast<SessionDate>(stmt.columnInt64(2));
+    if (!stmt.columnIsNull(3))
+    {
+        row.first_ts = stmt.columnInt64(3);
+    }
+    if (!stmt.columnIsNull(4))
+    {
+        row.last_ts = stmt.columnInt64(4);
+    }
+    row.bar_count = static_cast<int>(stmt.columnInt64(5));
+    if (!stmt.columnIsNull(6))
+    {
+        row.expected_count = static_cast<int>(stmt.columnInt64(6));
+    }
+    row.status = coverageStatusFromSql(stmt.columnText(7));
+    row.source = stmt.columnText(8);
+    row.ingested_at = stmt.columnInt64(9);
+    return row;
+}
+
+[[nodiscard]] bool isUsRthAt(std::string_view timezone, UnixSeconds ts)
+{
+    using namespace std::chrono;
+    const zoned_time zt{std::string(timezone), sys_seconds{seconds{ts}}};
+    const auto local = zt.get_local_time();
+    const hh_mm_ss<seconds> tod{local - floor<days>(local)};
+    return isUsRthLocal(tod);
+}
+
+[[nodiscard]] CoverageStatus statusFromCounts(int bar_count,
+                                              std::optional<int> expected_count,
+                                              bool session_still_open)
+{
+    if (session_still_open)
+    {
+        return CoverageStatus::Partial;
+    }
+    if (!expected_count.has_value())
+    {
+        return bar_count > 0 ? CoverageStatus::Partial : CoverageStatus::Missing;
+    }
+    if (bar_count == *expected_count)
+    {
+        return CoverageStatus::Complete;
+    }
+    if (bar_count == 0)
+    {
+        return CoverageStatus::Missing;
+    }
+    return CoverageStatus::Partial;
+}
+
 }  // namespace
 
 struct Store::Impl
@@ -92,6 +150,10 @@ struct Store::Impl
     SqliteStmt count_bars;
     SqliteStmt ins_bar;
     mutable SqliteStmt sel_bars;
+    SqliteStmt ins_coverage;
+    mutable SqliteStmt sel_coverage_incomplete;
+    mutable SqliteStmt sel_coverage_one;
+    mutable SqliteStmt sel_bar_stats;
 
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
         : path(std::move(db_path)), mode(store_mode), db(path)
@@ -130,6 +192,30 @@ struct Store::Impl
             h,
             "SELECT ts, open, high, low, close, volume FROM bar "
             "WHERE instrument_id = ? AND timeframe_s = ? AND ts >= ? AND ts < ? ORDER BY ts");
+        ins_coverage.prepare(
+            h,
+            "INSERT INTO coverage_day (instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (instrument_id, timeframe_s, session_date) DO UPDATE SET "
+            "first_ts = excluded.first_ts, last_ts = excluded.last_ts, "
+            "bar_count = excluded.bar_count, expected_count = excluded.expected_count, "
+            "status = excluded.status, source = excluded.source, ingested_at = excluded.ingested_at");
+        sel_coverage_incomplete.prepare(
+            h,
+            "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
+            "WHERE instrument_id = ? AND timeframe_s = ? AND status != 'complete' "
+            "ORDER BY session_date");
+        sel_coverage_one.prepare(
+            h,
+            "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
+            "WHERE instrument_id = ? AND timeframe_s = ? AND session_date = ?");
+        sel_bar_stats.prepare(
+            h,
+            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM bar "
+            "WHERE instrument_id = ? AND timeframe_s = ? AND ts >= ? AND ts < ?");
     }
 };
 
@@ -327,43 +413,8 @@ std::optional<Instrument> Store::findInstrumentById(InstrumentId id) const
 
 UpsertBarsResult Store::upsertBars(std::span<const Bar> bars)
 {
-    UpsertBarsResult result;
-    const UnixSeconds now = nowUtc();
     SqliteTxn txn(impl_->db.handle());
-    auto& ins = impl_->ins_bar;
-    for (const Bar& bar : bars)
-    {
-        if (isFormingBar(bar, now))
-        {
-            continue;
-        }
-        if (!isValidBar(bar))
-        {
-            ++result.rejected;
-            continue;
-        }
-        ins.reset();
-        ins.bindInt64(1, bar.instrument_id);
-        ins.bindInt(2, bar.timeframe_s);
-        ins.bindInt64(3, bar.ts);
-        ins.bindDouble(4, bar.open);
-        ins.bindDouble(5, bar.high);
-        ins.bindDouble(6, bar.low);
-        ins.bindDouble(7, bar.close);
-        ins.bindDouble(8, bar.volume);
-        const auto rc = ins.stepDoneOrConstraint();
-        ins.reset();
-        if (rc == SqliteStmt::Constraint::ForeignKey)
-        {
-            throw std::runtime_error("bar instrument_id is not in instrument");
-        }
-        if (rc == SqliteStmt::Constraint::Check)
-        {
-            ++result.rejected;
-            continue;
-        }
-        ++result.written;
-    }
+    auto result = upsertBarsUnlocked(bars, nowUtc(), nullptr, 0, 0, std::nullopt);
     txn.commit();
     return result;
 }
@@ -397,4 +448,225 @@ std::vector<Bar> Store::queryBars(InstrumentId id,
     return out;
 }
 
+void Store::upsertCoverage(const CoverageDay& row)
+{
+    SqliteTxn txn(impl_->db.handle());
+    auto& ins = impl_->ins_coverage;
+    ins.reset();
+    ins.bindInt64(1, row.instrument_id);
+    ins.bindInt(2, row.timeframe_s);
+    ins.bindInt(3, row.session_date);
+    bindOptionalInt64(ins, 4, row.first_ts);
+    bindOptionalInt64(ins, 5, row.last_ts);
+    ins.bindInt(6, row.bar_count);
+    if (row.expected_count.has_value())
+    {
+        ins.bindInt(7, *row.expected_count);
+    }
+    else
+    {
+        ins.bindNull(7);
+    }
+    ins.bindText(8, toSql(row.status));
+    ins.bindText(9, row.source.empty() ? "mboum" : row.source);
+    ins.bindInt64(10, row.ingested_at != 0 ? row.ingested_at : nowUtc());
+    ins.stepDone();
+    ins.reset();
+    txn.commit();
+}
+
+std::vector<CoverageDay> Store::queryIncompleteCoverage(InstrumentId id, int timeframe_s) const
+{
+    auto& sel = impl_->sel_coverage_incomplete;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
+    std::vector<CoverageDay> out;
+    while (sel.stepRow())
+    {
+        out.push_back(coverageFromStmt(sel));
+    }
+    sel.reset();
+    return out;
+}
+
+std::optional<CoverageDay> Store::findCoverage(InstrumentId id,
+                                               int timeframe_s,
+                                               SessionDate session_date) const
+{
+    auto& sel = impl_->sel_coverage_one;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
+    sel.bindInt(3, session_date);
+    std::optional<CoverageDay> row;
+    if (sel.stepRow())
+    {
+        row = coverageFromStmt(sel);
+    }
+    sel.reset();
+    return row;
+}
+
+CoverageDay Store::refreshCoverageFromBars(InstrumentId id,
+                                           int timeframe_s,
+                                           SessionDate session_date,
+                                           std::optional<int> expected_count,
+                                           bool session_still_open)
+{
+    SqliteTxn txn(impl_->db.handle());
+    auto row = refreshCoverageFromBarsUnlocked(
+        id, timeframe_s, session_date, expected_count, session_still_open);
+    txn.commit();
+    return row;
+}
+
+IngestSessionResult Store::ingestSession(std::span<const Bar> bars,
+                                         InstrumentId id,
+                                         int timeframe_s,
+                                         SessionDate session_date,
+                                         std::optional<int> expected_count,
+                                         bool session_still_open)
+{
+    const auto inst = findInstrumentById(id);
+    if (!inst.has_value())
+    {
+        throw std::runtime_error("ingestSession: unknown instrument");
+    }
+    SqliteTxn txn(impl_->db.handle());
+    IngestSessionResult result;
+    result.bars = upsertBarsUnlocked(bars, nowUtc(), &*inst, timeframe_s, session_date, expected_count);
+    result.coverage = refreshCoverageFromBarsUnlocked(
+        id, timeframe_s, session_date, expected_count, session_still_open);
+    txn.commit();
+    return result;
+}
+
+UpsertBarsResult Store::upsertBarsUnlocked(std::span<const Bar> bars,
+                                           UnixSeconds now,
+                                           const Instrument* session_filter,
+                                           int timeframe_s,
+                                           SessionDate session_date,
+                                           std::optional<int> expected_count)
+{
+    UpsertBarsResult result;
+    auto& ins = impl_->ins_bar;
+    for (const Bar& bar : bars)
+    {
+        if (isFormingBar(bar, now))
+        {
+            continue;
+        }
+        if (!isValidBar(bar))
+        {
+            ++result.rejected;
+            continue;
+        }
+        if (session_filter != nullptr)
+        {
+            if (bar.instrument_id != session_filter->id || bar.timeframe_s != timeframe_s)
+            {
+                ++result.rejected;
+                continue;
+            }
+            if (utcToSessionDate(session_filter->timezone, bar.ts) != session_date)
+            {
+                ++result.rejected;
+                continue;
+            }
+            if (expected_count == kUsRthExpected1m && !isUsRthAt(session_filter->timezone, bar.ts))
+            {
+                ++result.rejected;
+                continue;
+            }
+        }
+        ins.reset();
+        ins.bindInt64(1, bar.instrument_id);
+        ins.bindInt(2, bar.timeframe_s);
+        ins.bindInt64(3, bar.ts);
+        ins.bindDouble(4, bar.open);
+        ins.bindDouble(5, bar.high);
+        ins.bindDouble(6, bar.low);
+        ins.bindDouble(7, bar.close);
+        ins.bindDouble(8, bar.volume);
+        const auto rc = ins.stepDoneOrConstraint();
+        ins.reset();
+        if (rc == SqliteStmt::Constraint::ForeignKey)
+        {
+            throw std::runtime_error("bar instrument_id is not in instrument");
+        }
+        if (rc == SqliteStmt::Constraint::Check)
+        {
+            ++result.rejected;
+            continue;
+        }
+        ++result.written;
+    }
+    return result;
+}
+
+CoverageDay Store::refreshCoverageFromBarsUnlocked(InstrumentId id,
+                                                   int timeframe_s,
+                                                   SessionDate session_date,
+                                                   std::optional<int> expected_count,
+                                                   bool session_still_open)
+{
+    const auto inst = findInstrumentById(id);
+    if (!inst.has_value())
+    {
+        throw std::runtime_error("refreshCoverageFromBars: unknown instrument");
+    }
+    const UtcWindow window = sessionUtcWindow(inst->timezone, session_date);
+    auto& sel = impl_->sel_bar_stats;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
+    sel.bindInt64(3, window.start);
+    sel.bindInt64(4, window.end);
+    if (!sel.stepRow())
+    {
+        sel.reset();
+        throw std::runtime_error("bar stats query returned no row");
+    }
+    CoverageDay row;
+    row.instrument_id = id;
+    row.timeframe_s = timeframe_s;
+    row.session_date = session_date;
+    row.bar_count = static_cast<int>(sel.columnInt64(2));
+    if (row.bar_count > 0)
+    {
+        row.first_ts = sel.columnInt64(0);
+        row.last_ts = sel.columnInt64(1);
+    }
+    sel.reset();
+    row.expected_count = expected_count;
+    row.status = statusFromCounts(row.bar_count, expected_count, session_still_open);
+    row.source = "mboum";
+    row.ingested_at = nowUtc();
+
+    auto& ins = impl_->ins_coverage;
+    ins.reset();
+    ins.bindInt64(1, row.instrument_id);
+    ins.bindInt(2, row.timeframe_s);
+    ins.bindInt(3, row.session_date);
+    bindOptionalInt64(ins, 4, row.first_ts);
+    bindOptionalInt64(ins, 5, row.last_ts);
+    ins.bindInt(6, row.bar_count);
+    if (row.expected_count.has_value())
+    {
+        ins.bindInt(7, *row.expected_count);
+    }
+    else
+    {
+        ins.bindNull(7);
+    }
+    ins.bindText(8, toSql(row.status));
+    ins.bindText(9, row.source);
+    ins.bindInt64(10, row.ingested_at);
+    ins.stepDone();
+    ins.reset();
+    return row;
+}
+
 }  // namespace myapp
+

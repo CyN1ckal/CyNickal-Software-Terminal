@@ -49,7 +49,38 @@ public:
                                              UnixSeconds ts_begin,
                                              UnixSeconds ts_end) const;
 
+    void upsertCoverage(const CoverageDay& row);
+    [[nodiscard]] std::vector<CoverageDay> queryIncompleteCoverage(InstrumentId id,
+                                                                   int timeframe_s) const;
+    [[nodiscard]] std::optional<CoverageDay> findCoverage(InstrumentId id,
+                                                          int timeframe_s,
+                                                          SessionDate session_date) const;
+
+    CoverageDay refreshCoverageFromBars(InstrumentId id,
+                                        int timeframe_s,
+                                        SessionDate session_date,
+                                        std::optional<int> expected_count = std::nullopt,
+                                        bool session_still_open = false);
+
+    IngestSessionResult ingestSession(std::span<const Bar> bars,
+                                      InstrumentId id,
+                                      int timeframe_s,
+                                      SessionDate session_date,
+                                      std::optional<int> expected_count = std::nullopt,
+                                      bool session_still_open = false);
+
 private:
+    UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,
+                                        UnixSeconds now,
+                                        const Instrument* session_filter,
+                                        int timeframe_s,
+                                        SessionDate session_date,
+                                        std::optional<int> expected_count);
+    CoverageDay refreshCoverageFromBarsUnlocked(InstrumentId id,
+                                                int timeframe_s,
+                                                SessionDate session_date,
+                                                std::optional<int> expected_count,
+                                                bool session_still_open);
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

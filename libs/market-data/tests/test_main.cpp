@@ -1,4 +1,5 @@
 #include "catch_amalgamated.hpp"
+#include "coverage_tests.h"
 #include "schema_tests.h"
 #include "sqlite_version_tests.h"
 #include "store_tests.h"
