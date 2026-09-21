@@ -42,11 +42,18 @@ TEST_CASE("NYSE holidays 2025 and Saturday observation")
     CHECK(myapp::isNyseHoliday(20250619));  // Juneteenth
     CHECK(myapp::isNyseHoliday(20251127));  // Thanksgiving
     CHECK(myapp::isNyseHoliday(20260703));  // July 4 2026 is Saturday → Friday
+    CHECK(myapp::isNyseHoliday(20211231));  // New Year 2022 Saturday → prior Friday
+    CHECK(myapp::isNyseHoliday(20271231));
+    CHECK_FALSE(myapp::isNyseHoliday(20280101));  // Saturday; weekend skip, not observed
     CHECK_FALSE(myapp::isNyseHoliday(20250115));
     const auto sessions = myapp::nyseSessions(20250101, 20250103);
     REQUIRE(sessions.size() == 2);
     CHECK(sessions[0] == 20250102);
     CHECK(sessions[1] == 20250103);
+    const auto nye = myapp::nyseSessions(20271230, 20280103);
+    REQUIRE(nye.size() == 2);
+    CHECK(nye[0] == 20271230);
+    CHECK(nye[1] == 20280103);
 }
 
 TEST_CASE("parse v3 page from live shape")
@@ -126,4 +133,39 @@ TEST_CASE("ingestSymbol maps a v3 page and skips holidays")
     CHECK(saw_new_year);
     CHECK(saw_session);
     CHECK(store.findInstrument("AAPL", std::nullopt).has_value());
+}
+
+TEST_CASE("ingestSymbol reuses an existing exchange-qualified instrument")
+{
+    TempDb tmp;
+    myapp::Store store(tmp.path());
+    myapp::Instrument inst;
+    inst.symbol = "AAPL";
+    inst.exchange = "NMS";
+    const auto id = store.upsertInstrument(inst);
+    auto get = [](std::string_view) {
+        myapp::HttpResponse response;
+        response.status = 200;
+        response.body = R"({"meta":{"splits":"0","status":200},"body":[]})";
+        return response;
+    };
+    const auto result = myapp::ingestSymbol(store, get, "AAPL", 20250120, 20250120);
+    CHECK(result.instrument_id == id);
+    CHECK(store.findInstrumentsBySymbol("AAPL").size() == 1);
+    CHECK_FALSE(store.findInstrument("AAPL", std::nullopt).has_value());
+}
+
+TEST_CASE("ingestSymbol fails closed when a symbol has two instruments")
+{
+    TempDb tmp;
+    myapp::Store store(tmp.path());
+    myapp::Instrument aapl;
+    aapl.symbol = "AAPL";
+    store.upsertInstrument(aapl);
+    aapl.exchange = "NMS";
+    store.upsertInstrument(aapl);
+    auto get = [](std::string_view) {
+        return myapp::HttpResponse{};
+    };
+    CHECK_THROWS_AS(myapp::ingestSymbol(store, get, "AAPL", 20250120, 20250120), std::runtime_error);
 }

@@ -5,8 +5,10 @@
 #include "market_data/Time.h"
 #include "market_data/Types.h"
 
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace myapp {
@@ -114,15 +116,6 @@ void bindOptionalDouble(SqliteStmt& stmt, int idx, const std::optional<double>& 
     return row;
 }
 
-[[nodiscard]] bool isUsRthAt(std::string_view timezone, UnixSeconds ts)
-{
-    using namespace std::chrono;
-    const zoned_time zt{std::string(timezone), sys_seconds{seconds{ts}}};
-    const auto local = zt.get_local_time();
-    const hh_mm_ss<seconds> tod{local - floor<days>(local)};
-    return isUsRthLocal(tod);
-}
-
 [[nodiscard]] CoverageStatus statusFromCounts(int bar_count,
                                               std::optional<int> expected_count,
                                               bool session_still_open)
@@ -154,6 +147,7 @@ struct Store::Impl
     StoreMode mode{StoreMode::Writer};
     SqliteDb db;
     mutable SqliteStmt sel_instrument_symbol;
+    mutable SqliteStmt sel_instruments_symbol;
     mutable SqliteStmt sel_instrument_id;
     SqliteStmt ins_instrument;
     SqliteStmt upd_instrument;
@@ -182,6 +176,11 @@ struct Store::Impl
             "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
             "listed_at, delisted_at, created_at FROM instrument "
             "WHERE symbol = ? COLLATE NOCASE AND ifnull(exchange, '') = ifnull(?, '')");
+        sel_instruments_symbol.prepare(
+            h,
+            "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
+            "listed_at, delisted_at, created_at FROM instrument "
+            "WHERE symbol = ? COLLATE NOCASE ORDER BY id");
         sel_instrument_id.prepare(
             h,
             "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
@@ -264,6 +263,25 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
         impl_->db.exec(schemaV1());
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
+    }
+    const auto tables = tableNames();
+    constexpr std::string_view required[] = {"bar", "corporate_action", "coverage_day", "instrument"};
+    for (const auto want : required)
+    {
+        bool found = false;
+        for (const auto& name : tables)
+        {
+            if (name == want)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            throw std::runtime_error("database user_version is " + std::to_string(userVersion()) +
+                                     " but missing required table '" + std::string(want) + "'");
+        }
     }
     impl_->prepare();
 }
@@ -426,6 +444,20 @@ std::optional<Instrument> Store::findInstrument(std::string_view symbol,
     return row;
 }
 
+std::vector<Instrument> Store::findInstrumentsBySymbol(std::string_view symbol) const
+{
+    auto& sel = impl_->sel_instruments_symbol;
+    sel.reset();
+    sel.bindText(1, symbol);
+    std::vector<Instrument> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(instrumentFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
 std::optional<Instrument> Store::findInstrumentById(InstrumentId id) const
 {
     auto& sel = impl_->sel_instrument_id;
@@ -579,6 +611,12 @@ UpsertBarsResult Store::upsertBarsUnlocked(std::span<const Bar> bars,
                                            std::optional<int> expected_count)
 {
     UpsertBarsResult result;
+    const bool filter_rth = session_filter != nullptr && expected_count == kUsRthExpected1m;
+    const UtcWindow day_window = session_filter != nullptr
+                                     ? sessionUtcWindow(session_filter->timezone, session_date)
+                                     : UtcWindow{};
+    const UtcWindow rth_window =
+        filter_rth ? usRthUtcWindow(session_filter->timezone, session_date) : UtcWindow{};
     auto& ins = impl_->ins_bar;
     for (const Bar& bar : bars)
     {
@@ -598,12 +636,12 @@ UpsertBarsResult Store::upsertBarsUnlocked(std::span<const Bar> bars,
                 ++result.rejected;
                 continue;
             }
-            if (utcToSessionDate(session_filter->timezone, bar.ts) != session_date)
+            if (bar.ts < day_window.start || bar.ts >= day_window.end)
             {
                 ++result.rejected;
                 continue;
             }
-            if (expected_count == kUsRthExpected1m && !isUsRthAt(session_filter->timezone, bar.ts))
+            if (filter_rth && (bar.ts < rth_window.start || bar.ts >= rth_window.end))
             {
                 ++result.rejected;
                 continue;

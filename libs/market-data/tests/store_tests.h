@@ -80,6 +80,10 @@ TEST_CASE("NULL exchange and NMS are distinct; empty matches NULL")
     CHECK(store.findInstrument("AAPL", std::nullopt)->id == id_null);
     CHECK(store.findInstrument("AAPL", "")->id == id_null);
     CHECK(store.findInstrument("AAPL", "NMS")->id == id_nms);
+    const auto both = store.findInstrumentsBySymbol("AAPL");
+    REQUIRE(both.size() == 2);
+    CHECK(both[0].id == id_null);
+    CHECK(both[1].id == id_nms);
 }
 
 TEST_CASE("upsertBars last write wins on close")

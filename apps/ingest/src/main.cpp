@@ -4,32 +4,36 @@
 #include "market_data/Store.h"
 #include "market_data/Time.h"
 
+#include <curl/curl.h>
+
 #include <chrono>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <sys/wait.h>
 #include <thread>
-#include <unistd.h>
 #include <vector>
 
 namespace {
 
-constexpr const char* kUserAgentHeader =
-    "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+constexpr const char* kUserAgent =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/129.0.0.0 Safari/537.36";
+
+[[nodiscard]] bool isSuperprojectRoot(const std::filesystem::path& dir)
+{
+    return std::filesystem::is_regular_file(dir / "CMakeLists.txt") &&
+           std::filesystem::is_directory(dir / "libs" / "market-data");
+}
 
 [[nodiscard]] std::filesystem::path findRepoRoot()
 {
     auto dir = std::filesystem::current_path();
     for (int i = 0; i < 16; ++i)
     {
-        if (std::filesystem::exists(dir / "secrets.json") || std::filesystem::exists(dir / "CMakeLists.txt"))
+        if (isSuperprojectRoot(dir))
         {
             return dir;
         }
@@ -41,6 +45,122 @@ constexpr const char* kUserAgentHeader =
     }
     return std::filesystem::current_path();
 }
+
+extern "C" size_t writeResponseBody(char* ptr, size_t size, size_t nmemb, void* userdata)
+{
+    auto* body = static_cast<std::string*>(userdata);
+    const size_t n = size * nmemb;
+    try
+    {
+        body->append(ptr, n);
+    }
+    catch (...)
+    {
+        return 0;
+    }
+    return n;
+}
+
+class CurlClient
+{
+public:
+    explicit CurlClient(std::string_view bearer)
+    {
+        if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+        {
+            throw std::runtime_error("curl_global_init failed");
+        }
+        global_inited_ = true;
+        easy_ = curl_easy_init();
+        if (easy_ == nullptr)
+        {
+            curl_global_cleanup();
+            global_inited_ = false;
+            throw std::runtime_error("curl_easy_init failed");
+        }
+        try
+        {
+            auth_ = "Authorization: Bearer " + std::string(bearer);
+            appendHeader(auth_.c_str());
+            appendHeader("Accept: application/json");
+            curl_easy_setopt(easy_, CURLOPT_HTTPHEADER, headers_);
+            curl_easy_setopt(easy_, CURLOPT_USERAGENT, kUserAgent);
+            curl_easy_setopt(easy_, CURLOPT_TIMEOUT, 30L);
+            curl_easy_setopt(easy_, CURLOPT_NOSIGNAL, 1L);
+            curl_easy_setopt(easy_, CURLOPT_HTTPGET, 1L);
+            curl_easy_setopt(easy_, CURLOPT_PROTOCOLS_STR, "https");
+            curl_easy_setopt(easy_, CURLOPT_WRITEFUNCTION, writeResponseBody);
+        }
+        catch (...)
+        {
+            curl_slist_free_all(headers_);
+            headers_ = nullptr;
+            curl_easy_cleanup(easy_);
+            easy_ = nullptr;
+            curl_global_cleanup();
+            global_inited_ = false;
+            throw;
+        }
+    }
+
+    ~CurlClient()
+    {
+        if (headers_ != nullptr)
+        {
+            curl_slist_free_all(headers_);
+        }
+        if (easy_ != nullptr)
+        {
+            curl_easy_cleanup(easy_);
+        }
+        if (global_inited_)
+        {
+            curl_global_cleanup();
+        }
+    }
+
+    CurlClient(const CurlClient&) = delete;
+    CurlClient& operator=(const CurlClient&) = delete;
+    CurlClient(CurlClient&&) = delete;
+    CurlClient& operator=(CurlClient&&) = delete;
+
+    [[nodiscard]] myapp::HttpResponse get(std::string_view url)
+    {
+        std::string body;
+        const std::string owned(url);
+        curl_easy_setopt(easy_, CURLOPT_URL, owned.c_str());
+        curl_easy_setopt(easy_, CURLOPT_WRITEDATA, &body);
+        myapp::HttpResponse response;
+        const CURLcode rc = curl_easy_perform(easy_);
+        if (rc != CURLE_OK)
+        {
+            response.status = 0;
+            response.error = curl_easy_strerror(rc);
+            return response;
+        }
+        long http = 0;
+        curl_easy_getinfo(easy_, CURLINFO_RESPONSE_CODE, &http);
+        response.status = static_cast<int>(http);
+        response.body = std::move(body);
+        return response;
+    }
+
+private:
+    void appendHeader(const char* line)
+    {
+        curl_slist* next = curl_slist_append(headers_, line);
+        if (next == nullptr)
+        {
+            throw std::runtime_error("curl_slist_append failed");
+        }
+        headers_ = next;
+    }
+
+    CURL* easy_ = nullptr;
+    curl_slist* headers_ = nullptr;
+    std::string auth_;
+    bool global_inited_ = false;
+};
 
 [[nodiscard]] myapp::SessionDate parseDateArg(std::string_view text)
 {
@@ -68,102 +188,18 @@ void usage()
                  "Reads the MBoum API key from secrets.json key \"mboum\". Never pass the key on the CLI.\n";
 }
 
-[[nodiscard]] myapp::HttpResponse curlGet(const std::string& url, const std::string& bearer)
+[[nodiscard]] bool retryableHttpStatus(int status)
 {
-    const auto body_path = std::filesystem::temp_directory_path() /
-                           ("mboum-body-" + std::to_string(::getpid()) + ".json");
-    const std::string auth = "Authorization: Bearer " + bearer;
-    int pipefd[2];
-    if (pipe(pipefd) != 0)
-    {
-        throw std::runtime_error("pipe failed");
-    }
-    const pid_t pid = fork();
-    if (pid < 0)
-    {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        throw std::runtime_error("fork failed");
-    }
-    if (pid == 0)
-    {
-        close(pipefd[0]);
-        if (dup2(pipefd[1], STDOUT_FILENO) == -1)
-        {
-            _exit(127);
-        }
-        close(pipefd[1]);
-        execlp("curl",
-               "curl",
-               "-sS",
-               "--max-time",
-               "30",
-               "-o",
-               body_path.c_str(),
-               "-w",
-               "%{http_code}",
-               "-H",
-               auth.c_str(),
-               "-H",
-               "Accept: application/json",
-               "-H",
-               kUserAgentHeader,
-               "--get",
-               url.c_str(),
-               static_cast<char*>(nullptr));
-        _exit(127);
-    }
-    close(pipefd[1]);
-    std::string status_text;
-    char buf[32];
-    ssize_t nread = 0;
-    while ((nread = read(pipefd[0], buf, sizeof(buf))) > 0)
-    {
-        status_text.append(buf, static_cast<std::size_t>(nread));
-    }
-    close(pipefd[0]);
-    int wstatus = 0;
-    waitpid(pid, &wstatus, 0);
-
-    myapp::HttpResponse response;
-    std::error_code ec;
-    if (std::filesystem::exists(body_path))
-    {
-        response.body = [](const std::filesystem::path& path) {
-            std::ifstream in(path);
-            return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        }(body_path);
-        std::filesystem::remove(body_path, ec);
-    }
-    if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != 0)
-    {
-        response.status = 0;
-        response.error = "curl failed";
-        return response;
-    }
-    try
-    {
-        response.status = std::stoi(status_text);
-    }
-    catch (const std::exception&)
-    {
-        response.status = 0;
-        response.error = "curl returned no HTTP status";
-    }
-    return response;
+    return status == 0 || status == 429 || (status >= 500 && status < 600);
 }
 
-[[nodiscard]] myapp::HttpResponse curlGetWithRetry(const std::string& url, const std::string& bearer)
+[[nodiscard]] myapp::HttpResponse curlGetWithRetry(CurlClient& client, std::string_view url)
 {
     myapp::HttpResponse last;
     for (int attempt = 0; attempt < 4; ++attempt)
     {
-        if (attempt > 0)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(80));
-        }
-        last = curlGet(url, bearer);
-        if (last.status != 429)
+        last = client.get(url);
+        if (!retryableHttpStatus(last.status) || attempt == 3)
         {
             return last;
         }
@@ -242,6 +278,7 @@ int main(int argc, char** argv)
         }
 
         const std::string key = myapp::loadMboumApiKey(secrets);
+        CurlClient http(key);
         std::filesystem::create_directories(db.parent_path());
         myapp::Store store(db);
 
@@ -255,7 +292,7 @@ int main(int argc, char** argv)
                     std::this_thread::sleep_for(std::chrono::milliseconds(80));
                 }
                 first = false;
-                return curlGetWithRetry(std::string(url), key);
+                return curlGetWithRetry(http, url);
             };
             const auto result = myapp::ingestSymbol(store, get, symbol, from_date, to_date);
             for (const auto& day : result.days)

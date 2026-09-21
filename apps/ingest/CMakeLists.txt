@@ -1,8 +1,10 @@
+find_package(CURL REQUIRED)
+
 add_executable(ingest
     src/main.cpp
 )
 
-target_link_libraries(ingest PRIVATE market-data)
+target_link_libraries(ingest PRIVATE market-data CURL::libcurl)
 target_compile_features(ingest PUBLIC cxx_std_20)
 target_compile_options(ingest PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

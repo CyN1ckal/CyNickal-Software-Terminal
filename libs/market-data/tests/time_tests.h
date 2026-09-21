@@ -55,6 +55,19 @@ TEST_CASE("isUsRthLocal is [09:30, 16:00)")
     CHECK_FALSE(myapp::isUsRthLocal(hh_mm_ss<seconds>{hours{16}}));
 }
 
+TEST_CASE("usRthUtcWindow is 09:30-16:00 local")
+{
+    const auto open = myapp::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
+    const auto close = myapp::naiveLocalToUtc("America/New_York", "2025-01-15 16:00");
+    REQUIRE(open.has_value());
+    REQUIRE(close.has_value());
+    const auto rth = myapp::usRthUtcWindow("America/New_York", 20250115);
+    CHECK(rth.start == *open);
+    CHECK(rth.end == *close);
+    CHECK(myapp::isUsRthAt("America/New_York", *open));
+    CHECK_FALSE(myapp::isUsRthAt("America/New_York", *close));
+}
+
 TEST_CASE("money and US date parsers")
 {
     CHECK(myapp::parseMoneyAmount("$0.050") == 0.05);

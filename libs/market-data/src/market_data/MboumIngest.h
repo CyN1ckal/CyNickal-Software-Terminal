@@ -35,7 +35,7 @@ struct IngestSymbolResult
 
 // Walks NYSE sessions in [from, to]. Holidays are written complete 0/0.
 // Complete coverage rows are skipped. HTTP failures become status=error.
-// 401/403 throw. Inject get(); the CLI wraps curl and 429 retries.
+// 401/403 throw. Inject get(); the CLI uses libcurl and retries 0/429/5xx.
 [[nodiscard]] IngestSymbolResult ingestSymbol(Store& store,
                                               const HttpGet& get,
                                               std::string_view symbol,

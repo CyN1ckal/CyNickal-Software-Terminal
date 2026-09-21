@@ -48,9 +48,14 @@ void writeHttpError(Store& store, InstrumentId id, SessionDate session_date)
 
 [[nodiscard]] InstrumentId ensureInstrument(Store& store, std::string_view symbol)
 {
-    if (const auto found = store.findInstrument(symbol, std::nullopt))
+    const auto found = store.findInstrumentsBySymbol(symbol);
+    if (found.size() > 1)
     {
-        return found->id;
+        throw std::runtime_error("multiple instruments named " + std::string(symbol));
+    }
+    if (found.size() == 1)
+    {
+        return found.front().id;
     }
     Instrument inst;
     inst.symbol = std::string(symbol);

@@ -83,8 +83,9 @@ bool isNyseHoliday(year_month_day ymd)
     }
     const int y = static_cast<int>(ymd.year());
     const year yy{y};
-    if (ymd == observed(yy / January / 1))
+    if (ymd == observed(yy / January / 1) || ymd == observed((yy + years{1}) / January / 1))
     {
+        // Saturday 1 Jan is observed the preceding Friday (previous year).
         return true;
     }
     if (ymd == nthWeekday(yy, January, Monday, 3))

@@ -1,4 +1,5 @@
 -- market-data schema v1
+-- Frozen. Do not ALTER in place; add schema/v2.sql and bump kSchemaUserVersion.
 -- Applied only when PRAGMA user_version = 0.
 -- Idempotent: CREATE IF NOT EXISTS so a crashed migrate can retry
 -- after a rollback; user_version is set only after success.

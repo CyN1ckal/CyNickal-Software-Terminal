@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <unordered_map>
 
 namespace myapp {
 namespace {
@@ -17,15 +18,48 @@ using namespace std::chrono;
     {
         throw std::runtime_error("empty timezone");
     }
+    thread_local std::unordered_map<std::string, const time_zone*> cache;
+    const std::string key(iana_tz);
+    if (const auto it = cache.find(key); it != cache.end())
+    {
+        return it->second;
+    }
     try
     {
-        return locate_zone(std::string(iana_tz));
+        const time_zone* tz = locate_zone(key);
+        cache.emplace(key, tz);
+        return tz;
     }
     catch (const std::runtime_error& ex)
     {
-        throw std::runtime_error(std::string("missing tzdb zone: ") + std::string(iana_tz) + ": " +
-                                 ex.what());
+        throw std::runtime_error(std::string("missing tzdb zone: ") + key + ": " + ex.what());
     }
+}
+
+[[nodiscard]] UnixSeconds toUnix(sys_seconds tp)
+{
+    return tp.time_since_epoch().count();
+}
+
+[[nodiscard]] year_month_day requireSessionYmd(SessionDate session_date)
+{
+    const int y = session_date / 10000;
+    const int mon = (session_date / 100) % 100;
+    const int d = session_date % 100;
+    const year_month_day ymd{year{y}, month{static_cast<unsigned>(mon)}, day{static_cast<unsigned>(d)}};
+    if (!ymd.ok())
+    {
+        throw std::runtime_error("invalid session_date");
+    }
+    return ymd;
+}
+
+[[nodiscard]] UtcWindow localRangeToUtc(const time_zone* tz, local_seconds start_local, local_seconds end_local)
+{
+    const zoned_time start_z{tz, start_local, choose::earliest};
+    const zoned_time end_z{tz, end_local, choose::earliest};
+    return UtcWindow{toUnix(floor<seconds>(start_z.get_sys_time())),
+                     toUnix(floor<seconds>(end_z.get_sys_time()))};
 }
 
 [[nodiscard]] bool parseInt(std::string_view text, int& out)
@@ -68,11 +102,6 @@ using namespace std::chrono;
         return std::nullopt;
     }
     return local_seconds{local_days{ymd} + hours{h} + minutes{min} + seconds{s}};
-}
-
-[[nodiscard]] UnixSeconds toUnix(sys_seconds tp)
-{
-    return tp.time_since_epoch().count();
 }
 
 }  // namespace
@@ -217,20 +246,19 @@ SessionDate utcToSessionDate(std::string_view iana_tz, UnixSeconds ts)
 UtcWindow sessionUtcWindow(std::string_view iana_tz, SessionDate session_date)
 {
     const time_zone* tz = requireZone(iana_tz);
-    const int y = session_date / 10000;
-    const int mon = (session_date / 100) % 100;
-    const int d = session_date % 100;
-    const year_month_day ymd{year{y}, month{static_cast<unsigned>(mon)}, day{static_cast<unsigned>(d)}};
-    if (!ymd.ok())
-    {
-        throw std::runtime_error("invalid session_date");
-    }
+    const year_month_day ymd = requireSessionYmd(session_date);
     const local_seconds start_local{local_days{ymd}};
     const local_seconds end_local{local_days{ymd} + days{1}};
-    const zoned_time start_z{tz, start_local, choose::earliest};
-    const zoned_time end_z{tz, end_local, choose::earliest};
-    return UtcWindow{toUnix(floor<seconds>(start_z.get_sys_time())),
-                     toUnix(floor<seconds>(end_z.get_sys_time()))};
+    return localRangeToUtc(tz, start_local, end_local);
+}
+
+UtcWindow usRthUtcWindow(std::string_view iana_tz, SessionDate session_date)
+{
+    const time_zone* tz = requireZone(iana_tz);
+    const year_month_day ymd = requireSessionYmd(session_date);
+    const local_seconds start_local{local_days{ymd} + hours{9} + minutes{30}};
+    const local_seconds end_local{local_days{ymd} + hours{16}};
+    return localRangeToUtc(tz, start_local, end_local);
 }
 
 bool isUsRthLocal(hh_mm_ss<seconds> local_hms) noexcept
@@ -238,6 +266,15 @@ bool isUsRthLocal(hh_mm_ss<seconds> local_hms) noexcept
     const auto mins = static_cast<int>(local_hms.hours().count()) * 60 +
                       static_cast<int>(local_hms.minutes().count());
     return mins >= (9 * 60 + 30) && mins < (16 * 60);
+}
+
+bool isUsRthAt(std::string_view iana_tz, UnixSeconds ts)
+{
+    const time_zone* tz = requireZone(iana_tz);
+    const zoned_time zt{tz, sys_seconds{seconds{ts}}};
+    const auto local = zt.get_local_time();
+    const hh_mm_ss<seconds> tod{local - floor<days>(local)};
+    return isUsRthLocal(tod);
 }
 
 }  // namespace myapp

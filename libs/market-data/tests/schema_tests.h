@@ -47,6 +47,21 @@ TEST_CASE("user_version 99 is refused")
     CHECK_THROWS_AS(myapp::Store(tmp.path()), std::runtime_error);
 }
 
+TEST_CASE("user_version 1 missing tables is refused")
+{
+    TempDb tmp;
+    myapp::Store::testingSetUserVersion(tmp.path(), 1);
+    try
+    {
+        myapp::Store store(tmp.path());
+        FAIL("expected missing-table error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        CHECK(std::string(ex.what()).find("missing required table") != std::string::npos);
+    }
+}
+
 TEST_CASE("embedded schema matches v1.sql")
 {
     const std::filesystem::path sql_path =

@@ -41,6 +41,7 @@ public:
     [[nodiscard]] std::optional<Instrument> findInstrument(
         std::string_view symbol,
         std::optional<std::string_view> exchange = std::nullopt) const;
+    [[nodiscard]] std::vector<Instrument> findInstrumentsBySymbol(std::string_view symbol) const;
     [[nodiscard]] std::optional<Instrument> findInstrumentById(InstrumentId id) const;
 
     UpsertBarsResult upsertBars(std::span<const Bar> bars);

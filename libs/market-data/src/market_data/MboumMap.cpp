@@ -2,7 +2,6 @@
 
 #include "market_data/Time.h"
 
-#include <chrono>
 #include <string>
 
 namespace myapp {
@@ -17,20 +16,11 @@ void fillOhlcv(Bar& bar, double open, double high, double low, double close, dou
     bar.volume = volume;
 }
 
-[[nodiscard]] bool isRth(const Instrument& inst, UnixSeconds ts)
-{
-    using namespace std::chrono;
-    const zoned_time zt{inst.timezone, sys_seconds{seconds{ts}}};
-    const auto local = zt.get_local_time();
-    const hh_mm_ss<seconds> tod{local - floor<days>(local)};
-    return isUsRthLocal(tod);
-}
-
 [[nodiscard]] std::optional<Bar> finishBar(const Instrument& inst, Bar bar, UnixSeconds now_utc)
 {
     bar.instrument_id = inst.id;
     bar.timeframe_s = kTimeframe1m;
-    if (isFormingBar(bar, now_utc) || !isValidBar(bar) || !isRth(inst, bar.ts))
+    if (isFormingBar(bar, now_utc) || !isValidBar(bar) || !isUsRthAt(inst.timezone, bar.ts))
     {
         return std::nullopt;
     }

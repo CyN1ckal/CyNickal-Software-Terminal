@@ -36,7 +36,11 @@ struct UtcWindow
 // Throws if iana_tz is empty/missing from tzdb, or session_date is not a valid civil date.
 UtcWindow sessionUtcWindow(std::string_view iana_tz, SessionDate session_date);
 
+// [09:30, 16:00) local in iana_tz, converted to UTC. Same throw rules as sessionUtcWindow.
+UtcWindow usRthUtcWindow(std::string_view iana_tz, SessionDate session_date);
+
 bool isUsRthLocal(std::chrono::hh_mm_ss<std::chrono::seconds> local_hms) noexcept;
+bool isUsRthAt(std::string_view iana_tz, UnixSeconds ts);
 
 inline SessionDate toSessionDate(std::chrono::year_month_day ymd) noexcept
 {
