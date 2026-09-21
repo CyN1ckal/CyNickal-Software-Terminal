@@ -39,13 +39,16 @@ add_library(market-data STATIC
     src/market_data/MboumJson.cpp
     src/market_data/MboumIngest.cpp
 )
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE ${CMAKE_SOURCE_DIR}/deps)
+
 target_include_directories(market-data
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/private
     PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(market-data PRIVATE myapp_sqlite3)
+target_link_libraries(market-data PRIVATE myapp_sqlite3 nlohmann_json)
 if(UNIX AND NOT APPLE)
     target_link_libraries(market-data PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
