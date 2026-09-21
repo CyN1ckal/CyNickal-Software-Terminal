@@ -18,46 +18,55 @@ constexpr ImVec4 WithAlpha(const ImVec4& color, float alpha)
     return {color.x, color.y, color.z, alpha};
 }
 
+constexpr ImVec4 Mix(const ImVec4& a, const ImVec4& b, float t)
+{
+    return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
+            a.w + (b.w - a.w) * t};
+}
+
+// Stratum dark palette. Byte-identical to kPalDark in
+// CyNickal-Software-Monorepo shared/GUI/StratumPalette.h.
+// The website generator reads that header; do not invent a second set of hex values.
+
 // Surfaces
-constexpr ImVec4 kCanvas = FromRgb(0x00, 0x00, 0x00);
-constexpr ImVec4 kPanel = FromRgb(0x0A, 0x0A, 0x0A);
-constexpr ImVec4 kChrome = FromRgb(0x1C, 0x1C, 0x1C);
-constexpr ImVec4 kChromeHover = FromRgb(0x2C, 0x2C, 0x2C);
-constexpr ImVec4 kField = FromRgb(0x1A, 0x12, 0x08);
-constexpr ImVec4 kHairline = FromRgb(0x3C, 0x3C, 0x3C);
+constexpr ImVec4 kBg0 = FromRgb(0x0D, 0x11, 0x16);  // #0d1116 wells, title, fields
+constexpr ImVec4 kBg1 = FromRgb(0x12, 0x17, 0x1E);  // #12171e window body
+constexpr ImVec4 kBg2 = FromRgb(0x17, 0x1D, 0x26);  // #171d26 cards, child panels
+constexpr ImVec4 kBg3 = FromRgb(0x1E, 0x25, 0x30);  // #1e2530 hover / active
+constexpr ImVec4 kLine = FromRgb(0x26, 0x2E, 0x3A);  // #262e3a hairline
+constexpr ImVec4 kLine2 = FromRgb(0x31, 0x38, 0x48);  // #313848 stronger hairline
 
 // Text
-constexpr ImVec4 kAmber = FromRgb(0xFF, 0xA0, 0x28);
-constexpr ImVec4 kInk = FromRgb(0xFF, 0xFF, 0xFF);
-constexpr ImVec4 kMuted = FromRgb(0x8C, 0x8C, 0x8C);
-constexpr ImVec4 kHighlight = FromRgb(0xFC, 0xBC, 0x14);
+constexpr ImVec4 kText = FromRgb(0xCC, 0xD3, 0xDD);      // #ccd3dd body
+constexpr ImVec4 kTextDim = FromRgb(0x82, 0x8C, 0x9B);   // #828c9b labels
+constexpr ImVec4 kTextFaint = FromRgb(0x58, 0x62, 0x73); // #586273 disabled
 
-// Semantic (data)
-constexpr ImVec4 kUp = FromRgb(0x04, 0x84, 0x1C);
-constexpr ImVec4 kDown = FromRgb(0xA4, 0x1C, 0x2C);
-constexpr ImVec4 kSeries = FromRgb(0x4D, 0xC7, 0xF9);
-constexpr ImVec4 kHeatUp = FromRgb(0x04, 0x4C, 0x0C);
-constexpr ImVec4 kHeatDown = FromRgb(0x7C, 0x0C, 0x24);
+// Accent and status. Stratum's `amber` field is the warning hue, not the text color.
+constexpr ImVec4 kAccent = FromRgb(0x6F, 0x97, 0xC9);  // #6f97c9
+constexpr ImVec4 kWarn = FromRgb(0xC0, 0x85, 0x52);    // #c08552
+constexpr ImVec4 kDanger = FromRgb(0xB5, 0x54, 0x4E);  // #b5544e
+constexpr ImVec4 kOk = FromRgb(0x5F, 0x8A, 0x63);      // #5f8a63
 
-// Action
-constexpr ImVec4 kGo = FromRgb(0x1C, 0x8C, 0x28);
-constexpr ImVec4 kCancel = FromRgb(0xC4, 0x14, 0x28);
-constexpr ImVec4 kSector = FromRgb(0xF0, 0xC4, 0x00);
-constexpr ImVec4 kPanelKey = FromRgb(0x2A, 0x7F, 0xD4);
+constexpr float kAccentWashAlpha = 0.16f;
+constexpr ImVec4 kAccentWash = WithAlpha(kAccent, kAccentWashAlpha);
+constexpr ImVec4 kAccentHover = Mix(kAccent, FromRgb(0xFF, 0xFF, 0xFF), 0.18f);
+constexpr ImVec4 kAccentPressed = Mix(kAccent, kBg0, 0.22f);
 
-// Chrome accents not in the named token table
-constexpr ImVec4 kTitleActive = FromRgb(0x3A, 0x14, 0x08);
-constexpr ImVec4 kTabSelected = FromRgb(0x5A, 0x1C, 0x20);
-constexpr ImVec4 kFrameActive = FromRgb(0x36, 0x36, 0x36);
-constexpr ImVec4 kButtonActive = FromRgb(0x3A, 0x3A, 0x3A);
-constexpr ImVec4 kTableBorderLight = FromRgb(0x2A, 0x2A, 0x2A);
-constexpr ImVec4 kTableRowAlt = FromRgb(0x0C, 0x0C, 0x0C);
+// Workstation roles. Same hex as the tokens above.
+constexpr ImVec4 kCanvas = kBg0;
+constexpr ImVec4 kPanel = kBg2;
+constexpr ImVec4 kField = kBg0;
+constexpr ImVec4 kHairline = kLine;
+constexpr ImVec4 kMuted = kTextDim;
+constexpr ImVec4 kUp = kOk;
+constexpr ImVec4 kDown = kDanger;
+constexpr ImVec4 kGo = kAccent;
+constexpr ImVec4 kCancel = kDanger;
 
-void ApplyBloombergStyle(ImGuiStyle& style);
+void ApplyStratumStyle(ImGuiStyle& style);
 void LoadFonts(ImGuiIO& io);
 
 [[nodiscard]] ImFont* sansFont() noexcept;
 [[nodiscard]] ImFont* monoFont() noexcept;
 
 }  // namespace terminal::Theme
-

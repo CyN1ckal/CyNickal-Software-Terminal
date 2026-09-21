@@ -284,8 +284,8 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
 
         ImGui::Separator();
         ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kUp);
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kInk);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
         const bool ok = ImGui::Button("OK");
         ImGui::PopStyleColor(3);
         ImGui::SameLine();

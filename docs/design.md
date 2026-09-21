@@ -1,323 +1,233 @@
-# Bloomberg Terminal theme for terminal
+# Stratum theme for terminal
 
-Transfer the **look and feel** of the Bloomberg Terminal into this Dear ImGui application: black canvas, amber identity color, loud semantic greens and reds, extreme information density, no decorative chrome.
+The terminal uses the Stratum dark palette: slate surfaces, cool blue accent, muted status colors, no decorative chrome. Hex values are copied from `kPalDark` in the CyNickal Software Monorepo (`shared/GUI/StratumPalette.h`). That header is the source of truth for every CyNickal product and for the website stylesheet. Do not invent a second palette here.
 
-This is a visual-language spec for terminal, not a clone of Bloomberg’s product, fonts, or functions. Bloomberg names the roles (amber text, black screen, green up, red down, red function toolbar) but **does not publish Terminal hex/RGB**. Official language is **amber**, not orange. Hex values in this file are working tokens for terminal: brand scrapes, screenshot samples, and CVD chips — not a factory spec. Terminal users can also customize colors, so any one screenshot may differ from default.
-
-The terminal today uses stock `ImGui::StyleColorsDark()` in `src/ImGuiLayer.cpp` and the example clear color `(0.45, 0.55, 0.60)` in `src/DemoUi.cpp`. Both fight the Terminal look. Docking and multi-viewport are already enabled, which is the right skeleton for a multi-panel workstation.
+The terminal is a data workstation. It keeps Stratum's colors and uses tighter metrics than the product shell: corner radius stays 0, padding stays tight, type stays small. From across the room the screen should read as cool blue on dark slate.
 
 ---
 
-## 1. Feeling to hit
-
-From across the room the app should read as **amber light on black**. Up close it should feel like a working instrument, not a consumer dashboard.
+## 1. Feeling
 
 | Principle | Meaning in this app |
 |---|---|
-| Function over form | Every color encodes data or action. Nothing is decorative. |
-| High contrast | One number must pop out of a wall of numbers. |
-| Amber is identity | Amber is the default font / label color, protected as the house color. |
-| Density | Tight padding, small type, many panels visible at once. No luxury whitespace. |
+| Function over form | Color encodes data, focus, or action. Nothing is decorative. |
+| Cool blue is the accent | `#6f97c9` marks focus, links, the crosshair, selection, and the primary button. Body text stays steel (`#ccd3dd`). |
+| Density | Tight padding, 13 px type, many panels at once. No luxury whitespace. |
 | Square | Radius 0. Hairline borders. No pills, no shadows, no gradients. |
-| Instant | State changes snap. No eased motion. Optional 1-frame flash on data update. |
+| Quiet status | Up and down are Stratum's muted green and brick, used only for direction and errors. |
 
-Walk-up test: if the window is recognizable as “that amber-and-black app” from several meters away, the theme is working.
-
-### What this is not
-
-- Not bloomberg.com. The consumer site used a black-and-amber look for only about four years and dropped it in 2010 for black text on white; that was never treated as the website’s heritage. Do not mix the two palettes.
-- Not navy-noir “fintech dark mode” (`#0A0E1A` and similar). Real Terminal screens are **true black**.
-- Not a CRT phosphor simulation (scanlines, glow, green-on-black). Modern Terminal is sharp TrueType on black.
-- Not a monospace-only aesthetic. Bloomberg uses a custom proportional face with tabular numerals. We approximate that; we do not ship Bloomberg Prop.
+The terminal ships the dark palette only. Stratum's light palette stays in the monorepo.
 
 ---
 
 ## 2. Color tokens
 
-Use these names in code (`Theme::kAmber`, etc.). Convert with `IM_COL32` / `ImVec4`.
+Names in code are `Theme::kBg0`, `Theme::kAccent`, and so on. `FromRgb` / `WithAlpha` / `Mix` build the `ImVec4`s. Values below are the dark palette only.
 
 ### Surfaces
 
-| Token | Hex | ImVec4 | Use |
-|---|---|---|---|
-| `Canvas` | `#000000` | `0, 0, 0, 1` | Swapchain clear, `WindowBg`, docking empty bg |
-| `Panel` | `#0A0A0A` | `0.039, 0.039, 0.039, 1` | Child windows, table body |
-| `Chrome` | `#1C1C1C` | `0.110, 0.110, 0.110, 1` | Grey mnemonic bar, inactive tabs, frames at rest |
-| `ChromeHover` | `#2C2C2C` | `0.173, 0.173, 0.173, 1` | Hovered frames, inactive chrome |
-| `Toolbar` | `#5A1C20` | `0.353, 0.110, 0.125, 1` | Red function toolbar (title, drop-downs, key tasks) |
-| `Field` | `#1A1208` | `0.102, 0.071, 0.031, 1` | Editable fields (amber-tinted, not grey) |
-| `Hairline` | `#3C3C3C` | `0.235, 0.235, 0.235, 1` | Borders, separators, table lines |
+| Token | Hex | Use |
+|---|---|---|
+| `kBg0` | `#0d1116` | Clear color, empty dock, title bars, fields, plot background |
+| `kBg1` | `#12171e` | Window body, menu bar |
+| `kBg2` | `#171d26` | Child panels, default buttons, table headers |
+| `kBg3` | `#1e2530` | Hover and active frames, popups |
+| `kLine` | `#262e3a` | Borders, separators, plot grid |
+| `kLine2` | `#313848` | Stronger hairline, pressed default button, scrollbar grab |
 
 ### Text
 
-| Token | Hex | ImVec4 | Use |
+| Token | Hex | Use |
+|---|---|---|
+| `kText` | `#ccd3dd` | Default widget text |
+| `kTextDim` | `#828c9b` | Secondary labels, axis text, disabled-looking status |
+| `kTextFaint` | `#586273` | Disabled widgets |
+
+`kBg0` is also the label color on a solid accent button. Steel text on `#6f97c9` does not pass contrast.
+
+### Accent and status
+
+| Token | Hex | Stratum field | Use |
 |---|---|---|---|
-| `Amber` | `#FFA028` | `1.000, 0.627, 0.157, 1` | Default text, labels, headings, identity |
-| `Ink` | `#FFFFFF` | `1, 1, 1, 1` | Body copy when amber would be too loud; selected values |
-| `Muted` | `#8C8C8C` | `0.549, 0.549, 0.549, 1` | Disabled, secondary, units, timestamps |
-| `Highlight` | `#FCBC14` | `0.988, 0.737, 0.078, 1` | Selection, focused tab, “look here” |
+| `kAccent` | `#6f97c9` | `acc` | Focus, links, crosshair, slider, primary button |
+| `kWarn` | `#c08552` | `amber` | Partial coverage and other warnings. Not a text color. |
+| `kDanger` | `#b5544e` | `danger` | Price down, errors, Cancel |
+| `kOk` | `#5f8a63` | `ok` | Price up, complete coverage |
 
-`Amber` `#FFA028` is the terminal working value (Bloomberg brand “Sunshade”). It sits next to the official CVD chip labeled “Bloomberg Default” (`#FCA42C`). Sampled Terminal-UI recreations often run darker/ochre (`#D39000`, `#F39000`, Berg `#F49F31`). Use `#FFA028` as the single source of truth in code so widgets cannot drift. Do not use consumer-site orange `#F05143`.
+Accent wash is `kAccent` at alpha 0.16, matching `accbgAlpha` in `kPalDark`. `kAccentHover` lifts the accent 18% toward white. `kAccentPressed` mixes it 22% toward `kBg0`.
 
-### Semantic (data)
+### Workstation aliases
 
-| Token | Hex | ImVec4 | Meaning |
-|---|---|---|---|
-| `Up` | `#04841C` | `0.016, 0.518, 0.110, 1` | Positive / buy / price up |
-| `Down` | `#A41C2C` | `0.643, 0.110, 0.173, 1` | Negative / sell / price down |
-| `Series` | `#4DC7F9` | `0.302, 0.780, 0.976, 1` | Extra chart series, links, cross-highlight |
-| `HeatUp` | `#044C0C` | `0.016, 0.298, 0.047, 1` | Green heatmap cell |
-| `HeatDown` | `#7C0C24` | `0.486, 0.047, 0.141, 1` | Red heatmap cell |
+Panels and charts keep short role names. They are the same values, not extra hues.
 
-These greens and reds are taken from official Launchpad / function screenshots. They are darker and more crimson than typical “trading green/red” (`#00FF00` / `#FF0000`). Do not neon them.
-
-### Action (keyboard-inspired)
-
-The Bloomberg keyboard is part of the color language. Map the same roles onto ImGui controls:
-
-| Token | Hex | Role | ImGui use |
-|---|---|---|---|
-| `Go` | `#1C8C28` | Green action key (`GO`) | Primary button, confirm |
-| `Cancel` | `#C41428` | Red stop key (`CANCEL`) | Destructive button, close |
-| `Sector` | `#F0C400` | Yellow market-sector keys | Mode / asset-class chips |
-| `PanelKey` | `#2A7FD4` | Blue `PANEL` key | Panel / docking affordance |
-
-Default buttons stay on `Chrome` with `Amber` text. Colored action keys are for **explicit** GO / Cancel / sector controls, not every widget.
-
-### CVD variants (optional later)
-
-Bloomberg ships Terminal-wide schemes via `PDFU COLORS <GO>` (Deuteranopia and Protanomaly). Support there is partial: not every function, and Buy/Sell buttons may not follow. If the terminal adds a color-vision mode, keep amber for non-semantic text and swap only up/down:
-
-| Mode | Up | Down | Default |
-|---|---|---|---|
-| Default | `Up` green | `Down` red | `Amber` |
-| Deuteranopia | `#048CEC` | `#CC4C4C` | `Amber` |
-| Protanomaly | `#048CEC` | `#FC5C2C` | `Highlight` gold |
+| Alias | Token | Role |
+|---|---|---|
+| `kCanvas` | `kBg0` | Swapchain clear, empty dock |
+| `kPanel` | `kBg2` | Child fill |
+| `kField` | `kBg0` | Inputs |
+| `kHairline` | `kLine` | Borders and grid |
+| `kMuted` | `kTextDim` | Secondary copy |
+| `kUp` | `kOk` | Up candles and complete rows |
+| `kDown` | `kDanger` | Down candles and errors |
+| `kGo` | `kAccent` | GO and OK |
+| `kCancel` | `kDanger` | Cancel label |
 
 ---
 
 ## 3. How color is assigned
 
-Color is a data encoding, not a skin.
+1. **Steel** — ordinary information. Labels, quotes, table text.
+2. **Dim / faint** — units, timestamps, empty states, disabled controls.
+3. **Accent blue** — “look here”: selection, crosshair tags, the active tab overline, the primary button, links.
+4. **Green / brick** — direction and health only. Not chrome.
+5. **Warn** — partial or caution. One hue, used rarely.
+6. **Slate steps** — `kBg0` through `kBg3` separate wells, windows, cards, and hover. No extra grays.
 
-1. **Amber** — “this is ordinary information” and “this is terminal.” Labels, field names, default quotes, table headers. Editable fields are amber-tinted, not grey boxes.
-2. **White** — long body text and values that would vibrate if everything were amber.
-3. **Green / red (data)** — direction only: up/buy vs down/sell, including net-change columns and Launchpad heatmaps.
-4. **Red (chrome)** — the function toolbar is red. That is chrome, not sentiment. Do not also paint every header red.
-5. **Grey** — mnemonic / secondary toolbar, inactive chrome, everything that can be ignored.
-6. **Cyan / blue** — a second encoding: extra series, hyperlinks, panel focus. Official Terminal docs do not name a primary-blue default; do not use `#0000FF`.
-7. **Yellow / gold** — selection, focused tab, and keyboard-style sector chips.
+Do not add hues. The working set is the twelve Stratum fields above.
 
-Do not introduce extra hues. The working set is black, grey, white, amber, red, green, yellow, cyan/blue. Occasional magenta is allowed for a third series; it is not a brand color.
+### Panel anatomy
 
-### Function-panel anatomy
+| Band | Token | ImGui |
+|---|---|---|
+| Title and empty dock | `kBg0` | `TitleBg`, `TitleBgActive`, `DockingEmptyBg` |
+| Window body | `kBg1` | `WindowBg`, `MenuBarBg` |
+| Child / card | `kBg2` | `ChildBg`, default `Button`, `TableHeaderBg` |
+| Hover | `kBg3` | `FrameBgHovered`, `ButtonHovered`, `TabHovered` |
+| Focus | `kAccent` | selected-tab overline, cursor, docking preview |
 
-Official Terminal help names the chrome of a function screen (no hex, named colors only). Map that onto each docked ImGui window:
-
-| Band | Official role | terminal token | ImGui |
-|---|---|---|---|
-| Top strip | Red function toolbar: title, drop-downs, key tasks | `Toolbar` | `TitleBgActive`, selected tab, window menu |
-| Editables | Amber fields | `Field` + `Amber` text | `FrameBg`, inputs, combo boxes |
-| Secondary strip | Grey mnemonic toolbar | `Chrome` | `MenuBarBg`, inactive tabs |
-| Body | Black canvas, amber labels, green/red signed values | `Canvas` / `Amber` / `Up` / `Down` | window contents, tables, plots |
+Active titles are the same slate as inactive titles. The accent overline is the only “this tab is selected” mark.
 
 ---
 
-## 4. ImGui style mapping
+## 4. ImGui style
 
-Apply after `ImGui::CreateContext()`, **instead of** `ImGui::StyleColorsDark()`. Suggested home: `ImGuiLayer` constructor (where style is already scaled for DPI). Keep `style.ScaleAllSizes(main_scale)` after these assignments.
+`Theme::ApplyStratumStyle` runs from `ImGuiLayer` after `ImGui::CreateContext()`, instead of `StyleColorsDark`. `style.ScaleAllSizes(main_scale)` stays after it.
 
 ### Metrics
 
-Terminals do not round. Density is the product.
-
 ```
-style.WindowRounding    = 0
-style.ChildRounding     = 0
-style.FrameRounding     = 0
-style.PopupRounding     = 0
-style.ScrollbarRounding = 0
-style.GrabRounding      = 0
-style.TabRounding       = 0
+WindowRounding = ChildRounding = FrameRounding = PopupRounding = 0
+ScrollbarRounding = GrabRounding = TabRounding = 0
 
-style.WindowBorderSize  = 1
-style.ChildBorderSize   = 1
-style.FrameBorderSize   = 0          // frames sit on Chrome, not outlined
-style.PopupBorderSize   = 1
-style.TabBorderSize     = 0
+WindowBorderSize = ChildBorderSize = PopupBorderSize = 1
+FrameBorderSize = TabBorderSize = 0
 
-style.WindowPadding     = (6, 4)
-style.FramePadding      = (6, 3)
-style.ItemSpacing       = (6, 4)
-style.ItemInnerSpacing  = (4, 3)
-style.CellPadding       = (4, 2)
-style.IndentSpacing     = 12
-style.ScrollbarSize     = 12
-style.GrabMinSize       = 8
+WindowPadding     = (6, 4)
+FramePadding      = (6, 3)
+ItemSpacing       = (6, 4)
+ItemInnerSpacing  = (4, 3)
+CellPadding       = (4, 2)
+IndentSpacing     = 12
+ScrollbarSize     = 12
+GrabMinSize       = 8
 
-style.WindowTitleAlign  = (0, 0.5)   // left, like a function header
-style.DisplaySafeAreaPadding = (0, 0)
+WindowTitleAlign  = (0, 0.5)
 ```
 
-Viewports: keep `WindowRounding = 0` and `WindowBg.w = 1` (already done).
+Viewports keep `WindowRounding = 0` and an opaque window background.
 
-### `ImGuiCol_*` assignments
+### `ImGuiCol_*`
 
 | ImGui color | Token |
 |---|---|
-| `Text` | `Amber` |
-| `TextDisabled` | `Muted` |
-| `WindowBg` | `Canvas` |
-| `ChildBg` | `Panel` |
-| `PopupBg` | `Canvas` |
-| `Border` | `Hairline` |
-| `BorderShadow` | transparent |
-| `FrameBg` | `Field` (amber-tinted editable) |
-| `FrameBgHovered` | slightly lighter `Field` |
-| `FrameBgActive` | slightly lighter `Field` |
-| `TitleBg` | `Canvas` |
-| `TitleBgActive` | `Toolbar` (red function toolbar) |
-| `TitleBgCollapsed` | `Canvas` |
-| `MenuBarBg` | `Chrome` (grey mnemonic bar) |
-| `ScrollbarBg` | `Canvas` |
-| `ScrollbarGrab` | `ChromeHover` |
-| `CheckMark` | `Amber` |
-| `SliderGrab` | `Amber` |
-| `SliderGrabActive` | `Highlight` |
-| `Button` | `Chrome` |
-| `ButtonHovered` | `ChromeHover` |
-| `ButtonActive` | `#3A3A3A` |
-| `Header` / `HeaderHovered` / `HeaderActive` | `Chrome` / `ChromeHover` / `Toolbar` |
-| `Separator*` | `Hairline` |
-| `Tab` | `Chrome` |
-| `TabHovered` | `Highlight` at ~0.35 alpha on black |
-| `TabSelected` / `TabActive` | `Toolbar` |
-| `TabDimmed` | `Canvas` |
-| `DockingEmptyBg` | `Canvas` |
-| `DockingPreview` | `Amber` at 0.25 alpha |
-| `PlotLines` | `Amber` |
-| `PlotLinesHovered` | `Series` |
-| `PlotHistogram` | `Up` |
-| `PlotHistogramHovered` | `Highlight` |
-| `TableHeaderBg` | `Chrome` |
-| `TableBorderStrong` | `Hairline` |
-| `TableBorderLight` | `#2A2A2A` |
+| `Text` | `kText` |
+| `TextDisabled` | `kTextFaint` |
+| `WindowBg` | `kBg1` |
+| `ChildBg` | `kBg2` |
+| `PopupBg` | `kBg3` |
+| `Border` | `kLine` |
+| `FrameBg` | `kBg0` |
+| `FrameBgHovered` / `FrameBgActive` | `kBg3` |
+| `TitleBg` / `TitleBgActive` / `TitleBgCollapsed` | `kBg0` |
+| `MenuBarBg` | `kBg1` |
+| `ScrollbarBg` | `kBg0` |
+| `ScrollbarGrab` | `kLine2` |
+| `ScrollbarGrabHovered` | `kTextDim` |
+| `ScrollbarGrabActive` | `kAccent` |
+| `CheckMark` | `kBg0` |
+| `CheckboxSelectedBg` | `kAccent` |
+| `SliderGrab` | `kAccent` |
+| `SliderGrabActive` | `kText` |
+| `Button` / `Hovered` / `Active` | `kBg2` / `kBg3` / `kLine2` |
+| `Header` / `Hovered` / `Active` | accent at 0.16 / 0.24 / 0.32 |
+| `Separator` / `Hovered` | `kLine` / `kLine2` |
+| `SeparatorActive` | `kAccent` |
+| `Tab` / `TabDimmed` | `kBg0` |
+| `TabSelected` / `TabDimmedSelected` | `kBg1` |
+| `TabSelectedOverline` | `kAccent` |
+| `DockingEmptyBg` | `kBg0` |
+| `DockingPreview` | accent at 0.35 |
+| `PlotLines` | `kAccent` |
+| `PlotHistogram` | `kOk` |
+| `TableHeaderBg` | `kBg2` |
+| `TableBorderStrong` | `kLine` |
+| `TableBorderLight` | `kBg3` |
 | `TableRowBg` | transparent |
-| `TableRowBgAlt` | `#0C0C0C` (barely there) |
-| `TextSelectedBg` | `Amber` at 0.35 alpha |
-| `NavHighlight` | `Series` |
-| `ModalWindowDimBg` | black 0.60 alpha |
+| `TableRowBgAlt` | `kBg0` |
+| `TextLink` | `kAccent` |
+| `TextSelectedBg` | accent at 0.28 |
+| `NavCursor` | `kAccent` |
+| `UnsavedMarker` | `kWarn` |
 
-Active title bars and the selected tab use the **red function toolbar**, not grey and not ImGui blue. Inactive titles stay black. Inputs sit on `Field` (dark amber), not on `Chrome` grey.
+Primary buttons (GO, OK) push `kGo` / `kAccentHover` / `kAccentPressed` and `kBg0` text. Cancel stays a default button with `kCancel` text. Other buttons stay on slate.
 
-### Swapchain clear
+### Plots
 
-`DemoUi::clear_color_` must become `Canvas` black, not the example gray-blue. Docked empty space and the OS window around panels should be the same black.
+`ImPlot::StyleColorsAuto()` runs after the ImGui style, then:
+
+| ImPlot color | Token |
+|---|---|
+| `PlotBg` | `kBg0` |
+| `FrameBg` | `kBg1` |
+| `PlotBorder` | `kLine` |
+| `AxisText` | `kTextDim` |
+| `AxisGrid` | `kLine` |
+| `Crosshairs` | `kAccent` |
+
+Candles: `kUp` when close ≥ open, `kDown` otherwise. Axis tags use `kAccent`.
+
+### Clear color
+
+`Workspace::clearColor()` is `kCanvas` (`kBg0`). Empty dock space uses the same well.
 
 ---
 
 ## 5. Typography
 
-Bloomberg commissioned **Bloomberg Prop Unicode** (Matthew Carter, 2007): proportional + mono, tabular figures, finance fractions. We cannot ship that font.
+Body is 13 px. No display sizes. Numeric columns stay right-aligned.
 
-Approximation, in order of preference:
-
-1. A humanist sans with tabular lining figures, 12–14 px UI (e.g. IBM Plex Sans, Source Sans 3, Inter with `tnum`).
-2. Pair a compact sans for labels with a tabular mono for numeric columns (IBM Plex Mono / JetBrains Mono at 13 px).
-3. If only Proggy/ImGui default is available, still apply the color theme; density will suffer.
-
-Rules:
-
-- Body 13 px, never 16+ for working text.
-- No display / hero sizes.
-- Numeric columns right-aligned, same advance for `0–9`.
-- Font atlas should include the glyphs we actually plot (currency, arrows, en-dash).
-
-Load fonts in `ImGuiLayer` after context creation, before the first frame. Keep DPI scaling (`FontScaleDpi`, `ConfigDpiScaleFonts`) as it is.
+`LoadFonts` takes the first installed face, in order: Noto Sans, Liberation Sans, DejaVu Sans, Ubuntu, with a matching mono for figures. Stratum's product shell ships IBM Plex; this app does not vendor a face.
 
 ---
 
-## 6. Layout
+## 6. Layout and motion
 
-Bloomberg’s workstation is a grid of function panels. The terminal already has docking; use it as the layout system.
+Docking is the layout system. DATA is the left 30% on first run. Tables, not cards. Hairline rules, not gutters.
 
-- Default to a docked workspace filling the viewport. No floating demo windows as the primary UI.
-- Multiple panels visible at once (4 is the historical Terminal; more is fine).
-- Each panel: command/title strip on top, dense body, status on the bottom edge if needed.
-- Tables, not cards. Hairline column rules, not whitespace gutters.
-- Plot windows sit on the same black; series colors are `Amber`, `Series`, `Up`, `Down` — never a rainbow.
-
-Avoid: rounded child windows, large hero headers, empty marketing space, illustrations, drop shadows, gradient fills.
+Hover swaps color immediately. No eased motion. Scrollbars stay thin.
 
 ---
 
-## 7. Motion and feedback
+## 7. Where it lives
 
-- No eased animations.
-- Hover is an instant color swap (`Chrome` → `ChromeHover`).
-- Live values may flash `Highlight` for one frame on change, then return.
-- Scrollbars are thin and quiet; they are not a design element.
-
----
-
-## 8. Semantic helpers
-
-Theme colors on `ImGuiCol_Text` handle 90% of the chrome. Data still needs explicit pushes:
-
-```cpp
-ImGui::TextColored(Theme::kUp(),   "+1.06%%");
-ImGui::TextColored(Theme::kDown(), "-0.45%%");
-ImGui::TextColored(Theme::kMuted(), "USD");
-```
-
-Heatmap cells: `ImGui::TableSetBgColor` with `HeatUp` / `HeatDown`.
-Primary vs destructive buttons: `PushStyleColor` on `Button*` with `Go` / `Cancel`, text `Ink`.
-
-Do not color-code meaning with amber vs white. Amber vs white is hierarchy (label vs value), not sentiment.
-
----
-
-## 9. Implementation notes (this repo)
-
-Suggested shape, when the theme is applied:
-
-| File | Change |
+| File | Role |
 |---|---|
-| `src/Theme.h` (new) | Tokens as `constexpr ImVec4`, plus `ApplyBloombergStyle(ImGuiStyle&)` |
-| `src/ImGuiLayer.cpp` | Call `ApplyBloombergStyle` instead of `StyleColorsDark`; optional font load |
-| `src/DemoUi.cpp` | `clear_color_` = canvas black; demo content can stay until real panels exist |
-| `CMakeLists.txt` | Add `src/Theme.cpp` if the apply function is not header-only |
+| `apps/terminal/src/ui/Theme.h` | Tokens |
+| `apps/terminal/src/ui/Theme.cpp` | `ApplyStratumStyle`, font load |
+| `apps/terminal/src/ui/ImGuiLayer.cpp` | Applies the style and the ImPlot overrides |
 
-Keep tokens in one header so plots, tables, and buttons cannot drift.
+Do not restyle `deps/imgui/`.
 
-Do not restyle inside `deps/imgui/` sources. The bundled Dear ImGui tree stays upstream-clean.
-
----
-
-## 10. Acceptance checks
-
-The theme is right when all of the following hold:
-
-1. The OS window and empty dock space are black, not gray-blue.
-2. Default widget text is amber, not ImGui’s light gray.
-3. Active title bar is the red function toolbar, not blue-gray. Inputs sit on a dark amber field, not a grey box.
-4. Corner radius is 0 on windows, frames, tabs, and grabs.
-5. Padding is tight enough that the stock demo looks slightly cramped — that is correct.
-6. Green and red appear only on signed values / heatmaps / explicit GO-Cancel, never on chrome.
-7. From a distance, the screen is amber-on-black, not “generic dark ImGui.”
+The monorepo palette is `shared/GUI/StratumPalette.h` (`kPalDark` / `kPalLight`). After a palette change there, update these tokens to the new dark values. The website block is regenerated by `Website/tools/gen-stratum-palette.py`; the terminal is not.
 
 ---
 
-## 11. Sources
+## 8. Acceptance
 
-- Ali Jeffery (Visual Design Lead) and Fahd Arshad (UX), [Bloomberg’s customer-centric design ethos](https://www.bloomberg.com/company/stories/bloombergs-customer-centric-design-ethos/) — black and amber as hallmark; amber as base font color; yellow keyboard keys as identity.
-- Bloomberg, [Design At Bloomberg](https://www.youtube.com/watch?v=4-Mg2joHJZ8) — early monitors offered green, white, or amber; amber became the foreground because the text was clear.
-- Bloomberg UX, [Designing the Terminal for Color Accessibility](https://www.bloomberg.com/company/stories/designing-the-terminal-for-color-accessibility/) — green = up, red = down; CVD blue/red schemes; amber retained for non-semantic data.
-- Bloomberg Professional help (`STOP <GO>` / Cancel as a function) — named chrome: red function toolbar, amber editable fields, grey mnemonic toolbar; keyboard yellow / green / red / blue.
-- Bloomberg, [How Terminal UX designers conceal complexity](https://www.bloomberg.com/company/stories/how-bloomberg-terminal-ux-designers-conceal-complexity/) — 2007 Matthew Carter font; users rejected a color shift; team toned the new color down.
-- [Wikipedia: Bloomberg Terminal](https://en.wikipedia.org/wiki/Bloomberg_Terminal) — color edition 1991.
-- Fast Company / archive, [How the Bloomberg Terminal Made History](https://web.archive.org/web/20200727012631/https://www.fastcompany.com/3051883/the-bloomberg-terminal) — default remains amber characters on black.
-- Business Insider, [Bloomberg redesigns website, 2010](https://www.businessinsider.com/bloomberg-site-redesign-2010-4) — consumer site dropped black-and-amber; not the website’s heritage.
-- John Cabot University, [Color Scheme Options for Bloomberg](https://johncabot.libguides.com/bloomberg/color-scheme) — `PDFU COLORS` coverage limits.
-
-Working hex (not official Terminal RGB): brand scrape `#FFA028`; CVD-chip sample `#FCA42C`; vim-bloomberg sampled UI `#D39000` / `#F39000` / `#0B85DF`; Berg `#F49F31` on `#000000`. Navy `#0A0E1A` palettes are fan approximations and are not used here.
+1. The window, empty dock, and plot are `#0d1116`.
+2. Default text is `#ccd3dd`.
+3. Focus, the crosshair, selection, and GO/OK are `#6f97c9`. Title bars are slate, with an accent overline on the selected tab.
+4. Corner radius is 0.
+5. Padding is tight.
+6. Green and brick appear only on direction, coverage health, errors, and Cancel.
+7. From a distance the screen is cool slate-blue.

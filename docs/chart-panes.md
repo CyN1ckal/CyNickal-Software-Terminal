@@ -40,7 +40,7 @@ Charts never talk to MBoum. They only read the existing Store.
 | Dock host | `apps/terminal/src/ui/Workspace.{h,cpp}` | Fullscreen `WorkspaceDock` on `Theme::kCanvas`. First-run `DockBuilder` split: DATA left 30%, remainder empty. Owns `InventoryPanel`. No menu bar. |
 | DATA | `apps/terminal/src/ui/InventoryPanel.{h,cpp}` | GUI `Store(path, StoreMode::Reader)` after a one-shot Writer migrate. Sortable `queryCoverageSummaries(kTimeframe1m)`; row select → `queryCoverageDays`. SYMBOL/FROM/TO + GO → `IngestWorker`. Default FROM/TO = **today minus 14 calendar days** in `America/New_York` (weekends included in the typed range; ingest skips Sat/Sun). Reader `busy_timeout=0`: keep last snapshot unless the error is not busy. `refreshSummaries` / `refreshDays` only search `ex.what()` for `"busy"`; SQLite’s `SQLITE_BUSY` errmsg is actually `"database is locked"` (`SqliteStmt::stepRow` → `sqlite3_step: ` + `sqlite3_errmsg`). Charts must match **both** (see D10). |
 | Ingest | `apps/terminal/src/data/IngestWorker.{h,cpp}` | Background Writer + shared `apps/common/CurlClient`. MBoum 1-minute RTH. |
-| Theme | `apps/terminal/src/ui/Theme.{h,cpp}` | `kUp` / `kDown` candle colors already exist. `kAmber` labels, `kCanvas` background, `kPanel` child fill. |
+| Theme | `apps/terminal/src/ui/Theme.{h,cpp}` | Stratum dark palette. `kAccent` focus, `kCanvas` background, `kPanel` child fill. `kUp` / `kDown` are Stratum ok / danger. |
 | Docking | `apps/terminal/src/ui/ImGuiLayer.cpp` | `ImGuiConfigFlags_DockingEnable` and `ViewportsEnable`. `imgui.ini` gitignored; relative to CWD. |
 | Tests | `apps/terminal/tests/test_main.cpp`, `tests/data/bar_loading_tests.h` | Catch2 target `terminal_tests` links `market-data` only (no ImGui). `bar_loading_tests.h` is a stub `CHECK(true)`. |
 
@@ -819,7 +819,7 @@ Then the plot child fills the rest (`ImGuiChildFlags_Borders`, `Theme` child bg 
 
 ### Rendering (`CChartPlot`)
 
-ImPlot is vendored at `deps/implot/` (v1.0). `ImGuiLayer` calls `ImPlot::CreateContext()` after `ImGui::CreateContext()` and `ImPlot::DestroyContext()` before `ImGui::DestroyContext()`. `ImPlot::StyleColorsAuto()` follows the Bloomberg ImGui theme; override `ImPlotCol_PlotBg` to `Theme::kPanel`.
+ImPlot is vendored at `deps/implot/` (v1.0). `ImGuiLayer` calls `ImPlot::CreateContext()` after `ImGui::CreateContext()` and `ImPlot::DestroyContext()` before `ImGui::DestroyContext()`. `ImPlot::StyleColorsAuto()` follows the Stratum ImGui theme; override `ImPlotCol_PlotBg` to `Theme::kBg0` and crosshairs to `Theme::kAccent`.
 
 ImPlot has **no** `PlotCandlestick`. Draw candles on `ImPlot::GetPlotDrawList()` between `BeginPlot` / `EndPlot` (same pattern as `implot_demo.cpp`, without including `implot_internal.h`).
 
@@ -1090,7 +1090,7 @@ If product preference on any of those appears before PR 2, record it here rather
 - `docs/market-data-store.md` — WAL readers, busy_timeout 0, `queryBars` SQL, latency targets
 - `apps/terminal/src/ui/Workspace.cpp` — dock split, DATA 30%
 - `apps/terminal/src/ui/InventoryPanel.cpp` — Reader busy handling, default 14-day window, coverage UI
-- `apps/terminal/src/ui/Theme.h` — `kUp` / `kDown` / `kAmber` / `kMuted` / `kCanvas` / `kPanel`
+- `apps/terminal/src/ui/Theme.h` — `kUp` / `kDown` / `kAccent` / `kMuted` / `kCanvas` / `kPanel`
 - Sierra Chart [Chart Settings](https://www.sierrachart.com/index.php?page=doc/ChartSettings.html) — *Chart >> Chart Settings*; Symbol / Bar Period / Data Limiting (Days to Load, Date Range); OK / Cancel. Used as inspiration only.
 
 ---

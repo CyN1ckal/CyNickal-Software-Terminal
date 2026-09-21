@@ -363,8 +363,8 @@ void drawCrosshair(std::span<const Bar> bars, std::string_view tz, const ChartYL
     char time_buf[32];
     std::snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d", stamp.year, stamp.month,
                   stamp.day, stamp.hour, stamp.minute);
-    ImPlot::TagX(static_cast<double>(idx), Theme::kAmber, "%s", time_buf);
-    ImPlot::TagY(price, Theme::kAmber, "%.4f", price);
+    ImPlot::TagX(static_cast<double>(idx), Theme::kAccent, "%s", time_buf);
+    ImPlot::TagY(price, Theme::kAccent, "%.4f", price);
 
     ImGui::BeginTooltip();
     ImGui::Text("%s  O  %.4f  H  %.4f  L  %.4f  C  %.4f  V  %.0f", time_buf, bar.open, bar.high,

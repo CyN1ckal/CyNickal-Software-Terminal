@@ -41,8 +41,10 @@ ImFont* loadFirstAvailable(ImGuiIO& io, const std::array<const char*, N>& paths,
 
 }  // namespace
 
-void ApplyBloombergStyle(ImGuiStyle& style)
+void ApplyStratumStyle(ImGuiStyle& style)
 {
+    // Square and tight. Stratum's product shell uses 7–8 px radii and looser
+    // padding; a data workstation stays flat so more rows fit.
     style.WindowRounding = 0.0f;
     style.ChildRounding = 0.0f;
     style.FrameRounding = 0.0f;
@@ -70,69 +72,69 @@ void ApplyBloombergStyle(ImGuiStyle& style)
     style.DisplaySafeAreaPadding = ImVec2(0.0f, 0.0f);
 
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_Text] = kAmber;
-    colors[ImGuiCol_TextDisabled] = kMuted;
-    colors[ImGuiCol_WindowBg] = kCanvas;
-    colors[ImGuiCol_ChildBg] = kPanel;
-    colors[ImGuiCol_PopupBg] = kCanvas;
-    colors[ImGuiCol_Border] = kHairline;
+    colors[ImGuiCol_Text] = kText;
+    colors[ImGuiCol_TextDisabled] = kTextFaint;
+    colors[ImGuiCol_WindowBg] = kBg1;
+    colors[ImGuiCol_ChildBg] = kBg2;
+    colors[ImGuiCol_PopupBg] = kBg3;
+    colors[ImGuiCol_Border] = kLine;
     colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    colors[ImGuiCol_FrameBg] = kChrome;
-    colors[ImGuiCol_FrameBgHovered] = kChromeHover;
-    colors[ImGuiCol_FrameBgActive] = kFrameActive;
-    colors[ImGuiCol_TitleBg] = kCanvas;
-    colors[ImGuiCol_TitleBgActive] = kTitleActive;
-    colors[ImGuiCol_TitleBgCollapsed] = kCanvas;
-    colors[ImGuiCol_MenuBarBg] = kChrome;
-    colors[ImGuiCol_ScrollbarBg] = kCanvas;
-    colors[ImGuiCol_ScrollbarGrab] = kChromeHover;
-    colors[ImGuiCol_ScrollbarGrabHovered] = kButtonActive;
-    colors[ImGuiCol_ScrollbarGrabActive] = kHairline;
-    colors[ImGuiCol_CheckMark] = kAmber;
-    colors[ImGuiCol_CheckboxSelectedBg] = kChromeHover;
-    colors[ImGuiCol_SliderGrab] = kAmber;
-    colors[ImGuiCol_SliderGrabActive] = kHighlight;
-    colors[ImGuiCol_Button] = kChrome;
-    colors[ImGuiCol_ButtonHovered] = kChromeHover;
-    colors[ImGuiCol_ButtonActive] = kButtonActive;
-    colors[ImGuiCol_Header] = kChrome;
-    colors[ImGuiCol_HeaderHovered] = kChromeHover;
-    colors[ImGuiCol_HeaderActive] = kTitleActive;
-    colors[ImGuiCol_Separator] = kHairline;
-    colors[ImGuiCol_SeparatorHovered] = kHairline;
-    colors[ImGuiCol_SeparatorActive] = kAmber;
-    colors[ImGuiCol_ResizeGrip] = WithAlpha(kHairline, 0.40f);
-    colors[ImGuiCol_ResizeGripHovered] = WithAlpha(kAmber, 0.67f);
-    colors[ImGuiCol_ResizeGripActive] = kAmber;
-    colors[ImGuiCol_InputTextCursor] = kAmber;
-    colors[ImGuiCol_TabHovered] = WithAlpha(kHighlight, 0.35f);
-    colors[ImGuiCol_Tab] = kChrome;
-    colors[ImGuiCol_TabSelected] = kTabSelected;
-    colors[ImGuiCol_TabSelectedOverline] = kHighlight;
-    colors[ImGuiCol_TabDimmed] = kCanvas;
-    colors[ImGuiCol_TabDimmedSelected] = kTitleActive;
-    colors[ImGuiCol_TabDimmedSelectedOverline] = WithAlpha(kHighlight, 0.40f);
-    colors[ImGuiCol_DockingPreview] = WithAlpha(kAmber, 0.25f);
-    colors[ImGuiCol_DockingEmptyBg] = kCanvas;
-    colors[ImGuiCol_PlotLines] = kAmber;
-    colors[ImGuiCol_PlotLinesHovered] = kSeries;
-    colors[ImGuiCol_PlotHistogram] = kUp;
-    colors[ImGuiCol_PlotHistogramHovered] = kHighlight;
-    colors[ImGuiCol_TableHeaderBg] = kChrome;
-    colors[ImGuiCol_TableBorderStrong] = kHairline;
-    colors[ImGuiCol_TableBorderLight] = kTableBorderLight;
+    colors[ImGuiCol_FrameBg] = kBg0;
+    colors[ImGuiCol_FrameBgHovered] = kBg3;
+    colors[ImGuiCol_FrameBgActive] = kBg3;
+    colors[ImGuiCol_TitleBg] = kBg0;
+    colors[ImGuiCol_TitleBgActive] = kBg0;
+    colors[ImGuiCol_TitleBgCollapsed] = kBg0;
+    colors[ImGuiCol_MenuBarBg] = kBg1;
+    colors[ImGuiCol_ScrollbarBg] = kBg0;
+    colors[ImGuiCol_ScrollbarGrab] = kLine2;
+    colors[ImGuiCol_ScrollbarGrabHovered] = kTextDim;
+    colors[ImGuiCol_ScrollbarGrabActive] = kAccent;
+    colors[ImGuiCol_CheckMark] = kBg0;
+    colors[ImGuiCol_CheckboxSelectedBg] = kAccent;
+    colors[ImGuiCol_SliderGrab] = kAccent;
+    colors[ImGuiCol_SliderGrabActive] = kText;
+    colors[ImGuiCol_Button] = kBg2;
+    colors[ImGuiCol_ButtonHovered] = kBg3;
+    colors[ImGuiCol_ButtonActive] = kLine2;
+    colors[ImGuiCol_Header] = kAccentWash;
+    colors[ImGuiCol_HeaderHovered] = WithAlpha(kAccent, 0.24f);
+    colors[ImGuiCol_HeaderActive] = WithAlpha(kAccent, 0.32f);
+    colors[ImGuiCol_Separator] = kLine;
+    colors[ImGuiCol_SeparatorHovered] = kLine2;
+    colors[ImGuiCol_SeparatorActive] = kAccent;
+    colors[ImGuiCol_ResizeGrip] = WithAlpha(kLine, 0.40f);
+    colors[ImGuiCol_ResizeGripHovered] = kAccent;
+    colors[ImGuiCol_ResizeGripActive] = kAccent;
+    colors[ImGuiCol_InputTextCursor] = kAccent;
+    colors[ImGuiCol_TabHovered] = kBg3;
+    colors[ImGuiCol_Tab] = kBg0;
+    colors[ImGuiCol_TabSelected] = kBg1;
+    colors[ImGuiCol_TabSelectedOverline] = kAccent;
+    colors[ImGuiCol_TabDimmed] = kBg0;
+    colors[ImGuiCol_TabDimmedSelected] = kBg1;
+    colors[ImGuiCol_TabDimmedSelectedOverline] = WithAlpha(kAccent, 0.40f);
+    colors[ImGuiCol_DockingPreview] = WithAlpha(kAccent, 0.35f);
+    colors[ImGuiCol_DockingEmptyBg] = kBg0;
+    colors[ImGuiCol_PlotLines] = kAccent;
+    colors[ImGuiCol_PlotLinesHovered] = kText;
+    colors[ImGuiCol_PlotHistogram] = kOk;
+    colors[ImGuiCol_PlotHistogramHovered] = kAccent;
+    colors[ImGuiCol_TableHeaderBg] = kBg2;
+    colors[ImGuiCol_TableBorderStrong] = kLine;
+    colors[ImGuiCol_TableBorderLight] = kBg3;
     colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    colors[ImGuiCol_TableRowBgAlt] = kTableRowAlt;
-    colors[ImGuiCol_TextLink] = kSeries;
-    colors[ImGuiCol_TextSelectedBg] = WithAlpha(kAmber, 0.35f);
-    colors[ImGuiCol_TreeLines] = kHairline;
-    colors[ImGuiCol_DragDropTarget] = WithAlpha(kAmber, 0.90f);
-    colors[ImGuiCol_DragDropTargetBg] = WithAlpha(kAmber, 0.15f);
-    colors[ImGuiCol_UnsavedMarker] = kHighlight;
-    colors[ImGuiCol_NavCursor] = kSeries;
-    colors[ImGuiCol_NavWindowingHighlight] = WithAlpha(kAmber, 0.70f);
-    colors[ImGuiCol_NavWindowingDimBg] = WithAlpha(kCanvas, 0.60f);
-    colors[ImGuiCol_ModalWindowDimBg] = WithAlpha(kCanvas, 0.60f);
+    colors[ImGuiCol_TableRowBgAlt] = kBg0;
+    colors[ImGuiCol_TextLink] = kAccent;
+    colors[ImGuiCol_TextSelectedBg] = WithAlpha(kAccent, 0.28f);
+    colors[ImGuiCol_TreeLines] = kLine;
+    colors[ImGuiCol_DragDropTarget] = WithAlpha(kAccent, 0.90f);
+    colors[ImGuiCol_DragDropTargetBg] = WithAlpha(kAccent, 0.15f);
+    colors[ImGuiCol_UnsavedMarker] = kWarn;
+    colors[ImGuiCol_NavCursor] = kAccent;
+    colors[ImGuiCol_NavWindowingHighlight] = WithAlpha(kAccent, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg] = WithAlpha(kBg0, 0.60f);
+    colors[ImGuiCol_ModalWindowDimBg] = WithAlpha(kBg0, 0.60f);
 }
 
 void LoadFonts(ImGuiIO& io)

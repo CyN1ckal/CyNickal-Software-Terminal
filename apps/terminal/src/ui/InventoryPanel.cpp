@@ -45,13 +45,13 @@ constexpr int kColLast = 10;
     case CoverageStatus::Complete:
         return Theme::kUp;
     case CoverageStatus::Partial:
-        return Theme::kSector;
+        return Theme::kWarn;
     case CoverageStatus::Missing:
         return Theme::kMuted;
     case CoverageStatus::Error:
         return Theme::kDown;
     }
-    return Theme::kAmber;
+    return Theme::kMuted;
 }
 
 void cellRight(const char* text)
@@ -291,8 +291,8 @@ void InventoryPanel::draw()
 void InventoryPanel::drawToolbar()
 {
     ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kTitleActive);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kTitleActive);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
 
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("SYMBOL");
@@ -318,9 +318,9 @@ void InventoryPanel::drawToolbar()
 
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kUp);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kHeatUp);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kInk);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
     const bool clicked = ImGui::Button("GO");
     ImGui::PopStyleColor(4);
 
@@ -462,7 +462,7 @@ void InventoryPanel::drawSummaryTable()
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
             ImGui::PushStyleColor(ImGuiCol_Text,
-                                  row.partial_count > 0 ? Theme::kSector : Theme::kMuted);
+                                  row.partial_count > 0 ? Theme::kWarn : Theme::kMuted);
             cellInt(row.partial_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();

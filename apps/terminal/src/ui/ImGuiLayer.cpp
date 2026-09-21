@@ -29,15 +29,15 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImGuiStyle& style = ImGui::GetStyle();
-    Theme::ApplyBloombergStyle(style);
+    Theme::ApplyStratumStyle(style);
     Theme::LoadFonts(io);
     ImPlot::StyleColorsAuto();
-    ImPlot::GetStyle().Colors[ImPlotCol_PlotBg] = Theme::kPanel;
-    ImPlot::GetStyle().Colors[ImPlotCol_FrameBg] = Theme::kCanvas;
-    ImPlot::GetStyle().Colors[ImPlotCol_PlotBorder] = Theme::kHairline;
-    ImPlot::GetStyle().Colors[ImPlotCol_AxisText] = Theme::kMuted;
-    ImPlot::GetStyle().Colors[ImPlotCol_AxisGrid] = Theme::kHairline;
-    ImPlot::GetStyle().Colors[ImPlotCol_Crosshairs] = Theme::kHairline;
+    ImPlot::GetStyle().Colors[ImPlotCol_PlotBg] = Theme::kBg0;
+    ImPlot::GetStyle().Colors[ImPlotCol_FrameBg] = Theme::kBg1;
+    ImPlot::GetStyle().Colors[ImPlotCol_PlotBorder] = Theme::kLine;
+    ImPlot::GetStyle().Colors[ImPlotCol_AxisText] = Theme::kTextDim;
+    ImPlot::GetStyle().Colors[ImPlotCol_AxisGrid] = Theme::kLine;
+    ImPlot::GetStyle().Colors[ImPlotCol_Crosshairs] = Theme::kAccent;
     style.ScaleAllSizes(main_scale);
     style.FontScaleDpi = main_scale;
     io.ConfigDpiScaleFonts = true;
