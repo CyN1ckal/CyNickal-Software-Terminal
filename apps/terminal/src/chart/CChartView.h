@@ -48,6 +48,14 @@ struct OverlayYExtent
     double max{};
 };
 
+// Y interaction for one lower chart region. The price graph does not use this.
+struct StudyRegionScale
+{
+    double extra_pad_frac{};
+    double move_offset{};
+    bool dragging_y{};
+};
+
 // Per-pane interaction state. Not part of load identity; not persisted.
 struct CChartViewState
 {
@@ -61,6 +69,11 @@ struct CChartViewState
     bool dragging_y{};
     bool dragging_x{};
     bool dragging_plot{};
+    // Lower chart regions (2..12). Index by chart region number; 0 and 1 unused.
+    // The price graph keeps extra_pad_frac / move_offset / dragging_y above.
+    std::vector<StudyRegionScale> study_region_scale;
+    // Relative heights of chart regions 1..N. ImPlot writes splitter drags back here.
+    std::vector<float> region_ratios;
     std::vector<double> tick_xs;
     std::vector<std::string> tick_labels;
     std::vector<const char*> tick_ptrs;

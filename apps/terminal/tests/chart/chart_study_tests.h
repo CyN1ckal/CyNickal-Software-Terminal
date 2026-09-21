@@ -317,3 +317,201 @@ TEST_CASE("studiesForLoad follows ready bars and drops other statuses")
     busy.bars = leftover;
     CHECK(terminal::studiesForLoad(busy, studies).empty());
 }
+
+namespace {
+
+std::vector<terminal::Bar> volumeBars(std::initializer_list<double> volumes)
+{
+    std::vector<terminal::Bar> bars;
+    bars.reserve(volumes.size());
+    for (const double volume : volumes)
+    {
+        terminal::Bar bar;
+        bar.open = 1.0;
+        bar.high = 2.0;
+        bar.low = 0.5;
+        bar.close = 1.5;
+        bar.volume = volume;
+        bars.push_back(bar);
+    }
+    return bars;
+}
+
+terminal::CStudyInstance makeVolumeInstance(int id, int region = terminal::kStudyVolumeChartRegion,
+                                            bool enabled = true)
+{
+    terminal::CStudyInstance inst;
+    inst.id = id;
+    inst.kind = terminal::StudyKind::Volume;
+    inst.enabled = enabled;
+    inst.chart_region = region;
+    inst.color = terminal::kStudyPalette[2];
+    inst.params = terminal::VolumeParams{};
+    return inst;
+}
+
+}  // namespace
+
+TEST_CASE("moving average of volume averages bar volume")
+{
+    const auto bars = volumeBars({2.0, 4.0, 6.0, 8.0});
+    const std::vector<terminal::CStudyInstance> studies{
+        makeSmaInstance(3, 2, terminal::StudySource::Volume)};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].label == "MA 2 V");
+    CHECK(series[0].placement == terminal::StudyPlacement::Overlay);
+    REQUIRE(series[0].values.size() == 4);
+    CHECK_FALSE(std::isfinite(series[0].values[0]));
+    CHECK(series[0].values[1] == Catch::Approx(3.0));
+    CHECK(series[0].values[2] == Catch::Approx(5.0));
+    CHECK(series[0].values[3] == Catch::Approx(7.0));
+}
+
+TEST_CASE("volume copies each bar and defaults to chart region 2")
+{
+    const auto bars = volumeBars({10.0, 0.0, 25.5});
+    const std::vector<terminal::CStudyInstance> studies{makeVolumeInstance(3)};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].study_id == 3);
+    CHECK(series[0].kind == terminal::StudyKind::Volume);
+    CHECK(series[0].label == "Vol");
+    CHECK(series[0].chart_region == 2);
+    CHECK(series[0].placement == terminal::StudyPlacement::Subgraph);
+    CHECK(series[0].color == terminal::kStudyPalette[2]);
+    REQUIRE(series[0].values.size() == 3);
+    CHECK(series[0].values[0] == Catch::Approx(10.0));
+    CHECK(series[0].values[1] == Catch::Approx(0.0));
+    CHECK(series[0].values[2] == Catch::Approx(25.5));
+    CHECK(terminal::studyChartRegionCount(series) == 2);
+}
+
+TEST_CASE("empty bars still emit one labeled volume series")
+{
+    const std::vector<terminal::Bar> bars;
+    const std::vector<terminal::CStudyInstance> studies{makeVolumeInstance(1)};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].values.empty());
+    CHECK(series[0].label == "Vol");
+    CHECK(series[0].placement == terminal::StudyPlacement::Subgraph);
+}
+
+TEST_CASE("volume on chart region 1 is an overlay")
+{
+    auto inst = makeVolumeInstance(4, 1);
+    const auto bars = volumeBars({8.0, 12.0, 9.0});
+    const std::vector<terminal::CStudyInstance> studies{inst};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].chart_region == terminal::kStudyMainChartRegion);
+    CHECK(series[0].placement == terminal::StudyPlacement::Overlay);
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+    const auto extent = terminal::overlayYExtent(series, win, 3);
+    CHECK(extent.valid);
+    CHECK(extent.min == Catch::Approx(8.0));
+    CHECK(extent.max == Catch::Approx(12.0));
+}
+
+TEST_CASE("moving average chart region selects the subgraph")
+{
+    auto inst = makeSmaInstance(6, 1, terminal::StudySource::Close);
+    inst.chart_region = 4;
+    const auto bars = smaCloseBars({2.0, 4.0});
+    const std::vector<terminal::CStudyInstance> studies{inst};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].chart_region == 4);
+    CHECK(series[0].placement == terminal::StudyPlacement::Subgraph);
+    CHECK(series[0].label == "MA 1 C");
+    REQUIRE(series[0].values.size() == 2);
+    CHECK(series[0].values[0] == Catch::Approx(2.0));
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 1;
+    CHECK_FALSE(terminal::overlayYExtent(series, win, 2).valid);
+    CHECK(terminal::studyChartRegionCount(series) == 4);
+}
+
+TEST_CASE("chart region clamps into 1..12")
+{
+    CHECK(terminal::clampStudyChartRegion(0) == 1);
+    CHECK(terminal::clampStudyChartRegion(1) == 1);
+    CHECK(terminal::clampStudyChartRegion(12) == 12);
+    CHECK(terminal::clampStudyChartRegion(99) == 12);
+
+    auto inst = makeVolumeInstance(1, 99);
+    const auto bars = volumeBars({1.0});
+    const std::vector<terminal::CStudyInstance> studies{inst};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].chart_region == 12);
+    CHECK(terminal::studyChartRegionCount(series) == 12);
+    CHECK(terminal::studyChartRegionCount({}) == 1);
+}
+
+TEST_CASE("disabled volume is omitted and a bad payload is unsupported")
+{
+    const auto bars = volumeBars({1.0, 2.0});
+    const std::vector<terminal::CStudyInstance> disabled{makeVolumeInstance(1, 2, false)};
+    CHECK(terminal::computeStudies(bars, disabled).empty());
+
+    auto inst = makeVolumeInstance(2);
+    inst.params = terminal::MovingAverageParams{};
+    CHECK_FALSE(terminal::isStudyInstanceSupported(inst));
+    const std::vector<terminal::CStudyInstance> bad{inst};
+    CHECK(terminal::computeStudies(bars, bad).empty());
+}
+
+TEST_CASE("study region limits baseline volume and fit a moving average")
+{
+    terminal::CStudySeries volume;
+    volume.kind = terminal::StudyKind::Volume;
+    volume.chart_region = 2;
+    volume.values = {10.0, 40.0, 5.0};
+    terminal::CStudySeries other;
+    other.kind = terminal::StudyKind::MovingAverage;
+    other.chart_region = 3;
+    other.values = {100.0, 110.0, 90.0};
+    const std::vector<terminal::CStudySeries> series{volume, other};
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+
+    const auto vol = terminal::computeStudyRegionYLimits(series, 2, win, 3, 0.0f, 0.0, 0.0);
+    CHECK(vol.min == Catch::Approx(0.0));
+    CHECK(vol.max == Catch::Approx(40.0));
+
+    const auto padded = terminal::computeStudyRegionYLimits(series, 2, win, 3, 10.0f, 0.0, 3.0);
+    CHECK(padded.min == Catch::Approx(-1.0));
+    CHECK(padded.max == Catch::Approx(47.0));
+
+    const auto ma = terminal::computeStudyRegionYLimits(series, 3, win, 3, 0.0f, 0.0, 0.0);
+    CHECK(ma.min == Catch::Approx(90.0));
+    CHECK(ma.max == Catch::Approx(110.0));
+
+    const auto empty = terminal::computeStudyRegionYLimits(series, 4, win, 3, 0.0f, 0.0, 0.0);
+    CHECK(empty.min == Catch::Approx(0.0));
+    CHECK(empty.max == Catch::Approx(1.0));
+
+    volume.values[1] = terminal::studyNaN();
+    const std::vector<terminal::CStudySeries> with_nan{volume};
+    const auto finite = terminal::computeStudyRegionYLimits(with_nan, 2, win, 3, 0.0f, 0.0, 0.0);
+    CHECK(finite.min == Catch::Approx(0.0));
+    CHECK(finite.max == Catch::Approx(10.0));
+}
+
+TEST_CASE("studiesForLoad computes volume from ready bars")
+{
+    const std::vector<terminal::CStudyInstance> studies{makeVolumeInstance(1)};
+    terminal::ChartLoadResult ready;
+    ready.status = terminal::ChartLoadStatus::Ready;
+    ready.bars = volumeBars({4.0, 6.0});
+    const auto series = terminal::studiesForLoad(ready, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].values[1] == Catch::Approx(6.0));
+    CHECK(series[0].chart_region == 2);
+}

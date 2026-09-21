@@ -28,6 +28,8 @@ namespace {
         return "Low";
     case StudySource::Close:
         return "Close";
+    case StudySource::Volume:
+        return "Volume";
     }
     return "Close";
 }
@@ -57,6 +59,15 @@ namespace {
         {
             params.source = StudySource::Low;
         }
+        if (ImGui::Selectable("Volume", params.source == StudySource::Volume))
+        {
+            params.source = StudySource::Volume;
+            // Volume shares a scale with the volume pane. Leave a region the user already chose.
+            if (inst.chart_region == kStudyMainChartRegion)
+            {
+                inst.chart_region = kStudyVolumeChartRegion;
+            }
+        }
         ImGui::EndCombo();
     }
 
@@ -84,7 +95,11 @@ namespace {
         ImGui::EndCombo();
     }
     ImGui::TextColored(Theme::kMuted, "v1: simple moving average");
+    return length_enter;
+}
 
+void drawStudyColor(CStudyInstance& inst)
+{
     const ImVec4 current = ImGui::ColorConvertU32ToFloat4(inst.color);
     float rgba[4] = {current.x, current.y, current.z, current.w};
     char color_id[64];
@@ -94,24 +109,71 @@ namespace {
         const ImVec4 edited(rgba[0], rgba[1], rgba[2], rgba[3]);
         inst.color = ImGui::ColorConvertFloat4ToU32(edited);
     }
-    return length_enter;
+}
+
+void drawChartRegion(CStudyInstance& inst)
+{
+    inst.chart_region = clampStudyChartRegion(inst.chart_region);
+    ImGui::TextUnformatted("Chart Region");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(180.0f);
+    char region_id[64];
+    std::snprintf(region_id, sizeof(region_id), "##study_region_%d", inst.id);
+    char preview[64];
+    if (inst.chart_region == kStudyMainChartRegion)
+    {
+        std::snprintf(preview, sizeof(preview), "1  Main Price Graph");
+    }
+    else
+    {
+        std::snprintf(preview, sizeof(preview), "%d", inst.chart_region);
+    }
+    if (ImGui::BeginCombo(region_id, preview))
+    {
+        for (int region = kStudyChartRegionMin; region <= kStudyChartRegionMax; ++region)
+        {
+            char item[64];
+            if (region == kStudyMainChartRegion)
+            {
+                std::snprintf(item, sizeof(item), "1  Main Price Graph");
+            }
+            else
+            {
+                std::snprintf(item, sizeof(item), "%d", region);
+            }
+            if (ImGui::Selectable(item, inst.chart_region == region))
+            {
+                inst.chart_region = region;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::TextColored(Theme::kMuted,
+                       "Region 1 is the main price graph. Regions 2-12 are panes below it.");
 }
 
 [[nodiscard]] bool drawSelectedParams(CStudyInstance& inst)
 {
+    bool length_enter = false;
     switch (inst.kind)
     {
     case StudyKind::MovingAverage:
     {
         auto* params = std::get_if<MovingAverageParams>(&inst.params);
-        if (params == nullptr)
+        if (params != nullptr)
         {
-            return false;
+            length_enter = drawMovingAverageParams(inst, *params);
         }
-        return drawMovingAverageParams(inst, *params);
+        break;
     }
+    case StudyKind::Volume:
+        ImGui::TextColored(Theme::kMuted,
+                           "Volume of each chart bar. Bars use the candle colors. Color sets the label.");
+        break;
     }
-    return false;
+    drawChartRegion(inst);
+    drawStudyColor(inst);
+    return length_enter;
 }
 
 }  // namespace
@@ -172,7 +234,14 @@ bool drawStudyDraftBody(std::vector<CStudyInstance>& draft, int& selected, int& 
     }
 
     constexpr auto type_count = static_cast<int>(std::size(kStudyTypes));
-    int add_index = 0;
+    // The combo closes before Add is clicked, so the choice has to outlive the frame.
+    auto* storage = ImGui::GetStateStorage();
+    const ImGuiID add_key = ImGui::GetID("##study_add_kind");
+    int add_index = storage->GetInt(add_key, 0);
+    if (add_index < 0 || add_index >= type_count)
+    {
+        add_index = 0;
+    }
     const bool at_cap = static_cast<int>(draft.size()) >= kStudyMaxPerPane;
     ImGui::BeginDisabled(at_cap || type_count <= 0);
     if (type_count > 0)
@@ -192,6 +261,7 @@ bool drawStudyDraftBody(std::vector<CStudyInstance>& draft, int& selected, int& 
         }
         ImGui::SameLine();
     }
+    storage->SetInt(add_key, add_index);
     const bool add_clicked = ImGui::Button("Add");
     if (!at_cap && add_clicked && add_index >= 0 && add_index < type_count)
     {
@@ -199,8 +269,10 @@ bool drawStudyDraftBody(std::vector<CStudyInstance>& draft, int& selected, int& 
         CStudyInstance inst;
         inst.id = next_id++;
         inst.kind = info.kind;
+        inst.chart_region = info.default_chart_region;
         inst.params = defaultParams(info.kind);
-        inst.color = studyPaletteColor(static_cast<int>(draft.size()));
+        inst.color = info.kind == StudyKind::Volume ? kStudyPalette[2]
+                                                    : studyPaletteColor(static_cast<int>(draft.size()));
         draft.push_back(inst);
         selected = static_cast<int>(draft.size()) - 1;
     }

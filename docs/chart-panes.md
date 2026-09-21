@@ -92,14 +92,14 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 6. An ImPlot candlestick plot (custom candles on ImPlot axes). Hover OHLC readout. No pan/zoom.
 7. A Chart menu to create, configure, study, and close panes.
 8. Keep charting in `apps/terminal/`. `libs/market-data` is read-only from this feature.
-9. Pane-owned studies. v1 study is a simple moving average (source + length), computed from loaded bars after transform, drawn as an overlay. Not persisted.
+9. Pane-owned studies. A simple moving average (source + length) draws on a chosen chart region. Volume draws a histogram of each bar's volume, defaulting to the pane under the candles. Not persisted.
 
 ### Non-Goals (v1)
 
 | Out of scope | Why |
 |---|---|
 | Tick / volume / renko bars | Not implemented. 5m / 15m / 1h / 1d candlesticks are an in-memory transform of 1-minute rows, not new Store tables. |
-| Drawing tools, replay, volume profile, subgraph studies | SMA overlay is in scope (see **Studies**). These are not. |
+| Drawing tools, replay, volume profile | Volume as a chart-region study is in scope (see **Studies**). Volume profile is not. |
 | Persist studies or write study values to SQLite | Same rule as `CChartSettings`: pane memory only. |
 | Chart linking across panes | Sierra has it; skip. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
@@ -210,7 +210,7 @@ apps/terminal/src/chart/
   CStudyCompute.cpp
   CStudySettings.h      // Studies modal body — ImGui
   CStudySettings.cpp
-  CStudyPlot.h          // drawStudyOverlays — ImPlot
+  CStudyPlot.h          // drawStudyRegion — ImPlot
   CStudyPlot.cpp
 
 apps/terminal/tests/chart/
@@ -557,7 +557,7 @@ sequenceDiagram
 - `focused_id_ = id` immediately so **Chart Settings / Close Chart are enabled the same frame** (and the next).
 - `requestFocus()` → `SetNextWindowFocus()` on that pane’s next `Begin`.
 - Does **not** auto-open Chart Settings. Overlay tells the user to open settings.
-- First-use dock: if `chart_dock_id_ != 0`, `ImGui::SetNextWindowDockID(chart_dock_id_, ImGuiCond_FirstUseEver)`. If `chart_dock_id_ == 0` (leftover split, skip-if-split path), skip `SetNextWindowDockID` and let the window float / user-dock.
+- First-use dock: if `chart_dock_id_ != 0`, `ImGui::SetNextWindowDockID(chart_dock_id_, ImGuiCond_FirstUseEver)`. A saved left/right split sets `chart_dock_id_` to the right child. `chart_dock_id_ == 0` only when that child is missing; then the window floats. A window that already has `imgui.ini` settings keeps its saved dock.
 
 **Focus:**
 
@@ -677,7 +677,13 @@ void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size, ImGuiID* o
     ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
     if (node != nullptr && node->IsSplitNode())
     {
-        return;  // leftover imgui.ini; chart_dock_id_ stays 0
+        // Saved left/right split. New charts use the right node (FirstUseEver).
+        // A window that already has ini settings keeps its saved dock.
+        if (node->SplitAxis == ImGuiAxis_X && node->ChildNodes[1] != nullptr)
+        {
+            *out_chart_dock = node->ChildNodes[1]->ID;
+        }
+        return;
     }
 
     ImGui::DockBuilderRemoveNode(dockspace_id);
@@ -880,25 +886,29 @@ void drawCandlesticks(std::span<const Bar> bars,
 
 **Hover:** nearest bar. Timestamp is the instrument timezone (fallback `America/New_York`).
 
-**Volume subplot:** not in v1. When added, an ImPlot subplot band, not a `CChartSettings` change.
+**Chart regions.** Region 1 is the price plot. Regions 2–12 are ImPlot subplot rows under it, sharing the same bar-index X. A region is shown when a study uses it or a higher region, so a study on region 4 also leaves regions 2 and 3 on screen. The price row takes about 72% of the height until the user drags a splitter. Time labels sit on the bottom row. This is not a `CChartSettings` field.
 
-**Studies** are drawn after candles on that same plot draw list. They attach to `CChartPane`, not to `CChartSettings`. See below.
+**Studies** are drawn on the chart region each instance selects. They attach to `CChartPane`, not to `CChartSettings`. See below.
 
 ### Studies
 
 Studies are pane state. They are not fields of `CChartSettings` and they are not Store rows. `CChartPane` owns `studies_` (`std::vector<CStudyInstance>`), the modal copy `study_draft_`, and `computed_` (`std::vector<CStudySeries>`). None of that is persisted: no SQLite table, no `imgui.ini` payload. Close Chart destroys the list with the pane. A new pane starts empty. There is no default moving average.
 
-`CStudyInstance` (`CStudy.h`) is a value type: pane-local `id` (`next_study_id_`, starts at 1, never reused on that pane, not rewound on Cancel), `StudyKind`, `enabled`, a packed color, and `StudyParams`. The v1 kind is `MovingAverage`. `MovingAverageParams` is a source and a length. Source is `StudySource`: Close (default), Open, High, or Low. Length defaults to 20 and is clamped to `[1, 10000]`. `MovingAverageMethod` also lists Exponential and Weighted; compute locks the method to **Simple**. Up to `kStudyMaxPerPane` (16) instances. Two moving averages on one pane are allowed.
+`CStudyInstance` (`CStudy.h`) is a value type: pane-local `id` (`next_study_id_`, starts at 1, never reused on that pane, not rewound on Cancel), `StudyKind`, `enabled`, a packed color, `chart_region`, and `StudyParams`. Kinds are `MovingAverage` and `Volume`. `MovingAverageParams` is a source and a length. Source is `StudySource`: Close (default), Open, High, Low, or Volume (`Bar::volume`, label `MA 20 V`). Choosing Volume while Chart Region is still 1 moves that draft to region 2 so the average shares the volume scale. A region the user already set is left alone. Length defaults to 20 and is clamped to `[1, 10000]`. `MovingAverageMethod` also lists Exponential and Weighted; compute locks the method to **Simple**. `VolumeParams` is empty. Volume copies `Bar::volume` with no warmup. Up to `kStudyMaxPerPane` (16) instances. Two moving averages, or a moving average and volume, on one pane are allowed.
 
-**Compute** (`CStudyCompute`, no ImGui). `studiesForLoad(loaded_, studies_)` calls `computeStudies(loaded_.bars, studies_)` only when status is `Ready` and `bars` is non-empty. Every other load result yields `{}`. Those bars are the snapshot **after** `transformChartBars` when the period is not 1-minute. Length counts chart bars, not raw 1-minute rows: a length of 20 on a 5-minute chart is twenty 5-minute bars. SMA is a running sum of the selected source. Outputs before `length - 1` are NaN and are not drawn. `length` greater than the bar count is all NaN. Disabled and unsupported instances are omitted. v1 pushes one series per enabled, supported moving average, so an all-enabled pane has equal sizes. Callers must not assume `computed_.size() == studies_.size()`. `computeStudies` does not throw.
+`chart_region` is Sierra Chart's Chart Region, clamped to `[1, 12]`. Region 1 is the main price graph (`StudyPlacement::Overlay`). Regions 2–12 are subgraph panes (`StudyPlacement::Subgraph`). The moving average defaults to region 1. Volume defaults to region 2. The whole study uses one region. Compute copies the clamped region onto `CStudySeries` and sets placement from it.
+
+**Compute** (`CStudyCompute`, no ImGui). `studiesForLoad(loaded_, studies_)` calls `computeStudies(loaded_.bars, studies_)` only when status is `Ready` and `bars` is non-empty. Every other load result yields `{}`. Those bars are the snapshot **after** `transformChartBars` when the period is not 1-minute. Length counts chart bars, not raw 1-minute rows: a length of 20 on a 5-minute chart is twenty 5-minute bars. SMA is a running sum of the selected source. Outputs before `length - 1` are NaN and are not drawn. `length` greater than the bar count is all NaN. Disabled and unsupported instances are omitted. Compute pushes one series per enabled, supported study (moving average or volume). Callers must not assume `computed_.size() == studies_.size()`. `computeStudies` does not throw.
 
 `reload` assigns `computed_ = studiesForLoad(loaded_, studies_)` on every path that assigns `loaded_`, including a Ready 2 s poll and the null-store Error. The Busy/Error keep-candles return does not replace `loaded_`. Error on that path still writes `loaded_.status` and `loaded_.message`; Busy leaves the status alone. That return does not call `studiesForLoad`, so `computed_` is unchanged. `applyStudyDraft` copies `study_draft_` onto `studies_` and recomputes. It does not call `loadChartBars`. Pan, wheel, bar spacing, and Y-scale drag do not recompute.
 
 **Studies modal.** Display title `Studies`. ImGui id `Studies###chart_studies_<id>`. Same ID stack as Chart Settings (D8): `openStudies()` copies `studies_` into `study_draft_` and sets `studies_open_`. The pane calls `OpenPopup` inside its own `Begin`/`End`, never from the main menu. `Chart >> Studies` is `openFocusedStudies()` (`requestFocus()`, then `openStudies()`). The two modals are exclusive both ways: `openSettings()` returns immediately when `studies_open_` is set, and `openStudies()` returns when `settings_open_` is set. Toolbar Settings/Studies and the Chart menu items disable to match. `handleChartKeys` returns while either modal is open or `WantTextInput` is set, so arrows do not change spacing while a study field is focused.
 
-`drawStudyDraftBody` (`CStudySettings.cpp`) draws the list (enable checkbox, color, short label such as `MA 20 C`, Remove), an Add combo of `kStudyTypes` (v1: Moving Average), and the selected row’s widgets: Input Data, Length, Method, Color. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. At 16 studies, Add is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel and the title X discard `study_draft_` and do not recompute. Esc does the same, except while a child combo or color popup is open or was open last frame (that press must close the child, not the draft). The title X is not part of that guard. Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. Do not invent hues.
+`drawStudyDraftBody` (`CStudySettings.cpp`) draws the list (enable checkbox, color, short label such as `MA 20 C` or `Vol`, Remove), an Add combo of `kStudyTypes` (Moving Average, Volume), and the selected row’s widgets. Moving average: Input Data, Length, Method. Volume: muted note that up and down colors match the candles. Every kind then has Chart Region and Color. Chart Region lists `1  Main Price Graph` and `2` through `12`. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. The Add combo's choice is kept in the modal's ImGui state, because the combo closes before Add is clicked. At 16 studies, Add is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel and the title X discard `study_draft_` and do not recompute. Esc does the same, except while a child combo or color popup is open or was open last frame (that press must close the child, not the draft). The title X is not part of that guard. Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. A new Volume instance starts on `Theme::kOk`. Do not invent hues.
 
-**Overlay draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. Inside `BeginPlot`, after the candle loop and before the crosshair, `drawStudyOverlays` strokes polylines on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine`. X is bar index and Y is price, the same axes as the candles. NaN breaks the stroke. A series is skipped unless placement is `Overlay` and `values.size()` equals the loaded bar count. Subgraph placement is reserved and is not drawn. Automatic scale includes finite overlay samples in the visible window before padding. Constant Range and User Defined do not expand for overlays. The hover tooltip appends one line per finite overlay at the hovered bar (`series.label` and the value, in the series color). `NoLegend` stays on. There is still no `implot_internal.h`.
+**Draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. `studyChartRegionCount` is the number of rows: the price plot alone, or `BeginSubplots` rows 1..N with linked bar-index limits (each plot sets the same X; ImPlot's link flag is not used). Inside each `BeginPlot`, `drawStudyRegion` draws that region's series on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine` or `PlotBars`. Moving averages are polylines. NaN breaks the stroke. Volume is a histogram from zero to `values[i]`, width `bar_width_frac`, colored with `Theme::kUp` / `Theme::kDown` from `close >= open`. A zero volume bar is skipped. Dense spacing (`bar_spacing_px < 2`) draws a 1 px stem. A series is skipped unless `chart_region` matches and `values.size()` equals the loaded bar count.
+
+Automatic price scale includes finite region-1 samples before padding. Constant Range and User Defined do not expand for those samples. Lower regions scale on their own samples (`computeStudyRegionYLimits`), with the chart's padding percent. A region that contains volume includes zero. Dragging a lower region's Y scale changes that region's pad or offset only. The price scale menu stays on region 1. Wheel, plot drag, and the X axis still change bar spacing and scroll once per frame, from whichever region is hovered. The hover tooltip lists every finite study at the bar. A vertical crosshair is drawn in every region while the pointer is in the shared X column. `NoLegend` stays on. There is still no `implot_internal.h`.
 
 The toolbar, after the status text, shows `studyShortLabel` for each **enabled** instance, in that instance’s color. Disabled studies stay in `studies_` and are not labeled and not drawn.
 
@@ -933,10 +943,10 @@ The toolbar, after the status text, shows `studyShortLabel` for each **enabled**
 | Chart window dock position/size | Yes, keyed by `###chart_<id>` |
 | `CChartSettings` (symbol, days, …) | **No** |
 | Study instances and computed series | **No** — pane memory only; not SQLite, not `imgui.ini` |
-| Pane existence across process restarts | **No** — start with zero panes |
+| Pane existence across process restarts | **No** — settings are not restored. Startup always opens one pane (`###chart_1`) in the right dock |
 | DATA inventory state | Unchanged, already not persisted |
 
-On restart, leftover `imgui.ini` may show empty dock nodes for previous `###chart_N` windows until the user creates panes again or deletes the ini. Document in code comment next to `addPane()`, not a new markdown file.
+On restart, `###chart_1` is created again and keeps its saved dock. Extra `###chart_N` windows from the previous run are not recreated, so their dock nodes stay empty until the user opens another chart or deletes the ini.
 
 ### Threading
 
@@ -959,7 +969,7 @@ If Days to Load is 252, a hitch up to tens of milliseconds **per visible pane** 
 Public to the rest of the terminal (i.e. `Workspace`):
 
 - `CChartBook::drawMenu()`, `draw(ImGuiID)`, `addPane()`, `closeFocused()`, `openFocusedSettings()`, `openFocusedStudies()`.
-- `CChartPane::openStudies()`, `studies()`, `studiesOpen()`, `settingsOpen()` — used by the book menu. The study types (`CStudyInstance`, `computeStudies`, `studiesForLoad`, `drawStudyOverlays`) stay inside `src/chart/`.
+- `CChartPane::openStudies()`, `studies()`, `studiesOpen()`, `settingsOpen()` — used by the book menu. The study types (`CStudyInstance`, `computeStudies`, `studiesForLoad`, `drawStudyRegion`) stay inside `src/chart/`.
 
 `CChartPane` and `CChartSettings` are not used outside `src/chart/` + tests, except `CChartSettings.h` included by `CChartLoad`.
 
@@ -1121,7 +1131,7 @@ No feature flag. Land as ordered PRs (see **PR Plan**). Each PR is mergeable: ty
 
 **Rollback:** revert the PR. Leftover `imgui.ini` keys for `###chart_*` are harmless; delete the ini if empty dock nodes bother.
 
-**First-run:** zero panes. User hits `Chart >> New Chart`, then Settings, types a symbol that DATA has already ingested.
+**First-run:** one chart pane, docked on the right beside DATA. User opens Chart Settings and types a symbol that DATA has already ingested. `Chart >> New Chart` adds further panes.
 
 ---
 
@@ -1132,7 +1142,7 @@ No feature flag. Land as ordered PRs (see **PR Plan**). Each PR is mergeable: ty
 | GUI hitch on 252-session `queryBars` | Medium | Default 14; clamp 252; skip poll when `Begin` is false; stay sync. N visible panes at 252 days may hitch — accepted in v1 |
 | SQLITE_BUSY during ingest blanks the chart | Medium | Keep last bars **only for the same settings**; `isStoreBusyError` matches `"busy"` and `"locked"` |
 | Two GUI Store connections vs migrate race | Low | `InventoryPanel` declared first; it Writer-migrates. `CChartBook` open failure is a pane error, not a crash |
-| `imgui.ini` from pre-chart builds skips default split | Low | Existing skip-if-split behavior; user deletes ini. `chart_dock_id_ == 0` → no forced dock |
+| `imgui.ini` from pre-chart builds skips rebuilding the split | Low | A saved left/right split still supplies the right node as `chart_dock_id_`. The startup pane docks there on first use. Delete the ini for a blank dock |
 | Ambiguous AAPL+NMS / AAPL+other | Low | Fail closed; same as ingest |
 | Index-based X hides session gaps | Low | Documented; time axis is a later PR, not a type change |
 | Reserved enums accidentally queried | Medium | `isChartSettingsSupported` in `loadChartBars` and Apply. Tick/renko and non-Days limiters stay rejected. Higher candlestick periods composite in memory; they are not `queryBars` timeframes. |
@@ -1216,7 +1226,7 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
 - **Depends on:** PR 1
 - **Changes:** Book opens a GUI `Store` Reader and passes `store_.get()` + `open_error_` into each pane. Chart menu: New / Settings / Close. `addPane()` sets `focused_id_` and `requestFocus()`. `openFocusedSettings()` calls `requestFocus()` then `openSettings()` (flag only — no `OpenPopup` from the menu). Modal **Chart Settings** via `OpenPopup` **inside** the pane `Begin`/`End`, `BeginPopupModal(id, &settings_open_)`. Symbol, locked 1m / candlestick, Days to Load, OK / Apply / Cancel (draft vs live). D10 snapshot merge. Status overlays for every `ChartLoadStatus` including store-open failure. 2 s poll only when `Begin` returns true. No candlesticks yet — Ready state shows the toolbar counts and an empty plot child. DATA remains independent.
 
-**Manual check:** New Chart enables Chart Settings the same session (focused_id_ set). Settings from the menu opens the modal (not a silent no-op). Type a symbol ingested in DATA → Apply → toolbar shows session/bar counts; Cancel does not change the live symbol; Esc discards draft. Two panes can hold different symbols. Changing symbol while the store is busy does not keep the old candles. Closing X and Close Chart both remove the pane and clear focus if it was that id. Leftover `imgui.ini` with `chart_dock_id_ == 0` still creates a floating/dockable window.
+**Manual check:** New Chart enables Chart Settings the same session (focused_id_ set). Settings from the menu opens the modal (not a silent no-op). Type a symbol ingested in DATA → Apply → toolbar shows session/bar counts; Cancel does not change the live symbol; Esc discards draft. Two panes can hold different symbols. Changing symbol while the store is busy does not keep the old candles. Closing X and Close Chart both remove the pane and clear focus if it was that id. The next launch opens one chart again, docked on the right (or wherever `###chart_1` was last saved).
 
 ### PR 3 — ImPlot candlestick plot and hover readout
 
@@ -1227,8 +1237,8 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
   - `apps/terminal/src/ui/ImGuiLayer.cpp` (ImPlot context; may land with CMake in PR 1/2)
   - `apps/terminal/CMakeLists.txt`
 - **Depends on:** PR 2
-- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with instrument-local OHLC (fallback `America/New_York`). Wheel changes bar spacing; drag on the plot pans. Volume subplot stays out. Study overlays are specified in **Studies** and are drawn on the same list after candles.
+- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with instrument-local OHLC (fallback `America/New_York`). Wheel changes bar spacing; drag on the plot pans. Study drawing is specified in **Studies**. Volume uses a chart region under the candles when that study is on region 2 or higher.
 
 **Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a local `YYYY-MM-DD HH:MM` OHLC line. Wheel changes bar spacing; drag pans. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
 
-After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned SMA overlay in **Studies**: source + length, `studiesForLoad` after `loadChartBars`, Studies modal, overlay draw. They are not persisted. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, subgraph studies, drawing tools, DATA double-click, settings and study persistence, Store hoist.
+After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned moving average and volume series in **Studies**: `studiesForLoad` after `loadChartBars`, Studies modal, Chart Region, overlay and subgraph draw. They are not persisted. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, volume profile, drawing tools, DATA double-click, settings and study persistence, Store hoist.

@@ -17,6 +17,6 @@ void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
                       std::string_view timezone,
-                      std::span<const CStudySeries> overlays = {});
+                      std::span<const CStudySeries> studies = {});
 
 }  // namespace terminal

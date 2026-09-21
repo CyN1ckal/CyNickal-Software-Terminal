@@ -43,6 +43,8 @@ inline void clampMovingAverageParams(MovingAverageParams& params) noexcept
         return bar.low;
     case StudySource::Close:
         return bar.close;
+    case StudySource::Volume:
+        return bar.volume;
     }
     return bar.close;
 }
@@ -64,6 +66,20 @@ inline void clampMovingAverageParams(MovingAverageParams& params) noexcept
 [[nodiscard]] OverlayYExtent overlayYExtent(std::span<const CStudySeries> series,
                                             const ChartVisibleWindow& win,
                                             int bar_count) noexcept;
+
+// How many stacked regions to draw: 1 through the highest chart region in use.
+// An empty list is the price graph alone.
+[[nodiscard]] int studyChartRegionCount(std::span<const CStudySeries> series) noexcept;
+
+// Automatic Y for one chart region. Volume series include zero so bars grow
+// from the baseline. No finite samples → 0..1. Does not throw.
+[[nodiscard]] ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
+                                                     int chart_region,
+                                                     const ChartVisibleWindow& win,
+                                                     int bar_count,
+                                                     float padding_pct,
+                                                     double extra_pad_frac,
+                                                     double move_offset) noexcept;
 
 [[nodiscard]] std::string studyShortLabel(const CStudyInstance& inst);
 
