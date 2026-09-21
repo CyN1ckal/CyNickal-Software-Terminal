@@ -33,6 +33,7 @@ add_library(market-data STATIC
     src/market_data/Schema.cpp
     src/market_data/Store.cpp
     src/market_data/Time.cpp
+    src/market_data/MboumMap.cpp
 )
 target_include_directories(market-data
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
