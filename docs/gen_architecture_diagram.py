@@ -12,7 +12,7 @@ from pathlib import Path
 import cairo
 
 OUT_DIR = Path(__file__).resolve().parent
-W, H = 1800, 3310
+W, H = 1800, 3860
 SCALE = 2
 
 BG = (0.97, 0.968, 0.955)
@@ -363,11 +363,24 @@ def draw_figure1(ctx: cairo.Context) -> None:
         CHART_HEAD,
         [
             "CChartSettings  ·  Chart Settings modal",
-            "studies_ list  ·  computeStudies",
             "loadChartBars  ·  queryBars 1m  ·  transformChartBars",
-            "drawCandlesticks + SMA overlays",
-            "1m/5m/15m/1h/1d candles  ·  Days to Load = 14",
-            "dock id chart_N  ·  not driven by DATA",
+            "drawCandlesticks  ·  1m/5m/15m/1h/1d  ·  Days to Load",
+        ],
+        head_h=20,
+    )
+    inner(
+        ctx,
+        296,
+        568,
+        352,
+        76,
+        "studies_  /  computed_",
+        "«pane state»  cap 16",
+        CHART_FILL,
+        CHART_HEAD,
+        [
+            "CStudyInstance  ·  SMA v1  ·  not CChartSettings",
+            "computeStudies  ·  CStudySettings  ·  drawStudyOverlays",
         ],
         head_h=20,
     )
@@ -405,13 +418,14 @@ def draw_figure1(ctx: cairo.Context) -> None:
         732,
         450,
         372,
-        110,
+        124,
         [
             "Charting is GUI-only",
             "src/chart/  ·  CChartSettings header-only.",
             "Charts never call MBoum or CurlClient.",
             "DATA row select does not set pane symbol.",
-            "Two GUI Readers on one WAL file is OK.",
+            "Studies are pane memory, not SQLite.",
+            "CStudy.h has no Bar and no ImGui.",
         ],
     )
 
@@ -560,7 +574,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ctx,
         48,
         1202,
-        "Charts read only (queryBars).  They never call MBoum.  libs/market-data does not depend on ImGui or ImPlot.",
+        "Charts read only (queryBars).  Studies are not Store rows.  Schema v1 stays frozen.  libs/market-data does not depend on ImGui or ImPlot.",
         10,
         color=MUTED,
     )
@@ -579,7 +593,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         (542, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
         (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", ART_FILL, PRIV_HEAD),
         (694, "data/market-data.sqlite", "«artifact»  WAL + SHM  ·  schema v1", ART_FILL, PRIV_HEAD),
-        (786, "Catch2 tests", "chart_load / chart_view  ·  market_data_tests", CLASS_FILL, CLASS_HEAD),
+        (786, "Catch2 tests", "chart_load / view / transform / study  ·  market_data", CLASS_FILL, CLASS_HEAD),
         (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PRIV_FILL, PRIV_HEAD),
     ]
     for ey, name, detail, fill, head in ext:
@@ -623,9 +637,11 @@ def draw_figure1(ctx: cairo.Context) -> None:
             "Charts never talk to MBoum.",
             "DATA row select does not set chart symbol.",
             "HTTP is in-process libcurl, not a fork.",
-            "Candles are custom GetPlotDrawList() draws.",
-            "Index X (not ImPlotScale_Time) so session",
-            "gaps are not empty overnight.",
+            "Candles and study overlays are custom",
+            "GetPlotDrawList() draws.  Index X.",
+            "computeStudies is GUI-thread, never throws.",
+            "Busy keep-candles does not recompute studies.",
+            "Apply/OK recomputes without loadChartBars.",
         ],
     )
 
@@ -976,6 +992,122 @@ def draw_figure4(ctx: cairo.Context) -> None:
     )
 
 
+def draw_figure5(ctx: cairo.Context) -> None:
+    y0 = 3340
+    draw_text(ctx, 28, y0, "Figure 5.  Study compute and overlay  (sequence)", 13.5, True)
+    draw_text(
+        ctx,
+        28,
+        y0 + 18,
+        "Studies are value types on CChartPane, not CChartSettings and not SQLite.  Chart Settings and Studies modals are mutually exclusive.",
+        11,
+        color=MUTED,
+    )
+
+    names = [
+        "Operator",
+        "CChartBook",
+        "CChartPane",
+        "CStudySettings",
+        "computeStudies",
+        "ImPlot",
+    ]
+    xs = [120, 400, 700, 1000, 1300, 1600]
+    top = y0 + 40
+    life_top = top + 34
+    bottom = y0 + 390
+
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 168, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    def activation(i: int, y1: float, y2: float) -> None:
+        x = xs[i]
+        rect(ctx, x - 5, y1, 10, max(12.0, y2 - y1), SEQ_ACT, SYNC, 0.9)
+
+    def call(i: int, j: int, y: float, label: str, *, ret: bool = False, asyn: bool = False) -> None:
+        x1, x2 = xs[i], xs[j]
+        color = RETURN if ret else (ASYNC if asyn else SYNC)
+        dx = 6 if x2 > x1 else -6
+        line_arrow(ctx, x1 + dx, y, x2 - dx, y, color, dashed=ret or asyn, open_head=ret or asyn)
+        draw_text(ctx, (x1 + x2) / 2, y - 5, label, 9.5, color=color, align="center")
+
+    def self_call(i: int, y: float, h: float, label: str) -> None:
+        x = xs[i]
+        set_color(ctx, SYNC)
+        ctx.set_line_width(1.15)
+        ctx.move_to(x + 6, y)
+        ctx.line_to(x + 52, y)
+        ctx.line_to(x + 52, y + h)
+        ctx.line_to(x + 6, y + h)
+        ctx.stroke()
+        arrow_head(ctx, x + 6, y + h, math.pi, 7)
+        draw_text(ctx, x + 58, y + h - 2, label, 9.5, color=SYNC)
+
+    y = [top + 56 + 38 * i for i in range(9)]
+    activation(1, y[0] - 8, y[1] + 10)
+    activation(2, y[0] - 8, y[8] + 10)
+    activation(3, y[2] - 8, y[3] + 10)
+    activation(4, y[5] - 8, y[6] + 10)
+    activation(5, y[7] - 8, y[8] + 10)
+
+    call(0, 1, y[0], "1  Chart >> Studies  (disabled if settings_open)")
+    call(1, 2, y[1], "2  openStudies()  studies_ → study_draft_")
+    call(2, 3, y[2], "3  drawStudyDraftBody  Add / Remove / Length")
+    call(3, 2, y[3], "4  Enter / Apply  (modal stays open)", ret=True)
+    self_call(2, y[4] - 8, 16, "5  applyStudyDraft  studies_ = study_draft_  ·  no loadChartBars")
+    call(2, 4, y[5], "6  studiesForLoad(loaded_, studies_)  Ready + non-empty bars")
+    call(4, 2, y[6], "7  CStudySeries[]  (disabled omitted; warmup = NaN)", ret=True)
+    call(2, 5, y[7], "8  drawCandlesticks then drawStudyOverlays")
+    self_call(5, y[8] - 8, 16, "9  polylines · no PlotLine · Overlay")
+
+    note_box(
+        ctx,
+        28,
+        y0 + 404,
+        560,
+        86,
+        [
+            "v1 moving average",
+            "Kind = Moving Average.  Method locked to Simple.",
+            "Source Open/High/Low/Close.  Length 1..10000, default 20 C.",
+            "EMA/WMA and Subgraph are reserved on the same types.",
+        ],
+    )
+    note_box(
+        ctx,
+        608,
+        y0 + 404,
+        560,
+        86,
+        [
+            "Ownership",
+            "CChartPane owns studies_, study_draft_, computed_.  Cap 16.",
+            "CStudy.h is free of Bar and ImGui.  Colors: kAccent/kWarn/kOk/kDanger.",
+            "Close Chart destroys the list.  A new pane starts empty.",
+        ],
+    )
+    note_box(
+        ctx,
+        1188,
+        y0 + 404,
+        584,
+        86,
+        [
+            "When compute runs",
+            "reload assigns computed_ when it assigns loaded_.",
+            "Busy/Error keep-candles does not call studiesForLoad.",
+            "Pan, wheel, and Y-scale drag do not recompute.",
+        ],
+    )
+
+
 def paint(ctx: cairo.Context) -> None:
     set_color(ctx, BG)
     ctx.paint()
@@ -983,6 +1115,7 @@ def paint(ctx: cairo.Context) -> None:
     draw_figure2(ctx)
     draw_figure3(ctx)
     draw_figure4(ctx)
+    draw_figure5(ctx)
 
 
 def main() -> None:
