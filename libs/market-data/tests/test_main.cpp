@@ -1,5 +1,6 @@
 #include "catch_amalgamated.hpp"
 #include "coverage_tests.h"
+#include "ingest_tests.h"
 #include "mboum_map_tests.h"
 #include "schema_tests.h"
 #include "sqlite_version_tests.h"

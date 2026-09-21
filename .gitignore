@@ -64,3 +64,10 @@ data/*.sqlite
 data/*.sqlite-wal
 data/*.sqlite-shm
 data/*.sqlite-journal
+
+# Vendor API keys (never commit)
+secrets.json
+/secrets.json
+
+# In-tree ingest binary (CMake writes it to build/ when out-of-source)
+/ingest

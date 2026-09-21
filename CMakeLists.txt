@@ -37,4 +37,5 @@ if(CYN_TESTING)
 endif()
 
 add_subdirectory(libs/market-data)
+add_subdirectory(apps/ingest)
 add_subdirectory(apps/terminal)

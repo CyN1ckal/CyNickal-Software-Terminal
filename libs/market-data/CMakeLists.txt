@@ -34,6 +34,10 @@ add_library(market-data STATIC
     src/market_data/Store.cpp
     src/market_data/Time.cpp
     src/market_data/MboumMap.cpp
+    src/market_data/Secrets.cpp
+    src/market_data/NyseCalendar.cpp
+    src/market_data/MboumJson.cpp
+    src/market_data/MboumIngest.cpp
 )
 target_include_directories(market-data
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
