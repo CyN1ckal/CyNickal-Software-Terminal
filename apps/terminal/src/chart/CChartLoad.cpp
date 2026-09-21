@@ -6,7 +6,7 @@
 #include <exception>
 #include <string>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 int clampSessionCount(int session_count) noexcept
@@ -154,4 +154,4 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal

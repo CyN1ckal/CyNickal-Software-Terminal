@@ -5,12 +5,12 @@
 #include <chrono>
 #include <thread>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 constexpr int kBaseWindowWidth = 1280;
 constexpr int kBaseWindowHeight = 800;
-constexpr auto kWindowTitle = "MyApp";
+constexpr auto kWindowTitle = "terminal";
 
 }  // namespace
 
@@ -58,4 +58,4 @@ void Application::rebuildSwapchainIfNeeded()
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal

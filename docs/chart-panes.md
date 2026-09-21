@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Author | MyApp |
+| Author | terminal |
 | Date | 2026-09-20 (revised) |
 | Status | Draft |
 | Audience | First-party C++ in `apps/terminal/` and `libs/market-data` |
@@ -10,13 +10,13 @@
 
 This is the **base design** for terminal charting. Implement from this document without guessing types or Store calls. Later PRs (other timeframes, bar types, studies, pan/zoom) must extend these types, not replace them.
 
-Sierra Chart Chart Settings is **inspiration**, not a clone. v1 behavior specified here is MyApp’s. Where Sierra details were not verified, they are not claimed.
+Sierra Chart Chart Settings is **inspiration**, not a clone. v1 behavior specified here is terminal’s. Where Sierra details were not verified, they are not claimed.
 
 ---
 
 ## Overview
 
-The terminal is an ImGui dock workspace (`Workspace`) with a left **DATA** inventory panel. There is no chart surface today. Dummy MONITOR/CHART/DETAIL/LOG windows were removed. Market data already lives in SQLite via `myapp::Store`; ingest is the DATA panel / `IngestWorker` path.
+The terminal is an ImGui dock workspace (`Workspace`) with a left **DATA** inventory panel. There is no chart surface today. Dummy MONITOR/CHART/DETAIL/LOG windows were removed. Market data already lives in SQLite via `terminal::Store`; ingest is the DATA panel / `IngestWorker` path.
 
 This design adds a **chartbook** of independent chart panes:
 
@@ -48,7 +48,7 @@ Charts never talk to MBoum. They only read the existing Store.
 
 ### Current market data (do not reinvent)
 
-Canonical library: `libs/market-data`, namespace `myapp`, public headers under `libs/market-data/src/market_data/`. Runtime DB: gitignored `data/market-data.sqlite` via `defaultMarketDataDbPath()` in `apps/common/RepoRoot.h`.
+Canonical library: `libs/market-data`, namespace `terminal`, public headers under `libs/market-data/src/market_data/`. Runtime DB: gitignored `data/market-data.sqlite` via `defaultMarketDataDbPath()` in `apps/common/RepoRoot.h`.
 
 Schema v1 is **frozen** (`kSchemaUserVersion = 1`). No ALTER. Prefer **no schema change** for charting — none is required.
 
@@ -64,13 +64,13 @@ Relevant Store APIs (`Store.h`):
 
 `queryBars` is inclusive-begin / exclusive-end, `ORDER BY ts` (`Store.cpp` `sel_bars`). `queryCoverageDays` is `ORDER BY session_date DESC`.
 
-`myapp::Bar` (`Types.h`): `instrument_id`, `timeframe_s`, `ts` (UTC unix seconds, open of the minute), `open/high/low/close/volume` as `double`. `kTimeframe1m = 60`. `kUsRthExpected1m = 390`.
+`terminal::Bar` (`Types.h`): `instrument_id`, `timeframe_s`, `ts` (UTC unix seconds, open of the minute), `open/high/low/close/volume` as `double`. `kTimeframe1m = 60`. `kUsRthExpected1m = 390`.
 
 Time helpers (`Time.h`): `usRthUtcWindow(tz, session_date)` → `[09:30, 16:00)` local as UTC; `parseSessionDate` / `formatSessionDate`; `utcToSessionDate`.
 
 Ingest already fail-closes on duplicate symbols (`MboumIngest.cpp` `ensureInstrument`: `findInstrumentsBySymbol` size > 1 throws). Charts must do the same.
 
-Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from source. Do not revive them. Charting consumes `myapp::Bar`.
+Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from source. Do not revive them. Charting consumes `terminal::Bar`.
 
 ### Pain points
 
@@ -220,7 +220,7 @@ Replace the stub in `tests/data/bar_loading_tests.h` only if a test would otherw
 
 ### Type definitions
 
-Naming: user-required `C` prefix on these three types. Members stay `snake_case_` like `InventoryPanel` / `Store`, not `m_Symbol`. `pragma once`, `namespace myapp`. Brace style: types as in `Store.h` / `InventoryPanel.h` (opening `{` on the next line). Error policy: Store still throws `std::runtime_error`. **`loadChartBars` is the single catch site** — it never throws to UI. `CChartPane::draw` / `reload` only merge `ChartLoadResult` values.
+Naming: user-required `C` prefix on these three types. Members stay `snake_case_` like `InventoryPanel` / `Store`, not `m_Symbol`. `pragma once`, `namespace terminal`. Brace style: types as in `Store.h` / `InventoryPanel.h` (opening `{` on the next line). Error policy: Store still throws `std::runtime_error`. **`loadChartBars` is the single catch site** — it never throws to UI. `CChartPane::draw` / `reload` only merge `ChartLoadResult` values.
 
 #### `CChartSettings`
 
@@ -234,7 +234,7 @@ Naming: user-required `C` prefix on these three types. Members stay `snake_case_
 #include <string>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 enum class ChartBarPeriod : std::uint8_t
 {
@@ -312,7 +312,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 `CChartSettings` is a **plain aggregate / value type** (it contains `std::string`, so it is not a POD). Copy it freely; do not `memcpy`.

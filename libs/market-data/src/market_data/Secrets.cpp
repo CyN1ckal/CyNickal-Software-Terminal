@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace myapp {
+namespace terminal {
 
 std::string loadMboumApiKey(const std::filesystem::path& secrets_path)
 {
@@ -43,4 +43,4 @@ std::string loadMboumApiKey(const std::filesystem::path& secrets_path)
     return key;
 }
 
-}  // namespace myapp
+}  // namespace terminal

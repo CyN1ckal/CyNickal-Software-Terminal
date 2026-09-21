@@ -13,7 +13,7 @@
 TEST_CASE("open empty path applies schema v1")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     CHECK(store.userVersion() == 1);
     CHECK(store.foreignKeysEnabled());
     const auto names = store.tableNames();
@@ -28,10 +28,10 @@ TEST_CASE("second open is a no-op migrate")
 {
     TempDb tmp;
     {
-        myapp::Store first(tmp.path());
+        terminal::Store first(tmp.path());
         CHECK(first.userVersion() == 1);
     }
-    myapp::Store second(tmp.path());
+    terminal::Store second(tmp.path());
     CHECK(second.userVersion() == 1);
     CHECK(second.tableNames().size() == 4);
 }
@@ -40,20 +40,20 @@ TEST_CASE("user_version 99 is refused")
 {
     TempDb tmp;
     {
-        myapp::Store store(tmp.path());
+        terminal::Store store(tmp.path());
         CHECK(store.userVersion() == 1);
     }
-    myapp::Store::testingSetUserVersion(tmp.path(), 99);
-    CHECK_THROWS_AS(myapp::Store(tmp.path()), std::runtime_error);
+    terminal::Store::testingSetUserVersion(tmp.path(), 99);
+    CHECK_THROWS_AS(terminal::Store(tmp.path()), std::runtime_error);
 }
 
 TEST_CASE("user_version 1 missing tables is refused")
 {
     TempDb tmp;
-    myapp::Store::testingSetUserVersion(tmp.path(), 1);
+    terminal::Store::testingSetUserVersion(tmp.path(), 1);
     try
     {
-        myapp::Store store(tmp.path());
+        terminal::Store store(tmp.path());
         FAIL("expected missing-table error");
     }
     catch (const std::runtime_error& ex)
@@ -65,9 +65,9 @@ TEST_CASE("user_version 1 missing tables is refused")
 TEST_CASE("embedded schema matches v1.sql")
 {
     const std::filesystem::path sql_path =
-        std::filesystem::path(MYAPP_MARKET_DATA_SCHEMA_DIR) / "v1.sql";
+        std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / "v1.sql";
     std::ifstream in(sql_path, std::ios::binary);
     REQUIRE(in);
     const std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    CHECK(file == myapp::schemaV1());
+    CHECK(file == terminal::schemaV1());
 }

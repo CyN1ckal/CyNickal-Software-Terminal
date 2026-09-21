@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 constexpr int kColSymbol = 0;
@@ -557,4 +557,4 @@ void InventoryPanel::drawDayTable()
     ImGui::EndTable();
 }
 
-}  // namespace myapp
+}  // namespace terminal

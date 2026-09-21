@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-namespace myapp {
+namespace terminal {
 
 struct MboumV3BarRow
 {
@@ -50,4 +50,4 @@ struct MboumDividendRow
 std::optional<CorporateAction> mapSplit(InstrumentId id, const MboumSplitRow& row);
 std::optional<CorporateAction> mapDividend(InstrumentId id, const MboumDividendRow& row);
 
-}  // namespace myapp
+}  // namespace terminal

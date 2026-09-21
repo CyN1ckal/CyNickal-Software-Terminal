@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 using UnixSeconds = std::int64_t;
 using SessionDate = std::int32_t;
@@ -274,4 +274,4 @@ inline bool isFormingBar(const Bar& b, UnixSeconds now_utc) noexcept
     return b.timeframe_s > 0 && b.ts + b.timeframe_s > now_utc;
 }
 
-}  // namespace myapp
+}  // namespace terminal

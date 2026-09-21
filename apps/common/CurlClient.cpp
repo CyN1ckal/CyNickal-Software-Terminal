@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <thread>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 constexpr const char* kUserAgent =
@@ -138,4 +138,4 @@ void CurlClient::appendHeader(const char* line)
     headers_ = next;
 }
 
-}  // namespace myapp
+}  // namespace terminal

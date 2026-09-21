@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-namespace myapp {
+namespace terminal {
 
 [[nodiscard]] inline bool isSuperprojectRoot(const std::filesystem::path& dir)
 {
@@ -38,4 +38,4 @@ namespace myapp {
     return findRepoRoot() / "secrets.json";
 }
 
-}  // namespace myapp
+}  // namespace terminal

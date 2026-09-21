@@ -4,5 +4,5 @@
 
 TEST_CASE("sqlite amalgamation version")
 {
-    CHECK(myapp::sqliteLibVersionNumber() == 3053004);
+    CHECK(terminal::sqliteLibVersionNumber() == 3053004);
 }

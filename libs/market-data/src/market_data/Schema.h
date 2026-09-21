@@ -2,8 +2,8 @@
 
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 [[nodiscard]] std::string_view schemaV1();
 
-}  // namespace myapp
+}  // namespace terminal

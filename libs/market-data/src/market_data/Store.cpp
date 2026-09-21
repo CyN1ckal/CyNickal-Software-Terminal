@@ -11,7 +11,7 @@
 #include <string_view>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 
 namespace {
 
@@ -882,6 +882,6 @@ std::vector<CorporateAction> Store::queryCorporateActions(InstrumentId id,
     return out;
 }
 
-}  // namespace myapp
+}  // namespace terminal
 
 

@@ -6,7 +6,7 @@
 #include <array>
 #include <stdexcept>
 
-namespace myapp {
+namespace terminal {
 
 VulkanSwapchain::VulkanSwapchain(const VulkanContext& context, VkSurfaceKHR surface,
                                  std::pair<int, int> framebuffer_size)
@@ -188,4 +188,4 @@ void VulkanSwapchain::destroy() noexcept
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal

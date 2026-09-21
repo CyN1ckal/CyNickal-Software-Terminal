@@ -8,7 +8,7 @@
 struct sqlite3;
 struct sqlite3_stmt;
 
-namespace myapp {
+namespace terminal {
 
 class SqliteDb
 {
@@ -90,4 +90,4 @@ private:
     bool committed_ = false;
 };
 
-}  // namespace myapp
+}  // namespace terminal

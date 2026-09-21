@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 class GlfwContext {
 public:
@@ -45,4 +45,4 @@ private:
     GLFWwindow* window_ = nullptr;
 };
 
-}  // namespace myapp
+}  // namespace terminal

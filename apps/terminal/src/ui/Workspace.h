@@ -5,7 +5,7 @@
 
 #include "imgui.h"
 
-namespace myapp {
+namespace terminal {
 
 class Workspace
 {
@@ -20,4 +20,4 @@ private:
     ImGuiID chart_dock_id_ = 0;
 };
 
-}  // namespace myapp
+}  // namespace terminal

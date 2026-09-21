@@ -7,11 +7,11 @@
 #include <span>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
                       std::string_view timezone);
 
-}  // namespace myapp
+}  // namespace terminal

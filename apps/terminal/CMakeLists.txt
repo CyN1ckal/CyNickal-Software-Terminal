@@ -34,9 +34,9 @@ add_executable(terminal
     ${TERMINAL_IMPLOT_DIR}/implot_items.cpp
 )
 
-if(MYAPP_ENABLE_CLANG_TIDY)
+if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(terminal PROPERTIES
-            CXX_CLANG_TIDY "${MYAPP_CLANG_TIDY}"
+            CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
     )
     set_source_files_properties(
             ${TERMINAL_IMGUI_DIR}/imgui.cpp
@@ -110,9 +110,9 @@ if(CYN_TESTING)
     )
     add_dependencies(terminal run_tests)
 
-    if(MYAPP_ENABLE_CLANG_TIDY)
+    if(TERMINAL_ENABLE_CLANG_TIDY)
         set_target_properties(terminal_tests PROPERTIES
-            CXX_CLANG_TIDY "${MYAPP_CLANG_TIDY}"
+            CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
         )
         set_source_files_properties(
             ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp

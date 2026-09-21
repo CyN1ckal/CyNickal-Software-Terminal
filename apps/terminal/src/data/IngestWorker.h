@@ -9,7 +9,7 @@
 #include <string>
 #include <thread>
 
-namespace myapp {
+namespace terminal {
 
 class IngestWorker
 {
@@ -59,4 +59,4 @@ private:
     std::thread thread_;
 };
 
-}  // namespace myapp
+}  // namespace terminal

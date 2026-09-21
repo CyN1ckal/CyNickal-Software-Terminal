@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 void checkVkResult(VkResult result);
 
@@ -14,4 +14,4 @@ void checkVkResult(VkResult result);
 
 [[nodiscard]] bool hasLayer(const std::vector<VkLayerProperties>& properties, std::string_view layer);
 
-}  // namespace myapp
+}  // namespace terminal

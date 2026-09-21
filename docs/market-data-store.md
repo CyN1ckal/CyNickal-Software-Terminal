@@ -15,9 +15,9 @@ This is an implementation spec. An engineer should be able to create the databas
 
 ## Overview
 
-MyApp needs a local, reusable, persistent market-data store for charting and strategy training. The GUI (`apps/terminal`) already links the `market-data` library but does not read SQLite; CHART is hardcoded quote chips. The empty file `data/market-data.sqlite` (0 bytes, not a SQLite database yet) is the intended runtime DB. `libs/market-data/` already exists as a CMake target and is the home for the store.
+The terminal needs a local, reusable, persistent market-data store for charting and strategy training. The GUI (`apps/terminal`) already links the `market-data` library but does not read SQLite; CHART is hardcoded quote chips. The empty file `data/market-data.sqlite` (0 bytes, not a SQLite database yet) is the intended runtime DB. `libs/market-data/` already exists as a CMake target and is the home for the store.
 
-v1 is a SQLite database with four STRICT tables — `instrument`, `bar`, `corporate_action`, `coverage_day` — owned by a RAII C++ `Store` in namespace `myapp`. Canonical grain is 1-minute as-traded OHLCV. Splits and dividends live in `corporate_action` and are applied at read time later; they are **not** baked into `bar`. Completeness is tracked per instrument/timeframe/session in `coverage_day` so a downloader can find holes without scanning bars. There is no `ingest_run` table.
+v1 is a SQLite database with four STRICT tables — `instrument`, `bar`, `corporate_action`, `coverage_day` — owned by a RAII C++ `Store` in namespace `terminal`. Canonical grain is 1-minute as-traded OHLCV. Splits and dividends live in `corporate_action` and are applied at read time later; they are **not** baked into `bar`. Completeness is tracked per instrument/timeframe/session in `coverage_day` so a downloader can find holes without scanning bars. There is no `ingest_run` table.
 
 The store does **not** include an HTTP client. It does pin MBoum field mapping, timezone conversion, upsert SQL, coverage maintenance, and the C++ API so a later ingest PR has nothing left to invent about the database.
 
@@ -31,7 +31,7 @@ Verified against `/home/cynickal/CLionProjects/MyApp` on 2026-09-20.
 
 | Piece | Path | Reality |
 |---|---|---|
-| Superproject | `CMakeLists.txt` | `project(MyApp LANGUAGES CXX)`, C++20. **Already** `add_subdirectory(libs/market-data)` then `add_subdirectory(apps/terminal)` (lines 31–32) |
+| Superproject | `CMakeLists.txt` | `project(terminal LANGUAGES CXX)`, C++20. **Already** `add_subdirectory(libs/market-data)` then `add_subdirectory(apps/terminal)` (lines 31–32) |
 | CMake target | `libs/market-data/CMakeLists.txt` | Target name **`market-data`** (hyphen). Sources: `CBarData.cpp/.h`, `CBarSeries.cpp/.h`, `market-data.h`. Public include dir = `libs/market-data/src`. clang-tidy + `-Wall -Wextra` already on |
 | Terminal link | `apps/terminal/CMakeLists.txt` lines 55–58 and 76–78 | `terminal` and `terminal_tests` already `target_link_libraries(... PRIVATE market-data)`. **Keep both link lines.** No `CBarLoader`. No `apps/terminal/src/data/` |
 | Leftover DTO | `libs/market-data/src/CBarData.{h,cpp}` | Global-namespace Hungarian `CBarData`: `float` OHLCV, unzoned `system_clock`. **Nothing in `apps/terminal/src` includes it.** Delete in PR 1 |
@@ -75,7 +75,7 @@ There is no durable 1-minute history. Training and charting need years of bars, 
 | Materialized 5m/1h/1d tables | `timeframe_s` already allows them; v1 writes `60` only |
 | Full MBoum HTTP client, retries, 429 loop, ingest CLI | Later follow-on (not required to finish the store). This spec pins field maps, `splits=false`, and timezone conversion only |
 | Strategy engine, chart renderer | Consumers of `Store::queryBars` |
-| Keeping `CBarData` / `CBarSeries` / `GetBarData` | Dead leftovers. Delete in PR 1. New type is `myapp::Bar` |
+| Keeping `CBarData` / `CBarSeries` / `GetBarData` | Dead leftovers. Delete in PR 1. New type is `terminal::Bar` |
 | Split/dividend **adjustment helper** on the read path | Schema + upsert now; `adjustBars(...)` is optional and can ship after corporate-action ingest |
 | Sharing one `sqlite3*` across threads without a mutex | Forbidden; see Concurrency |
 | CASCADE delete of years of bars | Forbidden; see FK policy |
@@ -87,7 +87,7 @@ There is no durable 1-minute history. Training and charting need years of bars, 
 | # | Decision | Rationale |
 |---|---|---|
 | K1 | Four tables only: `instrument`, `bar`, `corporate_action`, `coverage_day`. No `ingest_run`. | Product. Crash recovery = retry rows with `status != 'complete'`. |
-| K2 | Home is the existing CMake target **`market-data`** (hyphen). Namespace `myapp`. New types are **not** Hungarian `CBarData`. Delete `CBarData.{h,cpp}`, `CBarSeries.{h,cpp}`, and `market-data.h` (`GetBarData`) in PR 1. Do not keep a deprecated GUI DTO. | Target and terminal link already exist. Nothing in `apps/terminal/src` includes these types. `CBarData` is `float` + unzoned `system_clock`; `CBarSeries` is an unused wrapper. New code matches `Application`/`Window` (`pragma once`, `namespace myapp`, `snake_case_` members). |
+| K2 | Home is the existing CMake target **`market-data`** (hyphen). Namespace `terminal`. New types are **not** Hungarian `CBarData`. Delete `CBarData.{h,cpp}`, `CBarSeries.{h,cpp}`, and `market-data.h` (`GetBarData`) in PR 1. Do not keep a deprecated GUI DTO. | Target and terminal link already exist. Nothing in `apps/terminal/src` includes these types. `CBarData` is `float` + unzoned `system_clock`; `CBarSeries` is an unused wrapper. New code matches `Application`/`Window` (`pragma once`, `namespace terminal`, `snake_case_` members). |
 | K3 | Canonical schema file is `libs/market-data/schema/v1.sql`, compiled into the binary. | Schema next to the code that owns it. `docs/` stays prose. Runtime must not depend on cwd to find SQL. |
 | K4 | `PRAGMA user_version` is the migration counter. v1 = create-from-empty. | No ALTER story yet. Newer binary applies `vN.sql` in order; older binary refuses `user_version > kCurrent`. |
 | K5 | Populated `data/*.sqlite` (and `-wal`/`-shm`) are gitignored. Schema SQL is tracked. Delete the 0-byte placeholder from git. | File will contain licensed vendor history and is not source. |
@@ -107,8 +107,8 @@ There is no durable 1-minute history. Training and charting need years of bars, 
 | K19 | One writer connection, N reader connections. Never share `sqlite3*` across threads without a mutex. `SQLITE_THREADSAFE=1`. Writer `busy_timeout=5000`. GUI `Store` uses `busy_timeout=0` (try once) and keeps the last successful query. | A 5s wait on the GUI thread stalls frames. WAL still allows concurrent readers. |
 | K20 | `corporate_action` is created empty in the schema PR even if split ingest is later. | Avoid a v2 ALTER for a table we already agreed exists. |
 | K21 | CHECK / non-finite / unaligned bars: skip the row (`rejected++`), continue the batch. Coverage status uses **landed** `bar_count` vs `expected_count` only. Mapper filters (non-RTH, forming) are not rejects. **All writers** (`upsertBars` and `ingestSession`) drop forming minutes before bind without incrementing `rejected`. `session_still_open` is the live-session `partial` switch. | Forcing `partial` on any skip would leave every normal RTH day `partial` forever (16:00 / forming extras). Public `upsertBars` must not persist a live incomplete minute. If a real RTH bar is CHECK-rejected, `bar_count < expected` already yields `partial`. |
-| K22 | Root `project(MyApp LANGUAGES C CXX)`. Keep CMake target name `market-data`. Keep the existing unused `terminal` / `terminal_tests` link. Do not `add_subdirectory(libs/market-data)` a second time. | Root is `LANGUAGES CXX` today; amalgamation is C. A one-line `LANGUAGES C CXX` on `project()` is the usual CMake 4 fix (not a superproject rewrite). Do not `enable_language(C)` in the lib. The subdirectory and link already exist — PR 1 evolves them. |
-| K23 | `Store` is a pimpl. SQLite wrappers live in `libs/market-data/private/` (PRIVATE include dir, **not** under the public `src/` tree). `myapp_sqlite3` is linked **PRIVATE**; its sqlite include dir is **PRIVATE**. | Consumers (`terminal`) must not see `sqlite3.h`, `Sqlite.h`, or `SqliteDb::handle()`. Putting `internal/` under `src/market_data/` would still be `#include`-able via the public include dir. |
+| K22 | Root `project(terminal LANGUAGES C CXX)`. Keep CMake target name `market-data`. Keep the existing unused `terminal` / `terminal_tests` link. Do not `add_subdirectory(libs/market-data)` a second time. | Root is `LANGUAGES CXX` today; amalgamation is C. A one-line `LANGUAGES C CXX` on `project()` is the usual CMake 4 fix (not a superproject rewrite). Do not `enable_language(C)` in the lib. The subdirectory and link already exist — PR 1 evolves them. |
+| K23 | `Store` is a pimpl. SQLite wrappers live in `libs/market-data/private/` (PRIVATE include dir, **not** under the public `src/` tree). `terminal_sqlite3` is linked **PRIVATE**; its sqlite include dir is **PRIVATE**. | Consumers (`terminal`) must not see `sqlite3.h`, `Sqlite.h`, or `SqliteDb::handle()`. Putting `internal/` under `src/market_data/` would still be `#include`-able via the public include dir. |
 | K24 | Public write APIs each open one `BEGIN IMMEDIATE` when `sqlite3_get_autocommit(db)` is true. `ingestSession` opens the only txn and calls `_unlocked` helpers that never `BEGIN`. Nested `SqliteTxn` throws. | Nested `BEGIN IMMEDIATE` is `SQLITE_ERROR`. |
 | K25 | `expected_count` parameters default to `std::nullopt`. Callers pass `kUsRthExpected1m` (390) for US RTH. | A default of 390 would mis-mark crypto/futures as `missing`/`partial`. |
 
@@ -201,7 +201,7 @@ configure_file(
 #include "schema_v1.inc"  // generated; kSchemaV1
 ```
 
-`target_include_directories(market-data PRIVATE ${CMAKE_CURRENT_BINARY_DIR})` so `Schema.cpp` finds the inc. Drift-guard tests read `v1.sql` via compile def `MYAPP_MARKET_DATA_SCHEMA_DIR` set on **`market_data_tests`** (not only PRIVATE on the lib — PRIVATE does not propagate).
+`target_include_directories(market-data PRIVATE ${CMAKE_CURRENT_BINARY_DIR})` so `Schema.cpp` finds the inc. Drift-guard tests read `v1.sql` via compile def `TERMINAL_MARKET_DATA_SCHEMA_DIR` set on **`market_data_tests`** (not only PRIVATE on the lib — PRIVATE does not propagate).
 
 ### CMake wire-up
 
@@ -210,7 +210,7 @@ Root `CMakeLists.txt` **today already** has `add_subdirectory(libs/market-data)`
 One-line superproject change:
 
 ```cmake
-project(MyApp LANGUAGES C CXX)   # was LANGUAGES CXX; amalgamation is C
+project(terminal LANGUAGES C CXX)   # was LANGUAGES CXX; amalgamation is C
 ```
 
 `apps/terminal/CMakeLists.txt` already contains:
@@ -231,11 +231,11 @@ target_link_libraries(terminal PRIVATE
 A STATIC library with only a header and a PRIVATE sqlite dep is generator-dependent and can fail configure. PR 1 therefore ships one real C++ TU: `SqliteVersion.cpp`. Tests assert through that wrapper so they never `#include "sqlite3.h"`. `terminal` still cannot see sqlite headers.
 
 ```cmake
-add_library(myapp_sqlite3 STATIC
+add_library(terminal_sqlite3 STATIC
     ${CMAKE_SOURCE_DIR}/deps/sqlite/sqlite3.c
 )
-target_include_directories(myapp_sqlite3 PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite)
-target_compile_definitions(myapp_sqlite3 PRIVATE
+target_include_directories(terminal_sqlite3 PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite)
+target_compile_definitions(terminal_sqlite3 PRIVATE
     SQLITE_THREADSAFE=1
     SQLITE_DQS=0
     SQLITE_DEFAULT_MEMSTATUS=0
@@ -244,13 +244,13 @@ target_compile_definitions(myapp_sqlite3 PRIVATE
     SQLITE_USE_URI=1
 )
 set_source_files_properties(${CMAKE_SOURCE_DIR}/deps/sqlite/sqlite3.c PROPERTIES SKIP_LINTING ON)
-set_target_properties(myapp_sqlite3 PROPERTIES
+set_target_properties(terminal_sqlite3 PROPERTIES
     C_CLANG_TIDY ""
     CXX_CLANG_TIDY ""
 )
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
-    target_link_libraries(myapp_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
+    target_link_libraries(terminal_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
 
 add_library(market-data STATIC
@@ -260,7 +260,7 @@ target_include_directories(market-data
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
     PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite
 )
-target_link_libraries(market-data PRIVATE myapp_sqlite3)
+target_link_libraries(market-data PRIVATE terminal_sqlite3)
 if(UNIX AND NOT APPLE)
     target_link_libraries(market-data PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
@@ -269,7 +269,7 @@ target_compile_options(market-data PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
 )
 
-if(MYAPP_ENABLE_CLANG_TIDY)
+if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(market-data PROPERTIES
         CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
     )
@@ -290,7 +290,7 @@ if(CYN_TESTING)
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
     )
     add_test(NAME market_data_tests COMMAND market_data_tests)
-    if(MYAPP_ENABLE_CLANG_TIDY)
+    if(TERMINAL_ENABLE_CLANG_TIDY)
         set_target_properties(market_data_tests PROPERTIES
             CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
         )
@@ -307,12 +307,12 @@ endif()
 ```cpp
 #pragma once
 
-namespace myapp {
+namespace terminal {
 
 // Thin wrap of sqlite3_libversion_number so tests/GUI never include sqlite3.h.
 [[nodiscard]] int sqliteLibVersionNumber();
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 `src/market_data/SqliteVersion.cpp` (PRIVATE sqlite include dir on `market-data` is what makes `"sqlite3.h"` resolve here):
@@ -322,21 +322,21 @@ namespace myapp {
 
 #include "sqlite3.h"
 
-namespace myapp {
+namespace terminal {
 
 int sqliteLibVersionNumber()
 {
     return sqlite3_libversion_number();
 }
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 PR 1 test:
 
 ```cpp
 #include "market_data/SqliteVersion.h"
-CHECK(myapp::sqliteLibVersionNumber() == 3053004);
+CHECK(terminal::sqliteLibVersionNumber() == 3053004);
 ```
 
 Do **not** `#include "sqlite3.h"` from `market_data_tests` or `terminal`. Do not add `deps/sqlite` to those targets' include dirs.
@@ -346,11 +346,11 @@ Do **not** `#include "sqlite3.h"` from `market_data_tests` or `terminal`. Do not
 Each later PR **appends** its `.cpp` to `add_library(market-data STATIC ...)`. After PR 7 the source list is:
 
 ```cmake
-add_library(myapp_sqlite3 STATIC
+add_library(terminal_sqlite3 STATIC
     ${CMAKE_SOURCE_DIR}/deps/sqlite/sqlite3.c
 )
-target_include_directories(myapp_sqlite3 PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite)
-target_compile_definitions(myapp_sqlite3 PRIVATE
+target_include_directories(terminal_sqlite3 PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite)
+target_compile_definitions(terminal_sqlite3 PRIVATE
     SQLITE_THREADSAFE=1
     SQLITE_DQS=0
     SQLITE_DEFAULT_MEMSTATUS=0
@@ -359,14 +359,14 @@ target_compile_definitions(myapp_sqlite3 PRIVATE
     SQLITE_USE_URI=1
 )
 set_source_files_properties(${CMAKE_SOURCE_DIR}/deps/sqlite/sqlite3.c PROPERTIES SKIP_LINTING ON)
-set_target_properties(myapp_sqlite3 PROPERTIES
+set_target_properties(terminal_sqlite3 PROPERTIES
     C_CLANG_TIDY ""
     CXX_CLANG_TIDY ""
 )
 # Do not pass -Wall to the amalgamation. Do not compile shell.c.
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
-    target_link_libraries(myapp_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
+    target_link_libraries(terminal_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
 
 add_library(market-data STATIC
@@ -383,7 +383,7 @@ target_include_directories(market-data
     PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite              # SqliteVersion.cpp + Sqlite.cpp only
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}                  # PR 2 schema_v1.inc
 )
-target_link_libraries(market-data PRIVATE myapp_sqlite3)
+target_link_libraries(market-data PRIVATE terminal_sqlite3)
 if(UNIX AND NOT APPLE)
     # PRIVATE link of a static sqlite does not propagate Threads/dl/m to
     # terminal / market_data_tests. Re-export the link libs, not sqlite headers.
@@ -394,7 +394,7 @@ target_compile_options(market-data PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
 )
 
-if(MYAPP_ENABLE_CLANG_TIDY)
+if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(market-data PROPERTIES
         CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
     )
@@ -412,13 +412,13 @@ if(CYN_TESTING)
         ${CMAKE_SOURCE_DIR}/deps/catch
     )
     target_compile_definitions(market_data_tests PRIVATE
-        MYAPP_MARKET_DATA_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/schema"
+        TERMINAL_MARKET_DATA_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/schema"
     )
     target_compile_options(market_data_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
     )
     add_test(NAME market_data_tests COMMAND market_data_tests)
-    if(MYAPP_ENABLE_CLANG_TIDY)
+    if(TERMINAL_ENABLE_CLANG_TIDY)
         set_target_properties(market_data_tests PROPERTIES
             CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
         )
@@ -433,12 +433,12 @@ endif()
 Notes:
 
 - Target name stays **`market-data`**. Tests executable is `market_data_tests` (underscore is fine for a binary).
-- `myapp_sqlite3` include dir is **PRIVATE**. `market-data` links it **PRIVATE**. CMake 4 still pulls the static `.a` into `market_data_tests` / `terminal`; sqlite **headers** do not propagate.
-- The only TUs allowed to `#include "sqlite3.h"` are `src/market_data/SqliteVersion.cpp` and (from PR 2) `private/Sqlite.cpp`. Tests call `myapp::sqliteLibVersionNumber()`. `terminal` never includes sqlite headers.
+- `terminal_sqlite3` include dir is **PRIVATE**. `market-data` links it **PRIVATE**. CMake 4 still pulls the static `.a` into `market_data_tests` / `terminal`; sqlite **headers** do not propagate.
+- The only TUs allowed to `#include "sqlite3.h"` are `src/market_data/SqliteVersion.cpp` and (from PR 2) `private/Sqlite.cpp`. Tests call `terminal::sqliteLibVersionNumber()`. `terminal` never includes sqlite headers.
 - Unix `Threads` / `dl` / `m` are re-exported `PUBLIC` on `market-data` so the GUI link does not hit undefined pthread refs. That does **not** put `sqlite3.h` on the consumer include path.
-- `.clang-tidy` `HeaderFilterRegex: '.*/src/.*'` already matches `libs/market-data/src/`. Do not lint `deps/sqlite`. `C_CLANG_TIDY=""` on `myapp_sqlite3` is required because `WarningsAsErrors: '*'` would fail the amalgamation even if SKIP_LINTING is set on the `.c` file.
+- `.clang-tidy` `HeaderFilterRegex: '.*/src/.*'` already matches `libs/market-data/src/`. Do not lint `deps/sqlite`. `C_CLANG_TIDY=""` on `terminal_sqlite3` is required because `WarningsAsErrors: '*'` would fail the amalgamation even if SKIP_LINTING is set on the `.c` file.
 - Do not compile `deps/sqlite/shell.c`.
-- PR 2 adds `MYAPP_MARKET_DATA_SCHEMA_DIR` on **`market_data_tests`** (not only PRIVATE on the lib).
+- PR 2 adds `TERMINAL_MARKET_DATA_SCHEMA_DIR` on **`market_data_tests`** (not only PRIVATE on the lib).
 
 ### Architecture
 
@@ -458,7 +458,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant Ingest as Ingest loop (later PR)
-  participant Store as myapp::Store
+  participant Store as terminal::Store
   participant DB as SQLite WAL
   participant API as MBoum v3 (later PR)
 
@@ -857,7 +857,7 @@ US equity/etf/index in `America/New_York`: keep bars whose **local** time `t` sa
 #include <optional>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 UnixSeconds nowUtc();
 
@@ -889,7 +889,7 @@ UtcWindow sessionUtcWindow(std::string_view iana_tz, SessionDate session_date);
 
 bool isUsRthLocal(std::chrono::hh_mm_ss<std::chrono::seconds> local_hms) noexcept;
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 **Throw vs `nullopt` (normative):** missing tzdb / empty timezone name is an environment/programmer error → `std::runtime_error`. Bad vendor strings, spring-gap local times, and unparseable money/dates → `std::nullopt`. Mappers do **not** catch; they propagate throw and treat `nullopt` as skip-row. Do not catch `runtime_error` in mappers — that would swallow a missing tzdb.
@@ -1240,7 +1240,7 @@ Calendar endpoints are date-paged, not a full corporate-action history API. The 
 ### Mapper API (no sockets)
 
 ```cpp
-namespace myapp {
+namespace terminal {
 
 struct MboumV3BarRow
 {
@@ -1285,7 +1285,7 @@ struct MboumDividendRow
 std::optional<CorporateAction> mapSplit(InstrumentId id, const MboumSplitRow& row);
 std::optional<CorporateAction> mapDividend(InstrumentId id, const MboumDividendRow& row);
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 `mapV3Bar` / `mapV2Bar` return `std::nullopt` for forming, unaligned, invalid OHLC, non-RTH (v1), or when `naiveLocalToUtc` / v2 fallback parse returns `nullopt`. Those `nullopt`s are **filters**, not CHECK rejects — do not pass them into `ingestSession` as bars, and do not increment `rejected`. Throw only if timezone is empty or missing from tzdb (parsers throw; mappers do not catch).
@@ -1298,7 +1298,7 @@ std::optional<CorporateAction> mapDividend(InstrumentId id, const MboumDividendR
 
 ## C++ store API
 
-Match `apps/terminal/src/terminal/Application.h` and `platform/window/Window.h`: `pragma once`, `namespace myapp`, deleted copy/move for resource owners, `[[nodiscard]]`, trailing-underscore members, relative includes, `std::runtime_error`.
+Match `apps/terminal/src/terminal/Application.h` and `platform/window/Window.h`: `pragma once`, `namespace terminal`, deleted copy/move for resource owners, `[[nodiscard]]`, trailing-underscore members, relative includes, `std::runtime_error`.
 
 Do **not** reuse `CBarData` / `CBarSeries`. New `Bar` uses `double` and `UnixSeconds`. Delete the Hungarian leftovers in PR 1.
 
@@ -1313,7 +1313,7 @@ Do **not** reuse `CBarData` / `CBarSeries`. New `Bar` uses `double` and `UnixSec
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 using UnixSeconds = std::int64_t;
 using SessionDate = std::int32_t;
@@ -1420,7 +1420,7 @@ AssetClass assetClassFromSql(std::string_view);
 CoverageStatus coverageStatusFromSql(std::string_view);
 CorporateActionType corporateActionTypeFromSql(std::string_view);
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 SQL text: `'equity'`, `'etf'`, `'index'`, `'future'`, `'crypto'`, `'other'`; `'complete'` / `'partial'` / `'missing'` / `'error'`; `'split'` / `'dividend'` / `'spinoff'` / `'other'`. Unknown text throws.
@@ -1439,7 +1439,7 @@ Not on the public include path. `Store.h` does **not** include this file. Only `
 struct sqlite3;
 struct sqlite3_stmt;
 
-namespace myapp {
+namespace terminal {
 
 class SqliteDb
 {
@@ -1507,7 +1507,7 @@ private:
     bool committed_ = false;
 };
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 Rules:
@@ -1535,7 +1535,7 @@ Rules:
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 enum class StoreMode
 {
@@ -1605,7 +1605,7 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace myapp
+}  // namespace terminal
 ```
 
 `Impl` (in `Store.cpp` only) holds `SqliteDb db_` **then** `mutable SqliteStmt` / `mutable std::optional<SqliteStmt>` members (destroy stmts first), plus `path_`, `mode_`, cached timezone strings. Query methods stay `const`; they mutate `mutable` stmts via bind/reset/step.
@@ -1653,7 +1653,7 @@ Pin backward adjustment: for each split with `ex_ts > ts`, `price /= split_ratio
 
 | | Dead leftover (`CBarData` / `CBarSeries`) | Store path |
 |---|---|---|
-| Namespace | global / `market_data::GetBarData` | `myapp` |
+| Namespace | global / `market_data::GetBarData` | `terminal` |
 | Names | `CBarData`, `m_Open` | `Bar`, `open` |
 | Time | unzoned `system_clock` | unix seconds UTC |
 | Prices | `float` | `double` |
@@ -1704,7 +1704,7 @@ Required cases:
 
 | File | Case |
 |---|---|
-| `sqlite_version_tests.h` (PR 1) | `#include "market_data/SqliteVersion.h"`; `CHECK(myapp::sqliteLibVersionNumber() == 3053004)`; do not include `sqlite3.h` |
+| `sqlite_version_tests.h` (PR 1) | `#include "market_data/SqliteVersion.h"`; `CHECK(terminal::sqliteLibVersionNumber() == 3053004)`; do not include `sqlite3.h` |
 | `schema_tests` | Open empty path → `user_version == 1`; four tables exist (`sqlite_master`); `PRAGMA foreign_keys` is on; embed == `v1.sql` bytes |
 | `schema_tests` | Second open is a no-op migrate |
 | `schema_tests` | Opening a DB with `user_version = 99` throws |
@@ -1884,7 +1884,7 @@ Integer millicents would need a per-instrument scale and overflow policy. v1 is 
 | WAL + USB/network filesystem | Medium | Spec assumes local disk. Do not put the DB on NFS. |
 | 13 GB @ 200 symbols / 5y on a laptop SSD | Low | Product choice; SQLite is fine. Not the v1 universe. |
 | Expression unique-index `ON CONFLICT` portability | Low | C++ SELECT-merge for instrument and corporate_action; no ON CONFLICT on expressions. |
-| clang-tidy vs sqlite headers | Low | `SKIP_LINTING` + `C_CLANG_TIDY=""` on `myapp_sqlite3`; `sqlite3.h` only from `private/Sqlite.cpp`. |
+| clang-tidy vs sqlite headers | Low | `SKIP_LINTING` + `C_CLANG_TIDY=""` on `terminal_sqlite3`; `sqlite3.h` only from `private/Sqlite.cpp`. |
 | Nested `BEGIN` | Medium | Public writes check autocommit; `ingestSession` uses `_unlocked` helpers. |
 | GUI 5s stall | Medium | `StoreMode::Reader` sets `busy_timeout=0`. |
 
@@ -1904,10 +1904,10 @@ Resolved here (do not re-ask): gitignore populated sqlite (**yes**); C++ lives i
 
 ## API / Interface Changes
 
-- Root `project(MyApp LANGUAGES C CXX)` (was `CXX` only). **Do not** add a second `add_subdirectory(libs/market-data)`.
+- Root `project(terminal LANGUAGES C CXX)` (was `CXX` only). **Do not** add a second `add_subdirectory(libs/market-data)`.
 - `libs/market-data/CMakeLists.txt` evolves in place: keep target name `market-data`; add amalgamation + `Store` sources; drop `CBarData` / `CBarSeries` / `market-data.h`.
 - `apps/terminal/CMakeLists.txt`: **leave** `target_link_libraries(terminal PRIVATE market-data)` and the `terminal_tests` equivalent. No other terminal source changes in the store PRs.
-- New public surface: `myapp::Store`, `myapp::Bar`, … via `#include "market_data/Store.h"`.
+- New public surface: `terminal::Store`, `terminal::Bar`, … via `#include "market_data/Store.h"`.
 
 ---
 
@@ -1935,12 +1935,12 @@ Incremental, each PR independently reviewable and mergeable. `terminal` keeps bu
 - **Title:** `Wire SQLite 3.53 amalgamation into market-data and drop unused CBar types.`
 - **Files:** root `CMakeLists.txt` (`LANGUAGES C CXX` only), `libs/market-data/CMakeLists.txt` (**PR 1 listing only** — `SqliteVersion.cpp`, not Store/Time/MboumMap), add `src/market_data/Types.h`, `src/market_data/SqliteVersion.{h,cpp}`, `tests/test_main.cpp`, `tests/sqlite_version_tests.h`, delete `src/CBarData.{h,cpp}`, `src/CBarSeries.{h,cpp}`, `src/market-data.h`, `.gitignore` (`data/*.sqlite*`), `data/.gitkeep`, untrack 0-byte `data/market-data.sqlite`
 - **Depends on:** none
-- **Changes:** Keep target name **`market-data`**. Keep both terminal link lines. Add static `myapp_sqlite3` (`sqlite3.c` only, compile defs in this spec, `C_CLANG_TIDY=""`, SKIP_LINTING, no `shell.c`, no `-Wall`). `market-data` links it PRIVATE and compiles `SqliteVersion.cpp` so the STATIC lib has a C++ TU. `market_data_tests` `CHECK(myapp::sqliteLibVersionNumber() == 3053004)` — tests do **not** include `sqlite3.h`. `MYAPP_MARKET_DATA_SCHEMA_DIR` not needed yet. Do not paste the end-of-PR-7 source list into this PR.
+- **Changes:** Keep target name **`market-data`**. Keep both terminal link lines. Add static `terminal_sqlite3` (`sqlite3.c` only, compile defs in this spec, `C_CLANG_TIDY=""`, SKIP_LINTING, no `shell.c`, no `-Wall`). `market-data` links it PRIVATE and compiles `SqliteVersion.cpp` so the STATIC lib has a C++ TU. `market_data_tests` `CHECK(terminal::sqliteLibVersionNumber() == 3053004)` — tests do **not** include `sqlite3.h`. `TERMINAL_MARKET_DATA_SCHEMA_DIR` not needed yet. Do not paste the end-of-PR-7 source list into this PR.
 
 ### PR 2 — Schema v1 DDL + pimpl `Store` open/migrate
 
 - **Title:** `Apply market-data schema v1 on empty SQLite open.`
-- **Files:** `libs/market-data/schema/v1.sql`, `schema_v1.inc.in`, `Schema.{h,cpp}`, `private/Sqlite.{h,cpp}`, `src/market_data/Store.{h,cpp}` (ctor/dtor/migrate only), `tests/schema_tests.h`. CMake: **append** `private/Sqlite.cpp`, `Schema.cpp`, `Store.cpp` to `market-data`; add `PRIVATE` `private/` + `${CMAKE_CURRENT_BINARY_DIR}`; `configure_file`; `MYAPP_MARKET_DATA_SCHEMA_DIR` on **`market_data_tests`**
+- **Files:** `libs/market-data/schema/v1.sql`, `schema_v1.inc.in`, `Schema.{h,cpp}`, `private/Sqlite.{h,cpp}`, `src/market_data/Store.{h,cpp}` (ctor/dtor/migrate only), `tests/schema_tests.h`. CMake: **append** `private/Sqlite.cpp`, `Schema.cpp`, `Store.cpp` to `market-data`; add `PRIVATE` `private/` + `${CMAKE_CURRENT_BINARY_DIR}`; `configure_file`; `TERMINAL_MARKET_DATA_SCHEMA_DIR` on **`market_data_tests`**
 - **Depends on:** PR 1
 - **Changes:** Connection PRAGMAs (`busy_timeout` from `StoreMode`), embed `v1.sql`, `user_version` 0→1, refuse newer versions, embed↔file equality test, `sqlite_master` table list, foreign_keys on. Destructors `noexcept`. No bar APIs yet.
 

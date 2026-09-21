@@ -2,11 +2,11 @@
 
 #include "schema_v1.inc"
 
-namespace myapp {
+namespace terminal {
 
 std::string_view schemaV1()
 {
     return kSchemaV1;
 }
 
-}  // namespace myapp
+}  // namespace terminal

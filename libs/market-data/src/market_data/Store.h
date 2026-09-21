@@ -11,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 enum class StoreMode : std::uint8_t
 {
@@ -93,4 +93,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace myapp
+}  // namespace terminal

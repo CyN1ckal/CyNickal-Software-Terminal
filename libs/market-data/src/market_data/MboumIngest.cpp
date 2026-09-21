@@ -10,7 +10,7 @@
 #include <string>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 using namespace std::chrono;
@@ -225,4 +225,4 @@ IngestSymbolResult ingestSymbol(Store& store,
     return result;
 }
 
-}  // namespace myapp
+}  // namespace terminal

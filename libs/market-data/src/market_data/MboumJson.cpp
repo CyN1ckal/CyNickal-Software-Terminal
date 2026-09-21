@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 [[nodiscard]] bool splitsTruthy(const nlohmann::json& value)
@@ -123,4 +123,4 @@ std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_da
     return url;
 }
 
-}  // namespace myapp
+}  // namespace terminal

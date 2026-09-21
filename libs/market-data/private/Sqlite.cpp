@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 [[nodiscard]] std::string sqliteError(sqlite3* db, std::string_view prefix, std::string_view sql = {})
@@ -319,4 +319,4 @@ void SqliteTxn::commit()
     committed_ = true;
 }
 
-}  // namespace myapp
+}  // namespace terminal

@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace myapp {
+namespace terminal {
 
 void checkVkResult(VkResult result)
 {
@@ -34,4 +34,4 @@ bool hasLayer(const std::vector<VkLayerProperties>& properties, std::string_view
     });
 }
 
-}  // namespace myapp
+}  // namespace terminal

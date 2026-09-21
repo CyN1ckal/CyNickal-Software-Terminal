@@ -11,20 +11,20 @@
 
 namespace {
 
-myapp::Instrument makeAapl(std::optional<std::string> exchange = std::string{"NMS"})
+terminal::Instrument makeAapl(std::optional<std::string> exchange = std::string{"NMS"})
 {
-    myapp::Instrument inst;
+    terminal::Instrument inst;
     inst.symbol = "AAPL";
     inst.exchange = std::move(exchange);
     inst.name = "Apple";
     return inst;
 }
 
-myapp::Bar makeBar(myapp::InstrumentId id, myapp::UnixSeconds ts, double close = 10.0)
+terminal::Bar makeBar(terminal::InstrumentId id, terminal::UnixSeconds ts, double close = 10.0)
 {
-    myapp::Bar bar;
+    terminal::Bar bar;
     bar.instrument_id = id;
-    bar.timeframe_s = myapp::kTimeframe1m;
+    bar.timeframe_s = terminal::kTimeframe1m;
     bar.ts = ts;
     bar.open = close;
     bar.high = close + 1.0;
@@ -34,12 +34,12 @@ myapp::Bar makeBar(myapp::InstrumentId id, myapp::UnixSeconds ts, double close =
     return bar;
 }
 
-myapp::UnixSeconds alignedNowMinus(int minutes)
+terminal::UnixSeconds alignedNowMinus(int minutes)
 {
     const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                          std::chrono::system_clock::now().time_since_epoch())
                          .count();
-    const auto ts = now - static_cast<myapp::UnixSeconds>(minutes) * 60;
+    const auto ts = now - static_cast<terminal::UnixSeconds>(minutes) * 60;
     return ts - (ts % 60);
 }
 
@@ -48,7 +48,7 @@ myapp::UnixSeconds alignedNowMinus(int minutes)
 TEST_CASE("upsertInstrument inserts then updates name")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id1 = store.upsertInstrument(makeAapl());
     CHECK(id1 > 0);
     auto found = store.findInstrument("aapl", "NMS");
@@ -68,7 +68,7 @@ TEST_CASE("upsertInstrument inserts then updates name")
 TEST_CASE("NULL exchange and NMS are distinct; empty matches NULL")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id_null = store.upsertInstrument(makeAapl(std::nullopt));
     const auto id_nms = store.upsertInstrument(makeAapl("NMS"));
     CHECK(id_null != id_nms);
@@ -89,12 +89,12 @@ TEST_CASE("NULL exchange and NMS are distinct; empty matches NULL")
 TEST_CASE("upsertBars last write wins on close")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
     const auto ts = alignedNowMinus(5);
-    CHECK(store.upsertBars(std::vector<myapp::Bar>{makeBar(id, ts, 10.0)}).written == 1);
-    CHECK(store.upsertBars(std::vector<myapp::Bar>{makeBar(id, ts, 12.5)}).written == 1);
-    const auto rows = store.queryBars(id, myapp::kTimeframe1m, ts, ts + 60);
+    CHECK(store.upsertBars(std::vector<terminal::Bar>{makeBar(id, ts, 10.0)}).written == 1);
+    CHECK(store.upsertBars(std::vector<terminal::Bar>{makeBar(id, ts, 12.5)}).written == 1);
+    const auto rows = store.queryBars(id, terminal::kTimeframe1m, ts, ts + 60);
     REQUIRE(rows.size() == 1);
     CHECK(rows[0].close == 12.5);
 }
@@ -102,42 +102,42 @@ TEST_CASE("upsertBars last write wins on close")
 TEST_CASE("invalid OHLC is rejected")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
     auto bar = makeBar(id, alignedNowMinus(5));
     bar.high = 1.0;
     bar.low = 9.0;
-    const auto result = store.upsertBars(std::vector<myapp::Bar>{bar});
+    const auto result = store.upsertBars(std::vector<terminal::Bar>{bar});
     CHECK(result.written == 0);
     CHECK(result.rejected == 1);
-    CHECK(store.queryBars(id, myapp::kTimeframe1m, 0, 4000000000).empty());
+    CHECK(store.queryBars(id, terminal::kTimeframe1m, 0, 4000000000).empty());
 }
 
 TEST_CASE("forming minute is skipped not rejected")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
     const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                          std::chrono::system_clock::now().time_since_epoch())
                          .count();
     const auto ts = now - (now % 60);
-    const auto result = store.upsertBars(std::vector<myapp::Bar>{makeBar(id, ts)});
+    const auto result = store.upsertBars(std::vector<terminal::Bar>{makeBar(id, ts)});
     CHECK(result.written == 0);
     CHECK(result.rejected == 0);
-    CHECK(store.queryBars(id, myapp::kTimeframe1m, 0, 4000000000).empty());
+    CHECK(store.queryBars(id, terminal::kTimeframe1m, 0, 4000000000).empty());
 }
 
 TEST_CASE("queryBars is ascending and exclusive-end")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
     const auto t0 = alignedNowMinus(10);
-    CHECK(store.upsertBars(std::vector<myapp::Bar>{makeBar(id, t0, 1), makeBar(id, t0 + 60, 2),
+    CHECK(store.upsertBars(std::vector<terminal::Bar>{makeBar(id, t0, 1), makeBar(id, t0 + 60, 2),
                                                    makeBar(id, t0 + 120, 3)})
               .written == 3);
-    const auto rows = store.queryBars(id, myapp::kTimeframe1m, t0, t0 + 120);
+    const auto rows = store.queryBars(id, terminal::kTimeframe1m, t0, t0 + 120);
     REQUIRE(rows.size() == 2);
     CHECK(rows[0].ts == t0);
     CHECK(rows[1].ts == t0 + 60);
@@ -146,22 +146,22 @@ TEST_CASE("queryBars is ascending and exclusive-end")
 TEST_CASE("FK failure rolls back the whole upsertBars call")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
     const auto ts = alignedNowMinus(5);
     const auto good = makeBar(id, ts);
     const auto bad = makeBar(999, ts + 60);
-    CHECK_THROWS_AS(store.upsertBars(std::vector<myapp::Bar>{good, bad}), std::runtime_error);
-    CHECK(store.queryBars(id, myapp::kTimeframe1m, 0, 4000000000).empty());
+    CHECK_THROWS_AS(store.upsertBars(std::vector<terminal::Bar>{good, bad}), std::runtime_error);
+    CHECK(store.queryBars(id, terminal::kTimeframe1m, 0, 4000000000).empty());
 }
 
 TEST_CASE("timezone change after bars throws")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     auto inst = makeAapl();
     const auto id = store.upsertInstrument(inst);
-    CHECK(store.upsertBars(std::vector<myapp::Bar>{makeBar(id, alignedNowMinus(5))}).written == 1);
+    CHECK(store.upsertBars(std::vector<terminal::Bar>{makeBar(id, alignedNowMinus(5))}).written == 1);
     inst.timezone = "America/Chicago";
     CHECK_THROWS_AS(store.upsertInstrument(inst), std::runtime_error);
     CHECK(store.findInstrumentById(id)->timezone == "America/New_York");
@@ -170,12 +170,12 @@ TEST_CASE("timezone change after bars throws")
 TEST_CASE("corporate_action SELECT-merge keeps identity")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     const auto id = store.upsertInstrument(makeAapl());
-    myapp::CorporateAction split;
+    terminal::CorporateAction split;
     split.instrument_id = id;
     split.ex_ts = 1598846400;
-    split.type = myapp::CorporateActionType::Split;
+    split.type = terminal::CorporateActionType::Split;
     split.split_ratio = 4.0;
     split.source = "mboum";
     store.upsertCorporateAction(split);
@@ -190,31 +190,31 @@ TEST_CASE("corporate_action SELECT-merge keeps identity")
 TEST_CASE("queryCoverageSummaries includes names with no coverage")
 {
     TempDb tmp;
-    myapp::Store store(tmp.path());
+    terminal::Store store(tmp.path());
     auto aapl = makeAapl();
     const auto aapl_id = store.upsertInstrument(aapl);
-    myapp::Instrument msft;
+    terminal::Instrument msft;
     msft.symbol = "MSFT";
     store.upsertInstrument(msft);
 
-    myapp::CoverageDay complete;
+    terminal::CoverageDay complete;
     complete.instrument_id = aapl_id;
-    complete.timeframe_s = myapp::kTimeframe1m;
+    complete.timeframe_s = terminal::kTimeframe1m;
     complete.session_date = 20250115;
     complete.bar_count = 390;
     complete.expected_count = 390;
-    complete.status = myapp::CoverageStatus::Complete;
+    complete.status = terminal::CoverageStatus::Complete;
     complete.ingested_at = 1;
     store.upsertCoverage(complete);
 
-    myapp::CoverageDay partial = complete;
+    terminal::CoverageDay partial = complete;
     partial.session_date = 20250116;
     partial.bar_count = 200;
-    partial.status = myapp::CoverageStatus::Partial;
+    partial.status = terminal::CoverageStatus::Partial;
     partial.ingested_at = 2;
     store.upsertCoverage(partial);
 
-    const auto rows = store.queryCoverageSummaries(myapp::kTimeframe1m);
+    const auto rows = store.queryCoverageSummaries(terminal::kTimeframe1m);
     REQUIRE(rows.size() == 2);
     CHECK(rows[0].instrument.symbol == "AAPL");
     CHECK(rows[0].bar_count == 590);
@@ -228,9 +228,9 @@ TEST_CASE("queryCoverageSummaries includes names with no coverage")
     CHECK(rows[1].session_count == 0);
     CHECK(rows[1].bar_count == 0);
 
-    const auto days = store.queryCoverageDays(aapl_id, myapp::kTimeframe1m);
+    const auto days = store.queryCoverageDays(aapl_id, terminal::kTimeframe1m);
     REQUIRE(days.size() == 2);
     CHECK(days[0].session_date == 20250116);
     CHECK(days[1].session_date == 20250115);
-    CHECK(store.queryCoverageDays(rows[1].instrument.id, myapp::kTimeframe1m).empty());
+    CHECK(store.queryCoverageDays(rows[1].instrument.id, terminal::kTimeframe1m).empty());
 }

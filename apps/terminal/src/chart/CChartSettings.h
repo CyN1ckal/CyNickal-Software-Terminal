@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 enum class ChartBarPeriod : std::uint8_t
 {
@@ -145,4 +145,4 @@ inline void clampV1Limits(CChartSettings& s) noexcept
            a.limit_mode == b.limit_mode && a.session_count == b.session_count;
 }
 
-}  // namespace myapp
+}  // namespace terminal

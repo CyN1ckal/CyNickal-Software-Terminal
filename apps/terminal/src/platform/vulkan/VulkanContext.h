@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 class VulkanContext {
 public:
@@ -45,4 +45,4 @@ private:
 #endif
 };
 
-}  // namespace myapp
+}  // namespace terminal

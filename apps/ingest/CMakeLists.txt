@@ -15,7 +15,7 @@ target_compile_options(ingest PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
 )
 
-if(MYAPP_ENABLE_CLANG_TIDY)
+if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(ingest PROPERTIES
         CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
     )

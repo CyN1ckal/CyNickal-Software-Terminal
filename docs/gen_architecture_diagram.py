@@ -248,18 +248,18 @@ def note_box(ctx: cairo.Context, x: float, y: float, w: float, h: float, lines: 
 
 
 def draw_figure1(ctx: cairo.Context) -> None:
-    draw_text(ctx, 28, 34, "MyApp superproject — component interactions", 22, True)
+    draw_text(ctx, 28, 34, "terminal superproject — component interactions", 22, True)
     draw_text(
         ctx,
         28,
         54,
-        "UML 2 component diagram  ·  CMake targets  ·  composition by nesting  ·  namespace myapp",
+        "UML 2 component diagram  ·  CMake targets  ·  composition by nesting  ·  namespace terminal",
         11.5,
         color=MUTED,
     )
     draw_text(ctx, 28, 80, "Figure 1.  Components and assembly", 13.5, True)
 
-    package(ctx, 16, 94, 1104, 1068, "MyApp", "«system»")
+    package(ctx, 16, 94, 1104, 1068, "terminal", "«system»")
     draw_text(
         ctx,
         32,
@@ -451,7 +451,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         932,
         254,
         64,
-        "myapp_sqlite3",
+        "terminal_sqlite3",
         "«library» PRIVATE",
         PRIV_FILL,
         PRIV_HEAD,
@@ -512,7 +512,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     for ey, name, detail, fill, head in ext:
         inner(ctx, 1266, ey, 496, 54, name, None, fill, head, [detail], head_h=20)
 
-    # Gutter between MyApp (right=1120) and Environment (left=1248).
+    # Gutter between terminal (right=1120) and Environment (left=1248).
     gutter_x1 = 1120
     gutter_x2 = 1266
     arrows = [
@@ -764,7 +764,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 358,
-        "CMake: terminal and ingest link market-data and CURL::libcurl.  terminal also links glfw and Vulkan::Vulkan.  market-data privately links myapp_sqlite3.",
+        "CMake: terminal and ingest link market-data and CURL::libcurl.  terminal also links glfw and Vulkan::Vulkan.  market-data privately links terminal_sqlite3.",
         10.5,
         color=MUTED,
     )

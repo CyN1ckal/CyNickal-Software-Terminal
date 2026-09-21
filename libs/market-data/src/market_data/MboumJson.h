@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 struct MboumV3Page
 {
@@ -19,4 +19,4 @@ struct MboumV3Page
 
 [[nodiscard]] std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_date);
 
-}  // namespace myapp
+}  // namespace terminal

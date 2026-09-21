@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 void fillOhlcv(Bar& bar, double open, double high, double low, double close, double volume)
@@ -103,4 +103,4 @@ std::optional<CorporateAction> mapDividend(InstrumentId id, const MboumDividendR
     return action;
 }
 
-}  // namespace myapp
+}  // namespace terminal

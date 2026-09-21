@@ -14,7 +14,7 @@ public:
         static std::atomic<std::uint64_t> seq{0};
         const auto n = seq.fetch_add(1);
         path_ = std::filesystem::temp_directory_path() /
-                ("myapp-md-" + std::to_string(::getpid()) + "-" + std::to_string(n) + ".sqlite");
+                ("terminal-md-" + std::to_string(::getpid()) + "-" + std::to_string(n) + ".sqlite");
         std::filesystem::remove(path_);
         removeSidecars();
     }

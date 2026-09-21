@@ -9,7 +9,7 @@
 #include "imgui_impl_vulkan.h"
 #include "implot.h"
 
-namespace myapp {
+namespace terminal {
 
 ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const VulkanSwapchain& swapchain,
                        float main_scale)
@@ -110,4 +110,4 @@ void ImGuiLayer::render(VulkanSwapchain& swapchain, const ImVec4& clear_color)
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal

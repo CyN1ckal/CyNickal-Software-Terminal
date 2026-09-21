@@ -15,7 +15,7 @@
 #include <string>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 struct LocalStamp
@@ -496,4 +496,4 @@ void drawCandlesticks(std::span<const Bar> bars,
     ImPlot::EndPlot();
 }
 
-}  // namespace myapp
+}  // namespace terminal

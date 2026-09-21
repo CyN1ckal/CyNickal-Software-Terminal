@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 struct HttpResponse
 {
@@ -45,4 +45,4 @@ struct IngestSymbolResult
                                               SessionDate to,
                                               IngestDayCallback on_day = {});
 
-}  // namespace myapp
+}  // namespace terminal

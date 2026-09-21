@@ -9,7 +9,7 @@
 #include <exception>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 
 CChartBook::CChartBook()
 {
@@ -114,4 +114,4 @@ void CChartBook::draw(ImGuiID chart_dock_id)
     eraseClosed();
 }
 
-}  // namespace myapp
+}  // namespace terminal

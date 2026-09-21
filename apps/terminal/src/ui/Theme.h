@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-namespace myapp::Theme {
+namespace terminal::Theme {
 
 constexpr ImVec4 FromRgb(int r, int g, int b, float a = 1.0f)
 {
@@ -56,5 +56,5 @@ void LoadFonts(ImGuiIO& io);
 [[nodiscard]] ImFont* sansFont() noexcept;
 [[nodiscard]] ImFont* monoFont() noexcept;
 
-}  // namespace myapp::Theme
+}  // namespace terminal::Theme
 

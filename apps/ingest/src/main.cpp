@@ -31,10 +31,10 @@ int main(int argc, char** argv)
 {
     try
     {
-        std::filesystem::path secrets = myapp::defaultSecretsPath();
-        std::filesystem::path db = myapp::defaultMarketDataDbPath();
-        std::optional<myapp::SessionDate> from;
-        std::optional<myapp::SessionDate> to;
+        std::filesystem::path secrets = terminal::defaultSecretsPath();
+        std::filesystem::path db = terminal::defaultMarketDataDbPath();
+        std::optional<terminal::SessionDate> from;
+        std::optional<terminal::SessionDate> to;
         std::vector<std::string> symbols;
 
         for (int i = 1; i < argc; ++i)
@@ -49,11 +49,11 @@ int main(int argc, char** argv)
             };
             if (arg == "--from")
             {
-                from = myapp::parseSessionDate(need("--from"));
+                from = terminal::parseSessionDate(need("--from"));
             }
             else if (arg == "--to")
             {
-                to = myapp::parseSessionDate(need("--to"));
+                to = terminal::parseSessionDate(need("--to"));
             }
             else if (arg == "--db")
             {
@@ -83,19 +83,19 @@ int main(int argc, char** argv)
             return 2;
         }
 
-        const myapp::SessionDate today = myapp::utcToSessionDate("America/New_York", myapp::nowUtc());
-        const myapp::SessionDate to_date = to.value_or(today);
-        myapp::SessionDate from_date = from.value_or(to_date);
+        const terminal::SessionDate today = terminal::utcToSessionDate("America/New_York", terminal::nowUtc());
+        const terminal::SessionDate to_date = to.value_or(today);
+        terminal::SessionDate from_date = from.value_or(to_date);
         if (!from.has_value())
         {
-            const auto ymd = myapp::sessionDateToYmd(to_date);
-            from_date = myapp::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
+            const auto ymd = terminal::sessionDateToYmd(to_date);
+            from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
         }
 
-        const std::string key = myapp::loadMboumApiKey(secrets);
-        myapp::CurlClient http(key);
+        const std::string key = terminal::loadMboumApiKey(secrets);
+        terminal::CurlClient http(key);
         std::filesystem::create_directories(db.parent_path());
-        myapp::Store store(db);
+        terminal::Store store(db);
 
         for (const auto& symbol : symbols)
         {
@@ -109,10 +109,10 @@ int main(int argc, char** argv)
                 first = false;
                 return http.getWithRetry(url);
             };
-            const auto result = myapp::ingestSymbol(store, get, symbol, from_date, to_date);
+            const auto result = terminal::ingestSymbol(store, get, symbol, from_date, to_date);
             for (const auto& day : result.days)
             {
-                std::clog << "  " << day.session_date << " " << myapp::toSql(day.status)
+                std::clog << "  " << day.session_date << " " << terminal::toSql(day.status)
                           << " bars=" << day.bar_count << " http=" << day.http_status << '\n';
             }
         }

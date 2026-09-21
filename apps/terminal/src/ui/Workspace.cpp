@@ -4,7 +4,7 @@
 
 #include "imgui_internal.h"
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 constexpr float kDataPanelWidthRatio = 0.30f;
@@ -73,4 +73,4 @@ void Workspace::draw()
     charts_.draw(chart_dock_id_);
 }
 
-}  // namespace myapp
+}  // namespace terminal

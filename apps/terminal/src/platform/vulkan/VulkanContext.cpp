@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <stdexcept>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 #ifndef NDEBUG
@@ -220,4 +220,4 @@ void VulkanContext::destroy() noexcept
     }
 }
 
-}  // namespace myapp
+}  // namespace terminal

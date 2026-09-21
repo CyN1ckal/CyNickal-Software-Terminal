@@ -10,7 +10,7 @@
 #include <chrono>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 class CChartPane
 {
@@ -56,4 +56,4 @@ private:
     std::chrono::steady_clock::time_point last_reload_;
 };
 
-}  // namespace myapp
+}  // namespace terminal

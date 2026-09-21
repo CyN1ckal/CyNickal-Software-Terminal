@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdio>
 
-namespace myapp::Theme {
+namespace terminal::Theme {
 namespace {
 
 struct LoadedFonts
@@ -188,5 +188,5 @@ ImFont* monoFont() noexcept
     return loadedFonts().mono;
 }
 
-}  // namespace myapp::Theme
+}  // namespace terminal::Theme
 

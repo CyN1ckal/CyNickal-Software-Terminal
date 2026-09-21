@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 enum class ChartLoadStatus : std::uint8_t
 {
@@ -41,4 +41,4 @@ struct ChartLoadResult
 [[nodiscard]] ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings);
 [[nodiscard]] bool isStoreBusyError(std::string_view what) noexcept;
 
-}  // namespace myapp
+}  // namespace terminal

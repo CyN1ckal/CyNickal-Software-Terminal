@@ -1,10 +1,10 @@
-# Bloomberg Terminal theme for MyApp
+# Bloomberg Terminal theme for terminal
 
 Transfer the **look and feel** of the Bloomberg Terminal into this Dear ImGui application: black canvas, amber identity color, loud semantic greens and reds, extreme information density, no decorative chrome.
 
-This is a visual-language spec for MyApp, not a clone of Bloomberg’s product, fonts, or functions. Bloomberg names the roles (amber text, black screen, green up, red down, red function toolbar) but **does not publish Terminal hex/RGB**. Official language is **amber**, not orange. Hex values in this file are working tokens for MyApp: brand scrapes, screenshot samples, and CVD chips — not a factory spec. Terminal users can also customize colors, so any one screenshot may differ from default.
+This is a visual-language spec for terminal, not a clone of Bloomberg’s product, fonts, or functions. Bloomberg names the roles (amber text, black screen, green up, red down, red function toolbar) but **does not publish Terminal hex/RGB**. Official language is **amber**, not orange. Hex values in this file are working tokens for terminal: brand scrapes, screenshot samples, and CVD chips — not a factory spec. Terminal users can also customize colors, so any one screenshot may differ from default.
 
-MyApp today uses stock `ImGui::StyleColorsDark()` in `src/ImGuiLayer.cpp` and the example clear color `(0.45, 0.55, 0.60)` in `src/DemoUi.cpp`. Both fight the Terminal look. Docking and multi-viewport are already enabled, which is the right skeleton for a multi-panel workstation.
+The terminal today uses stock `ImGui::StyleColorsDark()` in `src/ImGuiLayer.cpp` and the example clear color `(0.45, 0.55, 0.60)` in `src/DemoUi.cpp`. Both fight the Terminal look. Docking and multi-viewport are already enabled, which is the right skeleton for a multi-panel workstation.
 
 ---
 
@@ -57,7 +57,7 @@ Use these names in code (`Theme::kAmber`, etc.). Convert with `IM_COL32` / `ImVe
 | `Muted` | `#8C8C8C` | `0.549, 0.549, 0.549, 1` | Disabled, secondary, units, timestamps |
 | `Highlight` | `#FCBC14` | `0.988, 0.737, 0.078, 1` | Selection, focused tab, “look here” |
 
-`Amber` `#FFA028` is the MyApp working value (Bloomberg brand “Sunshade”). It sits next to the official CVD chip labeled “Bloomberg Default” (`#FCA42C`). Sampled Terminal-UI recreations often run darker/ochre (`#D39000`, `#F39000`, Berg `#F49F31`). Use `#FFA028` as the single source of truth in code so widgets cannot drift. Do not use consumer-site orange `#F05143`.
+`Amber` `#FFA028` is the terminal working value (Bloomberg brand “Sunshade”). It sits next to the official CVD chip labeled “Bloomberg Default” (`#FCA42C`). Sampled Terminal-UI recreations often run darker/ochre (`#D39000`, `#F39000`, Berg `#F49F31`). Use `#FFA028` as the single source of truth in code so widgets cannot drift. Do not use consumer-site orange `#F05143`.
 
 ### Semantic (data)
 
@@ -86,7 +86,7 @@ Default buttons stay on `Chrome` with `Amber` text. Colored action keys are for 
 
 ### CVD variants (optional later)
 
-Bloomberg ships Terminal-wide schemes via `PDFU COLORS <GO>` (Deuteranopia and Protanomaly). Support there is partial: not every function, and Buy/Sell buttons may not follow. If MyApp adds a color-vision mode, keep amber for non-semantic text and swap only up/down:
+Bloomberg ships Terminal-wide schemes via `PDFU COLORS <GO>` (Deuteranopia and Protanomaly). Support there is partial: not every function, and Buy/Sell buttons may not follow. If the terminal adds a color-vision mode, keep amber for non-semantic text and swap only up/down:
 
 | Mode | Up | Down | Default |
 |---|---|---|---|
@@ -100,7 +100,7 @@ Bloomberg ships Terminal-wide schemes via `PDFU COLORS <GO>` (Deuteranopia and P
 
 Color is a data encoding, not a skin.
 
-1. **Amber** — “this is ordinary information” and “this is MyApp.” Labels, field names, default quotes, table headers. Editable fields are amber-tinted, not grey boxes.
+1. **Amber** — “this is ordinary information” and “this is terminal.” Labels, field names, default quotes, table headers. Editable fields are amber-tinted, not grey boxes.
 2. **White** — long body text and values that would vibrate if everything were amber.
 3. **Green / red (data)** — direction only: up/buy vs down/sell, including net-change columns and Launchpad heatmaps.
 4. **Red (chrome)** — the function toolbar is red. That is chrome, not sentiment. Do not also paint every header red.
@@ -114,7 +114,7 @@ Do not introduce extra hues. The working set is black, grey, white, amber, red, 
 
 Official Terminal help names the chrome of a function screen (no hex, named colors only). Map that onto each docked ImGui window:
 
-| Band | Official role | MyApp token | ImGui |
+| Band | Official role | terminal token | ImGui |
 |---|---|---|---|
 | Top strip | Red function toolbar: title, drop-downs, key tasks | `Toolbar` | `TitleBgActive`, selected tab, window menu |
 | Editables | Amber fields | `Field` + `Amber` text | `FrameBg`, inputs, combo boxes |
@@ -239,7 +239,7 @@ Load fonts in `ImGuiLayer` after context creation, before the first frame. Keep 
 
 ## 6. Layout
 
-Bloomberg’s workstation is a grid of function panels. MyApp already has docking; use it as the layout system.
+Bloomberg’s workstation is a grid of function panels. The terminal already has docking; use it as the layout system.
 
 - Default to a docked workspace filling the viewport. No floating demo windows as the primary UI.
 - Multiple panels visible at once (4 is the historical Terminal; more is fine).

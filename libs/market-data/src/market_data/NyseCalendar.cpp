@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 using namespace std::chrono;
@@ -172,4 +172,4 @@ bool sessionStillOpen(std::string_view iana_tz, SessionDate session_date, UnixSe
     return mins < 16 * 60;
 }
 
-}  // namespace myapp
+}  // namespace terminal

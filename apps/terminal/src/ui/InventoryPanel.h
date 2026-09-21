@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 class IngestWorker;
 
@@ -53,4 +53,4 @@ private:
     std::chrono::steady_clock::time_point last_refresh_;
 };
 
-}  // namespace myapp
+}  // namespace terminal

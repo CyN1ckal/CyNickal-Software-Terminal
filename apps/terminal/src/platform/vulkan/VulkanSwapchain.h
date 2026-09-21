@@ -4,7 +4,7 @@
 
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 
 class VulkanContext;
 
@@ -40,4 +40,4 @@ private:
     bool rebuild_ = false;
 };
 
-}  // namespace myapp
+}  // namespace terminal

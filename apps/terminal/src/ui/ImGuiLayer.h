@@ -6,7 +6,7 @@
 
 struct GLFWwindow;
 
-namespace myapp {
+namespace terminal {
 
 class VulkanContext;
 class VulkanSwapchain;
@@ -29,4 +29,4 @@ private:
     VkDevice device_ = VK_NULL_HANDLE;
 };
 
-}  // namespace myapp
+}  // namespace terminal

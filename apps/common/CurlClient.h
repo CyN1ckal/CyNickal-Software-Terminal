@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 class CurlClient
 {
@@ -30,4 +30,4 @@ private:
     bool global_inited_ = false;
 };
 
-}  // namespace myapp
+}  // namespace terminal

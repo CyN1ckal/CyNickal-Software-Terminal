@@ -8,7 +8,7 @@
 #include <system_error>
 #include <unordered_map>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 using namespace std::chrono;
@@ -314,4 +314,4 @@ std::string formatSessionDate(SessionDate date)
     return buf;
 }
 
-}  // namespace myapp
+}  // namespace terminal

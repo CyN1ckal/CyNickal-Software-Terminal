@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 class CChartPane;
 
@@ -39,4 +39,4 @@ private:
     int focused_id_{0};
 };
 
-}  // namespace myapp
+}  // namespace terminal

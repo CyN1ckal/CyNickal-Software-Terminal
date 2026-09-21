@@ -6,7 +6,7 @@
 #include "ui/ImGuiLayer.h"
 #include "ui/Workspace.h"
 
-namespace myapp {
+namespace terminal {
 
 class Application {
 public:
@@ -32,4 +32,4 @@ private:
     Workspace workspace_;
 };
 
-}  // namespace myapp
+}  // namespace terminal

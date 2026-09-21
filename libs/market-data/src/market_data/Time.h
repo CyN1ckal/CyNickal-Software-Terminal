@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace myapp {
+namespace terminal {
 
 UnixSeconds nowUtc();
 
@@ -57,4 +57,4 @@ SessionDate parseSessionDate(std::string_view text);
 // YYYY-MM-DD. Invalid civil dates still format the numeric fields.
 [[nodiscard]] std::string formatSessionDate(SessionDate date);
 
-}  // namespace myapp
+}  // namespace terminal

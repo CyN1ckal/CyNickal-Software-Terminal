@@ -2,11 +2,11 @@
 
 #include "sqlite3.h"
 
-namespace myapp {
+namespace terminal {
 
 int sqliteLibVersionNumber()
 {
     return sqlite3_libversion_number();
 }
 
-}  // namespace myapp
+}  // namespace terminal

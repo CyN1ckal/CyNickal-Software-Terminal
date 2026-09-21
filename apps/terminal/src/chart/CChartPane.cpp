@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <string>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 constexpr auto kReloadInterval = std::chrono::seconds(2);
@@ -443,4 +443,4 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
     return focused;
 }
 
-}  // namespace myapp
+}  // namespace terminal

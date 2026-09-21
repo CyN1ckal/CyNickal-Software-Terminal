@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
-project(MyApp LANGUAGES C CXX)
+project(terminal LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,22 +13,22 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 # build/apps/terminal/.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-option(MYAPP_ENABLE_CLANG_TIDY "Run clang-tidy while compiling first-party targets" ON)
+option(TERMINAL_ENABLE_CLANG_TIDY "Run clang-tidy while compiling first-party targets" ON)
 option(CYN_TESTING "Build Catch2 tests" ON)
 
-if(MYAPP_ENABLE_CLANG_TIDY)
+if(TERMINAL_ENABLE_CLANG_TIDY)
     message("clang-tidy running with build!")
     find_program(CLANG_TIDY_EXE
             NAMES clang-tidy
             REQUIRED
     )
-    set(MYAPP_CLANG_TIDY
+    set(TERMINAL_CLANG_TIDY
         "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
     )
     if(MSVC)
         # CMake adds --driver-mode=cl for MSVC, but clang-tidy still treats
         # exceptions as disabled unless /EHsc is also an extra-arg.
-        string(APPEND MYAPP_CLANG_TIDY ";-extra-arg=/EHsc")
+        string(APPEND TERMINAL_CLANG_TIDY ";-extra-arg=/EHsc")
     endif()
 endif()
 

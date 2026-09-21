@@ -34,7 +34,6 @@ install_manifest.txt
 *.dll
 *.exe
 *.out
-/MyApp
 /terminal
 
 # ImGui runtime window/dock layout

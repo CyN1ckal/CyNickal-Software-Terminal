@@ -13,7 +13,7 @@
 #include <thread>
 #include <utility>
 
-namespace myapp {
+namespace terminal {
 
 IngestWorker::IngestWorker(std::filesystem::path db_path, std::filesystem::path secrets_path)
     : db_path_(std::move(db_path)), secrets_path_(std::move(secrets_path))
@@ -148,4 +148,4 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
     (void)ingestSymbol(store, get, job.symbol, job.from, job.to, on_day);
 }
 
-}  // namespace myapp
+}  // namespace terminal

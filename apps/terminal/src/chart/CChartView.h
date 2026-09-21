@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace myapp {
+namespace terminal {
 
 // Sierra Chart Interactive Scaling Mode (right-click the Values Scale).
 enum class ChartInteractiveScale : std::uint8_t
@@ -163,4 +163,4 @@ inline void resetChartScale(CChartViewState& view) noexcept
     view.working_range = 0.0;
 }
 
-}  // namespace myapp
+}  // namespace terminal

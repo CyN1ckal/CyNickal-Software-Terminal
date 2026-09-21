@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <stdexcept>
 
-namespace myapp {
+namespace terminal {
 namespace {
 
 void glfwErrorCallback(int error, const char* description)
@@ -92,4 +92,4 @@ VkSurfaceKHR Window::createSurface(VkInstance instance, const VkAllocationCallba
     return surface;
 }
 
-}  // namespace myapp
+}  // namespace terminal
