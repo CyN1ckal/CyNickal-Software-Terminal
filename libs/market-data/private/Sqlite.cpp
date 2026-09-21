@@ -106,10 +106,21 @@ void SqliteDb::setUserVersion(int version)
 
 void SqliteDb::applyConnectionPragmas(int busy_timeout_ms)
 {
+    sqlite3_extended_result_codes(db_, 1);
     exec("PRAGMA foreign_keys = ON");
     exec("PRAGMA journal_mode = WAL");
     exec("PRAGMA synchronous = NORMAL");
     exec("PRAGMA busy_timeout = " + std::to_string(busy_timeout_ms));
+}
+
+std::int64_t SqliteDb::lastInsertRowid() const
+{
+    return sqlite3_last_insert_rowid(db_);
+}
+
+int SqliteDb::extendedError() const
+{
+    return sqlite3_extended_errcode(db_);
 }
 
 SqliteStmt::SqliteStmt(sqlite3* db, std::string_view sql)
@@ -211,6 +222,26 @@ void SqliteStmt::stepDone()
     {
         throw std::runtime_error(sqliteError(sqlite3_db_handle(stmt_), "sqlite3_step"));
     }
+}
+
+SqliteStmt::Constraint SqliteStmt::stepDoneOrConstraint()
+{
+    const int rc = sqlite3_step(stmt_);
+    if (rc == SQLITE_DONE)
+    {
+        return Constraint::None;
+    }
+    sqlite3* db = sqlite3_db_handle(stmt_);
+    const int ext = sqlite3_extended_errcode(db);
+    if (ext == SQLITE_CONSTRAINT_CHECK)
+    {
+        return Constraint::Check;
+    }
+    if (ext == SQLITE_CONSTRAINT_FOREIGNKEY)
+    {
+        return Constraint::ForeignKey;
+    }
+    throw std::runtime_error(sqliteError(db, "sqlite3_step"));
 }
 
 void SqliteStmt::reset() noexcept

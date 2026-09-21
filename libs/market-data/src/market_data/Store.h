@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace myapp {
@@ -33,6 +36,18 @@ public:
     [[nodiscard]] bool foreignKeysEnabled() const;
 
     static void testingSetUserVersion(const std::filesystem::path& path, int version);
+
+    InstrumentId upsertInstrument(const Instrument& instrument);
+    [[nodiscard]] std::optional<Instrument> findInstrument(
+        std::string_view symbol,
+        std::optional<std::string_view> exchange = std::nullopt) const;
+    [[nodiscard]] std::optional<Instrument> findInstrumentById(InstrumentId id) const;
+
+    UpsertBarsResult upsertBars(std::span<const Bar> bars);
+    [[nodiscard]] std::vector<Bar> queryBars(InstrumentId id,
+                                             int timeframe_s,
+                                             UnixSeconds ts_begin,
+                                             UnixSeconds ts_end) const;
 
 private:
     struct Impl;

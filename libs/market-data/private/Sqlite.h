@@ -26,6 +26,8 @@ public:
     [[nodiscard]] int userVersion() const;
     void setUserVersion(int version);
     void applyConnectionPragmas(int busy_timeout_ms);
+    [[nodiscard]] std::int64_t lastInsertRowid() const;
+    [[nodiscard]] int extendedError() const;
 
 private:
     sqlite3* db_ = nullptr;
@@ -51,6 +53,16 @@ public:
     void bindText(int idx, std::string_view value);
     bool stepRow();
     void stepDone();
+
+    enum class Constraint : std::uint8_t
+    {
+        None,
+        Check,
+        ForeignKey
+    };
+
+    // Throws on any result other than DONE or CHECK/FK constraint.
+    [[nodiscard]] Constraint stepDoneOrConstraint();
     void reset() noexcept;
 
     [[nodiscard]] std::int64_t columnInt64(int idx) const;
