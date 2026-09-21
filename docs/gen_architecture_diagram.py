@@ -12,7 +12,7 @@ from pathlib import Path
 import cairo
 
 OUT_DIR = Path(__file__).resolve().parent
-W, H = 1800, 3240
+W, H = 1800, 3310
 SCALE = 2
 
 BG = (0.97, 0.968, 0.955)
@@ -363,8 +363,9 @@ def draw_figure1(ctx: cairo.Context) -> None:
         CHART_HEAD,
         [
             "CChartSettings  ·  Chart Settings modal",
+            "studies_ list  ·  computeStudies",
             "loadChartBars  ·  queryBars 1m  ·  transformChartBars",
-            "drawCandlesticks on ImPlot draw list",
+            "drawCandlesticks + SMA overlays",
             "1m/5m/15m/1h/1d candles  ·  Days to Load = 14",
             "dock id chart_N  ·  not driven by DATA",
         ],
@@ -833,7 +834,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
     call(0, 1, m[0], "1  pollEvents()")
     call(0, 2, m[1], "2  newFrame()")
     call(0, 3, m[2], "3  draw()")
-    call(3, 5, m[3], "4  drawMenu()  Chart >> New / Settings / Close")
+    call(3, 5, m[3], "4  drawMenu()  Chart >> New / Settings / Studies / Close")
     call(3, 4, m[4], "5  inventory.draw()  ·  pollWorker")
     call(3, 5, m[5], "6  charts.draw(chart_dock_id)")
     call(0, 2, m[6], "7  render(clear = Theme::kCanvas)")
@@ -851,7 +852,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 408,
-        "CMake: terminal compiles CChartLoad/Transform/Pane/Book/Plot plus deps/implot (not implot_demo).  terminal_tests compile CChartLoad.cpp and CChartTransform.cpp (no ImGui).",
+        "CMake: terminal compiles CChart* plus CStudyCompute / CStudySettings / CStudyPlot and deps/implot (not implot_demo).  terminal_tests compile CChartLoad.cpp, CChartTransform.cpp, and CStudyCompute.cpp (no ImGui).",
         10.5,
         color=MUTED,
     )
@@ -872,7 +873,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
         ctx,
         28,
         y0 + 18,
-        "CChartBook owns the chart Store Reader.  Each CChartPane owns CChartSettings and reloads on Apply or every 2 s.  No MBoum from this path.",
+        "CChartBook owns the chart Store Reader.  Each CChartPane owns settings and studies_.  studiesForLoad runs after loadChartBars.  No MBoum.  Studies are not stored.",
         11,
         color=MUTED,
     )
@@ -881,7 +882,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
     xs = [120, 400, 700, 1020, 1320, 1600]
     top = y0 + 40
     life_top = top + 34
-    bottom = y0 + 390
+    bottom = y0 + 450
 
     for name, x in zip(names, xs):
         draw_lifeline_head(ctx, x, top, 168, name)
@@ -916,21 +917,12 @@ def draw_figure4(ctx: cairo.Context) -> None:
         arrow_head(ctx, x + 6, y + h, math.pi, 7)
         draw_text(ctx, x + 58, y + h - 2, label, 9.5, color=SYNC)
 
-    y = [
-        top + 56,
-        top + 96,
-        top + 136,
-        top + 176,
-        top + 216,
-        top + 256,
-        top + 296,
-        top + 336,
-    ]
-    activation(1, y[0] - 8, y[7] + 10)
-    activation(2, y[1] - 8, y[7] + 10)
+    y = [top + 56 + 40 * i for i in range(9)]
+    activation(1, y[0] - 8, y[8] + 10)
+    activation(2, y[1] - 8, y[8] + 10)
     activation(3, y[3] - 8, y[5] + 10)
     activation(4, y[3] - 8, y[5] + 10)
-    activation(5, y[6] - 8, y[7] + 10)
+    activation(5, y[7] - 8, y[8] + 10)
 
     call(0, 1, y[0], "1  Chart >> New Chart")
     call(1, 2, y[1], "2  addPane()  unique_ptr<CChartPane>")
@@ -938,43 +930,47 @@ def draw_figure4(ctx: cairo.Context) -> None:
     call(2, 3, y[3], "4  loadChartBars(store, settings)  GUI thread")
     call(3, 4, y[4], "5  findInstrumentsBySymbol  ·  queryCoverageDays  ·  queryBars 1m")
     call(3, 2, y[5], "6  ChartLoadResult  (keep last bars if busy/locked + same settings)", ret=True)
-    call(2, 5, y[6], "7  drawCandlesticks  index X  ·  custom GetPlotDrawList")
-    self_call(5, y[7] - 8, 16, "8  BeginPlot · kUp/kDown candles · OHLC")
+    self_call(2, y[6] - 8, 16, "7  studiesForLoad · computeStudies")
+    call(2, 5, y[7], "8  drawCandlesticks + overlays")
+    self_call(5, y[8] - 8, 16, "9  drawStudyOverlays")
 
     note_box(
         ctx,
         28,
-        y0 + 404,
+        y0 + 464,
         560,
-        72,
+        86,
         [
             "Window identity",
             "ImGui id chart_N so dock layout survives symbol changes.",
             "CChartSettings are not persisted.  imgui.ini is gitignored.",
+            "Studies are pane state.  They are not persisted.",
         ],
     )
     note_box(
         ctx,
         608,
-        y0 + 404,
+        y0 + 464,
         560,
-        72,
+        86,
         [
             "Load gate",
             "1m/5m/15m/1h/1d candlesticks, Days to Load. Higher TFs composite from 1m.",
-            "Composites are not stored.  Other bar types and limiters are rejected.",
+            "Composites are not stored.  studiesForLoad uses loaded bars.",
+            "Other bar types and limiters are rejected.",
         ],
     )
     note_box(
         ctx,
         1188,
-        y0 + 404,
+        y0 + 464,
         584,
-        72,
+        86,
         [
             "Scale / interaction",
-            "Automatic / Constant Range / User Defined.  Wheel = spacing;",
-            "Shift+wheel zooms; drag plot pans; Y drag is Range or Move.",
+            "Automatic scale includes overlay values.  Constant Range and",
+            "User Defined do not.  Wheel = spacing; drag plot pans.",
+            "Y drag is Range or Move.  Pan does not recompute studies.",
         ],
     )
 

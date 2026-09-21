@@ -3,12 +3,12 @@
 | Field | Value |
 |---|---|
 | Author | terminal |
-| Date | 2026-09-20 (revised) |
+| Date | 2026-09-21 (revised) |
 | Status | Draft |
 | Audience | First-party C++ in `apps/terminal/` and `libs/market-data` |
 | Related | `docs/market-data-store.md` (Store / `queryBars` / coverage), `docs/design.md` (visual tokens only), `deps/implot/` (vendored ImPlot v1.0) |
 
-This is the **base design** for terminal charting. Implement from this document without guessing types or Store calls. Later PRs (other timeframes, bar types, studies, pan/zoom) must extend these types, not replace them.
+This is the **base design** for terminal charting. Implement from this document without guessing types or Store calls. Later PRs (other bar types, drawing tools) must extend these types, not replace them. Studies are specified below; they attach to the pane.
 
 Sierra Chart Chart Settings is **inspiration**, not a clone. v1 behavior specified here is terminal’s. Where Sierra details were not verified, they are not claimed.
 
@@ -21,10 +21,10 @@ The terminal is an ImGui dock workspace (`Workspace`) with a left **DATA** inven
 This design adds a **chartbook** of independent chart panes:
 
 - `CChartSettings` — per-pane configuration (symbol, bar period, bar type, data limiter), Sierra-style.
-- `CChartPane` — one dockable ImGui chart surface that owns settings, a bar snapshot, and a settings popup.
+- `CChartPane` — one dockable ImGui chart surface that owns settings, a bar snapshot, a settings popup, and a study list.
 - `CChartBook` — container owned by `Workspace` that creates, focuses, closes, and draws panes.
 
-v1 renders **1-minute candlestick bars only**, loaded with `Store::queryBars` over a **Days to Load** window of NYSE sessions. Period, bar type, and alternate limiters exist on `CChartSettings` so the type shape does not change later, but unsupported combinations are locked in the UI and rejected on apply.
+Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions. 5m / 15m / 1h / 1d candlesticks are `transformChartBars` on that result and are not written back. Other bar types and limiters are rejected. Studies are computed from those loaded bars; they are not stored.
 
 Charts never talk to MBoum. They only read the existing Store.
 
@@ -86,19 +86,21 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 
 1. Introduce `CChartSettings`, `CChartPane`, and container `CChartBook` with the fields and ownership in this document.
 2. Multiple independent dockable chart windows, consistent with DATA.
-3. Per-pane Chart Settings popup: symbol, period, bar type, data limiting. v1 **implements** 1-minute candlesticks + Days to Load only; other fields exist but are locked.
+3. Per-pane Chart Settings popup: symbol, period, bar type, data limiting. Implemented periods are 1m / 5m / 15m / 1h / 1d candlesticks + Days to Load. Other bar types and limiters stay locked.
 4. Load bars from the existing GUI-thread Store reader using `findInstrumentsBySymbol` + `queryCoverageDays` + `usRthUtcWindow` + `queryBars`. No MBoum, no schema change, no new Store method unless this document’s load path is proven insufficient (it is sufficient).
 5. Empty / unknown / ambiguous / busy / error states that do not crash the frame.
 6. An ImPlot candlestick plot (custom candles on ImPlot axes). Hover OHLC readout. No pan/zoom.
-7. A Chart menu to create / configure / close panes.
+7. A Chart menu to create, configure, study, and close panes.
 8. Keep charting in `apps/terminal/`. `libs/market-data` is read-only from this feature.
+9. Pane-owned studies. v1 study is a simple moving average (source + length), computed from loaded bars after transform, drawn as an overlay. Not persisted.
 
 ### Non-Goals (v1)
 
 | Out of scope | Why |
 |---|---|
-| 5m / 15m / 1h / daily bars, tick/volume/renko bars | Type fields reserved; not implemented. |
-| Studies, overlays, drawing tools, replay, volume profile, MTF | Mentioned only as extension points. Do not add placeholder study vectors. |
+| Tick / volume / renko bars | Not implemented. 5m / 15m / 1h / 1d candlesticks are an in-memory transform of 1-minute rows, not new Store tables. |
+| Drawing tools, replay, volume profile, subgraph studies | SMA overlay is in scope (see **Studies**). These are not. |
+| Persist studies or write study values to SQLite | Same rule as `CChartSettings`: pane memory only. |
 | Chart linking across panes | Sierra has it; skip. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
 | Charts ingesting from MBoum | DATA / `IngestWorker` only. |
@@ -123,7 +125,7 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 | D3 | `Workspace` owns `CChartBook`; `Application` is unchanged aside from whatever `Workspace` already draws. | Matches `Application` → `Workspace` → `InventoryPanel`. Do not push charting into `Application`. |
 | D4 | `CChartBook` opens its **own** `StoreMode::Reader` on `defaultMarketDataDbPath()`. | `Store` is not thread-safe; documented process shape is ingest Writer + GUI Reader. InventoryPanel already owns the DATA reader and worker. A second GUI-thread reader is allowed (WAL, `SQLITE_THREADSAFE=1`). Avoids reaching into `InventoryPanel` or hoisting Store into Workspace in v1. Declare `InventoryPanel` **before** `CChartBook` in `Workspace` so the Writer migrate runs first. |
 | D5 | v1 limiter is **Days to Load** (`session_count`, default **14**). | Maps onto `queryCoverageDays` + `usRthUtcWindow` + one `queryBars`. 14 is a Sierra-style Days to Load default (≈ 14 NYSE sessions with bars, often ~3 calendar weeks). DATA’s FROM/TO is a **14-calendar-day** ingest preset, not the same limiter — do not claim they match. `BarCount` and `DateRange` exist on the struct, UI-locked. |
-| D6 | Period / bar type live on `CChartSettings` but v1 hard-locks **1-minute candlestick**. | Forward-compatible type shape. UI offers only the implemented values; apply rejects anything else. Do not show other options as if they worked. |
+| D6 | Period / bar type live on `CChartSettings`. Implemented charts are **1m / 5m / 15m / 1h / 1d candlesticks** with Days to Load. | Store grain stays `kTimeframe1m`. Higher periods are `transformChartBars` at load, not new tables. `isChartSettingsSupported` rejects other bar types and limiters. |
 | D7 | Chart symbol is **independent of DATA row selection**. | DATA is ingest/coverage. Sierra: each chart has its own Chart Settings. Clicking DATA must not mutate pane M. Future: double-click → new chart or focused symbol (not v1). |
 | D8 | Settings dialog is a **per-pane modal** named **`Chart Settings`**. Buttons: **OK**, **Apply**, **Cancel**. Opened by a **`settings_open_` flag**, never by `OpenPopup` from the main menu. | Verified Sierra: *Chart >> Chart Settings*; OK saves, Cancel discards; newer Sierra also has Apply. Modal `BeginPopupModal` is the simplest ImGui analog. ImGui popup IDs are hashed with the current window stack: `OpenPopup` from `BeginMainMenuBar` will not match a modal begun inside the pane. `openSettings()` only copies `draft_` and sets the flag; the pane window calls `OpenPopup` / `BeginPopupModal` on the same stack. Not a clone of Sierra’s modeless tabbed search UI. |
 | D9 | **No new Store API and no schema change.** | `queryBars` + `queryCoverageDays` + `findInstrumentsBySymbol` + `usRthUtcWindow` are enough. |
@@ -196,22 +198,32 @@ apps/terminal/src/chart/
   CChartLoad.h          // ChartLoadResult + loadChartBars()  — no ImGui
   CChartLoad.cpp
   CChartPane.h
-  CChartPane.cpp        // window, settings modal, status overlay, calls load + plot
+  CChartPane.cpp        // window, settings + studies modals, status, load + plot
   CChartBook.h
   CChartBook.cpp        // pane list, New/Close, focused id, Store open
-  CChartPlot.h          // drawCandlesticks()  — ImPlot + custom candles
+  CChartPlot.h          // drawCandlesticks()  — ImPlot + custom candles + overlays
   CChartPlot.cpp
+  CChartTransform.h     // transformChartBars — in-memory; not persisted
+  CChartTransform.cpp
+  CStudy.h              // CStudyInstance / CStudySeries — no ImGui, no Bar
+  CStudyCompute.h       // computeStudies, studiesForLoad — no ImGui
+  CStudyCompute.cpp
+  CStudySettings.h      // Studies modal body — ImGui
+  CStudySettings.cpp
+  CStudyPlot.h          // drawStudyOverlays — ImPlot
+  CStudyPlot.cpp
 
 apps/terminal/tests/chart/
   chart_load_tests.h    // Catch2; uses libs/market-data/tests/TempDb.h
+  chart_study_tests.h   // SMA / studiesForLoad; no ImGui
 ```
 
 `Workspace.cpp` gains a Chart menu and `charts_.draw(chart_dock_id_)`.
 
 `apps/terminal/CMakeLists.txt`:
 
-- `terminal` sources: add `CChartLoad.cpp`, `CChartPane.cpp`, `CChartBook.cpp`, `CChartPlot.cpp` (plot in PR 3). **PR 1 adds `CChartLoad.cpp` to both `terminal` and `terminal_tests` unconditionally** so PR 2 cannot forget it. Also compile `deps/implot/implot.cpp` and `implot_items.cpp` into `terminal` (skip clang-tidy, same as Dear ImGui). Do **not** compile `implot_demo.cpp`.
-- `terminal_tests` sources: add `CChartLoad.cpp` and `tests/chart/chart_load_tests.h`; include `libs/market-data/tests` so `TempDb.h` is reusable. Do **not** compile pane/plot/book into `terminal_tests` (they need ImGui).
+- `terminal` sources: add `CChartLoad.cpp`, `CChartTransform.cpp`, `CChartPane.cpp`, `CChartBook.cpp`, `CChartPlot.cpp`, `CStudyCompute.cpp`, `CStudySettings.cpp`, `CStudyPlot.cpp`. Also compile `deps/implot/implot.cpp` and `implot_items.cpp` into `terminal` (skip clang-tidy, same as Dear ImGui). Do **not** compile `implot_demo.cpp`.
+- `terminal_tests` sources: add `CChartLoad.cpp`, `CChartTransform.cpp`, `CStudyCompute.cpp`, and `tests/chart/chart_load_tests.h` / `chart_study_tests.h`; include `libs/market-data/tests` so `TempDb.h` is reusable. Do **not** compile pane/plot/book or `CStudySettings.cpp` / `CStudyPlot.cpp` into `terminal_tests` (they need ImGui).
 - Include path already has `${CMAKE_CURRENT_SOURCE_DIR}/src`, so `"chart/CChartBook.h"` works.
 
 Nothing in `libs/market-data` changes.
@@ -238,11 +250,11 @@ namespace terminal {
 
 enum class ChartBarPeriod : std::uint8_t
 {
-    Minute1 = 0,  // v1 implemented → kTimeframe1m
-    Minute5,      // reserved
-    Minute15,     // reserved
-    Hour1,        // reserved
-    Day1          // reserved; not a UTC 86400s bucket — see timeframeSeconds
+    Minute1 = 0,  // kTimeframe1m; the only timeframe passed to queryBars
+    Minute5,      // transformChartBars; not a Store timeframe
+    Minute15,     // transformChartBars
+    Hour1,        // transformChartBars
+    Day1          // one RTH session; Bar::timeframe_s = 86400; not passed to queryBars
 };
 
 enum class ChartBarType : std::uint8_t
@@ -288,7 +300,7 @@ struct CChartSettings
     case ChartBarPeriod::Hour1:
         return 3600;
     case ChartBarPeriod::Day1:
-        return 86400;  // placeholder; do not pass to queryBars until a daily series exists
+        return 86400;  // period id; do not pass to queryBars (store grain is 1m)
     }
     return kTimeframe1m;
 }
@@ -317,7 +329,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
 
 `CChartSettings` is a **plain aggregate / value type** (it contains `std::string`, so it is not a POD). Copy it freely; do not `memcpy`.
 
-Reserved fields (`bar_count`, `range_from`, `range_to`, non-1m periods, non-candlestick types) are **storage for later PRs**. v1 must not read them to decide what to query, except to reject `!isV1Supported`.
+Reserved fields (`bar_count`, `range_from`, `range_to`, non-candlestick types, `BarCount`, `DateRange`) are not queried. Non-1m candlestick periods are `transformChartBars` on the 1-minute result, not a different `queryBars` timeframe. `isV1Supported` is still the 1-minute-only predicate; `loadChartBars` uses `isChartSettingsSupported`.
 
 ```cpp
 [[nodiscard]] inline bool settingsIdentityEqual(const CChartSettings& a,
@@ -343,7 +355,7 @@ enum class ChartLoadStatus : std::uint8_t
     Empty,            // instrument resolved, zero bars in the window
     UnknownSymbol,    // findInstrumentsBySymbol empty
     AmbiguousSymbol,  // size > 1
-    Unsupported,      // !isV1Supported
+    Unsupported,      // !isChartSettingsSupported
     Busy,             // caught Store exception classified by isStoreBusyError
     Error             // any other caught exception (including store-open failure at the pane)
 };
@@ -391,7 +403,11 @@ public:
 
     // Copy settings_ → draft_; set settings_open_ = true.
     // Do NOT call ImGui::OpenPopup here (wrong ID stack if invoked from the main menu).
+    // No-op while studies_open_.
     void openSettings();
+    // Copy studies_ → study_draft_; set studies_open_ = true. No-op while settings_open_.
+    // Do NOT call ImGui::OpenPopup here.
+    void openStudies();
     void closeWindow();           // window_open_ = false; book eraseClosed() after the draw loop
     void requestFocus();          // SetNextWindowFocus on next Begin (used by addPane)
 
@@ -414,6 +430,11 @@ private:
     CChartSettings draft_{};
     CChartSettings loaded_settings_{};  // identity of bars currently in loaded_
     ChartLoadResult loaded_{};
+    // Studies are pane state, not CChartSettings, and are not persisted.
+    std::vector<CStudyInstance> studies_;
+    std::vector<CStudyInstance> study_draft_;
+    std::vector<CStudySeries> computed_;
+    bool studies_open_{false};
     std::chrono::steady_clock::time_point last_reload_{};  // stamped at start of every reload()
 };
 ```
@@ -602,7 +623,7 @@ sequenceDiagram
 
     User->>Draft: edit symbol / days to load
     User->>Pane: Apply
-    Pane->>Pane: isV1Supported + clampV1Limits
+    Pane->>Pane: isChartSettingsSupported + clampV1Limits
     Pane->>Live: settings_ = draft_
     Pane->>Load: reload → loadChartBars
     Load-->>Pane: merge into loaded_ (D10)
@@ -618,7 +639,7 @@ sequenceDiagram
 **Layout (single column, no tabs):**
 
 1. **Symbol** — `InputText` 32 chars, `ImGuiInputTextFlags_CharsUppercase | EnterReturnsTrue`. Same width idea as DATA’s SYMBOL field (`InventoryPanel.cpp`).
-2. **Bar Period** — combo containing only `1 Minute`. Muted text: `v1: 1-minute bars only`.
+2. **Bar Period** — combo: `1 Minute`, `5 Minute`, `15 Minute`, `1 Hour`, `Daily`. Store queries stay 1-minute; higher periods composite at load.
 3. **Bar Type** — combo containing only `Candlestick`. Muted text: `v1: candlesticks only`.
 4. **Data Limiting** — label `Days to Load`, `InputInt` bound to `draft_.session_count`. Muted text: `Bar count and date range are reserved.` Do not show those inputs.
 5. Buttons right-aligned: **OK** (`Theme::kGo`), **Apply**, **Cancel** (`Theme::kCancel` text or button).
@@ -628,7 +649,7 @@ Enter in the symbol field = Apply (not OK), so the user can keep the dialog open
 **Apply rules** (`applyDraft`):
 
 1. Uppercase / trim `draft_.symbol`.
-2. If `!isV1Supported(draft_)` — should be impossible from this UI — show dialog error, do not close, do not assign `settings_`.
+2. If `!isChartSettingsSupported(draft_)` — should be impossible from this UI — do not close, do not assign `settings_`.
 3. `clampV1Limits(draft_)`.
 4. `settings_ = draft_` (commit live settings even if the following load is Busy/Error — the title and identity follow the user’s apply).
 5. `reload(store, store_error)` using the D10 merge. A Busy load after a **symbol change** clears bars (do not keep the previous symbol’s candles).
@@ -685,7 +706,8 @@ Menu:
 ```
 Chart
   New Chart
-  Chart Settings     // disabled if focused() == nullptr
+  Chart Settings     // disabled if focused() == nullptr or Studies is open
+  Studies            // disabled if focused() == nullptr or Chart Settings is open
   Close Chart        // disabled if focused() == nullptr
 ```
 
@@ -712,7 +734,7 @@ flowchart TD
     A[CChartSettings] --> T[trim/uppercase local symbol]
     T --> B{symbol empty?}
     B -->|yes| U[Unconfigured]
-    B -->|no| C{isV1Supported?}
+    B -->|no| C{isChartSettingsSupported?}
     C -->|no| X[Unsupported]
     C -->|yes| D["store.findInstrumentsBySymbol(symbol)"]
     D --> E{size?}
@@ -725,13 +747,16 @@ flowchart TD
     J -->|yes| L["ts_begin = usRthUtcWindow(tz, oldest).start"]
     L --> M["ts_end = usRthUtcWindow(tz, newest).end"]
     M --> N["queryBars(id, kTimeframe1m, ts_begin, ts_end)"]
-    N --> O[Ready if bars not empty else Empty]
+    N --> P{chartNeedsBarTransform?}
+    P -->|yes| Q["transformChartBars — not stored"]
+    P -->|no| O
+    Q --> O[Ready if bars not empty else Empty]
 ```
 
 Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `Busy` or `Error` as above; **never throw**):
 
 1. Copy `settings`. Trim and uppercase a **local** `symbol`. Do not write back to `settings`. If `symbol` is empty → `Unconfigured`, message `"Open Chart Settings to choose a symbol."`
-2. If `!isV1Supported(settings)` → `Unsupported`, message `"v1 supports 1-minute candlesticks and Days to Load only."` Do not query.
+2. If `!isChartSettingsSupported(settings)` → `Unsupported`, message `"candlestick bars and Days to Load only."` Do not query. Candlestick + Days to Load is supported for 1m, 5m, 15m, 1h, and 1d. Other bar types and limiters are not. (`isV1Supported` still exists and still means 1-minute only; `loadChartBars` does not use it.)
 3. Clamp a **local** `session_count` to `[1, 252]` (do not mutate `settings`).
 4. `found = store.findInstrumentsBySymbol(symbol)` using the trimmed/uppercased local copy (SQL is `COLLATE NOCASE` but **not** trimmed).
 5. `found.empty()` → `UnknownSymbol`, `"unknown symbol {SYM}"`. Charts do **not** insert instruments.
@@ -746,7 +771,10 @@ Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `B
     `ts_end   = usRthUtcWindow(tz, newest).end`  
     `usRthUtcWindow` is `[09:30, 16:00)` local; `queryBars` is `ts >= begin AND ts < end`. Last RTH minute opens at 15:59 and is included; 16:00 is not.
 14. `bars = store.queryBars(id, kTimeframe1m, ts_begin, ts_end)`.
-15. If `bars.empty()` → `Empty`; else `Ready`. Never return `Ready` with empty `bars`. `sessions_used = collected.size()` (may be `< session_count` if history is short — not an error). Message example: `"AAPL  1m  2025-01-02 .. 2025-01-22  5 of 14 sessions  1950 bars"`.
+15. If `chartNeedsBarTransform(settings)`, replace `bars` with `transformChartBars(bars, period, tz)`. That vector is the chart’s bars. It is **not** inserted into SQLite. Minute1 skips this step.
+16. If `bars.empty()` → `Empty`; else `Ready`. Never return `Ready` with empty `bars`. `sessions_used = collected.size()` (may be `< session_count` if history is short — not an error). Message example: `"AAPL  1m  2025-01-02 .. 2025-01-22  5 of 14 sessions  1950 bars"`.
+
+Studies do not add Store calls and do not change this query. They read `loaded_.bars` after step 15. Changing a study length or source does not call `loadChartBars`. See **Studies**.
 
 **Interior sessions:** the single range query includes every bar between oldest and newest RTH windows, not only the N counted days. 0-bar holidays contribute no rows. **v1 quirk:** an Error coverage row with leftover `bar_count > 0` that falls inside that span will plot even if it was not one of the N counted days (or if it was counted, its bars still appear). Do not issue N per-session queries.
 
@@ -766,7 +794,10 @@ Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `B
 | Incoming `Busy`, settings identity changed or no bars | `loaded_ = Busy`, bars empty, toolbar Busy |
 | Incoming `Error`, same identity and non-empty bars | Keep candles; toolbar `kDown` + message |
 | Incoming `Error`, identity changed or no bars | `loaded_ = Error`, bars empty |
-| `store == nullptr` | `Error` + `store_error`; bars empty; no `loadChartBars` |
+| `store == nullptr` | `Error` + `store_error`; bars empty; no `loadChartBars`; `computed_ = studiesForLoad` → `{}` |
+| Any `reload` path that assigns `loaded_` | `computed_ = studiesForLoad(loaded_, studies_)` |
+| Busy/Error keep-candles (same settings, bars kept) | `loaded_` not replaced; `computed_` unchanged |
+| Studies Apply / OK | `studies_ = study_draft_`; `computed_ = studiesForLoad`; **no** `loadChartBars` |
 
 Do **not** subscribe to `IngestWorker::Snapshot::dirty`. Polling the Reader every 2 s is enough: after ingest commits a session, the next poll sees new rows. Coupling CChartBook to IngestWorker would drag HTTP/worker into the chart module.
 
@@ -786,15 +817,17 @@ if (!settings_.symbol.empty() && now - last_reload_ >= 2s) {
 
 `ImGui::Begin` name:
 
-- Symbol set: `"{SYM}  1m###chart_{id}"` e.g. `AAPL  1m###chart_1`
+- Symbol set: `"{SYM}  {period}###chart_{id}"` via `chartPeriodCode`, e.g. `AAPL  1m###chart_1`
 - Empty symbol: `"CHART {id}###chart_{id}"`
 
 `###` keeps `imgui.ini` docking stable when the symbol changes.
 
 Inside the window, a one-line toolbar:
 
-- `Settings` button
+- `Settings` button (disabled while the Studies modal is open)
+- `Studies` button (disabled while Chart Settings is open)
 - Status text in `Theme::kMuted` (or `kDown` on Error / Unknown / Ambiguous)
+- Enabled study short labels (`MA 20 C`) in each instance’s color, after the status text
 
 Then the plot child fills the rest (`ImGuiChildFlags_Borders`, `Theme` child bg `kPanel`).
 
@@ -824,7 +857,11 @@ ImPlot is vendored at `deps/implot/` (v1.0). `ImGuiLayer` calls `ImPlot::CreateC
 ImPlot has **no** `PlotCandlestick`. Draw candles on `ImPlot::GetPlotDrawList()` between `BeginPlot` / `EndPlot` (same pattern as `implot_demo.cpp`, without including `implot_internal.h`).
 
 ```cpp
-void drawCandlesticks(std::span<const Bar> bars);
+void drawCandlesticks(std::span<const Bar> bars,
+                      CChartSettings& settings,
+                      CChartViewState& view,
+                      std::string_view timezone,
+                      std::span<const CStudySeries> overlays = {});
 ```
 
 **Layout**
@@ -841,7 +878,27 @@ void drawCandlesticks(std::span<const Bar> bars);
 
 **Volume subplot:** not in v1. When added, an ImPlot subplot band, not a `CChartSettings` change.
 
-**Studies / drawings:** future overlays after candles on the same plot draw list. They attach to `CChartPane` state, not to `CChartSettings`. Do not add a `studies` vector in v1.
+**Studies** are drawn after candles on that same plot draw list. They attach to `CChartPane`, not to `CChartSettings`. See below.
+
+### Studies
+
+Studies are pane state. They are not fields of `CChartSettings` and they are not Store rows. `CChartPane` owns `studies_` (`std::vector<CStudyInstance>`), the modal copy `study_draft_`, and `computed_` (`std::vector<CStudySeries>`). None of that is persisted: no SQLite table, no `imgui.ini` payload. Close Chart destroys the list with the pane. A new pane starts empty. There is no default moving average.
+
+`CStudyInstance` (`CStudy.h`) is a value type: pane-local `id` (`next_study_id_`, starts at 1, never reused on that pane, not rewound on Cancel), `StudyKind`, `enabled`, a packed color, and `StudyParams`. The v1 kind is `MovingAverage`. `MovingAverageParams` is a source and a length. Source is `StudySource`: Close (default), Open, High, or Low. Length defaults to 20 and is clamped to `[1, 10000]`. `MovingAverageMethod` also lists Exponential and Weighted; compute locks the method to **Simple**. Up to `kStudyMaxPerPane` (16) instances. Two moving averages on one pane are allowed.
+
+**Compute** (`CStudyCompute`, no ImGui). `studiesForLoad(loaded_, studies_)` calls `computeStudies(loaded_.bars, studies_)` only when status is `Ready` and `bars` is non-empty. Every other load result yields `{}`. Those bars are the snapshot **after** `transformChartBars` when the period is not 1-minute. Length counts chart bars, not raw 1-minute rows: a length of 20 on a 5-minute chart is twenty 5-minute bars. SMA is a running sum of the selected source. Outputs before `length - 1` are NaN and are not drawn. `length` greater than the bar count is all NaN. Disabled and unsupported instances are omitted, so `computed_.size()` is not `studies_.size()`. `computeStudies` does not throw.
+
+`reload` assigns `computed_ = studiesForLoad(loaded_, studies_)` on every path that assigns `loaded_`, including a Ready 2 s poll. The Busy/Error keep-candles return does not assign `loaded_` and does not touch `computed_`. `applyStudyDraft` copies `study_draft_` onto `studies_` and recomputes. It does not call `loadChartBars`. Pan, wheel, bar spacing, and Y-scale drag do not recompute.
+
+**Studies modal.** Display title `Studies`. ImGui id `Studies###chart_studies_<id>`. Same ID stack as Chart Settings (D8): `openStudies()` copies `studies_` into `study_draft_` and sets `studies_open_`. The pane calls `OpenPopup` inside its own `Begin`/`End`, never from the main menu. `Chart >> Studies` is `openFocusedStudies()` (`requestFocus()`, then `openStudies()`). The two modals are exclusive both ways: `openSettings()` returns immediately when `studies_open_` is set, and `openStudies()` returns when `settings_open_` is set. Toolbar Settings/Studies and the Chart menu items disable to match. `handleChartKeys` returns while either modal is open or `WantTextInput` is set, so arrows do not change spacing while a study field is focused.
+
+`drawStudyDraftBody` (`CStudySettings.cpp`) draws the list (enable checkbox, color, short label such as `MA 20 C`, Remove), an Add combo of `kStudyTypes` (v1: Moving Average), and the selected row’s widgets: Input Data, Length, Method, Color. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. At 16 studies, Add is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel, Esc, and the title X discard `study_draft_` and do not recompute. Esc does not discard the draft on a frame where a combo or color popup is open (or was open). Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. Do not invent hues.
+
+**Overlay draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. Inside `BeginPlot`, after the candle loop and before the crosshair, `drawStudyOverlays` strokes polylines on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine`. X is bar index and Y is price, the same axes as the candles. NaN breaks the stroke. A series is skipped unless placement is `Overlay` and `values.size()` equals the loaded bar count. Subgraph placement is reserved and is not drawn. Automatic scale includes finite overlay samples in the visible window before padding. Constant Range and User Defined do not expand for overlays. The hover tooltip appends one line per finite overlay at the hovered bar (`series.label` and the value, in the series color). `NoLegend` stays on. There is still no `implot_internal.h`.
+
+The toolbar, after the status text, shows `studyShortLabel` for each **enabled** instance, in that instance’s color. Disabled studies stay in `studies_` and are not labeled and not drawn.
+
+`terminal` compiles `CStudyCompute.cpp`, `CStudySettings.cpp`, and `CStudyPlot.cpp`. `terminal_tests` compiles `CStudyCompute.cpp` only (`chart_study_tests.h`, no ImGui).
 
 ### Keyboard / mouse summary (v1)
 
@@ -859,7 +916,9 @@ void drawCandlesticks(std::span<const Bar> bars);
 | Home / End | beginning / end of loaded bars |
 | Title bar / dock | stock ImGui |
 | Enter in Chart Settings symbol | Apply (modal stays open) |
-| Esc or modal title-X | `BeginPopupModal(id, &settings_open_)` sets `settings_open_ = false`; `cancelDraft()` (discard draft, no reload) |
+| Enter in Studies Length | Apply the study draft (modal stays open); no `+/-` on that field |
+| Esc or Chart Settings title-X | `settings_open_ = false`; `cancelDraft()` (discard draft, no reload) |
+| Esc or Studies title-X | discard `study_draft_`; no recompute. Not while a child combo/color popup is open |
 
 ### Persistence
 
@@ -868,6 +927,7 @@ void drawCandlesticks(std::span<const Bar> bars);
 | Dock split DATA vs rest | Yes, via gitignored `imgui.ini` |
 | Chart window dock position/size | Yes, keyed by `###chart_<id>` |
 | `CChartSettings` (symbol, days, …) | **No** |
+| Study instances and computed series | **No** — pane memory only; not SQLite, not `imgui.ini` |
 | Pane existence across process restarts | **No** — start with zero panes |
 | DATA inventory state | Unchanged, already not persisted |
 
@@ -881,7 +941,7 @@ GUI thread:  CChartBook::store_     (Reader, busy_timeout=0)
 Worker thread: IngestWorker Store    (Writer, busy_timeout=5000)
 ```
 
-`loadChartBars` runs only on the GUI thread. Never call it from `IngestWorker`. Never pass `CChartPane*` across threads.
+`loadChartBars`, `transformChartBars`, and `computeStudies` run only on the GUI thread. Never call them from `IngestWorker`. Never pass `CChartPane*` or `CStudySeries*` across threads.
 
 If Days to Load is 252, a hitch up to tens of milliseconds **per visible pane** is accepted in v1. Four visible 252-day panes × 2 s poll is the worst case (~24 MB of `vector<Bar>` plus four `queryBars`). Default 14 keeps this off the table. Skip poll when `Begin` is false. Do not add a background read until a profiler shows a real problem.
 
@@ -893,7 +953,8 @@ If Days to Load is 252, a hitch up to tens of milliseconds **per visible pane** 
 
 Public to the rest of the terminal (i.e. `Workspace`):
 
-- `CChartBook::drawMenu()`, `draw(ImGuiID)`, `addPane()`, `closeFocused()`, `openFocusedSettings()`.
+- `CChartBook::drawMenu()`, `draw(ImGuiID)`, `addPane()`, `closeFocused()`, `openFocusedSettings()`, `openFocusedStudies()`.
+- `CChartPane::openStudies()`, `studies()`, `studiesOpen()`, `settingsOpen()` — used by the book menu. The study types (`CStudyInstance`, `computeStudies`, `studiesForLoad`, `drawStudyOverlays`) stay inside `src/chart/`.
 
 `CChartPane` and `CChartSettings` are not used outside `src/chart/` + tests, except `CChartSettings.h` included by `CChartLoad`.
 
@@ -939,6 +1000,10 @@ eraseClosed();
 
 ```
 src/chart/CChartLoad.cpp
+src/chart/CChartTransform.cpp
+src/chart/CStudyCompute.cpp
+src/chart/CStudySettings.cpp
+src/chart/CStudyPlot.cpp
 src/chart/CChartPane.cpp
 src/chart/CChartBook.cpp
 src/chart/CChartPlot.cpp
@@ -952,7 +1017,10 @@ Include `${CMAKE_SOURCE_DIR}/deps/implot`. Skip clang-tidy on the two ImPlot sou
 
 ```
 src/chart/CChartLoad.cpp
+src/chart/CChartTransform.cpp
+src/chart/CStudyCompute.cpp
 tests/chart/chart_load_tests.h
+tests/chart/chart_study_tests.h
 ```
 
 `target_include_directories(terminal_tests PRIVATE ${CMAKE_SOURCE_DIR}/libs/market-data/tests)` for `TempDb.h`.
@@ -963,9 +1031,9 @@ No new CMake target. No link of ImGui into tests.
 
 ## Data Model Changes
 
-**None.** Schema v1 stays frozen. Bars remain as-traded (`queryBars` is not split-adjusted; `docs/market-data-store.md` already says do not implement `queryBarsSplitAdjusted` in the store v1). Charts plot as-traded 1-minute RTH bars.
+**None.** Schema v1 stays frozen. Bars remain as-traded (`queryBars` is not split-adjusted; `docs/market-data-store.md` already says do not implement `queryBarsSplitAdjusted` in the store v1). The Store write grain is still 1-minute RTH. Higher-timeframe bars and study series are not tables.
 
-In-memory per pane: `std::vector<Bar>` snapshot. 14 sessions × 390 × ~64 B ≈ **350 KB**. Four panes ≈ 1.4 MB. 252 sessions ≈ 6 MB per pane. Not a storage project.
+In-memory per pane: `std::vector<Bar>` snapshot (1-minute, or the `transformChartBars` composite). 14 sessions × 390 × ~64 B ≈ **350 KB**. Four panes ≈ 1.4 MB. 252 sessions ≈ 6 MB per pane. `computed_` is one `vector<double>` per enabled study, same length as `loaded_.bars`, and is not written to SQLite. Not a storage project.
 
 ---
 
@@ -1062,7 +1130,7 @@ No feature flag. Land as ordered PRs (see **PR Plan**). Each PR is mergeable: ty
 | `imgui.ini` from pre-chart builds skips default split | Low | Existing skip-if-split behavior; user deletes ini. `chart_dock_id_ == 0` → no forced dock |
 | Ambiguous AAPL+NMS / AAPL+other | Low | Fail closed; same as ingest |
 | Index-based X hides session gaps | Low | Documented; time axis is a later PR, not a type change |
-| Reserved enums accidentally queried | Medium | `isV1Supported` gate in `loadChartBars` and Apply; UI does not offer other values |
+| Reserved enums accidentally queried | Medium | `isChartSettingsSupported` in `loadChartBars` and Apply. Tick/renko and non-Days limiters stay rejected. Higher candlestick periods composite in memory; they are not `queryBars` timeframes. |
 | clang-tidy `bugprone-unchecked-optional-access` | Low | No `optional->`; use `value_or` / branches like InventoryPanel |
 
 ---
@@ -1072,7 +1140,7 @@ No feature flag. Land as ordered PRs (see **PR Plan**). Each PR is mergeable: ty
 None that block v1 implementation. The following are explicit **non-decisions for later**, not work to guess in the first PRs:
 
 - Hoist the GUI `Store` into `Workspace` so DATA and charts share one Reader.
-- Persist `CChartSettings` (ini, json, or a chartbook file).
+- Persist `CChartSettings` and `CStudyInstance` together (ini, json, or a chartbook file). Neither is persisted today.
 - DATA double-click → new pane or focused symbol.
 - Modeless Chart Settings (Sierra’s current settings UI).
 - Local-time axis labels vs UTC.
@@ -1090,7 +1158,10 @@ If product preference on any of those appears before PR 2, record it here rather
 - `docs/market-data-store.md` — WAL readers, busy_timeout 0, `queryBars` SQL, latency targets
 - `apps/terminal/src/ui/Workspace.cpp` — dock split, DATA 30%
 - `apps/terminal/src/ui/InventoryPanel.cpp` — Reader busy handling, default 14-day window, coverage UI
-- `apps/terminal/src/ui/Theme.h` — `kUp` / `kDown` / `kAccent` / `kMuted` / `kCanvas` / `kPanel`
+- `apps/terminal/src/ui/Theme.h` — `kUp` / `kDown` / `kAccent` / `kWarn` / `kOk` / `kDanger` / `kMuted` / `kCanvas` / `kPanel` / `kGo` / `kBg0`
+- `apps/terminal/src/chart/CStudy.h` — `CStudyInstance`, `MovingAverageParams`, `kStudyPalette`
+- `apps/terminal/src/chart/CStudyCompute.h` — `computeStudies`, `studiesForLoad`
+- `apps/terminal/src/chart/CChartTransform.h` — `transformChartBars`, `isChartSettingsSupported`
 - Sierra Chart [Chart Settings](https://www.sierrachart.com/index.php?page=doc/ChartSettings.html) — *Chart >> Chart Settings*; Symbol / Bar Period / Data Limiting (Days to Load, Date Range); OK / Cancel. Used as inspiration only.
 
 ---
@@ -1122,7 +1193,7 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
 - Instrument, no coverage → `Empty`
 - Three RTH sessions + one 0-bar complete holiday; `session_count = 3` → holiday not counted; `queryBars` range from oldest traded RTH start to newest RTH end; bar count matches
 - Error coverage row with `bar_count > 0` is collected (status ignored)
-- `period = Minute5` → `Unsupported`, no throw
+- Non-candlestick bar type → `Unsupported`, no throw. A 5-minute candlestick chart is supported and composites at load (`chart_transform_tests.h`); it is not a Store timeframe.
 - `session_count = 0` clamps to 1 locally; `9999` clamps to 252; caller settings unchanged
 - `isStoreBusyError("sqlite3_step: database is locked")` is true
 - `isStoreBusyError("... busy ...")` is true
@@ -1151,8 +1222,8 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
   - `apps/terminal/src/ui/ImGuiLayer.cpp` (ImPlot context; may land with CMake in PR 1/2)
   - `apps/terminal/CMakeLists.txt`
 - **Depends on:** PR 2
-- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with UTC OHLC. `NoInputs`. Volume / studies / time-axis gaps stay out.
+- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with UTC OHLC. `NoInputs`. Volume and time-axis gaps stay out of this PR. Study overlays are specified in **Studies** and are drawn on the same list after candles.
 
 **Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a UTC `YYYY-MM-DD HH:MM` OHLC line. Wheel/drag on the plot does not pan/zoom. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
 
-After PR 3 the base design is implemented. Follow-on work (not this plan): other periods, bar types, DateRange limiter, pan/zoom, DATA double-click, settings persistence, Store hoist.
+After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned SMA overlay in **Studies**: source + length, `studiesForLoad` after `loadChartBars`, Studies modal, overlay draw. They are not persisted. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, subgraph studies, drawing tools, DATA double-click, settings and study persistence, Store hoist.
