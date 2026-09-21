@@ -451,21 +451,24 @@ if (store == nullptr) {
     loaded_ = { Error, store_error.empty() ? "chart store failed to open" : store_error };
     loaded_.bars.clear();
     loaded_settings_ = settings_;
+    computed_ = studiesForLoad(loaded_, studies_);  // bars empty → {}
     return;
 }
 incoming = loadChartBars(*store, settings_);
 same = settingsIdentityEqual(loaded_settings_, settings_) && !loaded_.bars.empty();
 if ((incoming.status == Busy || incoming.status == Error) && same) {
-    // poll hitch on the same symbol/window: keep candles
+    // poll hitch on the same symbol/window: keep candles. loaded_ is not replaced.
     if (incoming.status == Error) {
         loaded_.status = Error;
         loaded_.message = incoming.message;
     }
-    // Busy: leave loaded_.status as Ready (or Empty); do not flash Busy
+    // Busy: leave loaded_.status as Ready (or Empty); do not flash Busy.
+    // Do not call studiesForLoad. computed_ stays as it was.
     return;
 }
 loaded_ = incoming;
 loaded_settings_ = settings_;
+computed_ = studiesForLoad(loaded_, studies_);
 ```
 
 After Apply changes AAPL → MSFT and the Store is busy: `same` is false, so bars are **cleared** and status is `Busy` for MSFT. The next successful poll fills MSFT. Never show AAPL candles under a MSFT title.
@@ -480,11 +483,12 @@ public:
     CChartBook(const CChartBook&) = delete;
     CChartBook& operator=(const CChartBook&) = delete;
 
-    void drawMenu();                 // Chart >> New / Settings / Close
+    void drawMenu();                 // Chart >> New / Settings / Studies / Close
     void draw(ImGuiID chart_dock_id);
     void addPane();                  // default settings; focused_id_ = new id; requestFocus()
     void closeFocused();             // focused pane window_open_ = false
     void openFocusedSettings();      // requestFocus() + openSettings(); no OpenPopup
+    void openFocusedStudies();       // requestFocus() + openStudies(); no OpenPopup
 
 private:
     void eraseClosed();              // drop !windowOpen(); if focused_id_ vanished, focused_id_ = 0
@@ -796,7 +800,7 @@ Studies do not add Store calls and do not change this query. They read `loaded_.
 | Incoming `Error`, identity changed or no bars | `loaded_ = Error`, bars empty |
 | `store == nullptr` | `Error` + `store_error`; bars empty; no `loadChartBars`; `computed_ = studiesForLoad` → `{}` |
 | Any `reload` path that assigns `loaded_` | `computed_ = studiesForLoad(loaded_, studies_)` |
-| Busy/Error keep-candles (same settings, bars kept) | `loaded_` not replaced; `computed_` unchanged |
+| Busy/Error keep-candles (same settings, bars kept) | `loaded_` not replaced. Error still sets `loaded_.status` and `loaded_.message`. Busy leaves status. `computed_` unchanged |
 | Studies Apply / OK | `studies_ = study_draft_`; `computed_ = studiesForLoad`; **no** `loadChartBars` |
 
 Do **not** subscribe to `IngestWorker::Snapshot::dirty`. Polling the Reader every 2 s is enough: after ingest commits a session, the next poll sees new rows. Coupling CChartBook to IngestWorker would drag HTTP/worker into the chart module.
@@ -886,13 +890,13 @@ Studies are pane state. They are not fields of `CChartSettings` and they are not
 
 `CStudyInstance` (`CStudy.h`) is a value type: pane-local `id` (`next_study_id_`, starts at 1, never reused on that pane, not rewound on Cancel), `StudyKind`, `enabled`, a packed color, and `StudyParams`. The v1 kind is `MovingAverage`. `MovingAverageParams` is a source and a length. Source is `StudySource`: Close (default), Open, High, or Low. Length defaults to 20 and is clamped to `[1, 10000]`. `MovingAverageMethod` also lists Exponential and Weighted; compute locks the method to **Simple**. Up to `kStudyMaxPerPane` (16) instances. Two moving averages on one pane are allowed.
 
-**Compute** (`CStudyCompute`, no ImGui). `studiesForLoad(loaded_, studies_)` calls `computeStudies(loaded_.bars, studies_)` only when status is `Ready` and `bars` is non-empty. Every other load result yields `{}`. Those bars are the snapshot **after** `transformChartBars` when the period is not 1-minute. Length counts chart bars, not raw 1-minute rows: a length of 20 on a 5-minute chart is twenty 5-minute bars. SMA is a running sum of the selected source. Outputs before `length - 1` are NaN and are not drawn. `length` greater than the bar count is all NaN. Disabled and unsupported instances are omitted, so `computed_.size()` is not `studies_.size()`. `computeStudies` does not throw.
+**Compute** (`CStudyCompute`, no ImGui). `studiesForLoad(loaded_, studies_)` calls `computeStudies(loaded_.bars, studies_)` only when status is `Ready` and `bars` is non-empty. Every other load result yields `{}`. Those bars are the snapshot **after** `transformChartBars` when the period is not 1-minute. Length counts chart bars, not raw 1-minute rows: a length of 20 on a 5-minute chart is twenty 5-minute bars. SMA is a running sum of the selected source. Outputs before `length - 1` are NaN and are not drawn. `length` greater than the bar count is all NaN. Disabled and unsupported instances are omitted. v1 pushes one series per enabled, supported moving average, so an all-enabled pane has equal sizes. Callers must not assume `computed_.size() == studies_.size()`. `computeStudies` does not throw.
 
-`reload` assigns `computed_ = studiesForLoad(loaded_, studies_)` on every path that assigns `loaded_`, including a Ready 2 s poll. The Busy/Error keep-candles return does not assign `loaded_` and does not touch `computed_`. `applyStudyDraft` copies `study_draft_` onto `studies_` and recomputes. It does not call `loadChartBars`. Pan, wheel, bar spacing, and Y-scale drag do not recompute.
+`reload` assigns `computed_ = studiesForLoad(loaded_, studies_)` on every path that assigns `loaded_`, including a Ready 2 s poll and the null-store Error. The Busy/Error keep-candles return does not replace `loaded_`. Error on that path still writes `loaded_.status` and `loaded_.message`; Busy leaves the status alone. That return does not call `studiesForLoad`, so `computed_` is unchanged. `applyStudyDraft` copies `study_draft_` onto `studies_` and recomputes. It does not call `loadChartBars`. Pan, wheel, bar spacing, and Y-scale drag do not recompute.
 
 **Studies modal.** Display title `Studies`. ImGui id `Studies###chart_studies_<id>`. Same ID stack as Chart Settings (D8): `openStudies()` copies `studies_` into `study_draft_` and sets `studies_open_`. The pane calls `OpenPopup` inside its own `Begin`/`End`, never from the main menu. `Chart >> Studies` is `openFocusedStudies()` (`requestFocus()`, then `openStudies()`). The two modals are exclusive both ways: `openSettings()` returns immediately when `studies_open_` is set, and `openStudies()` returns when `settings_open_` is set. Toolbar Settings/Studies and the Chart menu items disable to match. `handleChartKeys` returns while either modal is open or `WantTextInput` is set, so arrows do not change spacing while a study field is focused.
 
-`drawStudyDraftBody` (`CStudySettings.cpp`) draws the list (enable checkbox, color, short label such as `MA 20 C`, Remove), an Add combo of `kStudyTypes` (v1: Moving Average), and the selected row’s widgets: Input Data, Length, Method, Color. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. At 16 studies, Add is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel, Esc, and the title X discard `study_draft_` and do not recompute. Esc does not discard the draft on a frame where a combo or color popup is open (or was open). Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. Do not invent hues.
+`drawStudyDraftBody` (`CStudySettings.cpp`) draws the list (enable checkbox, color, short label such as `MA 20 C`, Remove), an Add combo of `kStudyTypes` (v1: Moving Average), and the selected row’s widgets: Input Data, Length, Method, Color. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. At 16 studies, Add is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel and the title X discard `study_draft_` and do not recompute. Esc does the same, except while a child combo or color popup is open or was open last frame (that press must close the child, not the draft). The title X is not part of that guard. Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. Do not invent hues.
 
 **Overlay draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. Inside `BeginPlot`, after the candle loop and before the crosshair, `drawStudyOverlays` strokes polylines on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine`. X is bar index and Y is price, the same axes as the candles. NaN breaks the stroke. A series is skipped unless placement is `Overlay` and `values.size()` equals the loaded bar count. Subgraph placement is reserved and is not drawn. Automatic scale includes finite overlay samples in the visible window before padding. Constant Range and User Defined do not expand for overlays. The hover tooltip appends one line per finite overlay at the hovered bar (`series.label` and the value, in the series color). `NoLegend` stays on. There is still no `implot_internal.h`.
 
@@ -918,7 +922,8 @@ The toolbar, after the status text, shows `studyShortLabel` for each **enabled**
 | Enter in Chart Settings symbol | Apply (modal stays open) |
 | Enter in Studies Length | Apply the study draft (modal stays open); no `+/-` on that field |
 | Esc or Chart Settings title-X | `settings_open_ = false`; `cancelDraft()` (discard draft, no reload) |
-| Esc or Studies title-X | discard `study_draft_`; no recompute. Not while a child combo/color popup is open |
+| Esc in Studies | discard `study_draft_`; no recompute. Suppressed while a child combo or color popup is open, or was open last frame |
+| Studies title-X | discard `study_draft_`; no recompute. Not gated on the child popup |
 
 ### Persistence
 
@@ -1222,8 +1227,8 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
   - `apps/terminal/src/ui/ImGuiLayer.cpp` (ImPlot context; may land with CMake in PR 1/2)
   - `apps/terminal/CMakeLists.txt`
 - **Depends on:** PR 2
-- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with UTC OHLC. `NoInputs`. Volume and time-axis gaps stay out of this PR. Study overlays are specified in **Studies** and are drawn on the same list after candles.
+- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with instrument-local OHLC (fallback `America/New_York`). Wheel changes bar spacing; drag on the plot pans. Volume subplot stays out. Study overlays are specified in **Studies** and are drawn on the same list after candles.
 
-**Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a UTC `YYYY-MM-DD HH:MM` OHLC line. Wheel/drag on the plot does not pan/zoom. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
+**Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a local `YYYY-MM-DD HH:MM` OHLC line. Wheel changes bar spacing; drag pans. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
 
 After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned SMA overlay in **Studies**: source + length, `studiesForLoad` after `loadChartBars`, Studies modal, overlay draw. They are not persisted. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, subgraph studies, drawing tools, DATA double-click, settings and study persistence, Store hoist.

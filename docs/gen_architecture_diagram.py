@@ -873,7 +873,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
         ctx,
         28,
         y0 + 18,
-        "CChartBook owns the chart Store Reader.  Each CChartPane owns settings and studies_.  studiesForLoad runs after loadChartBars.  No MBoum.  Studies are not stored.",
+        "CChartBook owns the chart Store Reader.  studiesForLoad runs only when reload assigns loaded_ (not on keep-candles).  No MBoum.  Studies are not stored.",
         11,
         color=MUTED,
     )
@@ -929,8 +929,8 @@ def draw_figure4(ctx: cairo.Context) -> None:
     call(0, 2, y[2], "3  Chart Settings  OK / Apply  (draft → settings)", asyn=True)
     call(2, 3, y[3], "4  loadChartBars(store, settings)  GUI thread")
     call(3, 4, y[4], "5  findInstrumentsBySymbol  ·  queryCoverageDays  ·  queryBars 1m")
-    call(3, 2, y[5], "6  ChartLoadResult  (keep last bars if busy/locked + same settings)", ret=True)
-    self_call(2, y[6] - 8, 16, "7  studiesForLoad · computeStudies")
+    call(3, 2, y[5], "6  ChartLoadResult", ret=True)
+    self_call(2, y[6] - 8, 16, "7  studiesForLoad (not keep-candles)")
     call(2, 5, y[7], "8  drawCandlesticks + overlays")
     self_call(5, y[8] - 8, 16, "9  drawStudyOverlays")
 
@@ -956,8 +956,8 @@ def draw_figure4(ctx: cairo.Context) -> None:
         [
             "Load gate",
             "1m/5m/15m/1h/1d candlesticks, Days to Load. Higher TFs composite from 1m.",
-            "Composites are not stored.  studiesForLoad uses loaded bars.",
-            "Other bar types and limiters are rejected.",
+            "studiesForLoad only when loaded_ is assigned. Keep-candles does not.",
+            "Composites are not stored.  Other bar types and limiters are rejected.",
         ],
     )
     note_box(
