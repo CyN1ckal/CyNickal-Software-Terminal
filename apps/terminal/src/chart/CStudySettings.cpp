@@ -66,8 +66,12 @@ namespace {
     char len_id[64];
     std::snprintf(len_id, sizeof(len_id), "##study_len_%d", inst.id);
     // step 0: InputScalar's +/- buttons also return true when EnterReturnsTrue is set.
+    // Live-edit writes each keystroke. Selecting another row or Add runs before this
+    // widget is submitted, and a deactivate-only write would drop the typed length.
+    ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
     const bool length_enter =
         ImGui::InputInt(len_id, &params.length, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::PopItemFlag();
 
     ImGui::TextUnformatted("Method");
     ImGui::SameLine();

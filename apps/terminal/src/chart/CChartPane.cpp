@@ -415,7 +415,21 @@ void CChartPane::drawStudiesPopup()
             studies_open_ = false;
             ImGui::CloseCurrentPopup();
         }
-        if (cancel || ImGui::Shortcut(ImGuiKey_Escape))
+        // RouteFocused still scores this modal while a combo or color popup is focused,
+        // so registering Escape here would own the key and the child would not close.
+        // NewFrame may already have closed that child on this press; skip one frame so
+        // the same Esc does not also discard the draft.
+        const bool child_popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+        ImGuiStorage* state = ImGui::GetStateStorage();
+        const ImGuiID child_popup_id = ImGui::GetID("##studies_child_popup");
+        const bool child_popup_was_open = state->GetBool(child_popup_id, false);
+        state->SetBool(child_popup_id, child_popup);
+        bool escape = false;
+        if (!child_popup && !child_popup_was_open && ImGui::IsWindowFocused())
+        {
+            escape = ImGui::Shortcut(ImGuiKey_Escape);
+        }
+        if (cancel || escape)
         {
             cancelStudyDraft();
             ImGui::CloseCurrentPopup();
