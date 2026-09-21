@@ -9,7 +9,7 @@ namespace {
 
 constexpr float kDataPanelWidthRatio = 0.30f;
 
-void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size)
+void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size, ImGuiID* out_chart_dock)
 {
     ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
     if (node != nullptr && node->IsSplitNode())
@@ -25,6 +25,7 @@ void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size)
     ImGuiID rest = 0;
     ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, kDataPanelWidthRatio, &left, &rest);
     ImGui::DockBuilderDockWindow("DATA", left);
+    *out_chart_dock = rest;
     ImGui::DockBuilderFinish(dockspace_id);
 }
 
@@ -37,6 +38,12 @@ const ImVec4& Workspace::clearColor() noexcept
 
 void Workspace::draw()
 {
+    if (ImGui::BeginMainMenuBar())
+    {
+        charts_.drawMenu();
+        ImGui::EndMainMenuBar();
+    }
+
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -56,13 +63,14 @@ void Workspace::draw()
     const ImGuiID dock_id = ImGui::GetID("WorkspaceDock");
     if (!dock_layout_applied_)
     {
-        applyDefaultDockLayout(dock_id, viewport->WorkSize);
+        applyDefaultDockLayout(dock_id, viewport->WorkSize, &chart_dock_id_);
         dock_layout_applied_ = true;
     }
     ImGui::DockSpace(dock_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
     ImGui::End();
 
     inventory_.draw();
+    charts_.draw(chart_dock_id_);
 }
 
 }  // namespace myapp

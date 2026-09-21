@@ -1,0 +1,17 @@
+#pragma once
+
+#include "chart/CChartSettings.h"
+#include "chart/CChartView.h"
+#include "market_data/Types.h"
+
+#include <span>
+#include <string_view>
+
+namespace myapp {
+
+void drawCandlesticks(std::span<const Bar> bars,
+                      CChartSettings& settings,
+                      CChartViewState& view,
+                      std::string_view timezone);
+
+}  // namespace myapp

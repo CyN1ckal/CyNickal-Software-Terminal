@@ -7,6 +7,7 @@
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "implot.h"
 
 namespace myapp {
 
@@ -16,6 +17,7 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -26,6 +28,13 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
     ImGuiStyle& style = ImGui::GetStyle();
     Theme::ApplyBloombergStyle(style);
     Theme::LoadFonts(io);
+    ImPlot::StyleColorsAuto();
+    ImPlot::GetStyle().Colors[ImPlotCol_PlotBg] = Theme::kPanel;
+    ImPlot::GetStyle().Colors[ImPlotCol_FrameBg] = Theme::kCanvas;
+    ImPlot::GetStyle().Colors[ImPlotCol_PlotBorder] = Theme::kHairline;
+    ImPlot::GetStyle().Colors[ImPlotCol_AxisText] = Theme::kMuted;
+    ImPlot::GetStyle().Colors[ImPlotCol_AxisGrid] = Theme::kHairline;
+    ImPlot::GetStyle().Colors[ImPlotCol_Crosshairs] = Theme::kHairline;
     style.ScaleAllSizes(main_scale);
     style.FontScaleDpi = main_scale;
     io.ConfigDpiScaleFonts = true;
@@ -66,6 +75,7 @@ ImGuiLayer::~ImGuiLayer()
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 }
 

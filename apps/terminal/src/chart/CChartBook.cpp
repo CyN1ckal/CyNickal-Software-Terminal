@@ -1,0 +1,117 @@
+#include "chart/CChartBook.h"
+
+#include "RepoRoot.h"
+#include "chart/CChartPane.h"
+
+#include "imgui.h"
+
+#include <algorithm>
+#include <exception>
+#include <utility>
+
+namespace myapp {
+
+CChartBook::CChartBook()
+{
+    try
+    {
+        store_ = std::make_unique<Store>(defaultMarketDataDbPath(), StoreMode::Reader);
+    }
+    catch (const std::exception& ex)
+    {
+        open_error_ = ex.what();
+    }
+}
+
+CChartBook::~CChartBook() = default;
+
+CChartPane* CChartBook::focused()
+{
+    if (focused_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<CChartPane>& pane : panes_)
+    {
+        if (pane->id() == focused_id_)
+        {
+            return pane.get();
+        }
+    }
+    return nullptr;
+}
+
+void CChartBook::eraseClosed()
+{
+    panes_.erase(std::remove_if(panes_.begin(), panes_.end(),
+                                [](const std::unique_ptr<CChartPane>& pane) {
+                                    return !pane->windowOpen();
+                                }),
+                 panes_.end());
+    if (focused() == nullptr)
+    {
+        focused_id_ = 0;
+    }
+}
+
+void CChartBook::addPane()
+{
+    // imgui.ini may still list ###chart_N from a previous run; ids are not reused in-process.
+    auto pane = std::make_unique<CChartPane>(next_id_);
+    focused_id_ = next_id_;
+    pane->requestFocus();
+    ++next_id_;
+    panes_.push_back(std::move(pane));
+}
+
+void CChartBook::closeFocused()
+{
+    if (CChartPane* pane = focused())
+    {
+        pane->closeWindow();
+    }
+}
+
+void CChartBook::openFocusedSettings()
+{
+    if (CChartPane* pane = focused())
+    {
+        pane->requestFocus();
+        pane->openSettings();
+    }
+}
+
+void CChartBook::drawMenu()
+{
+    if (ImGui::BeginMenu("Chart"))
+    {
+        if (ImGui::MenuItem("New Chart"))
+        {
+            addPane();
+        }
+        const bool has_focus = focused() != nullptr;
+        if (ImGui::MenuItem("Chart Settings", nullptr, false, has_focus))
+        {
+            openFocusedSettings();
+        }
+        if (ImGui::MenuItem("Close Chart", nullptr, false, has_focus))
+        {
+            closeFocused();
+        }
+        ImGui::EndMenu();
+    }
+}
+
+void CChartBook::draw(ImGuiID chart_dock_id)
+{
+    for (std::unique_ptr<CChartPane>& pane : panes_)
+    {
+        if (pane->draw(store_.get(), open_error_, chart_dock_id))
+        {
+            focused_id_ = pane->id();
+        }
+    }
+    eraseClosed();
+}
+
+}  // namespace myapp

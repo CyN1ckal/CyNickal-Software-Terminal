@@ -3,6 +3,7 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(CURL REQUIRED)
 
 set(TERMINAL_IMGUI_DIR ${CMAKE_SOURCE_DIR}/deps/imgui)
+set(TERMINAL_IMPLOT_DIR ${CMAKE_SOURCE_DIR}/deps/implot)
 set(TERMINAL_CATCH_DIR ${CMAKE_SOURCE_DIR}/deps/catch)
 
 add_executable(terminal
@@ -17,6 +18,10 @@ add_executable(terminal
     src/ui/Workspace.cpp
     src/ui/InventoryPanel.cpp
     src/data/IngestWorker.cpp
+    src/chart/CChartLoad.cpp
+    src/chart/CChartPane.cpp
+    src/chart/CChartBook.cpp
+    src/chart/CChartPlot.cpp
     ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_draw.cpp
@@ -25,6 +30,8 @@ add_executable(terminal
     ${TERMINAL_IMGUI_DIR}/imgui_demo.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_impl_glfw.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_impl_vulkan.cpp
+    ${TERMINAL_IMPLOT_DIR}/implot.cpp
+    ${TERMINAL_IMPLOT_DIR}/implot_items.cpp
 )
 
 if(MYAPP_ENABLE_CLANG_TIDY)
@@ -39,6 +46,8 @@ if(MYAPP_ENABLE_CLANG_TIDY)
             ${TERMINAL_IMGUI_DIR}/imgui_demo.cpp
             ${TERMINAL_IMGUI_DIR}/imgui_impl_glfw.cpp
             ${TERMINAL_IMGUI_DIR}/imgui_impl_vulkan.cpp
+            ${TERMINAL_IMPLOT_DIR}/implot.cpp
+            ${TERMINAL_IMPLOT_DIR}/implot_items.cpp
             PROPERTIES SKIP_LINTING ON
     )
 endif()
@@ -51,6 +60,7 @@ target_include_directories(terminal PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/apps/common
     ${TERMINAL_IMGUI_DIR}
+    ${TERMINAL_IMPLOT_DIR}
 )
 
 target_compile_definitions(terminal PRIVATE
@@ -71,12 +81,15 @@ endif()
 if(CYN_TESTING)
     add_executable(terminal_tests
         tests/test_main.cpp
-        tests/data/bar_loading_tests.h
+        src/chart/CChartLoad.cpp
+        tests/chart/chart_load_tests.h
+        tests/chart/chart_view_tests.h
         ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp
     )
     target_include_directories(terminal_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${CMAKE_SOURCE_DIR}/libs/market-data/tests
         ${TERMINAL_CATCH_DIR}
     )
     target_link_libraries(terminal_tests PRIVATE

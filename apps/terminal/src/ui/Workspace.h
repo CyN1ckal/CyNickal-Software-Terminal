@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chart/CChartBook.h"
 #include "ui/InventoryPanel.h"
 
 #include "imgui.h"
@@ -14,7 +15,9 @@ public:
 
 private:
     InventoryPanel inventory_;
+    CChartBook charts_;
     bool dock_layout_applied_ = false;
+    ImGuiID chart_dock_id_ = 0;
 };
 
 }  // namespace myapp
