@@ -873,7 +873,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
         ctx,
         28,
         y0 + 18,
-        "CChartBook owns the chart Store Reader.  studiesForLoad runs only when reload assigns loaded_ (not on keep-candles).  No MBoum.  Studies are not stored.",
+        "On reload, studiesForLoad runs when loaded_ is assigned, not on keep-candles.  Studies Apply/OK also calls it without assigning loaded_.  No MBoum.  Studies are not stored.",
         11,
         color=MUTED,
     )
@@ -956,7 +956,8 @@ def draw_figure4(ctx: cairo.Context) -> None:
         [
             "Load gate",
             "1m/5m/15m/1h/1d candlesticks, Days to Load. Higher TFs composite from 1m.",
-            "studiesForLoad only when loaded_ is assigned. Keep-candles does not.",
+            "Reload: studiesForLoad when loaded_ is assigned, not on keep-candles.",
+            "Studies Apply/OK also calls studiesForLoad. It does not assign loaded_.",
             "Composites are not stored.  Other bar types and limiters are rejected.",
         ],
     )
