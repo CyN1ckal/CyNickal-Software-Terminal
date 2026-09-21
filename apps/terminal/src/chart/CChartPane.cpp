@@ -5,6 +5,8 @@
 
 #include "chart/CChartPlot.h"
 #include "chart/CChartTransform.h"
+#include "chart/CStudyCompute.h"
+#include "chart/CStudySettings.h"
 #include "ui/Theme.h"
 
 #include "imgui.h"
@@ -78,11 +80,49 @@ ChartLoadStatus CChartPane::status() const noexcept
     return loaded_.status;
 }
 
+const std::vector<CStudyInstance>& CChartPane::studies() const noexcept
+{
+    return studies_;
+}
+
+bool CChartPane::settingsOpen() const noexcept
+{
+    return settings_open_;
+}
+
+bool CChartPane::studiesOpen() const noexcept
+{
+    return studies_open_;
+}
+
 void CChartPane::openSettings()
 {
+    if (studies_open_)
+    {
+        return;
+    }
     draft_ = settings_;
     std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
     settings_open_ = true;
+}
+
+void CChartPane::openStudies()
+{
+    // Flag only. OpenPopup from the menu bar is a different ID stack than the pane.
+    if (settings_open_)
+    {
+        return;
+    }
+    study_draft_ = studies_;
+    if (study_draft_.empty())
+    {
+        study_draft_selected_ = -1;
+    }
+    else
+    {
+        study_draft_selected_ = 0;
+    }
+    studies_open_ = true;
 }
 
 void CChartPane::closeWindow()
@@ -100,6 +140,26 @@ void CChartPane::cancelDraft()
     settings_open_ = false;
 }
 
+void CChartPane::cancelStudyDraft()
+{
+    study_draft_.clear();
+    study_draft_selected_ = -1;
+    studies_open_ = false;
+}
+
+void CChartPane::applyStudyDraft()
+{
+    for (CStudyInstance& inst : study_draft_)
+    {
+        if (auto* params = std::get_if<MovingAverageParams>(&inst.params))
+        {
+            clampMovingAverageParams(*params);
+        }
+    }
+    studies_ = study_draft_;
+    computed_ = studiesForLoad(loaded_, studies_);
+}
+
 void CChartPane::reload(Store* store, std::string_view store_error)
 {
     last_reload_ = std::chrono::steady_clock::now();
@@ -109,6 +169,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
         loaded_.status = ChartLoadStatus::Error;
         loaded_.message = store_error.empty() ? "chart store failed to open" : std::string(store_error);
         loaded_settings_ = settings_;
+        computed_ = studiesForLoad(loaded_, studies_);
         return;
     }
 
@@ -134,6 +195,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
         view_.scroll_from_end = 0;
         resetChartScale(view_);
     }
+    computed_ = studiesForLoad(loaded_, studies_);
 }
 
 void CChartPane::applyDraft(Store* store, std::string_view store_error)
@@ -317,6 +379,55 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
     }
 }
 
+void CChartPane::drawStudiesPopup()
+{
+    char popup_id[64];
+    std::snprintf(popup_id, sizeof(popup_id), "Studies###chart_studies_%d", id_);
+    const bool want_modal = studies_open_;
+    if (want_modal)
+    {
+        ImGui::OpenPopup(popup_id);
+    }
+    if (ImGui::BeginPopupModal(popup_id, &studies_open_, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        const bool length_enter =
+            drawStudyDraftBody(study_draft_, study_draft_selected_, next_study_id_);
+
+        ImGui::Separator();
+        ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+        const bool ok = ImGui::Button("OK");
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        const bool apply = ImGui::Button("Apply");
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        const bool cancel = ImGui::Button("Cancel");
+        ImGui::PopStyleColor();
+
+        if (length_enter || apply || ok)
+        {
+            applyStudyDraft();
+        }
+        if (ok)
+        {
+            studies_open_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        if (cancel || ImGui::Shortcut(ImGuiKey_Escape))
+        {
+            cancelStudyDraft();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    else if (want_modal && !studies_open_)
+    {
+        cancelStudyDraft();
+    }
+}
+
 void CChartPane::drawStatusLine() const
 {
     const ImVec4 color = statusColor(loaded_.status);
@@ -348,7 +459,7 @@ void CChartPane::drawStatusLine() const
 
 void CChartPane::handleChartKeys()
 {
-    if (settings_open_ || ImGui::GetIO().WantTextInput)
+    if (settings_open_ || studies_open_ || ImGui::GetIO().WantTextInput)
     {
         return;
     }
@@ -448,14 +559,38 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
         return false;
     }
 
+    ImGui::BeginDisabled(studies_open_);
     if (ImGui::Button("Settings"))
     {
         openSettings();
     }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(settings_open_);
+    if (ImGui::Button("Studies"))
+    {
+        openStudies();
+    }
+    ImGui::EndDisabled();
     ImGui::SameLine();
     drawStatusLine();
+    for (const CStudyInstance& inst : studies_)
+    {
+        if (!inst.enabled)
+        {
+            continue;
+        }
+        const std::string label = studyShortLabel(inst);
+        if (label.empty())
+        {
+            continue;
+        }
+        ImGui::SameLine();
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(inst.color), "%s", label.c_str());
+    }
 
     drawSettingsPopup(store, store_error);
+    drawStudiesPopup();
     handleChartKeys();
 
     if (!settings_.symbol.empty())

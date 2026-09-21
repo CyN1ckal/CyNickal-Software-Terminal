@@ -30,6 +30,7 @@ public:
     void addPane();
     void closeFocused();
     void openFocusedSettings();
+    void openFocusedStudies();
 
 private:
     void eraseClosed();

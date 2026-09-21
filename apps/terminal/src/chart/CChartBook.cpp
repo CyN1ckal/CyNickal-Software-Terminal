@@ -84,6 +84,15 @@ void CChartBook::openFocusedSettings()
     }
 }
 
+void CChartBook::openFocusedStudies()
+{
+    if (CChartPane* pane = focused())
+    {
+        pane->requestFocus();
+        pane->openStudies();
+    }
+}
+
 void CChartBook::drawMenu()
 {
     if (ImGui::BeginMenu("Chart"))
@@ -92,10 +101,17 @@ void CChartBook::drawMenu()
         {
             addPane();
         }
-        const bool has_focus = focused() != nullptr;
-        if (ImGui::MenuItem("Chart Settings", nullptr, false, has_focus))
+        CChartPane* pane = focused();
+        const bool has_focus = pane != nullptr;
+        const bool settings_enabled = has_focus && !pane->studiesOpen();
+        const bool studies_enabled = has_focus && !pane->settingsOpen();
+        if (ImGui::MenuItem("Chart Settings", nullptr, false, settings_enabled))
         {
             openFocusedSettings();
+        }
+        if (ImGui::MenuItem("Studies", nullptr, false, studies_enabled))
+        {
+            openFocusedStudies();
         }
         if (ImGui::MenuItem("Close Chart", nullptr, false, has_focus))
         {
