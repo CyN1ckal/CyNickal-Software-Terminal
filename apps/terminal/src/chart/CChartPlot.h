@@ -5,6 +5,7 @@
 
 #include "chart/CChartSettings.h"
 #include "chart/CChartView.h"
+#include "chart/CStudy.h"
 #include "market_data/Types.h"
 
 #include <span>
@@ -15,6 +16,7 @@ namespace terminal {
 void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
-                      std::string_view timezone);
+                      std::string_view timezone,
+                      std::span<const CStudySeries> overlays = {});
 
 }  // namespace terminal

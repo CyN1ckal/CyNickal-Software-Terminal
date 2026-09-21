@@ -3,6 +3,8 @@
 
 #include "chart/CChartPlot.h"
 
+#include "chart/CStudyCompute.h"
+#include "chart/CStudyPlot.h"
 #include "market_data/Time.h"
 #include "ui/Theme.h"
 
@@ -337,7 +339,10 @@ void handlePlotInput(std::span<const Bar> bars,
     clampV1Limits(settings);
 }
 
-void drawCrosshair(std::span<const Bar> bars, std::string_view tz, const ChartYLimits& ylim)
+void drawCrosshair(std::span<const Bar> bars,
+                   std::string_view tz,
+                   const ChartYLimits& ylim,
+                   std::span<const CStudySeries> overlays)
 {
     if (!ImPlot::IsPlotHovered() || bars.empty())
     {
@@ -369,6 +374,22 @@ void drawCrosshair(std::span<const Bar> bars, std::string_view tz, const ChartYL
     ImGui::BeginTooltip();
     ImGui::Text("%s  O  %.4f  H  %.4f  L  %.4f  C  %.4f  V  %.0f", time_buf, bar.open, bar.high,
                 bar.low, bar.close, bar.volume);
+    const auto bar_count = static_cast<int>(bars.size());
+    for (const CStudySeries& series : overlays)
+    {
+        if (series.placement != StudyPlacement::Overlay ||
+            series.values.size() != static_cast<std::size_t>(bar_count))
+        {
+            continue;
+        }
+        const double value = series.values[static_cast<std::size_t>(idx)];
+        if (!std::isfinite(value))
+        {
+            continue;
+        }
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(series.color), "%s  %.4f",
+                           series.label.c_str(), value);
+    }
     ImGui::EndTooltip();
 }
 
@@ -416,18 +437,20 @@ void drawSessionGuides(std::span<const Bar> bars, const ChartVisibleWindow& win,
 void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
-                      std::string_view timezone)
+                      std::string_view timezone,
+                      std::span<const CStudySeries> overlays)
 {
     if (bars.empty())
     {
         return;
     }
 
-    const int n = static_cast<int>(bars.size());
-    ChartVisibleWindow win = computeVisibleWindow(n, view.last_plot_w, settings.bar_spacing_px,
+    const int bar_count = static_cast<int>(bars.size());
+    ChartVisibleWindow win = computeVisibleWindow(bar_count, view.last_plot_w, settings.bar_spacing_px,
                                                   view.scroll_from_end, kChartRightFillBars);
     view.scroll_from_end = win.scroll;
-    ChartYLimits ylim = computeYLimits(bars, win, settings, view);
+    OverlayYExtent overlay = overlayYExtent(overlays, win, bar_count);
+    ChartYLimits ylim = computeYLimits(bars, win, settings, view, overlay);
 
     const ImPlotFlags flags = ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus |
                               ImPlotFlags_NoBoxSelect | ImPlotFlags_NoInputs | ImPlotFlags_NoMouseText;
@@ -455,9 +478,10 @@ void drawCandlesticks(std::span<const Bar> bars,
 
     view.last_plot_w = ImPlot::GetPlotSize().x;
     view.last_plot_h = ImPlot::GetPlotSize().y;
-    win = computeVisibleWindow(n, view.last_plot_w, settings.bar_spacing_px, view.scroll_from_end,
-                               kChartRightFillBars);
-    ylim = computeYLimits(bars, win, settings, view);
+    win = computeVisibleWindow(bar_count, view.last_plot_w, settings.bar_spacing_px,
+                               view.scroll_from_end, kChartRightFillBars);
+    overlay = overlayYExtent(overlays, win, bar_count);
+    ylim = computeYLimits(bars, win, settings, view, overlay);
 
     handlePlotInput(bars, settings, view, win, ylim);
 
@@ -471,7 +495,7 @@ void drawCandlesticks(std::span<const Bar> bars,
     const double half_width = 0.5 * static_cast<double>(settings.bar_width_frac);
 
     const int draw_first = std::max(0, win.first);
-    const int draw_last = std::min(n - 1, win.last);
+    const int draw_last = std::min(bar_count - 1, win.last);
     for (int i = draw_first; i <= draw_last; ++i)
     {
         const Bar& bar = bars[static_cast<std::size_t>(i)];
@@ -495,7 +519,8 @@ void drawCandlesticks(std::span<const Bar> bars,
     }
     ImPlot::PopPlotClipRect();
 
-    drawCrosshair(bars, timezone, ylim);
+    drawStudyOverlays(overlays, win, bar_count);
+    drawCrosshair(bars, timezone, ylim, overlays);
     ImPlot::EndPlot();
 }
 

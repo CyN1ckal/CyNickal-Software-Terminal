@@ -25,6 +25,7 @@ add_executable(terminal
     src/chart/CChartTransform.cpp
     src/chart/CStudyCompute.cpp
     src/chart/CStudySettings.cpp
+    src/chart/CStudyPlot.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPlot.cpp

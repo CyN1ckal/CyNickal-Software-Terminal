@@ -533,7 +533,7 @@ void CChartPane::drawPlotBody()
                     tz = zone;
                 }
             }
-            drawCandlesticks(loaded_.bars, settings_, view_, tz);
+            drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
         }
         else
         {
