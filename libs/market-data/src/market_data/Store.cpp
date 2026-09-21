@@ -2,9 +2,9 @@
 
 #include "Sqlite.h"
 #include "market_data/Schema.h"
+#include "market_data/Time.h"
 #include "market_data/Types.h"
 
-#include <chrono>
 #include <stdexcept>
 #include <utility>
 
@@ -14,13 +14,6 @@ namespace {
 
 constexpr int kWriterBusyTimeoutMs = 5000;
 constexpr int kReaderBusyTimeoutMs = 0;
-
-[[nodiscard]] UnixSeconds nowUtc()
-{
-    return std::chrono::duration_cast<std::chrono::seconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
 
 [[nodiscard]] std::optional<std::string> coerceExchange(std::optional<std::string_view> exchange)
 {
