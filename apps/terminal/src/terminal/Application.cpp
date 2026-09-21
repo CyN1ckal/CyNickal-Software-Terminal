@@ -1,5 +1,7 @@
 #include "terminal/Application.h"
 
+#include "ui/Workspace.h"
+
 #include "imgui_impl_glfw.h"
 
 #include <chrono>
@@ -40,7 +42,7 @@ int Application::run()
         }
 
         ImGuiLayer::newFrame();
-        ui_.draw();
+        Workspace::draw();
         ImGuiLayer::render(swapchain_, Workspace::clearColor());
     }
 
