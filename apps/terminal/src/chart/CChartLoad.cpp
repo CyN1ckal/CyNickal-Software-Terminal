@@ -1,5 +1,9 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "chart/CChartLoad.h"
 
+#include "chart/CChartTransform.h"
 #include "market_data/Time.h"
 
 #include <cctype>
@@ -71,11 +75,11 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
             out.message = "Open Chart Settings to choose a symbol.";
             return out;
         }
-        if (!isV1Supported(settings))
+        if (!isChartSettingsSupported(settings))
         {
             ChartLoadResult out;
             out.status = ChartLoadStatus::Unsupported;
-            out.message = "v1 supports 1-minute candlesticks and Days to Load only.";
+            out.message = "candlestick bars and Days to Load only.";
             return out;
         }
 
@@ -134,17 +138,23 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         out.ts_begin = usRthUtcWindow(tz, first_session).start;
         out.ts_end = usRthUtcWindow(tz, last_session).end;
         out.bars = store.queryBars(id, kTimeframe1m, out.ts_begin, out.ts_end);
+        if (chartNeedsBarTransform(settings))
+        {
+            out.bars = transformChartBars(out.bars, settings.period, tz);
+        }
         if (out.bars.empty())
         {
             out.status = ChartLoadStatus::Empty;
-            out.message = "no 1m bars for " + symbol;
+            out.message = std::string{"no "} + chartPeriodCode(settings.period) + " bars for " +
+                          symbol;
             return out;
         }
 
         out.status = ChartLoadStatus::Ready;
-        out.message = symbol + "  1m  " + formatSessionDate(first_session) + " .. " +
-                      formatSessionDate(last_session) + "  " + std::to_string(out.sessions_used) +
-                      " of " + std::to_string(session_count) + " sessions  " +
+        out.message = symbol + "  " + chartPeriodCode(settings.period) + "  " +
+                      formatSessionDate(first_session) + " .. " + formatSessionDate(last_session) +
+                      "  " + std::to_string(out.sessions_used) + " of " +
+                      std::to_string(session_count) + " sessions  " +
                       std::to_string(out.bars.size()) + " bars";
         return out;
     }

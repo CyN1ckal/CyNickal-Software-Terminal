@@ -1,3 +1,6 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #pragma once
 
 #include "market_data/Types.h"
@@ -10,11 +13,11 @@ namespace terminal {
 
 enum class ChartBarPeriod : std::uint8_t
 {
-    Minute1 = 0,  // v1 implemented → kTimeframe1m
-    Minute5,      // reserved
-    Minute15,     // reserved
-    Hour1,        // reserved
-    Day1          // reserved; not a UTC 86400s bucket — see timeframeSeconds
+    Minute1 = 0,  // kTimeframe1m identity
+    Minute5,
+    Minute15,
+    Hour1,
+    Day1  // one RTH session; Bar::timeframe_s = 86400, not a UTC day bucket
 };
 
 enum class ChartBarType : std::uint8_t
@@ -81,9 +84,27 @@ struct CChartSettings
     case ChartBarPeriod::Hour1:
         return 3600;
     case ChartBarPeriod::Day1:
-        return 86400;  // placeholder; do not pass to queryBars until a daily series exists
+        return 86400;  // period id; do not pass to queryBars (store grain is 1m)
     }
     return kTimeframe1m;
+}
+
+[[nodiscard]] inline const char* chartPeriodCode(ChartBarPeriod period) noexcept
+{
+    switch (period)
+    {
+    case ChartBarPeriod::Minute1:
+        return "1m";
+    case ChartBarPeriod::Minute5:
+        return "5m";
+    case ChartBarPeriod::Minute15:
+        return "15m";
+    case ChartBarPeriod::Hour1:
+        return "1h";
+    case ChartBarPeriod::Day1:
+        return "1d";
+    }
+    return "1m";
 }
 
 [[nodiscard]] inline bool isV1Supported(const CChartSettings& s) noexcept

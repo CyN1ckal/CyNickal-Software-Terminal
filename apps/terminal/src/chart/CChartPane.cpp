@@ -1,6 +1,10 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "chart/CChartPane.h"
 
 #include "chart/CChartPlot.h"
+#include "chart/CChartTransform.h"
 #include "ui/Theme.h"
 
 #include "imgui.h"
@@ -13,6 +17,24 @@ namespace terminal {
 namespace {
 
 constexpr auto kReloadInterval = std::chrono::seconds(2);
+
+[[nodiscard]] const char* periodDisplayName(ChartBarPeriod period) noexcept
+{
+    switch (period)
+    {
+    case ChartBarPeriod::Minute1:
+        return "1 Minute";
+    case ChartBarPeriod::Minute5:
+        return "5 Minute";
+    case ChartBarPeriod::Minute15:
+        return "15 Minute";
+    case ChartBarPeriod::Hour1:
+        return "1 Hour";
+    case ChartBarPeriod::Day1:
+        return "Daily";
+    }
+    return "1 Minute";
+}
 
 [[nodiscard]] ImVec4 statusColor(ChartLoadStatus status)
 {
@@ -102,10 +124,12 @@ void CChartPane::reload(Store* store, std::string_view store_error)
         }
         return;
     }
-    const bool symbol_changed = loaded_settings_.symbol != settings_.symbol;
+    const bool reset_view = loaded_settings_.symbol != settings_.symbol ||
+                            loaded_settings_.period != settings_.period ||
+                            loaded_settings_.session_count != settings_.session_count;
     loaded_ = incoming;
     loaded_settings_ = settings_;
-    if (symbol_changed)
+    if (reset_view)
     {
         view_.scroll_from_end = 0;
         resetChartScale(view_);
@@ -116,7 +140,7 @@ void CChartPane::applyDraft(Store* store, std::string_view store_error)
 {
     draft_.symbol = normalizeChartSymbol(draft_symbol_);
     std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
-    if (!isV1Supported(draft_))
+    if (!isChartSettingsSupported(draft_))
     {
         return;
     }
@@ -153,13 +177,19 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
         ImGui::TextUnformatted("Bar Period");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(140.0f);
-        if (ImGui::BeginCombo("##period", "1 Minute"))
+        if (ImGui::BeginCombo("##period", periodDisplayName(draft_.period)))
         {
-            bool selected = true;
-            ImGui::Selectable("1 Minute", &selected);
+            for (const ChartBarPeriod period :
+                 {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
+                  ChartBarPeriod::Hour1, ChartBarPeriod::Day1})
+            {
+                if (ImGui::Selectable(periodDisplayName(period), draft_.period == period))
+                {
+                    draft_.period = period;
+                }
+            }
             ImGui::EndCombo();
         }
-        ImGui::TextColored(Theme::kMuted, "v1: 1-minute bars only");
 
         ImGui::TextUnformatted("Bar Type");
         ImGui::SameLine();
@@ -247,9 +277,9 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
         ImGui::SetNextItemWidth(80.0f);
         ImGui::InputFloat("##pad", &draft_.scale_padding_pct, 1.0f, 4.0f, "%.1f");
 
-        if (!isV1Supported(draft_))
+        if (!isChartSettingsSupported(draft_))
         {
-            ImGui::TextColored(Theme::kDown, "v1 supports 1-minute candlesticks and Days to Load only.");
+            ImGui::TextColored(Theme::kDown, "candlestick bars and Days to Load only.");
         }
 
         ImGui::Separator();
@@ -408,7 +438,8 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
     }
     else
     {
-        std::snprintf(title, sizeof(title), "%s  1m###chart_%d", settings_.symbol.c_str(), id_);
+        std::snprintf(title, sizeof(title), "%s  %s###chart_%d", settings_.symbol.c_str(),
+                      chartPeriodCode(settings_.period), id_);
     }
 
     if (!ImGui::Begin(title, &window_open_))

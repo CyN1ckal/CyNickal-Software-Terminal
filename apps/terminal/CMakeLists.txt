@@ -1,3 +1,6 @@
+# Copyright 2026 CyNickal Software LLC
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 find_package(Vulkan REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(CURL REQUIRED)
@@ -19,6 +22,7 @@ add_executable(terminal
     src/ui/InventoryPanel.cpp
     src/data/IngestWorker.cpp
     src/chart/CChartLoad.cpp
+    src/chart/CChartTransform.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPlot.cpp
@@ -82,8 +86,10 @@ if(CYN_TESTING)
     add_executable(terminal_tests
         tests/test_main.cpp
         src/chart/CChartLoad.cpp
+        src/chart/CChartTransform.cpp
         tests/chart/chart_load_tests.h
         tests/chart/chart_view_tests.h
+        tests/chart/chart_transform_tests.h
         ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp
     )
     target_include_directories(terminal_tests PRIVATE

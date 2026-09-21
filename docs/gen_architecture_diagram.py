@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 CyNickal Software LLC
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 """Render docs/architecture.svg and docs/architecture.png (UML-style)."""
 
 from __future__ import annotations
@@ -9,7 +12,7 @@ from pathlib import Path
 import cairo
 
 OUT_DIR = Path(__file__).resolve().parent
-W, H = 1800, 2560
+W, H = 1800, 3240
 SCALE = 2
 
 BG = (0.97, 0.968, 0.955)
@@ -37,6 +40,8 @@ RETURN = (0.20, 0.46, 0.26)
 SYNC = (0.12, 0.28, 0.55)
 ASYNC = (0.50, 0.24, 0.10)
 NOTE = (1.0, 0.99, 0.84)
+CHART_FILL = (0.86, 0.94, 0.95)
+CHART_HEAD = (0.52, 0.76, 0.82)
 
 
 def set_color(ctx: cairo.Context, rgb: tuple[float, float, float], a: float = 1.0) -> None:
@@ -259,7 +264,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     )
     draw_text(ctx, 28, 80, "Figure 1.  Components and assembly", 13.5, True)
 
-    package(ctx, 16, 94, 1104, 1068, "terminal", "«system»")
+    package(ctx, 16, 94, 1104, 1248, "terminal", "«system»")
     draw_text(
         ctx,
         32,
@@ -270,55 +275,99 @@ def draw_figure1(ctx: cairo.Context) -> None:
     )
 
     # --- terminal ---
-    component(ctx, 32, 148, 684, 400, "terminal", "«executable»  apps/terminal", EXEC_FILL, EXEC_HEAD)
-    inner(ctx, 46, 196, 656, 336, "Application", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
+    component(ctx, 32, 148, 684, 572, "terminal", "«executable»  apps/terminal", EXEC_FILL, EXEC_HEAD)
+    inner(ctx, 46, 196, 656, 508, "Application", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
 
     specs = [
         ("Window", "GlfwContext  ·  VkSurface"),
         ("VulkanContext", "instance / device / queue"),
         ("VulkanSwapchain", "render + present"),
-        ("ImGuiLayer", "Theme  ·  docking"),
+        ("ImGuiLayer", "Theme  ·  docking  ·  ImPlot"),
     ]
     pw, ph, gap = 151, 50, 8
     px, py = 58, 224
     for i, (name, detail) in enumerate(specs):
         inner(ctx, px + i * (pw + gap), py, pw, ph, name, None, CLASS_FILL, CLASS_HEAD, [detail], head_h=20)
 
-    inner(ctx, 58, 284, 632, 232, "Workspace", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
+    inner(ctx, 58, 284, 632, 404, "Workspace", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
     draw_text(
         ctx,
         374,
-        318,
-        "fullscreen DockSpace   ·   first-run split docks DATA on the left at 30%",
+        316,
+        "Chart menu  ·  DockSpace  ·  DATA left 30%  ·  remainder = chart_dock_id",
         10,
         color=MUTED,
         align="center",
     )
-    inner(ctx, 72, 328, 604, 172, "InventoryPanel   DATA", "«composition»", EXEC_FILL, EXEC_HEAD, head_h=20)
+    inner(ctx, 72, 324, 604, 118, "InventoryPanel   DATA", "«composition»", EXEC_FILL, EXEC_HEAD, head_h=20)
     inner(
         ctx,
         86,
-        356,
+        350,
         282,
-        128,
+        80,
         "Store  Reader",
         "«object»",
         CLASS_FILL,
         CLASS_HEAD,
-        ["busy_timeout = 0", "queryCoverageSummaries", "queryCoverageDays", "ctor: one-shot Writer migrate"],
+        ["busy_timeout = 0  ·  coverage queries", "ctor: one-shot Writer migrate"],
         head_h=20,
     )
     inner(
         ctx,
         380,
-        356,
+        350,
         282,
-        128,
+        80,
         "IngestWorker",
         "«active»",
         CLASS_FILL,
         CLASS_HEAD,
-        ["background thread  ·  enqueue(Job)", "own Store Writer + CurlClient", "80 ms pacing  ·  Snapshot", "on_day → dirty  ·  GUI polls"],
+        ["Writer + CurlClient  ·  enqueue", "80 ms pace  ·  GUI polls Snapshot"],
+        head_h=20,
+    )
+    inner(
+        ctx,
+        72,
+        450,
+        604,
+        222,
+        "CChartBook",
+        "«composition»",
+        CHART_FILL,
+        CHART_HEAD,
+        head_h=20,
+    )
+    inner(
+        ctx,
+        86,
+        478,
+        186,
+        178,
+        "Store  Reader",
+        "«object»",
+        CLASS_FILL,
+        CLASS_HEAD,
+        ["own GUI Reader", "busy_timeout = 0", "declared after DATA", "so migrate runs first"],
+        head_h=20,
+    )
+    inner(
+        ctx,
+        284,
+        478,
+        376,
+        178,
+        "CChartPane  ×N",
+        "«composition»",
+        CHART_FILL,
+        CHART_HEAD,
+        [
+            "CChartSettings  ·  Chart Settings modal",
+            "loadChartBars  ·  queryBars 1m  ·  transformChartBars",
+            "drawCandlesticks on ImPlot draw list",
+            "1m/5m/15m/1h/1d candles  ·  Days to Load = 14",
+            "dock id chart_N  ·  not driven by DATA",
+        ],
         head_h=20,
     )
 
@@ -350,12 +399,26 @@ def draw_figure1(ctx: cairo.Context) -> None:
             "Repo root = CMakeLists.txt + libs/market-data/.",
         ],
     )
+    note_box(
+        ctx,
+        732,
+        450,
+        372,
+        110,
+        [
+            "Charting is GUI-only",
+            "src/chart/  ·  CChartSettings header-only.",
+            "Charts never call MBoum or CurlClient.",
+            "DATA row select does not set pane symbol.",
+            "Two GUI Readers on one WAL file is OK.",
+        ],
+    )
 
     # --- apps/common ---
     component(
         ctx,
         32,
-        564,
+        736,
         1072,
         114,
         "apps/common",
@@ -366,7 +429,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         48,
-        610,
+        782,
         520,
         52,
         "CurlClient",
@@ -379,7 +442,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         584,
-        610,
+        782,
         504,
         52,
         "RepoRoot",
@@ -394,7 +457,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     component(
         ctx,
         32,
-        694,
+        866,
         1072,
         448,
         "market-data",
@@ -402,11 +465,11 @@ def draw_figure1(ctx: cairo.Context) -> None:
         LIB_FILL,
         LIB_HEAD,
     )
-    draw_text(ctx, 48, 750, "public API", 10.5, True, color=MUTED)
+    draw_text(ctx, 48, 922, "public API", 10.5, True, color=MUTED)
 
     cells = [
         ("ingestSymbol()", "requires HttpGet  ·  NYSE walk; skip complete"),
-        ("Store", "pimpl  ·  Reader/Writer  ·  WAL  ·  one txn"),
+        ("Store", "queryBars / coverage  ·  Reader/Writer  ·  WAL"),
         ("Secrets", "loadMboumApiKey(secrets.json  \"mboum\")"),
         ("Schema", "schemaV1()  ·  user_version 1  ·  frozen"),
         ("Time", "IANA tzdb  ·  US RTH UTC windows"),
@@ -420,7 +483,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         inner(
             ctx,
             48 + col * (cw + 8),
-            758 + row * (ch + 8),
+            930 + row * (ch + 8),
             cw,
             ch,
             name,
@@ -431,11 +494,11 @@ def draw_figure1(ctx: cairo.Context) -> None:
             head_h=22,
         )
 
-    draw_text(ctx, 48, 922, "private  (PRIVATE include dir — apps never see sqlite3.h)", 10.5, True, color=MUTED)
+    draw_text(ctx, 48, 1094, "private  (PRIVATE include dir — apps never see sqlite3.h)", 10.5, True, color=MUTED)
     inner(
         ctx,
         48,
-        932,
+        1104,
         254,
         64,
         "SqliteDb / Stmt / Txn",
@@ -448,7 +511,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         310,
-        932,
+        1104,
         254,
         64,
         "terminal_sqlite3",
@@ -461,7 +524,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         572,
-        932,
+        1104,
         254,
         64,
         "schema/v1.sql",
@@ -474,7 +537,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         834,
-        932,
+        1104,
         254,
         64,
         "Types.h",
@@ -487,42 +550,51 @@ def draw_figure1(ctx: cairo.Context) -> None:
     draw_text(
         ctx,
         48,
-        1014,
+        1186,
         "Store write APIs open one BEGIN IMMEDIATE.  ingestSession is the only txn and calls unlocked helpers.  Nested SqliteTxn throws.",
+        10,
+        color=MUTED,
+    )
+    draw_text(
+        ctx,
+        48,
+        1202,
+        "Charts read only (queryBars).  They never call MBoum.  libs/market-data does not depend on ImGui or ImPlot.",
         10,
         color=MUTED,
     )
 
     # --- environment ---
-    package(ctx, 1248, 94, 532, 1068, "Environment", "«external»")
+    package(ctx, 1248, 94, 532, 1248, "Environment", "«external»")
 
-    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", ART_FILL, PRIV_HEAD, ["GO in DATA panel   or   ingest CLI argv"], head_h=22)
+    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", ART_FILL, PRIV_HEAD, ["GO in DATA  ·  Chart menu  ·  ingest CLI"], head_h=22)
 
     ext = [
         (218, "GLFW 3.3", "«library»  window / Vulkan surface", EXT_FILL, EXT_HEAD),
         (280, "Vulkan", "«library»  instance, device, swapchain", EXT_FILL, EXT_HEAD),
         (342, "Dear ImGui", "«library»  deps/imgui  ·  docking", EXT_FILL, EXT_HEAD),
-        (404, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
-        (490, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
-        (566, "secrets.json", "«artifact»  gitignored  ·  key mboum", ART_FILL, PRIV_HEAD),
-        (642, "data/market-data.sqlite", "«artifact»  WAL + SHM  ·  schema v1", ART_FILL, PRIV_HEAD),
-        (734, "Catch2 tests", "market_data_tests   ·   terminal_tests", CLASS_FILL, CLASS_HEAD),
-        (796, "clang-tidy", "first-party TUs  ·  warnings as errors", PRIV_FILL, PRIV_HEAD),
+        (404, "ImPlot v1.0", "«library»  deps/implot  ·  no PlotCandlestick", CHART_FILL, CHART_HEAD),
+        (466, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
+        (542, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
+        (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", ART_FILL, PRIV_HEAD),
+        (694, "data/market-data.sqlite", "«artifact»  WAL + SHM  ·  schema v1", ART_FILL, PRIV_HEAD),
+        (786, "Catch2 tests", "chart_load / chart_view  ·  market_data_tests", CLASS_FILL, CLASS_HEAD),
+        (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PRIV_FILL, PRIV_HEAD),
     ]
     for ey, name, detail, fill, head in ext:
         inner(ctx, 1266, ey, 496, 54, name, None, fill, head, [detail], head_h=20)
 
-    # Gutter between terminal (right=1120) and Environment (left=1248).
     gutter_x1 = 1120
     gutter_x2 = 1266
     arrows = [
         (245, "Window"),
         (307, "Vulkan*"),
         (369, "ImGuiLayer"),
-        (431, "CurlClient"),
-        (517, "HTTPS"),
-        (593, "Secrets"),
-        (669, "Store"),
+        (431, "CChartPlot"),
+        (493, "CurlClient"),
+        (569, "HTTPS"),
+        (645, "Secrets"),
+        (721, "Store"),
     ]
     for ay, label in arrows:
         dashed = label != "HTTPS"
@@ -533,22 +605,26 @@ def draw_figure1(ctx: cairo.Context) -> None:
     note_box(
         ctx,
         1266,
-        864,
+        916,
         496,
-        278,
+        400,
         [
-            "Concurrency (K19)",
+            "Concurrency (K19) + charts (D4, D10)",
             "One Writer connection, N Readers.",
             "Never share sqlite3* across threads.",
-            "GUI Reader busy_timeout=0: keep last",
-            "snapshot unless the error is not busy.",
+            "GUI Readers: InventoryPanel + CChartBook.",
+            "busy_timeout=0: keep last snapshot unless",
+            "the error is not busy/locked.",
             "Worker / CLI Writer busy_timeout=5000.",
+            "Chart load is GUI-thread, sync, ~2 s poll.",
+            "Keep last bars on Busy only if settings match.",
             "",
+            "Charts never talk to MBoum.",
+            "DATA row select does not set chart symbol.",
             "HTTP is in-process libcurl, not a fork.",
-            "Tests inject HttpGet; they do not hit",
-            "the network. Live ingest is the check.",
-            "401/403 from MBoum throw. Other HTTP",
-            "failures become coverage status=error.",
+            "Candles are custom GetPlotDrawList() draws.",
+            "Index X (not ImPlotScale_Time) so session",
+            "gaps are not empty overnight.",
         ],
     )
 
@@ -558,7 +634,7 @@ def draw_lifeline_head(ctx: cairo.Context, x: float, y: float, w: float, name: s
 
 
 def draw_figure2(ctx: cairo.Context) -> None:
-    y0 = 1188
+    y0 = 1370
     draw_text(ctx, 28, y0, "Figure 2.  Ingest interaction  (sequence)", 13.5, True)
     draw_text(
         ctx,
@@ -686,7 +762,7 @@ def draw_figure2(ctx: cairo.Context) -> None:
         [
             "Store modes",
             "Writer: ingest CLI and IngestWorker thread.",
-            "Reader: InventoryPanel GUI thread.",
+            "Readers: InventoryPanel + CChartBook (GUI thread).",
             "InventoryPanel ctor opens a one-shot Writer to migrate.",
         ],
     )
@@ -706,17 +782,25 @@ def draw_figure2(ctx: cairo.Context) -> None:
 
 
 def draw_figure3(ctx: cairo.Context) -> None:
-    y = 2090
+    y = 2280
     draw_text(ctx, 28, y, "Figure 3.  GUI frame  (sequence)  —  Application::run", 13.5, True)
 
-    names = ["Application", "Window", "ImGuiLayer", "Workspace", "InventoryPanel", "VulkanSwapchain"]
-    xs = [130, 410, 690, 980, 1270, 1580]
+    names = [
+        "Application",
+        "Window",
+        "ImGuiLayer",
+        "Workspace",
+        "InventoryPanel",
+        "CChartBook",
+        "VulkanSwapchain",
+    ]
+    xs = [110, 360, 610, 870, 1130, 1390, 1650]
     top = y + 28
     life_top = top + 34
-    bottom = y + 310
+    bottom = y + 360
 
     for name, x in zip(names, xs):
-        draw_lifeline_head(ctx, x, top, 180, name)
+        draw_lifeline_head(ctx, x, top, 170, name)
         set_color(ctx, MUTED)
         ctx.set_line_width(1.0)
         ctx.set_dash([3, 3.5])
@@ -736,26 +820,29 @@ def draw_figure3(ctx: cairo.Context) -> None:
         line_arrow(ctx, x1 + dx, yy, x2 - dx, yy, color, dashed=ret, open_head=ret)
         draw_text(ctx, (x1 + x2) / 2, yy - 5, label, 10, color=color, align="center")
 
-    m = [top + 58, top + 100, top + 142, top + 184, top + 226, top + 268]
-    activation(0, m[0] - 8, m[4] + 12)
+    m = [top + 56, top + 96, top + 136, top + 176, top + 216, top + 256, top + 296, top + 336]
+    activation(0, m[0] - 8, m[6] + 12)
     activation(1, m[0] - 8, m[0] + 12)
     activation(2, m[1] - 8, m[1] + 12)
-    activation(3, m[2] - 8, m[3] + 12)
-    activation(4, m[3] - 8, m[3] + 12)
-    activation(2, m[4] - 8, m[5] + 12)
-    activation(5, m[5] - 8, m[5] + 12)
+    activation(3, m[2] - 8, m[5] + 12)
+    activation(4, m[4] - 8, m[4] + 12)
+    activation(5, m[3] - 8, m[5] + 12)
+    activation(2, m[6] - 8, m[7] + 12)
+    activation(6, m[7] - 8, m[7] + 12)
 
     call(0, 1, m[0], "1  pollEvents()")
     call(0, 2, m[1], "2  newFrame()")
     call(0, 3, m[2], "3  draw()")
-    call(3, 4, m[3], "4  draw()  ·  pollWorker()  ·  tables")
-    call(0, 2, m[4], "5  render(clear = Theme::kCanvas)")
-    call(2, 5, m[5], "6  render + present")
+    call(3, 5, m[3], "4  drawMenu()  Chart >> New / Settings / Close")
+    call(3, 4, m[4], "5  inventory.draw()  ·  pollWorker")
+    call(3, 5, m[5], "6  charts.draw(chart_dock_id)")
+    call(0, 2, m[6], "7  render(clear = Theme::kCanvas)")
+    call(2, 6, m[7], "8  render + present")
 
     draw_text(
         ctx,
         28,
-        y + 340,
+        y + 390,
         "Rebuild: Application.rebuildSwapchainIfNeeded → VulkanSwapchain.resize when the framebuffer size changes or the swapchain flags rebuild.",
         10.5,
         color=MUTED,
@@ -763,18 +850,132 @@ def draw_figure3(ctx: cairo.Context) -> None:
     draw_text(
         ctx,
         28,
-        y + 358,
-        "CMake: terminal and ingest link market-data and CURL::libcurl.  terminal also links glfw and Vulkan::Vulkan.  market-data privately links terminal_sqlite3.",
+        y + 408,
+        "CMake: terminal compiles CChartLoad/Transform/Pane/Book/Plot plus deps/implot (not implot_demo).  terminal_tests compile CChartLoad.cpp and CChartTransform.cpp (no ImGui).",
         10.5,
         color=MUTED,
     )
     draw_text(
         ctx,
         28,
-        y + 376,
-        "Default FROM/TO is the last 14 calendar days.  Canonical grain is 1-minute as-traded OHLCV (timeframe_s = 60).  Splits/dividends live on corporate_action, not on bar.",
+        y + 426,
+        "Default ingest FROM/TO is the last 14 calendar days.  Chart Days to Load default is 14 sessions with bar_count > 0.  Grain is 1-minute as-traded OHLCV.",
         10.5,
         color=MUTED,
+    )
+
+
+def draw_figure4(ctx: cairo.Context) -> None:
+    y0 = 2730
+    draw_text(ctx, 28, y0, "Figure 4.  Chart load and draw  (sequence)", 13.5, True)
+    draw_text(
+        ctx,
+        28,
+        y0 + 18,
+        "CChartBook owns the chart Store Reader.  Each CChartPane owns CChartSettings and reloads on Apply or every 2 s.  No MBoum from this path.",
+        11,
+        color=MUTED,
+    )
+
+    names = ["Operator", "CChartBook", "CChartPane", "loadChartBars", "Store", "ImPlot"]
+    xs = [120, 400, 700, 1020, 1320, 1600]
+    top = y0 + 40
+    life_top = top + 34
+    bottom = y0 + 390
+
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 168, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    def activation(i: int, y1: float, y2: float) -> None:
+        x = xs[i]
+        rect(ctx, x - 5, y1, 10, max(12.0, y2 - y1), SEQ_ACT, SYNC, 0.9)
+
+    def call(i: int, j: int, y: float, label: str, *, ret: bool = False, asyn: bool = False) -> None:
+        x1, x2 = xs[i], xs[j]
+        color = RETURN if ret else (ASYNC if asyn else SYNC)
+        dx = 6 if x2 > x1 else -6
+        line_arrow(ctx, x1 + dx, y, x2 - dx, y, color, dashed=ret or asyn, open_head=ret or asyn)
+        draw_text(ctx, (x1 + x2) / 2, y - 5, label, 9.5, color=color, align="center")
+
+    def self_call(i: int, y: float, h: float, label: str) -> None:
+        x = xs[i]
+        set_color(ctx, SYNC)
+        ctx.set_line_width(1.15)
+        ctx.move_to(x + 6, y)
+        ctx.line_to(x + 52, y)
+        ctx.line_to(x + 52, y + h)
+        ctx.line_to(x + 6, y + h)
+        ctx.stroke()
+        arrow_head(ctx, x + 6, y + h, math.pi, 7)
+        draw_text(ctx, x + 58, y + h - 2, label, 9.5, color=SYNC)
+
+    y = [
+        top + 56,
+        top + 96,
+        top + 136,
+        top + 176,
+        top + 216,
+        top + 256,
+        top + 296,
+        top + 336,
+    ]
+    activation(1, y[0] - 8, y[7] + 10)
+    activation(2, y[1] - 8, y[7] + 10)
+    activation(3, y[3] - 8, y[5] + 10)
+    activation(4, y[3] - 8, y[5] + 10)
+    activation(5, y[6] - 8, y[7] + 10)
+
+    call(0, 1, y[0], "1  Chart >> New Chart")
+    call(1, 2, y[1], "2  addPane()  unique_ptr<CChartPane>")
+    call(0, 2, y[2], "3  Chart Settings  OK / Apply  (draft → settings)", asyn=True)
+    call(2, 3, y[3], "4  loadChartBars(store, settings)  GUI thread")
+    call(3, 4, y[4], "5  findInstrumentsBySymbol  ·  queryCoverageDays  ·  queryBars 1m")
+    call(3, 2, y[5], "6  ChartLoadResult  (keep last bars if busy/locked + same settings)", ret=True)
+    call(2, 5, y[6], "7  drawCandlesticks  index X  ·  custom GetPlotDrawList")
+    self_call(5, y[7] - 8, 16, "8  BeginPlot · kUp/kDown candles · OHLC")
+
+    note_box(
+        ctx,
+        28,
+        y0 + 404,
+        560,
+        72,
+        [
+            "Window identity",
+            "ImGui id chart_N so dock layout survives symbol changes.",
+            "CChartSettings are not persisted.  imgui.ini is gitignored.",
+        ],
+    )
+    note_box(
+        ctx,
+        608,
+        y0 + 404,
+        560,
+        72,
+        [
+            "Load gate",
+            "1m/5m/15m/1h/1d candlesticks, Days to Load. Higher TFs composite from 1m.",
+            "Composites are not stored.  Other bar types and limiters are rejected.",
+        ],
+    )
+    note_box(
+        ctx,
+        1188,
+        y0 + 404,
+        584,
+        72,
+        [
+            "Scale / interaction",
+            "Automatic / Constant Range / User Defined.  Wheel = spacing;",
+            "Shift+wheel zooms; drag plot pans; Y drag is Range or Move.",
+        ],
     )
 
 
@@ -784,6 +985,7 @@ def paint(ctx: cairo.Context) -> None:
     draw_figure1(ctx)
     draw_figure2(ctx)
     draw_figure3(ctx)
+    draw_figure4(ctx)
 
 
 def main() -> None:

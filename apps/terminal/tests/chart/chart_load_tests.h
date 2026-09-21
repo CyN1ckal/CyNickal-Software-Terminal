@@ -1,3 +1,6 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #pragma once
 
 #include "TempDb.h"
@@ -173,14 +176,14 @@ TEST_CASE("loadChartBars collects error coverage rows with leftover bars")
     CHECK(result.bars.size() == 2);
 }
 
-TEST_CASE("loadChartBars unsupported period does not throw")
+TEST_CASE("loadChartBars unsupported bar type does not throw")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
     store.upsertInstrument(makeAapl());
     terminal::CChartSettings settings;
     settings.symbol = "AAPL";
-    settings.period = terminal::ChartBarPeriod::Minute5;
+    settings.bar_type = terminal::ChartBarType::Ohlc;
     const auto result = terminal::loadChartBars(store, settings);
     CHECK(result.status == terminal::ChartLoadStatus::Unsupported);
     CHECK(result.bars.empty());

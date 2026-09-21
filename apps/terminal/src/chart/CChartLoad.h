@@ -1,3 +1,6 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #pragma once
 
 #include "chart/CChartSettings.h"
@@ -18,7 +21,7 @@ enum class ChartLoadStatus : std::uint8_t
     Empty,            // instrument resolved, zero bars in the window
     UnknownSymbol,    // findInstrumentsBySymbol empty
     AmbiguousSymbol,  // size > 1
-    Unsupported,      // !isV1Supported
+    Unsupported,      // !isChartSettingsSupported
     Busy,             // caught Store exception classified by isStoreBusyError
     Error             // any other caught exception (including store-open failure at the pane)
 };
