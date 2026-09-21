@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <chrono>
+#include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -275,6 +276,42 @@ bool isUsRthAt(std::string_view iana_tz, UnixSeconds ts)
     const auto local = zt.get_local_time();
     const hh_mm_ss<seconds> tod{local - floor<days>(local)};
     return isUsRthLocal(tod);
+}
+
+SessionDate parseSessionDate(std::string_view text)
+{
+    std::string digits;
+    digits.reserve(8);
+    for (const char c : text)
+    {
+        if (c >= '0' && c <= '9')
+        {
+            digits.push_back(c);
+        }
+    }
+    if (digits.size() != 8)
+    {
+        throw std::runtime_error("dates must be YYYYMMDD or YYYY-MM-DD");
+    }
+    int value = 0;
+    const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    if (ec != std::errc{} || ptr != digits.data() + digits.size())
+    {
+        throw std::runtime_error("dates must be YYYYMMDD or YYYY-MM-DD");
+    }
+    const auto date = static_cast<SessionDate>(value);
+    (void)requireSessionYmd(date);
+    return date;
+}
+
+std::string formatSessionDate(SessionDate date)
+{
+    char buf[16];
+    const int y = date / 10000;
+    const int mon = (date / 100) % 100;
+    const int d = date % 100;
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", y, mon, d);
+    return buf;
 }
 
 }  // namespace myapp

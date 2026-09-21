@@ -2,6 +2,11 @@ find_package(CURL REQUIRED)
 
 add_executable(ingest
     src/main.cpp
+    ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
+)
+
+target_include_directories(ingest PRIVATE
+    ${CMAKE_SOURCE_DIR}/apps/common
 )
 
 target_link_libraries(ingest PRIVATE market-data CURL::libcurl)

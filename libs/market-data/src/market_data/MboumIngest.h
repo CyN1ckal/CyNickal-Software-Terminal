@@ -27,6 +27,8 @@ struct IngestDayResult
     int http_status{};
 };
 
+using IngestDayCallback = std::function<void(const IngestDayResult&)>;
+
 struct IngestSymbolResult
 {
     InstrumentId instrument_id{};
@@ -40,6 +42,7 @@ struct IngestSymbolResult
                                               const HttpGet& get,
                                               std::string_view symbol,
                                               SessionDate from,
-                                              SessionDate to);
+                                              SessionDate to,
+                                              IngestDayCallback on_day = {});
 
 }  // namespace myapp

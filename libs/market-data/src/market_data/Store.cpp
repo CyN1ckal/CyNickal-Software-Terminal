@@ -156,6 +156,8 @@ struct Store::Impl
     mutable SqliteStmt sel_bars;
     SqliteStmt ins_coverage;
     mutable SqliteStmt sel_coverage_incomplete;
+    mutable SqliteStmt sel_coverage_days;
+    mutable SqliteStmt sel_coverage_summary;
     mutable SqliteStmt sel_coverage_one;
     mutable SqliteStmt sel_bar_stats;
     SqliteStmt sel_corp;
@@ -220,6 +222,26 @@ struct Store::Impl
             "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
             "WHERE instrument_id = ? AND timeframe_s = ? AND status != 'complete' "
             "ORDER BY session_date");
+        sel_coverage_days.prepare(
+            h,
+            "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
+            "WHERE instrument_id = ? AND timeframe_s = ? ORDER BY session_date DESC");
+        sel_coverage_summary.prepare(
+            h,
+            "SELECT i.id, i.symbol, i.exchange, i.asset_class, i.currency, i.timezone, i.name, "
+            "i.listed_at, i.delisted_at, i.created_at, "
+            "MIN(c.session_date), MAX(c.session_date), "
+            "COALESCE(SUM(c.bar_count), 0), COUNT(c.session_date), "
+            "COALESCE(SUM(CASE WHEN c.status = 'complete' THEN 1 ELSE 0 END), 0), "
+            "COALESCE(SUM(CASE WHEN c.status = 'partial' THEN 1 ELSE 0 END), 0), "
+            "COALESCE(SUM(CASE WHEN c.status = 'missing' THEN 1 ELSE 0 END), 0), "
+            "COALESCE(SUM(CASE WHEN c.status = 'error' THEN 1 ELSE 0 END), 0), "
+            "MAX(c.ingested_at) "
+            "FROM instrument i "
+            "LEFT JOIN coverage_day c ON c.instrument_id = i.id AND c.timeframe_s = ? "
+            "GROUP BY i.id "
+            "ORDER BY i.symbol COLLATE NOCASE, i.id");
         sel_coverage_one.prepare(
             h,
             "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
@@ -546,6 +568,56 @@ std::vector<CoverageDay> Store::queryIncompleteCoverage(InstrumentId id, int tim
     while (sel.stepRow())
     {
         out.push_back(coverageFromStmt(sel));
+    }
+    sel.reset();
+    return out;
+}
+
+std::vector<CoverageDay> Store::queryCoverageDays(InstrumentId id, int timeframe_s) const
+{
+    auto& sel = impl_->sel_coverage_days;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
+    std::vector<CoverageDay> out;
+    while (sel.stepRow())
+    {
+        out.push_back(coverageFromStmt(sel));
+    }
+    sel.reset();
+    return out;
+}
+
+std::vector<CoverageSummary> Store::queryCoverageSummaries(int timeframe_s) const
+{
+    auto& sel = impl_->sel_coverage_summary;
+    sel.reset();
+    sel.bindInt(1, timeframe_s);
+    std::vector<CoverageSummary> out;
+    while (sel.stepRow())
+    {
+        CoverageSummary row;
+        row.instrument = instrumentFromStmt(sel);
+        row.timeframe_s = timeframe_s;
+        if (!sel.columnIsNull(10))
+        {
+            row.first_session = static_cast<SessionDate>(sel.columnInt64(10));
+        }
+        if (!sel.columnIsNull(11))
+        {
+            row.last_session = static_cast<SessionDate>(sel.columnInt64(11));
+        }
+        row.bar_count = static_cast<int>(sel.columnInt64(12));
+        row.session_count = static_cast<int>(sel.columnInt64(13));
+        row.complete_count = static_cast<int>(sel.columnInt64(14));
+        row.partial_count = static_cast<int>(sel.columnInt64(15));
+        row.missing_count = static_cast<int>(sel.columnInt64(16));
+        row.error_count = static_cast<int>(sel.columnInt64(17));
+        if (!sel.columnIsNull(18))
+        {
+            row.last_ingested_at = sel.columnInt64(18);
+        }
+        out.push_back(std::move(row));
     }
     sel.reset();
     return out;

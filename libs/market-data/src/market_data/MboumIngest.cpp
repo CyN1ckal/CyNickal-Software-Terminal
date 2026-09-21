@@ -71,7 +71,8 @@ IngestSymbolResult ingestSymbol(Store& store,
                                 const HttpGet& get,
                                 std::string_view symbol,
                                 SessionDate from,
-                                SessionDate to)
+                                SessionDate to,
+                                IngestDayCallback on_day)
 {
     if (symbol.empty())
     {
@@ -84,6 +85,14 @@ IngestSymbolResult ingestSymbol(Store& store,
     {
         throw std::runtime_error("instrument missing after upsert");
     }
+
+    auto emit = [&](const IngestDayResult& day) {
+        result.days.push_back(day);
+        if (on_day)
+        {
+            on_day(day);
+        }
+    };
 
     sys_days cursor{sessionDateToYmd(from)};
     const sys_days last{sessionDateToYmd(to)};
@@ -104,7 +113,7 @@ IngestSymbolResult ingestSymbol(Store& store,
             writeHolidayComplete(store, result.instrument_id, session_date);
             day.status = CoverageStatus::Complete;
             day.bar_count = 0;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
 
@@ -114,7 +123,7 @@ IngestSymbolResult ingestSymbol(Store& store,
             {
                 day.status = CoverageStatus::Complete;
                 day.bar_count = existing->bar_count;
-                result.days.push_back(day);
+                emit(day);
                 continue;
             }
         }
@@ -130,7 +139,7 @@ IngestSymbolResult ingestSymbol(Store& store,
         {
             writeHttpError(store, result.instrument_id, session_date);
             day.status = CoverageStatus::Error;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
         day.http_status = http.status;
@@ -157,12 +166,12 @@ IngestSymbolResult ingestSymbol(Store& store,
                     {}, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
                 day.status = ingested.coverage.status;
                 day.bar_count = ingested.coverage.bar_count;
-                result.days.push_back(day);
+                emit(day);
                 continue;
             }
             writeHttpError(store, result.instrument_id, session_date);
             day.status = CoverageStatus::Error;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
 
@@ -175,7 +184,7 @@ IngestSymbolResult ingestSymbol(Store& store,
         {
             writeHttpError(store, result.instrument_id, session_date);
             day.status = CoverageStatus::Error;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
 
@@ -183,7 +192,7 @@ IngestSymbolResult ingestSymbol(Store& store,
         {
             writeHttpError(store, result.instrument_id, session_date);
             day.status = CoverageStatus::Error;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
 
@@ -193,7 +202,7 @@ IngestSymbolResult ingestSymbol(Store& store,
                 {}, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
             day.status = ingested.coverage.status;
             day.bar_count = ingested.coverage.bar_count;
-            result.days.push_back(day);
+            emit(day);
             continue;
         }
 
@@ -211,7 +220,7 @@ IngestSymbolResult ingestSymbol(Store& store,
             bars, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
         day.status = ingested.coverage.status;
         day.bar_count = ingested.coverage.bar_count;
-        result.days.push_back(day);
+        emit(day);
     }
     return result;
 }

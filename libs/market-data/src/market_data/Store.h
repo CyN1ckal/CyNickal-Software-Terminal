@@ -53,6 +53,8 @@ public:
     void upsertCoverage(const CoverageDay& row);
     [[nodiscard]] std::vector<CoverageDay> queryIncompleteCoverage(InstrumentId id,
                                                                    int timeframe_s) const;
+    [[nodiscard]] std::vector<CoverageDay> queryCoverageDays(InstrumentId id, int timeframe_s) const;
+    [[nodiscard]] std::vector<CoverageSummary> queryCoverageSummaries(int timeframe_s) const;
     [[nodiscard]] std::optional<CoverageDay> findCoverage(InstrumentId id,
                                                           int timeframe_s,
                                                           SessionDate session_date) const;

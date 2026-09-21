@@ -135,6 +135,24 @@ TEST_CASE("ingestSymbol maps a v3 page and skips holidays")
     CHECK(store.findInstrument("AAPL", std::nullopt).has_value());
 }
 
+TEST_CASE("ingestSymbol on_day fires once per session row")
+{
+    TempDb tmp;
+    myapp::Store store(tmp.path());
+    auto get = [](std::string_view) {
+        myapp::HttpResponse response;
+        response.status = 200;
+        response.body = R"({"meta":{"splits":"0","status":200},"body":[]})";
+        return response;
+    };
+    int calls = 0;
+    const auto result = myapp::ingestSymbol(
+        store, get, "MSFT", 20250120, 20250121,
+        [&](const myapp::IngestDayResult&) { ++calls; });
+    CHECK(calls == static_cast<int>(result.days.size()));
+    CHECK(calls >= 1);
+}
+
 TEST_CASE("ingestSymbol reuses an existing exchange-qualified instrument")
 {
     TempDb tmp;

@@ -186,3 +186,51 @@ TEST_CASE("corporate_action SELECT-merge keeps identity")
     CHECK(rows[0].split_ratio == 4.0);
     CHECK(rows[0].currency == "USD");
 }
+
+TEST_CASE("queryCoverageSummaries includes names with no coverage")
+{
+    TempDb tmp;
+    myapp::Store store(tmp.path());
+    auto aapl = makeAapl();
+    const auto aapl_id = store.upsertInstrument(aapl);
+    myapp::Instrument msft;
+    msft.symbol = "MSFT";
+    store.upsertInstrument(msft);
+
+    myapp::CoverageDay complete;
+    complete.instrument_id = aapl_id;
+    complete.timeframe_s = myapp::kTimeframe1m;
+    complete.session_date = 20250115;
+    complete.bar_count = 390;
+    complete.expected_count = 390;
+    complete.status = myapp::CoverageStatus::Complete;
+    complete.ingested_at = 1;
+    store.upsertCoverage(complete);
+
+    myapp::CoverageDay partial = complete;
+    partial.session_date = 20250116;
+    partial.bar_count = 200;
+    partial.status = myapp::CoverageStatus::Partial;
+    partial.ingested_at = 2;
+    store.upsertCoverage(partial);
+
+    const auto rows = store.queryCoverageSummaries(myapp::kTimeframe1m);
+    REQUIRE(rows.size() == 2);
+    CHECK(rows[0].instrument.symbol == "AAPL");
+    CHECK(rows[0].bar_count == 590);
+    CHECK(rows[0].session_count == 2);
+    CHECK(rows[0].complete_count == 1);
+    CHECK(rows[0].partial_count == 1);
+    CHECK(rows[0].first_session == 20250115);
+    CHECK(rows[0].last_session == 20250116);
+    CHECK(rows[0].last_ingested_at == 2);
+    CHECK(rows[1].instrument.symbol == "MSFT");
+    CHECK(rows[1].session_count == 0);
+    CHECK(rows[1].bar_count == 0);
+
+    const auto days = store.queryCoverageDays(aapl_id, myapp::kTimeframe1m);
+    REQUIRE(days.size() == 2);
+    CHECK(days[0].session_date == 20250116);
+    CHECK(days[1].session_date == 20250115);
+    CHECK(store.queryCoverageDays(rows[1].instrument.id, myapp::kTimeframe1m).empty());
+}

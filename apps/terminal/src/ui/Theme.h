@@ -20,6 +20,7 @@ constexpr ImVec4 kCanvas = FromRgb(0x00, 0x00, 0x00);
 constexpr ImVec4 kPanel = FromRgb(0x0A, 0x0A, 0x0A);
 constexpr ImVec4 kChrome = FromRgb(0x1C, 0x1C, 0x1C);
 constexpr ImVec4 kChromeHover = FromRgb(0x2C, 0x2C, 0x2C);
+constexpr ImVec4 kField = FromRgb(0x1A, 0x12, 0x08);
 constexpr ImVec4 kHairline = FromRgb(0x3C, 0x3C, 0x3C);
 
 // Text

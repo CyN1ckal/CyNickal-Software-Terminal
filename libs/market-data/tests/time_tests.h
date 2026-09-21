@@ -46,6 +46,15 @@ TEST_CASE("invalid civil session_date throws")
     CHECK_THROWS_AS(myapp::sessionUtcWindow("America/New_York", 20250231), std::runtime_error);
 }
 
+TEST_CASE("parseSessionDate accepts YYYYMMDD and YYYY-MM-DD")
+{
+    CHECK(myapp::parseSessionDate("20250115") == 20250115);
+    CHECK(myapp::parseSessionDate("2025-01-15") == 20250115);
+    CHECK(myapp::formatSessionDate(20250115) == "2025-01-15");
+    CHECK_THROWS_AS(myapp::parseSessionDate("2025-02-31"), std::runtime_error);
+    CHECK_THROWS_AS(myapp::parseSessionDate("15"), std::runtime_error);
+}
+
 TEST_CASE("isUsRthLocal is [09:30, 16:00)")
 {
     using namespace std::chrono;

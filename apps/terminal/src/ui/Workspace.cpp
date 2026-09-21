@@ -2,7 +2,33 @@
 
 #include "ui/Theme.h"
 
+#include "imgui_internal.h"
+
 namespace myapp {
+namespace {
+
+constexpr float kDataPanelWidthRatio = 0.30f;
+
+void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size)
+{
+    ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
+    if (node != nullptr && node->IsSplitNode())
+    {
+        return;
+    }
+
+    ImGui::DockBuilderRemoveNode(dockspace_id);
+    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, size);
+
+    ImGuiID left = 0;
+    ImGuiID rest = 0;
+    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, kDataPanelWidthRatio, &left, &rest);
+    ImGui::DockBuilderDockWindow("DATA", left);
+    ImGui::DockBuilderFinish(dockspace_id);
+}
+
+}  // namespace
 
 const ImVec4& Workspace::clearColor() noexcept
 {
@@ -27,8 +53,16 @@ void Workspace::draw()
     ImGui::Begin("Workspace", nullptr, flags);
     ImGui::PopStyleVar(3);
 
-    ImGui::DockSpace(ImGui::GetID("WorkspaceDock"), ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+    const ImGuiID dock_id = ImGui::GetID("WorkspaceDock");
+    if (!dock_layout_applied_)
+    {
+        applyDefaultDockLayout(dock_id, viewport->WorkSize);
+        dock_layout_applied_ = true;
+    }
+    ImGui::DockSpace(dock_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
     ImGui::End();
+
+    inventory_.draw();
 }
 
 }  // namespace myapp

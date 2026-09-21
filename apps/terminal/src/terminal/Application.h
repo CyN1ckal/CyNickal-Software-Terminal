@@ -4,6 +4,7 @@
 #include "platform/vulkan/VulkanSwapchain.h"
 #include "platform/window/Window.h"
 #include "ui/ImGuiLayer.h"
+#include "ui/Workspace.h"
 
 namespace myapp {
 
@@ -28,6 +29,7 @@ private:
     VulkanContext vulkan_;
     VulkanSwapchain swapchain_;
     ImGuiLayer imgui_;
+    Workspace workspace_;
 };
 
 }  // namespace myapp

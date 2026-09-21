@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace myapp {
@@ -49,5 +50,11 @@ inline SessionDate toSessionDate(std::chrono::year_month_day ymd) noexcept
     const unsigned d = static_cast<unsigned>(ymd.day());
     return static_cast<SessionDate>(y * 10000 + static_cast<int>(m) * 100 + static_cast<int>(d));
 }
+
+// YYYYMMDD or YYYY-MM-DD. Throws if the text is not a valid civil date.
+SessionDate parseSessionDate(std::string_view text);
+
+// YYYY-MM-DD. Invalid civil dates still format the numeric fields.
+[[nodiscard]] std::string formatSessionDate(SessionDate date);
 
 }  // namespace myapp

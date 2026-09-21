@@ -1,5 +1,6 @@
 find_package(Vulkan REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
+find_package(CURL REQUIRED)
 
 set(TERMINAL_IMGUI_DIR ${CMAKE_SOURCE_DIR}/deps/imgui)
 set(TERMINAL_CATCH_DIR ${CMAKE_SOURCE_DIR}/deps/catch)
@@ -14,6 +15,9 @@ add_executable(terminal
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
     src/ui/Workspace.cpp
+    src/ui/InventoryPanel.cpp
+    src/data/IngestWorker.cpp
+    ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_draw.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_tables.cpp
@@ -45,6 +49,7 @@ target_compile_options(terminal PRIVATE
 
 target_include_directories(terminal PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/apps/common
     ${TERMINAL_IMGUI_DIR}
 )
 
@@ -56,6 +61,7 @@ target_link_libraries(terminal PRIVATE
     market-data
     glfw
     Vulkan::Vulkan
+    CURL::libcurl
 )
 
 if(UNIX AND NOT APPLE)

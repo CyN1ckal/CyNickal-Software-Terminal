@@ -84,6 +84,21 @@ struct CoverageDay
     UnixSeconds ingested_at{};
 };
 
+struct CoverageSummary
+{
+    Instrument instrument;
+    int timeframe_s{kTimeframe1m};
+    std::optional<SessionDate> first_session;
+    std::optional<SessionDate> last_session;
+    int bar_count{};
+    int session_count{};
+    int complete_count{};
+    int partial_count{};
+    int missing_count{};
+    int error_count{};
+    std::optional<UnixSeconds> last_ingested_at;
+};
+
 struct CorporateAction
 {
     std::int64_t id{};
