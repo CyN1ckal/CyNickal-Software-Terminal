@@ -58,3 +58,9 @@ imgui.ini
 Thumbs.db
 desktop.ini
 .directory
+
+# Market-data runtime DB (licensed history; schema SQL is tracked)
+data/*.sqlite
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/*.sqlite-journal
