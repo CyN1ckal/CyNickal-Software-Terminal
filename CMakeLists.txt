@@ -22,6 +22,14 @@ if(MYAPP_ENABLE_CLANG_TIDY)
             NAMES clang-tidy
             REQUIRED
     )
+    set(MYAPP_CLANG_TIDY
+        "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+    )
+    if(MSVC)
+        # CMake adds --driver-mode=cl for MSVC, but clang-tidy still treats
+        # exceptions as disabled unless /EHsc is also an extra-arg.
+        string(APPEND MYAPP_CLANG_TIDY ";-extra-arg=/EHsc")
+    endif()
 endif()
 
 if(CYN_TESTING)

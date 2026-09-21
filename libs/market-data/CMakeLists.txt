@@ -14,6 +14,6 @@ target_compile_options(market-data PRIVATE
 
 if(MYAPP_ENABLE_CLANG_TIDY)
     set_target_properties(market-data PROPERTIES
-        CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+        CXX_CLANG_TIDY "${MYAPP_CLANG_TIDY}"
     )
 endif()

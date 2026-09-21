@@ -1,6 +1,7 @@
 #include "ui/Theme.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdio>
 
 namespace myapp::Theme {
@@ -18,16 +19,12 @@ LoadedFonts& loadedFonts() noexcept
     return fonts;
 }
 
-ImFont* loadFirstAvailable(ImGuiIO& io, const std::array<const char*, 4>& paths, float size_px,
+template <std::size_t N>
+ImFont* loadFirstAvailable(ImGuiIO& io, const std::array<const char*, N>& paths, float size_px,
                            const char* debug_name, const ImWchar* ranges)
 {
     for (const char* path : paths)
     {
-        if (path == nullptr)
-        {
-            continue;
-        }
-
         ImFontConfig config;
         config.SizePixels = size_px;
         std::snprintf(config.Name, sizeof(config.Name), "%s", debug_name);
@@ -147,18 +144,29 @@ void LoadFonts(ImGuiIO& io)
     };
 
     constexpr float kSizePx = 13.0f;
+#ifdef _WIN32
+    const std::array<const char*, 3> sans_paths{
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    };
+    const std::array<const char*, 2> mono_paths{
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf",
+    };
+#else
     const std::array<const char*, 4> sans_paths{
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
     };
-    const std::array<const char*, 4> mono_paths{
+    const std::array<const char*, 3> mono_paths{
         "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        nullptr,
     };
+#endif
 
     LoadedFonts& fonts = loadedFonts();
     fonts.sans = loadFirstAvailable(io, sans_paths, kSizePx, "Sans", kRanges);

@@ -43,7 +43,7 @@ VulkanContext::VulkanContext(std::vector<const char*> instance_extensions)
         }
 
         queue_family_ = ImGui_ImplVulkanH_SelectQueueFamilyIndex(physical_device_);
-        if (queue_family_ == static_cast<uint32_t>(-1))
+        if (queue_family_ == UINT32_MAX)
         {
             throw std::runtime_error("Failed to select a Vulkan queue family");
         }
@@ -167,8 +167,10 @@ void VulkanContext::createDevice()
 void VulkanContext::createDescriptorPool()
 {
     const std::array<VkDescriptorPoolSize, 2> pool_sizes{{
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE},
-        {VK_DESCRIPTOR_TYPE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE},
+        {.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+         .descriptorCount = IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE,},
+        {.type = VK_DESCRIPTOR_TYPE_SAMPLER,
+         .descriptorCount = IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE,},
     },};
 
     VkDescriptorPoolCreateInfo pool_info{};

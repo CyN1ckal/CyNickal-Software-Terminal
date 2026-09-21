@@ -22,18 +22,16 @@ void checkVkResult(VkResult result)
 
 bool hasExtension(const std::vector<VkExtensionProperties>& properties, std::string_view extension)
 {
-    return std::any_of(properties.begin(), properties.end(),
-                       [extension](const VkExtensionProperties& property) {
-                           return extension == property.extensionName;
-                       });
+    return std::ranges::any_of(properties, [extension](const VkExtensionProperties& property) {
+        return extension == property.extensionName;
+    });
 }
 
 bool hasLayer(const std::vector<VkLayerProperties>& properties, std::string_view layer)
 {
-    return std::any_of(properties.begin(), properties.end(),
-                       [layer](const VkLayerProperties& property) {
-                           return layer == property.layerName;
-                       });
+    return std::ranges::any_of(properties, [layer](const VkLayerProperties& property) {
+        return layer == property.layerName;
+    });
 }
 
 }  // namespace myapp

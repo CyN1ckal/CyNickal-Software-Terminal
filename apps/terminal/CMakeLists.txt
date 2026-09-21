@@ -25,7 +25,7 @@ add_executable(terminal
 
 if(MYAPP_ENABLE_CLANG_TIDY)
     set_target_properties(terminal PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+            CXX_CLANG_TIDY "${MYAPP_CLANG_TIDY}"
     )
     set_source_files_properties(
             ${TERMINAL_IMGUI_DIR}/imgui.cpp
@@ -93,7 +93,7 @@ if(CYN_TESTING)
 
     if(MYAPP_ENABLE_CLANG_TIDY)
         set_target_properties(terminal_tests PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+            CXX_CLANG_TIDY "${MYAPP_CLANG_TIDY}"
         )
         set_source_files_properties(
             ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp

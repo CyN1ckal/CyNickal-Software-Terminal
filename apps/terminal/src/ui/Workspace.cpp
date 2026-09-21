@@ -23,16 +23,16 @@ struct Quote
 };
 
 constexpr Quote kQuotes[] = {
-    {"ALPHA", 184.20f, 1.06f, 0.58f},
-    {"BRAVO", 41.07f, -0.45f, -1.08f},
-    {"CHARLIE", 96.14f, 0.22f, 0.23f},
-    {"DELTA", 12.88f, -0.31f, -2.35f},
-    {"ECHO", 250.40f, 3.12f, 1.26f},
-    {"FOXTROT", 8.41f, -0.04f, -0.47f},
-    {"GOLF", 63.75f, 0.00f, 0.00f},
-    {"HOTEL", 119.03f, 1.88f, 1.61f},
-    {"INDIA", 27.55f, -0.92f, -3.23f},
-    {"JULIET", 54.18f, 0.14f, 0.26f},
+    {.name = "ALPHA", .last = 184.20f, .change = 1.06f, .pct = 0.58f},
+    {.name = "BRAVO", .last = 41.07f, .change = -0.45f, .pct = -1.08f},
+    {.name = "CHARLIE", .last = 96.14f, .change = 0.22f, .pct = 0.23f},
+    {.name = "DELTA", .last = 12.88f, .change = -0.31f, .pct = -2.35f},
+    {.name = "ECHO", .last = 250.40f, .change = 3.12f, .pct = 1.26f},
+    {.name = "FOXTROT", .last = 8.41f, .change = -0.04f, .pct = -0.47f},
+    {.name = "GOLF", .last = 63.75f, .change = 0.00f, .pct = 0.00f},
+    {.name = "HOTEL", .last = 119.03f, .change = 1.88f, .pct = 1.61f},
+    {.name = "INDIA", .last = 27.55f, .change = -0.92f, .pct = -3.23f},
+    {.name = "JULIET", .last = 54.18f, .change = 0.14f, .pct = 0.26f},
 };
 
 void pushMonoFont()
@@ -337,11 +337,11 @@ void Workspace::drawLog()
         const char* text;
     };
     constexpr Line kLines[] = {
-        {"09:40:51", "workspace ready"},
-        {"09:40:52", "dock layout applied"},
-        {"09:41:02", "monitor feed live"},
-        {"09:41:08", "alpha +1.06"},
-        {"09:41:08", "india -0.92"},
+        {.time = "09:40:51", .text = "workspace ready"},
+        {.time = "09:40:52", .text = "dock layout applied"},
+        {.time = "09:41:02", .text = "monitor feed live"},
+        {.time = "09:41:08", .text = "alpha +1.06"},
+        {.time = "09:41:08", .text = "india -0.92"},
     };
 
     constexpr ImGuiTableFlags flags =
