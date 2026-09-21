@@ -1,3 +1,6 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "terminal/Application.h"
 
 #include "imgui_impl_glfw.h"

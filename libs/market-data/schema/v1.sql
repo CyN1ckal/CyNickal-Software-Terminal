@@ -1,3 +1,6 @@
+-- Copyright 2026 CyNickal Software LLC
+-- SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 -- market-data schema v1
 -- Frozen. Do not ALTER in place; add schema/v2.sql and bump kSchemaUserVersion.
 -- Applied only when PRAGMA user_version = 0.

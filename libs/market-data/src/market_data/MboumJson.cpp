@@ -1,3 +1,6 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "market_data/MboumJson.h"
 
 #include <nlohmann/json.hpp>

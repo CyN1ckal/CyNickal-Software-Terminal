@@ -1,3 +1,6 @@
+# Copyright 2026 CyNickal Software LLC
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 cmake_minimum_required(VERSION 4.0)
 project(terminal LANGUAGES C CXX)
 

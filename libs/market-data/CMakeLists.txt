@@ -1,3 +1,6 @@
+# Copyright 2026 CyNickal Software LLC
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 add_library(terminal_sqlite3 STATIC
     ${CMAKE_SOURCE_DIR}/deps/sqlite/sqlite3.c
 )
