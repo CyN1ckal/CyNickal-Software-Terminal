@@ -51,6 +51,16 @@ void bindOptionalInt64(SqliteStmt& stmt, int idx, const std::optional<UnixSecond
     stmt.bindInt64(idx, *value);
 }
 
+void bindOptionalDouble(SqliteStmt& stmt, int idx, const std::optional<double>& value)
+{
+    if (!value.has_value())
+    {
+        stmt.bindNull(idx);
+        return;
+    }
+    stmt.bindDouble(idx, *value);
+}
+
 [[nodiscard]] Instrument instrumentFromStmt(SqliteStmt& stmt)
 {
     Instrument row;
@@ -154,6 +164,10 @@ struct Store::Impl
     mutable SqliteStmt sel_coverage_incomplete;
     mutable SqliteStmt sel_coverage_one;
     mutable SqliteStmt sel_bar_stats;
+    SqliteStmt sel_corp;
+    SqliteStmt ins_corp;
+    SqliteStmt upd_corp;
+    mutable SqliteStmt sel_corp_range;
 
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
         : path(std::move(db_path)), mode(store_mode), db(path)
@@ -216,6 +230,21 @@ struct Store::Impl
             h,
             "SELECT MIN(ts), MAX(ts), COUNT(*) FROM bar "
             "WHERE instrument_id = ? AND timeframe_s = ? AND ts >= ? AND ts < ?");
+        sel_corp.prepare(
+            h,
+            "SELECT id, currency, source FROM corporate_action "
+            "WHERE instrument_id = ? AND ex_ts = ? AND type = ? "
+            "AND ifnull(split_ratio, 0) = ifnull(?, 0) AND ifnull(amount, 0) = ifnull(?, 0)");
+        ins_corp.prepare(
+            h,
+            "INSERT INTO corporate_action (instrument_id, ex_ts, type, split_ratio, amount, "
+            "currency, source) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        upd_corp.prepare(h, "UPDATE corporate_action SET currency = ?, source = ? WHERE id = ?");
+        sel_corp_range.prepare(
+            h,
+            "SELECT id, instrument_id, ex_ts, type, split_ratio, amount, currency, source "
+            "FROM corporate_action WHERE instrument_id = ? AND ex_ts > ? AND ex_ts <= ? "
+            "ORDER BY ex_ts");
     }
 };
 
@@ -668,5 +697,81 @@ CoverageDay Store::refreshCoverageFromBarsUnlocked(InstrumentId id,
     return row;
 }
 
+void Store::upsertCorporateAction(const CorporateAction& action)
+{
+    SqliteTxn txn(impl_->db.handle());
+    auto& sel = impl_->sel_corp;
+    sel.reset();
+    sel.bindInt64(1, action.instrument_id);
+    sel.bindInt64(2, action.ex_ts);
+    sel.bindText(3, toSql(action.type));
+    bindOptionalDouble(sel, 4, action.split_ratio);
+    bindOptionalDouble(sel, 5, action.amount);
+    if (sel.stepRow())
+    {
+        const auto id = sel.columnInt64(0);
+        sel.reset();
+        auto& upd = impl_->upd_corp;
+        upd.reset();
+        bindOptionalText(upd, 1, action.currency);
+        upd.bindText(2, action.source.empty() ? "mboum" : action.source);
+        upd.bindInt64(3, id);
+        upd.stepDone();
+        upd.reset();
+        txn.commit();
+        return;
+    }
+    sel.reset();
+    auto& ins = impl_->ins_corp;
+    ins.reset();
+    ins.bindInt64(1, action.instrument_id);
+    ins.bindInt64(2, action.ex_ts);
+    ins.bindText(3, toSql(action.type));
+    bindOptionalDouble(ins, 4, action.split_ratio);
+    bindOptionalDouble(ins, 5, action.amount);
+    bindOptionalText(ins, 6, action.currency);
+    ins.bindText(7, action.source.empty() ? "mboum" : action.source);
+    ins.stepDone();
+    ins.reset();
+    txn.commit();
+}
+
+std::vector<CorporateAction> Store::queryCorporateActions(InstrumentId id,
+                                                           UnixSeconds from_ex_ts,
+                                                           UnixSeconds to_ex_ts) const
+{
+    auto& sel = impl_->sel_corp_range;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt64(2, from_ex_ts);
+    sel.bindInt64(3, to_ex_ts);
+    std::vector<CorporateAction> out;
+    while (sel.stepRow())
+    {
+        CorporateAction row;
+        row.id = sel.columnInt64(0);
+        row.instrument_id = sel.columnInt64(1);
+        row.ex_ts = sel.columnInt64(2);
+        row.type = corporateActionTypeFromSql(sel.columnText(3));
+        if (!sel.columnIsNull(4))
+        {
+            row.split_ratio = sel.columnDouble(4);
+        }
+        if (!sel.columnIsNull(5))
+        {
+            row.amount = sel.columnDouble(5);
+        }
+        if (!sel.columnIsNull(6))
+        {
+            row.currency = sel.columnText(6);
+        }
+        row.source = sel.columnText(7);
+        out.push_back(row);
+    }
+    sel.reset();
+    return out;
+}
+
 }  // namespace myapp
+
 

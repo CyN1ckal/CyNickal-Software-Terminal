@@ -162,3 +162,23 @@ TEST_CASE("timezone change after bars throws")
     CHECK_THROWS_AS(store.upsertInstrument(inst), std::runtime_error);
     CHECK(store.findInstrumentById(id)->timezone == "America/New_York");
 }
+
+TEST_CASE("corporate_action SELECT-merge keeps identity")
+{
+    TempDb tmp;
+    myapp::Store store(tmp.path());
+    const auto id = store.upsertInstrument(makeAapl());
+    myapp::CorporateAction split;
+    split.instrument_id = id;
+    split.ex_ts = 1598846400;
+    split.type = myapp::CorporateActionType::Split;
+    split.split_ratio = 4.0;
+    split.source = "mboum";
+    store.upsertCorporateAction(split);
+    split.currency = "USD";
+    store.upsertCorporateAction(split);
+    const auto rows = store.queryCorporateActions(id, 0, 2000000000);
+    REQUIRE(rows.size() == 1);
+    CHECK(rows[0].split_ratio == 4.0);
+    CHECK(rows[0].currency == "USD");
+}

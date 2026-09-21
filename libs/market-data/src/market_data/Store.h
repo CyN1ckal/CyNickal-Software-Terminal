@@ -69,6 +69,11 @@ public:
                                       std::optional<int> expected_count = std::nullopt,
                                       bool session_still_open = false);
 
+    void upsertCorporateAction(const CorporateAction& action);
+    [[nodiscard]] std::vector<CorporateAction> queryCorporateActions(InstrumentId id,
+                                                                     UnixSeconds from_ex_ts,
+                                                                     UnixSeconds to_ex_ts) const;
+
 private:
     UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,
                                         UnixSeconds now,
