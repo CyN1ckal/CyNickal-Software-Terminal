@@ -17,6 +17,11 @@ void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size, ImGuiID* o
     ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
     if (node != nullptr && node->IsSplitNode())
     {
+        // Saved left/right split: DATA stays on the left, new charts use the right node.
+        if (node->SplitAxis == ImGuiAxis_X && node->ChildNodes[1] != nullptr)
+        {
+            *out_chart_dock = node->ChildNodes[1]->ID;
+        }
         return;
     }
 

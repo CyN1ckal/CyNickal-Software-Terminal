@@ -24,6 +24,8 @@ CChartBook::CChartBook()
     {
         open_error_ = ex.what();
     }
+    // Launch with one chart. It docks into the right-hand node on first use.
+    addPane();
 }
 
 CChartBook::~CChartBook() = default;
