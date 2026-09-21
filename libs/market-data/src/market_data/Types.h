@@ -18,7 +18,7 @@ inline constexpr int kTimeframe1m = 60;
 inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kSchemaUserVersion = 1;
 
-enum class AssetClass
+enum class AssetClass : std::uint8_t
 {
     Equity,
     Etf,
@@ -28,7 +28,7 @@ enum class AssetClass
     Other
 };
 
-enum class CoverageStatus
+enum class CoverageStatus : std::uint8_t
 {
     Complete,
     Partial,
@@ -36,7 +36,7 @@ enum class CoverageStatus
     Error
 };
 
-enum class CorporateActionType
+enum class CorporateActionType : std::uint8_t
 {
     Split,
     Dividend,

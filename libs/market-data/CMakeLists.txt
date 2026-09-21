@@ -20,12 +20,24 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(myapp_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v1.sql" MARKET_DATA_SCHEMA_V1)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v1.inc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/schema_v1.inc"
+    @ONLY
+)
+
 add_library(market-data STATIC
     src/market_data/SqliteVersion.cpp
+    private/Sqlite.cpp
+    src/market_data/Schema.cpp
+    src/market_data/Store.cpp
 )
 target_include_directories(market-data
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/private
     PRIVATE ${CMAKE_SOURCE_DIR}/deps/sqlite
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(market-data PRIVATE myapp_sqlite3)
 if(UNIX AND NOT APPLE)
@@ -52,6 +64,9 @@ if(CYN_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
         ${CMAKE_SOURCE_DIR}/deps/catch
+    )
+    target_compile_definitions(market_data_tests PRIVATE
+        MYAPP_MARKET_DATA_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/schema"
     )
     target_compile_options(market_data_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

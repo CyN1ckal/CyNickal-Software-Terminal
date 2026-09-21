@@ -1,0 +1,1 @@
+static constexpr char kSchemaV1[] = R"SQL(@MARKET_DATA_SCHEMA_V1@)SQL";
