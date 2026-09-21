@@ -23,6 +23,7 @@ add_executable(terminal
     src/data/IngestWorker.cpp
     src/chart/CChartLoad.cpp
     src/chart/CChartTransform.cpp
+    src/chart/CStudyCompute.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPlot.cpp
@@ -87,7 +88,9 @@ if(CYN_TESTING)
         tests/test_main.cpp
         src/chart/CChartLoad.cpp
         src/chart/CChartTransform.cpp
+        src/chart/CStudyCompute.cpp
         tests/chart/chart_load_tests.h
+        tests/chart/chart_study_tests.h
         tests/chart/chart_view_tests.h
         tests/chart/chart_transform_tests.h
         ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp

@@ -90,3 +90,124 @@ TEST_CASE("resetChartScale clears interactive extras")
     CHECK(view.move_offset == 0.0);
     CHECK(view.working_range == 0.0);
 }
+
+TEST_CASE("automatic y limits expand to the overlay before padding")
+{
+    std::vector<terminal::Bar> bars(3);
+    for (terminal::Bar& bar : bars)
+    {
+        bar.low = 10.0;
+        bar.high = 20.0;
+    }
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+    terminal::CChartSettings settings;
+    settings.scale_padding_pct = 10.0f;
+    terminal::CChartViewState view;
+    terminal::OverlayYExtent overlay;
+    overlay.valid = true;
+    overlay.min = 0.0;
+    overlay.max = 30.0;
+    const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
+    // Merged range is 30. Padding is 10% of that range, not of the candle range.
+    CHECK(y.min == Catch::Approx(0.0 - 3.0));
+    CHECK(y.max == Catch::Approx(30.0 + 3.0));
+}
+
+TEST_CASE("constant range ignores overlay extent")
+{
+    std::vector<terminal::Bar> bars(2);
+    bars[0].low = 0.0;
+    bars[0].high = 1.0;
+    bars[1].low = 100.0;
+    bars[1].high = 110.0;
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 1;
+    terminal::CChartSettings settings;
+    settings.scale_range = terminal::ChartScaleRange::ConstantRange;
+    settings.constant_range = 20.0;
+    terminal::CChartViewState view;
+    terminal::OverlayYExtent overlay;
+    overlay.valid = true;
+    overlay.min = -1.0e9;
+    overlay.max = 1.0e9;
+    const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
+    CHECK(y.min == Catch::Approx(95.0));
+    CHECK(y.max == Catch::Approx(115.0));
+}
+
+TEST_CASE("constant range fallback keeps the candle range when overlay is set")
+{
+    std::vector<terminal::Bar> bars(3);
+    for (terminal::Bar& bar : bars)
+    {
+        bar.low = 10.0;
+        bar.high = 20.0;
+    }
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+    terminal::CChartSettings settings;
+    settings.scale_range = terminal::ChartScaleRange::ConstantRange;
+    settings.constant_range = 0.0;
+    settings.scale_padding_pct = 4.0f;
+    terminal::CChartViewState view;
+    terminal::OverlayYExtent overlay;
+    overlay.valid = true;
+    overlay.min = 0.0;
+    overlay.max = 30.0;
+    const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
+    // Candle range 10, pad 0.4, fallback range 10.8, centered on 15.
+    CHECK(y.min == Catch::Approx(9.6));
+    CHECK(y.max == Catch::Approx(20.4));
+}
+
+TEST_CASE("user defined scale ignores overlay when top and bottom are set")
+{
+    std::vector<terminal::Bar> bars(1);
+    bars[0].low = 10.0;
+    bars[0].high = 20.0;
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 0;
+    terminal::CChartSettings settings;
+    settings.scale_range = terminal::ChartScaleRange::UserDefined;
+    settings.user_bottom = 40.0;
+    settings.user_top = 80.0;
+    terminal::CChartViewState view;
+    terminal::OverlayYExtent overlay;
+    overlay.valid = true;
+    overlay.min = -1000.0;
+    overlay.max = 5000.0;
+    const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
+    CHECK(y.min == Catch::Approx(40.0));
+    CHECK(y.max == Catch::Approx(80.0));
+}
+
+TEST_CASE("user defined fallback uses candle high low and ignores overlay")
+{
+    std::vector<terminal::Bar> bars(3);
+    for (terminal::Bar& bar : bars)
+    {
+        bar.low = 10.0;
+        bar.high = 20.0;
+    }
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+    terminal::CChartSettings settings;
+    settings.scale_range = terminal::ChartScaleRange::UserDefined;
+    settings.user_top = 1.0;
+    settings.user_bottom = 2.0;
+    settings.scale_padding_pct = 4.0f;
+    terminal::CChartViewState view;
+    terminal::OverlayYExtent overlay;
+    overlay.valid = true;
+    overlay.min = 0.0;
+    overlay.max = 100.0;
+    const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
+    CHECK(y.min == Catch::Approx(10.0 - 0.4));
+    CHECK(y.max == Catch::Approx(20.0 + 0.4));
+}

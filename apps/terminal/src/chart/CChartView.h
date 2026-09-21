@@ -39,6 +39,15 @@ struct ChartYLimits
     double max{};
 };
 
+// Finite overlay samples inside the visible bar window. valid == false means
+// the scale must ignore it (no samples, all NaN, or a size mismatch).
+struct OverlayYExtent
+{
+    bool valid{false};
+    double min{};
+    double max{};
+};
+
 // Per-pane interaction state. Not part of load identity; not persisted.
 struct CChartViewState
 {
@@ -88,7 +97,8 @@ struct CChartViewState
 [[nodiscard]] inline ChartYLimits computeYLimits(std::span<const Bar> bars,
                                                  const ChartVisibleWindow& win,
                                                  const CChartSettings& settings,
-                                                 const CChartViewState& view) noexcept
+                                                 const CChartViewState& view,
+                                                 const OverlayYExtent overlay = {}) noexcept
 {
     ChartYLimits out;
     if (bars.empty())
@@ -105,6 +115,13 @@ struct CChartViewState
         lo = std::min(lo, bar.low);
         hi = std::max(hi, bar.high);
     }
+    // Automatic expands before padding so pad and extra_pad use the merged range.
+    // Constant Range and User Defined keep the candle-only lo/hi.
+    if (settings.scale_range == ChartScaleRange::Automatic && overlay.valid)
+    {
+        lo = std::min(lo, overlay.min);
+        hi = std::max(hi, overlay.max);
+    }
     if (lo >= hi)
     {
         const double pad = std::abs(lo) * 0.01;
@@ -114,7 +131,7 @@ struct CChartViewState
     }
     const double data_range = hi - lo;
     const double pad = data_range * static_cast<double>(settings.scale_padding_pct) / 100.0;
-    const double extra = data_range * view.extra_pad_frac;
+    const double extra_pad = data_range * view.extra_pad_frac;
 
     switch (settings.scale_range)
     {
@@ -141,15 +158,15 @@ struct CChartViewState
         }
         else
         {
-            out.min = lo - pad - extra + view.move_offset;
-            out.max = hi + pad + extra + view.move_offset;
+            out.min = lo - pad - extra_pad + view.move_offset;
+            out.max = hi + pad + extra_pad + view.move_offset;
         }
         break;
     }
     case ChartScaleRange::Automatic:
     default:
-        out.min = lo - pad - extra + view.move_offset;
-        out.max = hi + pad + extra + view.move_offset;
+        out.min = lo - pad - extra_pad + view.move_offset;
+        out.max = hi + pad + extra_pad + view.move_offset;
         break;
     }
     if (out.max <= out.min)
