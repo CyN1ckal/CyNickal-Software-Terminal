@@ -238,6 +238,19 @@ TEST_CASE("ingestSymbol reuses an existing exchange-qualified instrument")
 
 namespace {
 
+[[nodiscard]] bool isV1SplitsUrl(std::string_view url)
+{
+    return url.find("diffandsplits=true") != std::string::npos;
+}
+
+[[nodiscard]] terminal::HttpResponse emptySplitsHttp()
+{
+    terminal::HttpResponse response;
+    response.status = 200;
+    response.body = R"({"meta":{"status":200},"body":{}})";
+    return response;
+}
+
 std::string dailyPageJson(const std::vector<terminal::SessionDate>& dates, bool splits = false)
 {
     std::string json = R"({"meta":{"splits":")";
@@ -269,13 +282,17 @@ TEST_CASE("ingestDailySymbol maps a page and writes holiday coverage")
     auto get = [&](std::string_view url) {
         last_url = std::string(url);
         ++gets;
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
         terminal::HttpResponse response;
         response.status = 200;
         response.body = json;
         return response;
     };
     const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 20241231, 20250102);
-    CHECK(gets == 1);
+    CHECK(gets == 2);
     CHECK(last_url.find("interval=daily") != std::string::npos);
     CHECK(last_url.find("startDate=20241231") != std::string::npos);
     CHECK(last_url.find("endDate=20250102") != std::string::npos);
@@ -302,11 +319,15 @@ TEST_CASE("ingestDailySymbol maps a page and writes holiday coverage")
     CHECK(saw_session);
 }
 
-TEST_CASE("ingestDailySymbol skips HTTP when daily coverage is complete")
+TEST_CASE("ingestDailySymbol skips bar HTTP when daily coverage is complete")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    auto get = [&](std::string_view) {
+    auto get = [&](std::string_view url) {
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
         terminal::HttpResponse response;
         response.status = 200;
         response.body = dailyPageJson({20250115});
@@ -314,12 +335,16 @@ TEST_CASE("ingestDailySymbol skips HTTP when daily coverage is complete")
     };
     (void)terminal::ingestDailySymbol(store, get, "AAPL", 20250115, 20250115);
     int gets = 0;
-    auto blocked = [&](std::string_view) {
+    std::string splits_url;
+    auto blocked = [&](std::string_view url) {
         ++gets;
-        return terminal::HttpResponse{};
+        splits_url = std::string(url);
+        return emptySplitsHttp();
     };
     const auto again = terminal::ingestDailySymbol(store, blocked, "AAPL", 20250115, 20250115);
-    CHECK(gets == 0);
+    CHECK(gets == 1);
+    CHECK(splits_url.find("diffandsplits=true") != std::string::npos);
+    CHECK(splits_url.find("interval=daily") == std::string::npos);
     CHECK_FALSE(again.days.empty());
 }
 
@@ -327,7 +352,11 @@ TEST_CASE("ingestDailySymbol 404 stops without missing flood")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    auto get = [](std::string_view) {
+    auto get = [](std::string_view url) {
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
         terminal::HttpResponse response;
         response.status = 404;
         response.body = R"({"message":"No historical data found for the specified criteria"})";
@@ -342,7 +371,11 @@ TEST_CASE("ingestDailySymbol splits page is error and writes no bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    auto get = [](std::string_view) {
+    auto get = [](std::string_view url) {
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
         terminal::HttpResponse response;
         response.status = 200;
         response.body = dailyPageJson({20250115}, true);
@@ -368,7 +401,12 @@ TEST_CASE("ingestDailySymbol pages oldest-ward when the first page is full")
         urls.emplace_back(url);
         terminal::HttpResponse response;
         response.status = 200;
-        if (urls.size() == 1)
+        const std::string text{url};
+        if (text.find("diffandsplits=true") != std::string::npos)
+        {
+            response.body = R"({"meta":{"status":200},"body":{}})";
+        }
+        else if (text.find("endDate=20250115") != std::string::npos)
         {
             response.body = dailyPageJson(page1);
         }
@@ -379,9 +417,10 @@ TEST_CASE("ingestDailySymbol pages oldest-ward when the first page is full")
         return response;
     };
     const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 20080101, 20250115);
-    REQUIRE(urls.size() == 2);
-    CHECK(urls.front().find("endDate=20250115") != std::string::npos);
-    CHECK(urls.back().find("endDate=") != std::string::npos);
+    REQUIRE(urls.size() == 3);
+    CHECK(urls.front().find("diffandsplits=true") != std::string::npos);
+    CHECK(urls[1].find("endDate=20250115") != std::string::npos);
+    CHECK(urls.back().find("interval=daily") != std::string::npos);
     CHECK(urls.back().find("endDate=20250115") == std::string::npos);
     const auto bars = store.queryBars(result.instrument_id, terminal::kTimeframe1d, 0, 4000000000);
     CHECK(bars.size() == static_cast<std::size_t>(terminal::kMboumDailyPageLimit + 5));
@@ -400,4 +439,160 @@ TEST_CASE("ingestSymbol fails closed when a symbol has two instruments")
         return terminal::HttpResponse{};
     };
     CHECK_THROWS_AS(terminal::ingestSymbol(store, get, "AAPL", 20250120, 20250120), std::runtime_error);
+}
+
+TEST_CASE("parseMboumV1SplitEvents reads NVDA 10-for-1 and skips bad rows")
+{
+    const char* json = R"({
+      "meta": {"status": 200},
+      "body": {
+        "1717767000": {"date": "2024-06-07", "open": 119.77, "close": 120.888, "volume": 412385000},
+        "events": {
+          "dividends": {"1718112600": {"amount": 0.01, "date": 1718112600}},
+          "splits": {
+            "1718026200": {"date": 1718026200, "numerator": 10, "denominator": 1, "splitRatio": "10:1"},
+            "1": {"date": 1, "numerator": 1, "denominator": 0},
+            "2": {"numerator": 2, "denominator": 1}
+          }
+        }
+      }
+    })";
+    const auto events = terminal::parseMboumV1SplitEvents(json);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].ex_ts == 1718026200);
+    CHECK(events[0].split_ratio == 10.0);
+    const std::string url = terminal::mboumV1SplitsUrl("NVDA");
+    CHECK(url.find("ticker=NVDA") != std::string::npos);
+    CHECK(url.find("interval=1mo") != std::string::npos);
+    CHECK(url.find("interval=1d") == std::string::npos);
+    CHECK(url.find("diffandsplits=true") != std::string::npos);
+}
+
+TEST_CASE("ingestSplits writes one split and does not change bars")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.upsertInstrument([] {
+        terminal::Instrument inst;
+        inst.symbol = "NVDA";
+        inst.timezone = "America/New_York";
+        return inst;
+    }());
+    terminal::Bar bar;
+    bar.instrument_id = id;
+    bar.timeframe_s = terminal::kTimeframe1d;
+    bar.ts = 1717767000;
+    bar.open = 1197.7;
+    bar.high = 1216.91;
+    bar.low = 1180.22;
+    bar.close = 1208.88;
+    bar.volume = 41238500.0;
+    CHECK(store.upsertBars(std::vector<terminal::Bar>{bar}).written == 1);
+
+    const char* json = R"({
+      "body": {"events": {"splits": {
+        "1718026200": {"date": 1718026200, "numerator": 10, "denominator": 1}
+      }}}
+    })";
+    int gets = 0;
+    auto get = [&](std::string_view) {
+        ++gets;
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = json;
+        return response;
+    };
+    const auto first = terminal::ingestSplits(store, get, "NVDA");
+    CHECK(first.upserted == 1);
+    CHECK(gets == 1);
+    const auto stored = store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000);
+    REQUIRE(stored.size() == 1);
+    CHECK(stored[0].close == 1208.88);
+
+    const auto again = terminal::ingestSplits(store, get, "NVDA");
+    CHECK(again.upserted == 1);
+    const auto rows = store.queryCorporateActions(id, 0, 2000000000);
+    REQUIRE(rows.size() == 1);
+    CHECK(rows[0].type == terminal::CorporateActionType::Split);
+    CHECK(rows[0].split_ratio == 10.0);
+    CHECK(rows[0].ex_ts == 1718026200);
+
+    const char* other_ratio = R"({
+      "body": {"events": {"splits": {
+        "1718026200": {"date": 1718026200, "numerator": 5, "denominator": 1}
+      }}}
+    })";
+    auto replace = [&](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = other_ratio;
+        return response;
+    };
+    const auto blocked = terminal::ingestSplits(store, replace, "NVDA");
+    CHECK(blocked.upserted == 0);
+    const auto kept = store.queryCorporateActions(id, 0, 2000000000);
+    REQUIRE(kept.size() == 1);
+    CHECK(kept[0].split_ratio == 10.0);
+}
+
+TEST_CASE("ingestSplits authentication failure throws and writes nothing")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    auto get = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 401;
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestSplits(store, get, "NVDA"), std::runtime_error);
+    const auto found = store.findInstrumentsBySymbol("NVDA");
+    REQUIRE(found.size() == 1);
+    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
+}
+
+TEST_CASE("ingestSplits transport, HTTP, and parse failures throw and write nothing")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    auto transport = [](std::string_view) -> terminal::HttpResponse {
+        throw std::runtime_error("connection reset");
+    };
+    CHECK_THROWS_AS(terminal::ingestSplits(store, transport, "NVDA"), std::runtime_error);
+
+    auto http = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 500;
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestSplits(store, http, "NVDA"), std::runtime_error);
+
+    auto parse = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = "not-json";
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestSplits(store, parse, "NVDA"), std::runtime_error);
+
+    const auto found = store.findInstrumentsBySymbol("NVDA");
+    REQUIRE(found.size() == 1);
+    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
+    CHECK(store.queryBars(found.front().id, terminal::kTimeframe1d, 0, 4000000000).empty());
+}
+
+TEST_CASE("ingestDailySymbol propagates a splits fetch failure and writes no bars")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    auto get = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 502;
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestDailySymbol(store, get, "AAPL", 20250115, 20250115),
+                    std::runtime_error);
+    const auto found = store.findInstrumentsBySymbol("AAPL");
+    REQUIRE(found.size() == 1);
+    CHECK(store.queryBars(found.front().id, terminal::kTimeframe1d, 0, 4000000000).empty());
+    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
 }

@@ -345,6 +345,8 @@ IngestSymbolResult ingestDailySymbol(Store& store,
     }
     const Instrument& inst = *found;
     const UnixSeconds now = nowUtc();
+    // Split events are independent of bar coverage. A complete daily range still needs this fetch.
+    (void)ingestSplits(store, get, symbol);
 
     if (dailyRangeIsComplete(store, result.instrument_id, inst.timezone, from, to, now))
     {
@@ -457,6 +459,80 @@ IngestSymbolResult ingestDailySymbol(Store& store,
             break;
         }
         end = older;
+    }
+    return result;
+}
+
+IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, std::string_view symbol)
+{
+    if (symbol.empty())
+    {
+        throw std::runtime_error("ingest symbol is empty");
+    }
+    IngestSplitsResult result;
+    result.instrument_id = ensureInstrument(store, symbol);
+
+    HttpResponse http;
+    try
+    {
+        http = get(mboumV1SplitsUrl(symbol));
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum splits request failed: ") + ex.what());
+    }
+    if (http.status == 401 || http.status == 403)
+    {
+        throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+    if (http.status != 200)
+    {
+        throw std::runtime_error("MBoum splits request failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+
+    std::vector<MboumV1SplitEvent> events;
+    try
+    {
+        events = parseMboumV1SplitEvents(http.body);
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum splits parse failed: ") + ex.what());
+    }
+
+    for (const MboumV1SplitEvent& event : events)
+    {
+        const UnixSeconds from_ex = event.ex_ts > 0 ? event.ex_ts - 1 : event.ex_ts;
+        const std::vector<CorporateAction> existing =
+            store.queryCorporateActions(result.instrument_id, from_ex, event.ex_ts);
+        bool blocked = false;
+        for (const CorporateAction& row : existing)
+        {
+            if (row.type != CorporateActionType::Split || row.ex_ts != event.ex_ts)
+            {
+                continue;
+            }
+            const double stored = row.split_ratio.value_or(0.0);
+            if (stored != event.split_ratio)
+            {
+                blocked = true;
+            }
+            break;
+        }
+        if (blocked)
+        {
+            continue;
+        }
+        CorporateAction action;
+        action.instrument_id = result.instrument_id;
+        action.ex_ts = event.ex_ts;
+        action.type = CorporateActionType::Split;
+        action.split_ratio = event.split_ratio;
+        action.source = "mboum";
+        store.upsertCorporateAction(action);
+        ++result.upserted;
     }
     return result;
 }

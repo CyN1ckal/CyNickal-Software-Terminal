@@ -3,6 +3,7 @@
 
 #include "chart/CChartCommand.h"
 
+#include "IngestDefaults.h"
 #include "chart/CChartLoad.h"
 #include "market_data/NyseCalendar.h"
 #include "market_data/Time.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <exception>
 #include <string>
 
 namespace terminal {
@@ -27,9 +29,44 @@ constexpr int kChartSymbolMaxLen = 31;
 constexpr int kChartDownloadWeekDays = 5;
 constexpr int kChartDownloadWeekSpan = 7;
 constexpr int kChartIntradayDownloadMinDays = 21;
-constexpr int kChartDailyDownloadPresetDays = 365 * 5;
 constexpr int kChartIntradayDownloadPadDays = 7;
-constexpr int kChartDailyDownloadPadDays = 14;
+
+[[nodiscard]] int calendarDaysBackForSessions(SessionDate today, int sessions) noexcept
+{
+    try
+    {
+        using std::chrono::days;
+        using std::chrono::Saturday;
+        using std::chrono::Sunday;
+        using std::chrono::sys_days;
+        using std::chrono::weekday;
+        using std::chrono::year_month_day;
+        sys_days cursor{sessionDateToYmd(today)};
+        int seen = 0;
+        int stepped = 0;
+        const int limit = sessions * 3;
+        while (stepped < limit)
+        {
+            const year_month_day ymd{cursor};
+            const weekday wd{cursor};
+            if (wd != Saturday && wd != Sunday && !isNyseHoliday(ymd))
+            {
+                ++seen;
+            }
+            if (seen >= sessions)
+            {
+                return stepped;
+            }
+            cursor -= days{1};
+            ++stepped;
+        }
+        return stepped;
+    }
+    catch (const std::exception&)
+    {
+        return sessions * 2;
+    }
+}
 
 [[nodiscard]] std::string trimCopy(std::string_view text)
 {
@@ -278,7 +315,7 @@ ChartCommand parseChartCommand(std::string_view text, ChartBarPeriod current)
     return command;
 }
 
-int chartDownloadLookbackDays(const CChartSettings& settings) noexcept
+int chartDownloadLookbackDays(const CChartSettings& settings, SessionDate today) noexcept
 {
     int sessions = chartSessionCount(settings);
     const int cap = chartMaxSessionCount(settings.period);
@@ -290,11 +327,14 @@ int chartDownloadLookbackDays(const CChartSettings& settings) noexcept
     {
         sessions = cap;
     }
-    const bool daily = chartPeriodIsHistorical(settings.period);
-    const int pad = daily ? kChartDailyDownloadPadDays : kChartIntradayDownloadPadDays;
-    const int spanned = sessions * kChartDownloadWeekSpan / kChartDownloadWeekDays + pad;
-    const int preset = daily ? kChartDailyDownloadPresetDays : kChartIntradayDownloadMinDays;
-    return spanned > preset ? spanned : preset;
+    if (chartPeriodIsHistorical(settings.period))
+    {
+        const int spanned = calendarDaysBackForSessions(today, sessions);
+        return spanned > kIngestDefaultDailyDays ? spanned : kIngestDefaultDailyDays;
+    }
+    const int spanned =
+        sessions * kChartDownloadWeekSpan / kChartDownloadWeekDays + kChartIntradayDownloadPadDays;
+    return spanned > kChartIntradayDownloadMinDays ? spanned : kChartIntradayDownloadMinDays;
 }
 
 ChartDownloadRequest chartDownloadWindow(const CChartSettings& settings, SessionDate today)
@@ -304,7 +344,7 @@ ChartDownloadRequest chartDownloadWindow(const CChartSettings& settings, Session
     request.timeframe_s =
         chartPeriodIsHistorical(settings.period) ? kTimeframe1d : kTimeframe1m;
     request.to = today;
-    const int lookback = chartDownloadLookbackDays(settings);
+    const int lookback = chartDownloadLookbackDays(settings, today);
     const auto ymd = sessionDateToYmd(today);
     request.from =
         toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{lookback});

@@ -5,7 +5,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -64,6 +66,31 @@ namespace {
         return false;
     }
     return splitsTruthy(*splits);
+}
+
+[[nodiscard]] std::optional<double> jsonDouble(const nlohmann::json& object, const char* key)
+{
+    const auto it = object.find(key);
+    if (it == object.end() || !it->is_number())
+    {
+        return std::nullopt;
+    }
+    return it->get<double>();
+}
+
+[[nodiscard]] std::optional<UnixSeconds> jsonUnix(const nlohmann::json& object, const char* key)
+{
+    const auto it = object.find(key);
+    if (it == object.end() || !it->is_number())
+    {
+        return std::nullopt;
+    }
+    if (it->is_number_integer())
+    {
+        return it->get<UnixSeconds>();
+    }
+    const auto seconds = static_cast<UnixSeconds>(it->get<double>());
+    return seconds;
 }
 
 }  // namespace
@@ -211,6 +238,85 @@ std::string mboumV3DailyUrl(std::string_view ticker, SessionDate from, SessionDa
     url += "&endDate=";
     url += end;
     url += "&splits=0&dividends=0&order=asc";
+    return url;
+}
+
+std::vector<MboumV1SplitEvent> parseMboumV1SplitEvents(std::string_view json)
+{
+    try
+    {
+        const auto root = nlohmann::json::parse(json);
+        if (!root.is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+        const auto body = root.find("body");
+        if (body == root.end() || body->is_null())
+        {
+            return {};
+        }
+        if (!body->is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+        const auto events = body->find("events");
+        if (events == body->end() || events->is_null())
+        {
+            return {};
+        }
+        if (!events->is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+        const auto splits = events->find("splits");
+        if (splits == events->end() || splits->is_null())
+        {
+            return {};
+        }
+        if (!splits->is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+
+        std::vector<MboumV1SplitEvent> out;
+        for (const auto& item : splits->items())
+        {
+            const auto& row = item.value();
+            if (!row.is_object())
+            {
+                continue;
+            }
+            const std::optional<UnixSeconds> ex_ts = jsonUnix(row, "date");
+            const std::optional<double> numerator = jsonDouble(row, "numerator");
+            const std::optional<double> denominator = jsonDouble(row, "denominator");
+            if (!ex_ts.has_value() || !numerator.has_value() || !denominator.has_value())
+            {
+                continue;
+            }
+            const double den = *denominator;
+            const double num = *numerator;
+            if (!(den > 0.0) || !(num / den > 0.0))
+            {
+                continue;
+            }
+            MboumV1SplitEvent event;
+            event.ex_ts = *ex_ts;
+            event.split_ratio = num / den;
+            out.push_back(event);
+        }
+        return out;
+    }
+    catch (const nlohmann::json::exception& ex)
+    {
+        throw std::runtime_error(std::string("invalid MBoum JSON: ") + ex.what());
+    }
+}
+
+std::string mboumV1SplitsUrl(std::string_view ticker)
+{
+    std::string url = "https://api.mboum.com/v1/markets/stock/history?ticker=";
+    url.append(ticker);
+    url += "&interval=1mo&diffandsplits=true";
     return url;
 }
 

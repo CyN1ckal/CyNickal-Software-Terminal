@@ -24,7 +24,7 @@ This design adds a **chartbook** of independent chart panes:
 - `CChartPane` — one dockable ImGui chart surface that owns settings, a bar snapshot, a settings popup, and a study list.
 - `CChartBook` — container owned by `Workspace` that creates, focuses, closes, and draws panes.
 
-Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions. 5m / 15m / 1h / 1d candlesticks are `transformChartBars` on that result and are not written back. Other bar types and limiters are rejected. Studies are computed from those loaded bars; they are not stored.
+Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions, plus stored daily bars for Day1. 5m / 15m / 1h candlesticks are `transformChartBars` on the 1-minute result and are not written back. Day1 reads `kTimeframe1d` and split-adjusts that copy in memory. Other bar types and limiters are rejected. Studies are computed from those loaded bars; they are not stored.
 
 Charts never talk to MBoum. They only read the existing Store.
 
@@ -104,7 +104,7 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 | Chart linking across panes | Sierra has it; skip. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
 | Charts ingesting from MBoum | DATA / `IngestWorker` only. |
-| Schema v2, `queryBars` LIMIT, split-adjusted reads | Existing range query is enough. |
+| Schema v2, `queryBars` LIMIT | Daily split adjustment is in-memory after `queryBars`. Intraday stays as-traded. |
 | ImPlot time axis / pan / zoom | Vendored; v1 uses index X and `NoInputs`. |
 | Vulkan plot pipeline | Immediate-mode is enough for ≤ ~100k bars. |
 | Persist `CChartSettings` / chartbook files | Dock geometry may land in `imgui.ini`; settings do not. |
@@ -756,7 +756,7 @@ flowchart TD
     J -->|yes| L["ts_begin = usRthUtcWindow(tz, oldest).start"]
     L --> M["ts_end = usRthUtcWindow(tz, newest).end"]
     M --> N{"used daily coverage?"}
-    N -->|yes| Nd["queryBars(id, kTimeframe1d) — no transform"]
+    N -->|yes| Nd["queryBars daily, then adjustBarsForSplits"]
     N -->|no| Nm["queryBars(id, kTimeframe1m)"]
     Nm --> P{chartNeedsBarTransform?}
     P -->|yes| Q["transformChartBars — not stored"]
@@ -782,7 +782,7 @@ Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `B
 13. `ts_begin = usRthUtcWindow(tz, oldest).start`  
     `ts_end   = usRthUtcWindow(tz, newest).end`  
     `usRthUtcWindow` is `[09:30, 16:00)` local; `queryBars` is `ts >= begin AND ts < end`. Last RTH minute opens at 15:59 and is included; 16:00 is not.
-14. If the period is Day1: `bars = store.queryBars(id, kTimeframe1d, ts_begin, ts_end)` and skip `transformChartBars`. Else `queryBars(id, kTimeframe1m, …)` and, when `chartNeedsBarTransform(settings)`, replace with `transformChartBars`. Composites are not written back to SQLite.
+14. If the period is Day1: `bars = store.queryBars(id, kTimeframe1d, ts_begin, ts_end)` and skip `transformChartBars`. When `bars` is not empty, replace them with `adjustBarsForSplits(bars, queryCorporateActions(id, 0, last_bar.ts))`. Prices before a split are divided by `split_ratio` (new/old) and volume is multiplied. The ex-date bar (`ex_ts == bar.ts`) is unchanged. `queryBars` stays as-traded. Intraday loads do not adjust, and dividends are not applied. Else `queryBars(id, kTimeframe1m, …)` and, when `chartNeedsBarTransform(settings)`, replace with `transformChartBars`. Composites are not written back to SQLite.
 15. If `bars.empty()` → `Empty`; else `Ready`. Never return `Ready` with empty `bars`. `sessions_used = collected.size()` (may be `< session_count` if history is short — not an error). Message example: `"AAPL  1m  2025-01-02 .. 2025-01-22  5 of 14 sessions  1950 bars"`.
 
 Studies do not add Store calls and do not change this query. They read `loaded_.bars` after the load. Changing a study length or source does not call `loadChartBars`. See **Studies**.
@@ -858,8 +858,8 @@ Then the plot child fills the rest (`ImGuiChildFlags_Borders`, `Theme` child bg 
 | Busy, bars empty | blank | muted: `store busy` |
 | Busy swallowed (same settings, kept bars) | last candles | toolbar stays **Ready**; do not flash Busy |
 | Error, bars empty (incl. `store == nullptr`) | blank | `kDown`: `loaded_.message` / `store_error` |
-| Error, kept bars (same settings) | last candles | `kDown`: exception text |
-| Ready | candles | range / session / bar counts |
+| Error, kept bars (same settings, or a finished download / splits error) | last candles | `kDown`: exception text |
+| Ready | candles | range / session / bar counts. While a chart download serial is still open, the toolbar stays on the downloading line and the candles stay |
 
 `draw()` must not throw. `loadChartBars` already caught Store errors.
 
@@ -929,7 +929,9 @@ Submit rules (`parseChartCommand`):
 - Any other ticker is a symbol. `QQQ` and `qqq` both become `QQQ`. A leading `/` forces a symbol (`/MSFT`). The name is trimmed and uppercased, 1–31 characters, starting with a letter, then letters, digits, `.`, or `-`.
 - Studies, days-to-load, and scale settings stay. Changing symbol or period still resets scroll and scale the same way Chart Settings does.
 
-If the chart cannot draw that symbol yet, it enqueues one ingest job and switches immediately. Intraday periods need 1-minute bars. A daily chart needs stored daily bars. 1-minute rows do not satisfy it, so switching to `1d` queues a historical download even when intraday data is already present. No rows for the required series, including an unknown name, queues a download. Ambiguous names do not. The window is `chartDownloadWindow`: end date is today in `America/New_York`, and the lookback is `chartDownloadLookbackDays` (at least 21 calendar days intraday, five years daily, wider when Days to Load needs it). The toolbar says `QQQ  downloading 1m  FROM .. TO` until that job's serial finishes, then the usual 2 s reload shows the bars. An ingest error stays on the toolbar until the next symbol or period change. The same request runs from Chart Settings OK / Apply. An identical job already queued or running is not added again.
+If the chart cannot draw that symbol yet, it enqueues one ingest job and switches immediately. Intraday periods need 1-minute bars. A daily chart needs stored daily bars. 1-minute rows do not satisfy it, so switching to `1d` queues a historical download even when intraday data is already present. No rows for the required series, including an unknown name, queues a download. Ambiguous names do not. A busy or locked coverage read does not enqueue; the next 2 s reload tries that read again. The window is `chartDownloadWindow`: end date is today in `America/New_York`, and the lookback is `chartDownloadLookbackDays`. Intraday is at least 21 calendar days. Daily walks NYSE sessions back from today so Historical Days to Load fits, including the 2520 cap, and is at least `kIngestDefaultDailyDays` (the same five-year preset as DATA and `ingest`). The toolbar says `QQQ  downloading 1m  FROM .. TO` until that job's serial finishes. Bars committed while the job is still running stay on the plot; Ready does not clear the serial. When the serial finishes in error, the toolbar keeps that job's message until the next symbol or period change, including when a later job has already started and some bars were stored. Stored bars stay on the plot (`Error` with a non-empty series still draws candles; the message is `kDown` on the toolbar). The plot shows the message only when there is nothing to draw. The same request runs from Chart Settings OK / Apply. An identical job already queued or running is not added again.
+
+A Ready Day1 chart enqueues one splits-only job per symbol. The symbol is remembered only after that job succeeds, and the next reload applies `adjustBarsForSplits`. A failed splits job leaves the bars on the plot, shows the worker message on the toolbar, and does not remember the symbol, so a later 2 s reload that returns Ready tries again. Changing symbol or period clears that memory. The splits job does not replace the downloading line.
 
 ### Keyboard / mouse summary (v1)
 
@@ -1066,7 +1068,7 @@ No new CMake target. No link of ImGui into tests.
 
 ## Data Model Changes
 
-**None.** Schema v1 stays frozen. Bars remain as-traded (`queryBars` is not split-adjusted; `docs/market-data-store.md` already says do not implement `queryBarsSplitAdjusted` in the store v1). The Store write grain is still 1-minute RTH. Higher-timeframe bars and study series are not tables.
+**None.** Schema v1 stays frozen. `queryBars` stays as-traded. Day1 `loadChartBars` applies `adjustBarsForSplits` to its in-memory copy. Intraday bars stay as-traded. The Store write grain is still 1-minute RTH plus daily bars. Higher-timeframe composites and study series are not tables.
 
 In-memory per pane: `std::vector<Bar>` snapshot (1-minute, or the `transformChartBars` composite). 14 sessions × 390 × ~64 B ≈ **350 KB**. Four panes ≈ 1.4 MB. 252 sessions ≈ 6 MB per pane. `computed_` is one `vector<double>` per enabled study, same length as `loaded_.bars`, and is not written to SQLite. Not a storage project.
 

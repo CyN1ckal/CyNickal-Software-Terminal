@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "CurlClient.h"
+#include "IngestDefaults.h"
 #include "RepoRoot.h"
 
 #include "market_data/MboumIngest.h"
@@ -112,11 +113,13 @@ int main(int argc, char** argv)
             const auto ymd = terminal::sessionDateToYmd(to_date);
             if (timeframe == terminal::kTimeframe1d)
             {
-                from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{365 * 5});
+                from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} -
+                                                        std::chrono::days{terminal::kIngestDefaultDailyDays});
             }
             else
             {
-                from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
+                from_date = terminal::toSessionDate(
+                    std::chrono::sys_days{ymd} - std::chrono::days{terminal::kIngestDefaultIntradayDays});
             }
         }
 

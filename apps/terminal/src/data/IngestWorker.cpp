@@ -10,6 +10,7 @@
 #include "market_data/Store.h"
 #include "market_data/Time.h"
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <stdexcept>
@@ -19,9 +20,12 @@
 namespace terminal {
 namespace {
 
+constexpr std::size_t kIngestFailureHistory = 64;
+
 [[nodiscard]] bool sameIngestJob(const IngestWorker::Job& a, const IngestWorker::Job& b)
 {
-    return a.symbol == b.symbol && a.from == b.from && a.to == b.to && a.timeframe_s == b.timeframe_s;
+    return a.symbol == b.symbol && a.from == b.from && a.to == b.to &&
+           a.timeframe_s == b.timeframe_s && a.splits_only == b.splits_only;
 }
 
 }  // namespace
@@ -84,6 +88,22 @@ IngestWorker::Snapshot IngestWorker::snapshot() const
     return snap_;
 }
 
+IngestWorker::SerialFailure IngestWorker::failureForSerial(std::uint64_t serial) const
+{
+    const std::lock_guard<std::mutex> lock(mu_);
+    const auto found = std::ranges::find_if(failures_, [serial](const FailedSerial& row) {
+        return row.serial == serial;
+    });
+    SerialFailure out;
+    if (found == failures_.end())
+    {
+        return out;
+    }
+    out.failed = true;
+    out.message = found->message;
+    return out;
+}
+
 void IngestWorker::clearDirty()
 {
     const std::lock_guard<std::mutex> lock(mu_);
@@ -143,14 +163,20 @@ void IngestWorker::run()
             }
             catch (const std::exception& ex)
             {
+                std::string message = ex.what();
                 const std::lock_guard<std::mutex> lock(mu_);
                 running_valid_ = false;
+                failures_.push_back(FailedSerial{job.serial, message});
+                if (failures_.size() > kIngestFailureHistory)
+                {
+                    failures_.pop_front();
+                }
                 snap_.finished_serial = job.serial;
                 snap_.error_serial = job.serial;
                 snap_.running = !jobs_.empty();
                 snap_.queued = static_cast<int>(jobs_.size());
                 snap_.dirty = true;
-                snap_.error = ex.what();
+                snap_.error = std::move(message);
                 snap_.message = "failed";
             }
         }
@@ -183,6 +209,11 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
         snap_.message = job.symbol + " " + formatSessionDate(day.session_date) + " " +
                         std::string(toSql(day.status)) + " bars=" + std::to_string(day.bar_count);
     };
+    if (job.splits_only)
+    {
+        (void)ingestSplits(store, get, job.symbol);
+        return;
+    }
     if (job.timeframe_s == kTimeframe1d)
     {
         (void)ingestDailySymbol(store, get, job.symbol, job.from, job.to, on_day);

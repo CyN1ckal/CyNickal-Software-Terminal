@@ -266,15 +266,22 @@ void CChartPane::applyDraft(Store* store, std::string_view store_error, IngestWo
 
 void CChartPane::applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
+    split_sync_symbol_.clear();
+    split_sync_pending_.clear();
+    split_sync_serial_ = 0;
     clampV1Limits(settings_);
-    const bool showing = loaded_.status == ChartLoadStatus::Ready &&
-                         loaded_settings_.symbol == settings_.symbol &&
-                         loaded_settings_.period == settings_.period;
-    download_error_.clear();
-    download_serial_ = 0;
-    if (!showing)
+    const bool same_series = loaded_settings_.symbol == settings_.symbol &&
+                             loaded_settings_.period == settings_.period;
+    if (download_serial_ == 0 || !same_series)
     {
-        requestMissingData(store, ingest);
+        download_error_.clear();
+        download_serial_ = 0;
+        coverage_retry_ = false;
+        const bool showing = loaded_.status == ChartLoadStatus::Ready && same_series;
+        if (!showing)
+        {
+            requestMissingData(store, ingest);
+        }
     }
     reload(store, store_error);
 }
@@ -283,6 +290,7 @@ void CChartPane::requestMissingData(Store* store, IngestWorker* ingest)
 {
     download_serial_ = 0;
     pending_download_ = {};
+    coverage_retry_ = false;
     if (store == nullptr || normalizeChartSymbol(settings_.symbol).empty())
     {
         return;
@@ -292,22 +300,23 @@ void CChartPane::requestMissingData(Store* store, IngestWorker* ingest)
     try
     {
         const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
-        window = chartDownloadWindow(settings_, today);
         const std::optional<ChartDownloadRequest> needed =
             chartDownloadRequest(*store, settings_, today);
         if (!needed.has_value())
         {
             return;
         }
-        window = needed.value_or(ChartDownloadRequest{});
+        window = needed.value();
     }
     catch (const std::exception& ex)
     {
-        if (!isStoreBusyError(ex.what()) || window.symbol.empty())
+        if (isStoreBusyError(ex.what()))
         {
-            download_error_ = ex.what();
+            coverage_retry_ = true;
             return;
         }
+        download_error_ = ex.what();
+        return;
     }
 
     if (window.symbol.empty())
@@ -329,13 +338,80 @@ void CChartPane::requestMissingData(Store* store, IngestWorker* ingest)
     download_serial_ = result.serial;
 }
 
+void CChartPane::requestSplitSync(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    if (split_sync_serial_ != 0 && ingest != nullptr)
+    {
+        const IngestWorker::Snapshot snap = ingest->snapshot();
+        if (snap.finished_serial < split_sync_serial_)
+        {
+            return;
+        }
+        const std::uint64_t finished = split_sync_serial_;
+        const std::string pending = split_sync_pending_;
+        split_sync_serial_ = 0;
+        split_sync_pending_.clear();
+        const IngestWorker::SerialFailure failure = ingest->failureForSerial(finished);
+        const std::string symbol = normalizeChartSymbol(settings_.symbol);
+        const bool same_symbol = !pending.empty() && pending == symbol &&
+                                 pending == normalizeChartSymbol(loaded_settings_.symbol);
+        if (failure.failed)
+        {
+            if (same_symbol)
+            {
+                loaded_.message = failure.message.empty() ? "split sync failed" : failure.message;
+                loaded_.status = ChartLoadStatus::Error;
+            }
+        }
+        else if (same_symbol)
+        {
+            split_sync_symbol_ = pending;
+            reload(store, store_error);
+        }
+    }
+
+    if (store == nullptr || ingest == nullptr || settings_.period != ChartBarPeriod::Day1 ||
+        loaded_.status != ChartLoadStatus::Ready || split_sync_serial_ != 0)
+    {
+        return;
+    }
+    const std::string symbol = normalizeChartSymbol(settings_.symbol);
+    if (symbol.empty() || symbol != normalizeChartSymbol(loaded_settings_.symbol) ||
+        symbol == split_sync_symbol_)
+    {
+        return;
+    }
+
+    IngestWorker::Job job;
+    job.symbol = symbol;
+    job.timeframe_s = kTimeframe1d;
+    job.splits_only = true;
+    const IngestWorker::EnqueueResult result = ingest->enqueue(std::move(job));
+    split_sync_pending_ = symbol;
+    split_sync_serial_ = result.serial;
+}
+
 void CChartPane::overlayDownloadStatus(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
-    if (loaded_.status == ChartLoadStatus::Ready)
+    if (download_serial_ != 0 && ingest != nullptr)
     {
-        download_serial_ = 0;
-        download_error_.clear();
-        return;
+        const IngestWorker::Snapshot snap = ingest->snapshot();
+        if (snap.finished_serial >= download_serial_)
+        {
+            const std::uint64_t finished = download_serial_;
+            const IngestWorker::SerialFailure failure = ingest->failureForSerial(finished);
+            download_serial_ = 0;
+            if (failure.failed)
+            {
+                download_error_ = failure.message.empty() ? "ingest failed" : failure.message;
+            }
+            else
+            {
+                download_error_.clear();
+                reload(store, store_error);
+                return;
+            }
+        }
     }
     if (!download_error_.empty())
     {
@@ -347,28 +423,14 @@ void CChartPane::overlayDownloadStatus(Store* store, std::string_view store_erro
     {
         return;
     }
-    if (ingest != nullptr)
+    loaded_.message = chartDownloadingMessage(pending_download_);
+    if (!loaded_.bars.empty())
     {
-        const IngestWorker::Snapshot snap = ingest->snapshot();
-        if (snap.finished_serial >= download_serial_)
-        {
-            download_serial_ = 0;
-            if (snap.error_serial == download_serial_ && !snap.error.empty())
-            {
-                download_error_ = snap.error;
-                loaded_.status = ChartLoadStatus::Error;
-                loaded_.message = download_error_;
-                return;
-            }
-            reload(store, store_error);
-            return;
-        }
+        loaded_.status = ChartLoadStatus::Ready;
     }
-    if (loaded_.status == ChartLoadStatus::UnknownSymbol || loaded_.status == ChartLoadStatus::Empty ||
-        loaded_.status == ChartLoadStatus::Busy)
+    else if (loaded_.status != ChartLoadStatus::Ready)
     {
         loaded_.status = ChartLoadStatus::Empty;
-        loaded_.message = chartDownloadingMessage(pending_download_);
     }
 }
 
@@ -768,7 +830,9 @@ void CChartPane::drawPlotBody()
     if (ImGui::BeginChild("plot", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
     {
-        if (loaded_.status == ChartLoadStatus::Ready && !loaded_.bars.empty())
+        const bool draw_bars = !loaded_.bars.empty() && (loaded_.status == ChartLoadStatus::Ready ||
+                                                         loaded_.status == ChartLoadStatus::Error);
+        if (draw_bars)
         {
             std::string_view tz{"America/New_York"};
             if (loaded_.instrument.has_value())
@@ -819,6 +883,10 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
         if (now - last_reload_ >= kReloadInterval)
         {
             reload(store, store_error);
+            if (coverage_retry_ && download_serial_ == 0)
+            {
+                requestMissingData(store, ingest);
+            }
         }
     }
     overlayDownloadStatus(store, store_error, ingest);
@@ -856,6 +924,7 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
 
     drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();
+    requestSplitSync(store, store_error, ingest);
     overlayDownloadStatus(store, store_error, ingest);
 
     drawPlotBody();

@@ -5,6 +5,7 @@
 
 #include "catch_amalgamated.hpp"
 #include "chart/CChartCommand.h"
+#include "IngestDefaults.h"
 #include "market_data/NyseCalendar.h"
 #include "market_data/Time.h"
 
@@ -107,19 +108,38 @@ TEST_CASE("parseChartCommand rejects unsupported periods and blank input")
 
 TEST_CASE("chartDownloadLookbackDays covers the session count and the DATA preset")
 {
+    constexpr terminal::SessionDate kToday = 20260921;
+    const auto ymd = terminal::sessionDateToYmd(kToday);
+    const auto span_covers = [&](int lookback, int sessions) {
+        const terminal::SessionDate from =
+            terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{lookback});
+        return terminal::nyseSessions(from, kToday).size() >= static_cast<std::size_t>(sessions);
+    };
+
     terminal::CChartSettings settings;
-    CHECK(terminal::chartDownloadLookbackDays(settings) == 26);
+    CHECK(terminal::chartDownloadLookbackDays(settings, kToday) == 26);
 
     settings.period = terminal::ChartBarPeriod::Day1;
-    CHECK(terminal::chartDownloadLookbackDays(settings) == 365 * 5);
+    const int daily_default = terminal::chartDownloadLookbackDays(settings, kToday);
+    CHECK(daily_default >= terminal::kIngestDefaultDailyDays);
+    CHECK(span_covers(daily_default, terminal::kChartDefaultHistoricalSessionCount));
+
+    settings.historical_session_count = 1295;
+    const int daily_mid = terminal::chartDownloadLookbackDays(settings, kToday);
+    CHECK(span_covers(daily_mid, 1295));
+
+    settings.historical_session_count = terminal::kChartMaxHistoricalSessionCount;
+    const int daily_max = terminal::chartDownloadLookbackDays(settings, kToday);
+    CHECK(daily_max < terminal::kChartMaxHistoricalSessionCount * 2);
+    CHECK(span_covers(daily_max, terminal::kChartMaxHistoricalSessionCount));
 
     settings.period = terminal::ChartBarPeriod::Minute15;
     settings.intraday_session_count = 252;
-    CHECK(terminal::chartDownloadLookbackDays(settings) == 252 * 7 / 5 + 7);
+    CHECK(terminal::chartDownloadLookbackDays(settings, kToday) == 252 * 7 / 5 + 7);
 
     settings.period = terminal::ChartBarPeriod::Minute1;
     settings.intraday_session_count = 1;
-    CHECK(terminal::chartDownloadLookbackDays(settings) == 21);
+    CHECK(terminal::chartDownloadLookbackDays(settings, kToday) == 21);
 }
 
 TEST_CASE("chartDownloadWindow is 1m for intraday and 1d for a daily chart")
@@ -140,7 +160,8 @@ TEST_CASE("chartDownloadWindow is 1m for intraday and 1d for a daily chart")
     const terminal::ChartDownloadRequest daily = terminal::chartDownloadWindow(settings, kToday);
     CHECK(daily.timeframe_s == terminal::kTimeframe1d);
     CHECK(daily.to == kToday);
+    const int daily_lookback = terminal::chartDownloadLookbackDays(settings, kToday);
     const auto daily_from =
-        terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{365 * 5});
+        terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{daily_lookback});
     CHECK(daily.from == daily_from);
 }

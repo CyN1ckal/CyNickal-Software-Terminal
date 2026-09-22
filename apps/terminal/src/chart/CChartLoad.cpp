@@ -4,6 +4,7 @@
 #include "chart/CChartLoad.h"
 
 #include "chart/CChartTransform.h"
+#include "market_data/Adjust.h"
 #include "market_data/Time.h"
 
 #include <algorithm>
@@ -166,6 +167,12 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         if (daily)
         {
             out.bars = store.queryBars(id, kTimeframe1d, out.ts_begin, out.ts_end);
+            if (!out.bars.empty())
+            {
+                const std::vector<CorporateAction> actions =
+                    store.queryCorporateActions(id, 0, out.bars.back().ts);
+                out.bars = adjustBarsForSplits(std::move(out.bars), actions);
+            }
         }
         else
         {

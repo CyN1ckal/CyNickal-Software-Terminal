@@ -3,6 +3,7 @@
 
 #include "ui/InventoryPanel.h"
 
+#include "IngestDefaults.h"
 #include "RepoRoot.h"
 #include "data/IngestWorker.h"
 #include "ui/Theme.h"
@@ -50,7 +51,8 @@ constexpr int kColLast = 10;
 [[nodiscard]] SessionDate defaultFromDate(SessionDate today, int timeframe_s)
 {
     const auto ymd = sessionDateToYmd(today);
-    const int lookback = timeframe_s == kTimeframe1d ? 365 * 5 : 14;
+    const int lookback =
+        timeframe_s == kTimeframe1d ? kIngestDefaultDailyDays : kIngestDefaultIntradayDays;
     return toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{lookback});
 }
 

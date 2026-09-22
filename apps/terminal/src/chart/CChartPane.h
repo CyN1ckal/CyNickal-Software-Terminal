@@ -53,6 +53,7 @@ private:
     void applyDraft(Store* store, std::string_view store_error, IngestWorker* ingest);
     void applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest);
     void requestMissingData(Store* store, IngestWorker* ingest);
+    void requestSplitSync(Store* store, std::string_view store_error, IngestWorker* ingest);
     void overlayDownloadStatus(Store* store, std::string_view store_error, IngestWorker* ingest);
     void applyStudyDraft();
     void cancelDraft();
@@ -79,6 +80,10 @@ private:
     ChartDownloadRequest pending_download_{};
     std::uint64_t download_serial_{0};
     std::string download_error_;
+    bool coverage_retry_{false};
+    std::string split_sync_symbol_;
+    std::string split_sync_pending_;
+    std::uint64_t split_sync_serial_{0};
     CChartViewState view_;
     std::vector<CStudyInstance> studies_;
     std::vector<CStudyInstance> study_draft_;

@@ -35,8 +35,8 @@ struct ChartCommand
 [[nodiscard]] ChartCommand parseChartCommand(std::string_view text, ChartBarPeriod current);
 
 // Calendar days to request so Days to Load can fill. Intraday is at least 21 days.
-// Daily is at least five years. Longer session counts add weekends plus a holiday pad.
-[[nodiscard]] int chartDownloadLookbackDays(const CChartSettings& settings) noexcept;
+// Daily walks NYSE sessions from `today` and is at least the shared five-year preset.
+[[nodiscard]] int chartDownloadLookbackDays(const CChartSettings& settings, SessionDate today) noexcept;
 
 // Symbol, source timeframe, and [from, to] for one ingest job. Does not read the store.
 // Intraday periods request 1-minute bars. Day1 requests daily bars.

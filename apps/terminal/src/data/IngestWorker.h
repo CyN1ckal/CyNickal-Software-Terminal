@@ -24,6 +24,7 @@ public:
         SessionDate from{};
         SessionDate to{};
         int timeframe_s{kTimeframe1m};
+        bool splits_only{false};
         std::uint64_t serial{0};
     };
 
@@ -33,6 +34,14 @@ public:
     {
         bool accepted{false};
         std::uint64_t serial{0};
+    };
+
+    // A later job clears Snapshot::error. This keeps the failure for the chart still waiting on `serial`.
+    // `failed` is false when the serial succeeded or has aged out of the log.
+    struct SerialFailure
+    {
+        bool failed{false};
+        std::string message;
     };
 
     struct Snapshot
@@ -59,11 +68,18 @@ public:
 
     EnqueueResult enqueue(Job job);
     [[nodiscard]] Snapshot snapshot() const;
+    [[nodiscard]] SerialFailure failureForSerial(std::uint64_t serial) const;
     void clearDirty();
 
 private:
     void run();
     void runJob(class Store& store, class CurlClient& http, const Job& job);
+
+    struct FailedSerial
+    {
+        std::uint64_t serial{0};
+        std::string message;
+    };
 
     std::filesystem::path db_path_;
     std::filesystem::path secrets_path_;
@@ -74,6 +90,7 @@ private:
     bool running_valid_{false};
     std::uint64_t next_serial_{1};
     Snapshot snap_;
+    std::deque<FailedSerial> failures_;
     bool stop_ = false;
     std::thread thread_;
 };

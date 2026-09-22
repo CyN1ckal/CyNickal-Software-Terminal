@@ -34,4 +34,16 @@ struct MboumV3DailyPage
                                           SessionDate to,
                                           int limit = kMboumDailyPageLimit);
 
+// One split from GET /v1/markets/stock/history?interval=1mo&diffandsplits=true.
+// 1mo is the documented 10-year window. 1d is 5 years, short of a 2520-session chart.
+// Price bars in that payload are already adjusted and are not represented here.
+struct MboumV1SplitEvent
+{
+    UnixSeconds ex_ts{};
+    double split_ratio{};
+};
+
+[[nodiscard]] std::vector<MboumV1SplitEvent> parseMboumV1SplitEvents(std::string_view json);
+[[nodiscard]] std::string mboumV1SplitsUrl(std::string_view ticker);
+
 }  // namespace terminal

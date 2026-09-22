@@ -76,7 +76,7 @@ There is no durable 1-minute history. Training and charting need years of bars, 
 | Full MBoum HTTP client, retries, 429 loop, ingest CLI | Later follow-on (not required to finish the store). This spec pins field maps, `splits=false`, and timezone conversion only |
 | Strategy engine, chart renderer | Consumers of `Store::queryBars` |
 | Keeping `CBarData` / `CBarSeries` / `GetBarData` | Dead leftovers. Delete in PR 1. New type is `terminal::Bar` |
-| Split/dividend **adjustment helper** on the read path | Schema + upsert now; `adjustBars(...)` is optional and can ship after corporate-action ingest |
+| Dividend adjustment on the read path | Splits are adjusted in memory by `adjustBarsForSplits`. Cash dividends stay unadjusted |
 | Sharing one `sqlite3*` across threads without a mutex | Forbidden; see Concurrency |
 | CASCADE delete of years of bars | Forbidden; see FK policy |
 
@@ -1219,9 +1219,9 @@ Row has `timestamp` display string **and** `timestamp_unix`. **Prefer `timestamp
 
 v2 has no `startDate`; it is a tail window. Use only when v3 404s or as a “latest N bars” path, not as the backfill engine.
 
-### Do not use for 1-minute backfill: `GET /v1/markets/stock/history`
+### Do not use for bar backfill: `GET /v1/markets/stock/history`
 
-Documented `1m` range is **1 Day**. `diffandsplits` would also fight the as-traded rule. Not a v1 backfill source.
+Documented `1m` range is **1 Day**. A body with `diffandsplits=true` is already split-adjusted, so those prices must not be written to `bar`. The same response's `body.events.splits` is the historical split source (see below). The splits request uses `interval=1mo` (documented 10-year range). `interval=1d` is 5 years, shorter than the 2520-session chart. Do not walk `GET /v1/markets/calendar/stock-splits` for history: `date=` for a past ex-date returns an empty page, and a request without `date` is only a short current list.
 
 ### Corporate actions (map now, HTTP later)
 
@@ -1265,7 +1265,11 @@ Example: `{ "symbol": "ALCO", "amount": "$0.050", "exDivDate": "09/27/24" }`
 | `dividend_Ex_Date` `MM/DD/YYYY` → 00:00 UTC | `ex_ts` |
 | `dividend_Rate` | `amount` |
 
-Calendar endpoints are date-paged, not a full corporate-action history API. The ingest PR may need to walk `date=` / `page=`. That is not a schema concern. Unique index makes re-walks idempotent.
+Calendar endpoints are date-paged, not a full corporate-action history API. `mapSplit` still accepts that row shape. Historical ingest does not use it.
+
+**Historical splits** — `GET /v1/markets/stock/history?ticker=NVDA&interval=1mo&diffandsplits=true`
+
+Read `body.events.splits` only. Ignore numeric price keys and `events.dividends`. Each split is `{ "date": <unix>, "numerator": 10, "denominator": 1 }`. `split_ratio = numerator / denominator` (10-for-1 → `10`, 1-for-5 → `0.2`). `ex_ts` is `date` unchanged. For NVDA's 2024 split that timestamp is the daily bar `ts` (09:30 America/New_York on the ex-date). Discard the price body. `interval=1mo` is the documented 10-year window, so a 2520-session chart can see splits that a 5-year `1d` window would drop. `ingestSplits` upserts through `corporate_action` and does not write `bar`. A second ratio at the same `ex_ts` is not inserted. Transport errors, non-200 responses, and parse failures throw and leave existing rows unchanged. HTTP 200 with no `events.splits` writes nothing. `ingestDailySymbol` calls this even when daily coverage is already complete, and a splits failure fails that job before any bar page is written.
 
 ### Mapper API (no sockets)
 
@@ -1666,18 +1670,18 @@ Public `upsertBars`: own txn; **does** skip `isFormingBar` (not written, not `re
 
 Do not implement `queryBarsSplitAdjusted` in v1.
 
-### Adjustment helper (non-goal for v1 read path)
+### Adjustment helper
 
-Specified so nobody invents a column:
+`queryBars` returns as-traded bars. Do not add `queryBarsSplitAdjusted` and do not store adjusted prices.
 
-To present split-adjusted prices at read:
+`adjustBarsForSplits` is the read-time helper. For each split with `ex_ts > bar.ts`:
 
 ```
-factor(t) = Π split_ratio for splits with ex_ts > bar.ts
-adjusted_price = as_traded * factor(t)   // for a 4-for-1, historical prices divide by 4 if ratio is new/old and we adjust backward
+open, high, low, close /= split_ratio
+volume *= split_ratio
 ```
 
-Pin backward adjustment: for each split with `ex_ts > ts`, `price /= split_ratio` and `volume *= split_ratio`. Dividends: subtract or use a total-return series later; **v1 `queryBars` returns as-traded only**. Do not implement `queryBarsSplitAdjusted` in the first store PR.
+`split_ratio` is new/old. Several splits multiply. A split with `ex_ts == bar.ts` is the first post-split print and is not changed. Pass only splits with `ex_ts <=` the last loaded bar so a future ex-date does not rescale a series that has no post-split bar yet. Dividends are not applied. Daily charts call this after `queryBars`. Intraday charts do not.
 
 ### Style notes vs leftover Hungarian types (deleted in PR 1)
 

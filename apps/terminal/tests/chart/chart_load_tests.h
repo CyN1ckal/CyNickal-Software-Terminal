@@ -412,3 +412,90 @@ TEST_CASE("chartDownloadRequest does not download an ambiguous symbol")
     settings.symbol.clear();
     CHECK_FALSE(terminal::chartDownloadRequest(store, settings, 20260921).has_value());
 }
+
+TEST_CASE("loadChartBars Day1 applies a stored split and leaves the archive raw")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.upsertInstrument(makeAapl());
+    const auto write_day = [&](terminal::SessionDate session, double close, double volume) {
+        terminal::Bar bar;
+        bar.instrument_id = id;
+        bar.timeframe_s = terminal::kTimeframe1d;
+        bar.ts = terminal::usRthUtcWindow("America/New_York", session).start;
+        bar.open = close;
+        bar.high = close;
+        bar.low = close;
+        bar.close = close;
+        bar.volume = volume;
+        const auto result = store.ingestDailyRange(std::vector<terminal::Bar>{bar}, id, session, session);
+        CHECK(result.bars.written == 1);
+    };
+    write_day(20240607, 1208.88, 41238500.0);
+    write_day(20240610, 121.79, 222551100.0);
+
+    terminal::CorporateAction split;
+    split.instrument_id = id;
+    split.ex_ts = terminal::usRthUtcWindow("America/New_York", 20240610).start;
+    split.type = terminal::CorporateActionType::Split;
+    split.split_ratio = 10.0;
+    split.source = "mboum";
+    store.upsertCorporateAction(split);
+
+    terminal::CChartSettings settings;
+    settings.symbol = "AAPL";
+    settings.period = terminal::ChartBarPeriod::Day1;
+    settings.historical_session_count = 10;
+    const auto result = terminal::loadChartBars(store, settings);
+    REQUIRE(result.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(result.bars.size() == 2);
+    CHECK(result.bars.front().close == 1208.88 / 10.0);
+    CHECK(result.bars.front().volume == 41238500.0 * 10.0);
+    CHECK(result.bars.back().close == 121.79);
+    CHECK(result.bars.back().volume == 222551100.0);
+
+    const auto raw = store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000);
+    REQUIRE(raw.size() == 2);
+    CHECK(raw.front().close == 1208.88);
+}
+
+TEST_CASE("loadChartBars Day1 without corporate actions keeps as-traded closes")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.upsertInstrument(makeAapl());
+    ingestDaily(store, id, 20240607);
+
+    terminal::CChartSettings settings;
+    settings.symbol = "AAPL";
+    settings.period = terminal::ChartBarPeriod::Day1;
+    settings.historical_session_count = 5;
+    const auto result = terminal::loadChartBars(store, settings);
+    REQUIRE(result.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(result.bars.size() == 1);
+    CHECK(result.bars.front().close == 10.5);
+}
+
+TEST_CASE("loadChartBars Minute5 ignores a stored split")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.upsertInstrument(makeAapl());
+    ingestRth(store, id, 20250115, 5);
+
+    terminal::CorporateAction split;
+    split.instrument_id = id;
+    split.ex_ts = terminal::usRthUtcWindow("America/New_York", 20250116).start;
+    split.type = terminal::CorporateActionType::Split;
+    split.split_ratio = 10.0;
+    store.upsertCorporateAction(split);
+
+    terminal::CChartSettings settings;
+    settings.symbol = "AAPL";
+    settings.period = terminal::ChartBarPeriod::Minute5;
+    const auto result = terminal::loadChartBars(store, settings);
+    REQUIRE(result.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(result.bars.size() == 1);
+    CHECK(result.bars.front().close == 10.5);
+    CHECK(result.bars.front().volume == 500.0);
+}

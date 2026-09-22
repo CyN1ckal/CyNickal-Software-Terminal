@@ -41,6 +41,7 @@ add_library(market-data STATIC
     src/market_data/NyseCalendar.cpp
     src/market_data/MboumJson.cpp
     src/market_data/MboumIngest.cpp
+    src/market_data/Adjust.cpp
 )
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE ${CMAKE_SOURCE_DIR}/deps)

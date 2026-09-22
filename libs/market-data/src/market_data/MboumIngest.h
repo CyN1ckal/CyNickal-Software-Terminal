@@ -50,11 +50,26 @@ struct IngestSymbolResult
 
 // Pages GET /v3/markets/historical?interval=daily (newest-N, limit 4000).
 // Coverage is written per NYSE weekday in each received page span.
+// Also fetches split events, including when daily coverage is already complete.
 [[nodiscard]] IngestSymbolResult ingestDailySymbol(Store& store,
                                                    const HttpGet& get,
                                                    std::string_view symbol,
                                                    SessionDate from,
                                                    SessionDate to,
                                                    const IngestDayCallback& on_day = {});
+
+struct IngestSplitsResult
+{
+    InstrumentId instrument_id{};
+    int upserted{};
+};
+
+// GET /v1/markets/stock/history events.splits only. Does not write bars.
+// Transport errors, non-200 responses, and parse failures throw.
+// corporate_action is left unchanged. HTTP 200 with no splits writes nothing.
+// A second split at the same ex_ts with a different ratio is not inserted.
+[[nodiscard]] IngestSplitsResult ingestSplits(Store& store,
+                                              const HttpGet& get,
+                                              std::string_view symbol);
 
 }  // namespace terminal

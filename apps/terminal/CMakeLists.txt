@@ -103,6 +103,7 @@ if(CYN_TESTING)
     target_include_directories(terminal_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${CMAKE_SOURCE_DIR}/apps/common
         ${CMAKE_SOURCE_DIR}/libs/market-data/tests
         ${TERMINAL_CATCH_DIR}
     )

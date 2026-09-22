@@ -1,6 +1,7 @@
 // Copyright 2026 CyNickal Software LLC
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+#include "adjust_tests.h"
 #include "catch_amalgamated.hpp"
 #include "coverage_tests.h"
 #include "ingest_tests.h"
