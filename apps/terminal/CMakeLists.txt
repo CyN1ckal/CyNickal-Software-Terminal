@@ -9,13 +9,51 @@ set(TERMINAL_IMGUI_DIR ${CMAKE_SOURCE_DIR}/deps/imgui)
 set(TERMINAL_IMPLOT_DIR ${CMAKE_SOURCE_DIR}/deps/implot)
 set(TERMINAL_CATCH_DIR ${CMAKE_SOURCE_DIR}/deps/catch)
 
-add_executable(terminal
+add_library(terminal_compile INTERFACE)
+target_include_directories(terminal_compile INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/apps/common
+    ${TERMINAL_IMGUI_DIR}
+)
+target_include_directories(terminal_compile SYSTEM INTERFACE
+    ${TERMINAL_IMPLOT_DIR}
+)
+target_compile_definitions(terminal_compile INTERFACE VK_PROTOTYPES)
+target_compile_options(terminal_compile INTERFACE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
+)
+target_link_libraries(terminal_compile INTERFACE
+    market-data
+    nlohmann_json
+    glfw
+    Vulkan::Vulkan
+    CURL::libcurl
+)
+
+add_library(terminal_core OBJECT
+    src/platform/vulkan/VulkanUtils.cpp
+    src/platform/window/Window.cpp
+    src/data/IngestWorker.cpp
+    src/chart/CChartAxis.cpp
+    src/chart/CChartCommand.cpp
+    src/chart/CChartLoad.cpp
+    src/chart/CChartTransform.cpp
+    src/chart/CChartbookDocument.cpp
+    src/chart/CChartbookFile.cpp
+    src/chart/CStudyCompute.cpp
+    ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
+)
+target_link_libraries(terminal_core PRIVATE terminal_compile)
+target_precompile_headers(terminal_core PRIVATE ${TERMINAL_PCH_STL})
+
+# Vendored ImGui and ImPlot .cpp files stay on the executable. They define
+# IMGUI_DEFINE_MATH_OPERATORS before including imgui.h, which a precompiled
+# imgui.h would break.
+add_library(terminal_gui OBJECT
     src/main.cpp
     src/terminal/Application.cpp
     src/platform/vulkan/VulkanContext.cpp
     src/platform/vulkan/VulkanSwapchain.cpp
-    src/platform/vulkan/VulkanUtils.cpp
-    src/platform/window/Window.cpp
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
     src/ui/TitleBar.cpp
@@ -23,20 +61,30 @@ add_executable(terminal
     src/ui/ChartbookHost.cpp
     src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
-    src/data/IngestWorker.cpp
-    src/chart/CChartAxis.cpp
-    src/chart/CChartCommand.cpp
-    src/chart/CChartLoad.cpp
-    src/chart/CChartTransform.cpp
-    src/chart/CStudyCompute.cpp
-    src/chart/CStudySettings.cpp
-    src/chart/CStudyPlot.cpp
-    src/chart/CChartPane.cpp
     src/chart/CChartBook.cpp
-    src/chart/CChartbookDocument.cpp
-    src/chart/CChartbookFile.cpp
+    src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp
-    ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
+    src/chart/CStudyPlot.cpp
+    src/chart/CStudySettings.cpp
+)
+target_link_libraries(terminal_gui PRIVATE terminal_compile)
+target_precompile_headers(terminal_gui PRIVATE
+    ${TERMINAL_PCH_STL}
+    <vulkan/vulkan.h>
+    <GLFW/glfw3.h>
+    <imgui.h>
+    <implot.h>
+)
+
+if(TERMINAL_ENABLE_CLANG_TIDY)
+    set_target_properties(terminal_core terminal_gui PROPERTIES
+        CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
+    )
+endif()
+
+add_executable(terminal
+    $<TARGET_OBJECTS:terminal_core>
+    $<TARGET_OBJECTS:terminal_gui>
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_draw.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_tables.cpp
@@ -139,6 +187,11 @@ if(CYN_TESTING)
     )
     target_compile_options(terminal_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
+    )
+    target_precompile_headers(terminal_tests PRIVATE ${TERMINAL_PCH_STL})
+    set_source_files_properties(
+        ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp
+        PROPERTIES SKIP_PRECOMPILE_HEADERS ON
     )
     add_test(NAME terminal_tests COMMAND terminal_tests)
 

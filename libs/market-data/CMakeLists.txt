@@ -66,6 +66,7 @@ target_compile_features(market-data PUBLIC cxx_std_20)
 target_compile_options(market-data PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
 )
+target_precompile_headers(market-data PRIVATE ${TERMINAL_PCH_STL})
 
 if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(market-data PROPERTIES

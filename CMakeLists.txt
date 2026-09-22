@@ -25,8 +25,10 @@ if(TERMINAL_ENABLE_CLANG_TIDY)
             NAMES clang-tidy
             REQUIRED
     )
+    # GCC writes a .gch beside the precompiled header. clang-tidy ignores that
+    # file and, with WarningsAsErrors, turns the ignore into a failed build.
     set(TERMINAL_CLANG_TIDY
-        "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+        "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option;-extra-arg=-Wno-ignored-gch"
     )
     if(MSVC)
         # CMake adds --driver-mode=cl for MSVC, but clang-tidy still treats
@@ -38,6 +40,23 @@ endif()
 if(CYN_TESTING)
     enable_testing()
 endif()
+
+# Stable standard headers shared by market-data, terminal_core, and terminal_tests.
+set(TERMINAL_PCH_STL
+    <algorithm>
+    <chrono>
+    <cmath>
+    <cstdint>
+    <cstdio>
+    <filesystem>
+    <memory>
+    <optional>
+    <stdexcept>
+    <string>
+    <string_view>
+    <utility>
+    <vector>
+)
 
 add_subdirectory(libs/market-data)
 add_subdirectory(apps/ingest)
