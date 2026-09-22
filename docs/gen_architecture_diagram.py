@@ -2,7 +2,13 @@
 # Copyright 2026 CyNickal Software LLC
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-"""Render docs/architecture.svg and docs/architecture.png (UML-style)."""
+"""Render docs/architecture.svg and docs/architecture.png (UML-style).
+
+Colors are the Stratum dark palette in apps/terminal/src/ui/Theme.h
+(kPalDark). Slate surfaces separate nesting. Accent, amber, and green
+mark synchronous calls, async calls, and returns. Brick is unused:
+this figure has no error state. Do not add hues.
+"""
 
 from __future__ import annotations
 
@@ -15,33 +21,60 @@ OUT_DIR = Path(__file__).resolve().parent
 W, H = 1800, 4440
 SCALE = 2
 
-BG = (0.97, 0.968, 0.955)
-INK = (0.13, 0.13, 0.13)
-MUTED = (0.36, 0.36, 0.36)
-LINE = (0.22, 0.22, 0.22)
-PKG_FILL = (0.96, 0.95, 0.92)
-PKG_LINE = (0.40, 0.38, 0.34)
-EXEC_FILL = (1.00, 0.985, 0.88)
-EXEC_HEAD = (0.93, 0.82, 0.40)
-LIB_FILL = (0.89, 0.95, 0.89)
-LIB_HEAD = (0.60, 0.78, 0.60)
-COMMON_FILL = (0.93, 0.91, 0.97)
-COMMON_HEAD = (0.72, 0.66, 0.86)
-CLASS_FILL = (0.89, 0.94, 0.98)
-CLASS_HEAD = (0.68, 0.82, 0.92)
-PRIV_FILL = (0.935, 0.935, 0.935)
-PRIV_HEAD = (0.74, 0.74, 0.74)
-EXT_FILL = (0.97, 0.91, 0.90)
-EXT_HEAD = (0.86, 0.62, 0.60)
-ART_FILL = (0.945, 0.945, 0.91)
-SEQ_HEAD = (0.90, 0.94, 0.98)
-SEQ_ACT = (0.72, 0.84, 0.94)
-RETURN = (0.20, 0.46, 0.26)
-SYNC = (0.12, 0.28, 0.55)
-ASYNC = (0.50, 0.24, 0.10)
-NOTE = (1.0, 0.99, 0.84)
-CHART_FILL = (0.86, 0.94, 0.95)
-CHART_HEAD = (0.52, 0.76, 0.82)
+
+def _rgb(hex_color: str) -> tuple[float, float, float]:
+    value = hex_color.removeprefix("#")
+    return tuple(int(value[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+# Byte-identical to Theme.h. kLine (#262e3a) and kLine2 (#313848) are the
+# in-app hairlines; at figure scale they vanish on these fills, so strokes
+# use the faint text token. Brick #b5544e is reserved and unused.
+BG0 = _rgb("0d1116")
+BG1 = _rgb("12171e")
+BG2 = _rgb("171d26")
+BG3 = _rgb("1e2530")
+TEXT = _rgb("ccd3dd")
+TEXT_DIM = _rgb("828c9b")
+TEXT_FAINT = _rgb("586273")
+ACCENT = _rgb("6f97c9")
+WARN = _rgb("c08552")
+OK = _rgb("5f8a63")
+
+BG = BG0
+INK = TEXT
+MUTED = TEXT_DIM
+LINE = TEXT_FAINT
+
+PKG_FILL = BG1
+PKG_LINE = TEXT_FAINT
+PANEL_FILL = BG2
+PANEL_HEAD = BG3
+WELL_FILL = BG0
+WELL_HEAD = BG3
+
+EXEC_FILL = PANEL_FILL
+EXEC_HEAD = ACCENT
+LIB_FILL = PANEL_FILL
+LIB_HEAD = PANEL_HEAD
+COMMON_FILL = PANEL_FILL
+COMMON_HEAD = PANEL_HEAD
+CLASS_FILL = WELL_FILL
+CLASS_HEAD = WELL_HEAD
+PRIV_FILL = WELL_FILL
+PRIV_HEAD = BG2
+EXT_FILL = PANEL_FILL
+EXT_HEAD = PANEL_HEAD
+ART_FILL = WELL_FILL
+SEQ_ACT = ACCENT
+RETURN = OK
+SYNC = ACCENT
+ASYNC = WARN
+NOTE = BG3
+CHART_FILL = WELL_FILL
+CHART_HEAD = ACCENT
+
+_ROLE = (ACCENT, WARN, OK)
 
 
 def set_color(ctx: cairo.Context, rgb: tuple[float, float, float], a: float = 1.0) -> None:
@@ -103,28 +136,71 @@ def rect(
     ctx.set_dash([])
 
 
-def package(ctx: cairo.Context, x: float, y: float, w: float, h: float, title: str, stereo: str) -> None:
+def package(
+    ctx: cairo.Context,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    title: str,
+    stereo: str,
+    mark: tuple[float, float, float] | None = None,
+) -> None:
     tab_w = max(180.0, text_w(ctx, stereo + "  " + title, 11) + 24)
     tab_h = 22
     rect(ctx, x, y, tab_w, tab_h, PKG_FILL, PKG_LINE, 1.2)
     rect(ctx, x, y + tab_h - 1, w, h - tab_h + 1, PKG_FILL, PKG_LINE, 1.2)
+    if mark is not None:
+        ctx.rectangle(x, y, tab_w, 3)
+        set_color(ctx, mark)
+        ctx.fill()
     draw_text(ctx, x + 8, y + 15, stereo, 9, italic=True, color=MUTED)
     draw_text(ctx, x + 8 + text_w(ctx, stereo + "  ", 9, italic=True), y + 15, title, 12, True)
 
 
-def component_icon(ctx: cairo.Context, x: float, y: float, fill: tuple[float, float, float]) -> None:
+def component_icon(ctx: cairo.Context, x: float, y: float) -> None:
     ctx.set_line_width(1.05)
     ctx.rectangle(x + 7, y + 6, 15, 13)
-    set_color(ctx, fill)
+    set_color(ctx, BG0)
     ctx.fill_preserve()
-    set_color(ctx, INK)
+    set_color(ctx, TEXT)
     ctx.stroke()
     for oy in (8.5, 13.5):
         ctx.rectangle(x + 3, y + oy, 8, 3.4)
-        set_color(ctx, (0.98, 0.98, 0.98))
+        set_color(ctx, BG0)
         ctx.fill_preserve()
-        set_color(ctx, INK)
+        set_color(ctx, TEXT)
         ctx.stroke()
+
+
+def framed(
+    ctx: cairo.Context,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    fill: tuple[float, float, float],
+    head: tuple[float, float, float],
+    head_h: float,
+    lw: float,
+) -> None:
+    mark = head if head in _ROLE else None
+    band = BG3 if mark is not None else head
+    rect(ctx, x, y, w, h, fill, LINE, lw)
+    ctx.rectangle(x, y, w, head_h)
+    set_color(ctx, band)
+    ctx.fill()
+    set_color(ctx, LINE)
+    ctx.set_line_width(lw)
+    ctx.move_to(x, y + head_h)
+    ctx.line_to(x + w, y + head_h)
+    ctx.stroke()
+    ctx.rectangle(x, y, w, h)
+    ctx.stroke()
+    if mark is not None:
+        ctx.rectangle(x, y, w, 3)
+        set_color(ctx, mark)
+        ctx.fill()
 
 
 def component(
@@ -139,18 +215,8 @@ def component(
     head: tuple[float, float, float],
     head_h: float = 38,
 ) -> None:
-    rect(ctx, x, y, w, h, fill, LINE, 1.25)
-    ctx.rectangle(x, y, w, head_h)
-    set_color(ctx, head)
-    ctx.fill()
-    set_color(ctx, LINE)
-    ctx.set_line_width(1.25)
-    ctx.move_to(x, y + head_h)
-    ctx.line_to(x + w, y + head_h)
-    ctx.stroke()
-    ctx.rectangle(x, y, w, h)
-    ctx.stroke()
-    component_icon(ctx, x + 6, y + 8, fill)
+    framed(ctx, x, y, w, h, fill, head, head_h, 1.25)
+    component_icon(ctx, x + 6, y + 8)
     draw_text(ctx, x + w / 2, y + 15, stereo, 9, italic=True, color=MUTED, align="center")
     draw_text(ctx, x + w / 2, y + 30, name, 13, True, align="center")
 
@@ -169,17 +235,7 @@ def inner(
     head_h: float = 20,
     name_size: float = 11,
 ) -> None:
-    rect(ctx, x, y, w, h, fill, LINE, 1.05)
-    ctx.rectangle(x, y, w, head_h)
-    set_color(ctx, head)
-    ctx.fill()
-    set_color(ctx, LINE)
-    ctx.set_line_width(1.05)
-    ctx.move_to(x, y + head_h)
-    ctx.line_to(x + w, y + head_h)
-    ctx.stroke()
-    ctx.rectangle(x, y, w, h)
-    ctx.stroke()
+    framed(ctx, x, y, w, h, fill, head, head_h, 1.05)
     label = f"{stereo}  {name}" if stereo else name
     draw_text(ctx, x + w / 2, y + head_h - 5, label, name_size, True, align="center")
     if lines:
@@ -264,7 +320,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     )
     draw_text(ctx, 28, 80, "Figure 1.  Components and assembly", 13.5, True)
 
-    package(ctx, 16, 94, 1104, 1248, "terminal", "«system»")
+    package(ctx, 16, 94, 1104, 1248, "terminal", "«system»", mark=ACCENT)
     draw_text(
         ctx,
         32,
@@ -287,9 +343,9 @@ def draw_figure1(ctx: cairo.Context) -> None:
     pw, ph, gap = 151, 50, 8
     px, py = 58, 224
     for i, (name, detail) in enumerate(specs):
-        inner(ctx, px + i * (pw + gap), py, pw, ph, name, None, CLASS_FILL, CLASS_HEAD, [detail], head_h=20)
+        inner(ctx, px + i * (pw + gap), py, pw, ph, name, None, PANEL_FILL, PANEL_HEAD, [detail], head_h=20)
 
-    inner(ctx, 58, 284, 632, 404, "Workspace", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
+    inner(ctx, 58, 284, 632, 404, "Workspace", "«composition»", PANEL_FILL, PANEL_HEAD, head_h=20)
     draw_text(
         ctx,
         374,
@@ -299,7 +355,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         color=MUTED,
         align="center",
     )
-    inner(ctx, 72, 324, 604, 118, "InventoryPanel   DATA", "«composition»", EXEC_FILL, EXEC_HEAD, head_h=20)
+    inner(ctx, 72, 324, 604, 118, "InventoryPanel   DATA", "«composition»", WELL_FILL, ACCENT, head_h=20)
     inner(
         ctx,
         86,
@@ -308,8 +364,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         80,
         "Store  Reader",
         "«object»",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["busy_timeout = 0  ·  1m + 1d coverage", "ctor: one-shot Writer migrate v2"],
         head_h=20,
     )
@@ -321,8 +377,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         80,
         "IngestWorker",
         "«active»",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["Writer + CurlClient  ·  1m / 1d / splits", "80 ms pace  ·  per-serial failures"],
         head_h=20,
     )
@@ -346,8 +402,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         178,
         "Store  Reader",
         "«object»",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["own GUI Reader", "busy_timeout = 0", "after DATA migrate", "CChartBook ×N in memory"],
         head_h=20,
     )
@@ -359,8 +415,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         178,
         "CChartPane  ×N",
         "«composition»",
-        CHART_FILL,
-        CHART_HEAD,
+        PANEL_FILL,
+        ACCENT,
         [
             "CChartSettings  ·  Chart Settings modal",
             "1d from Store  ·  5m/15m/1h composite  ·  split-adjust 1d",
@@ -376,8 +432,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         76,
         "studies_  /  computed_",
         "«pane state»  cap 16",
-        CHART_FILL,
-        CHART_HEAD,
+        WELL_FILL,
+        ACCENT,
         [
             "CStudyInstance  ·  SMA v1  ·  not CChartSettings",
             "computeStudies  ·  CStudySettings  ·  drawStudyOverlays",
@@ -582,19 +638,19 @@ def draw_figure1(ctx: cairo.Context) -> None:
     # --- environment ---
     package(ctx, 1248, 94, 532, 1248, "Environment", "«external»")
 
-    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", ART_FILL, PRIV_HEAD, ["GO in DATA  ·  File/Chart menus  ·  ingest CLI"], head_h=22)
+    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", PANEL_FILL, PANEL_HEAD, ["GO in DATA  ·  File/Chart menus  ·  ingest CLI"], head_h=22)
 
     ext = [
         (218, "GLFW 3.3", "«library»  window / Vulkan surface", EXT_FILL, EXT_HEAD),
         (280, "Vulkan", "«library»  instance, device, swapchain", EXT_FILL, EXT_HEAD),
         (342, "Dear ImGui", "«library»  deps/imgui  ·  docking", EXT_FILL, EXT_HEAD),
-        (404, "ImPlot v1.0", "«library»  deps/implot  ·  no PlotCandlestick", CHART_FILL, CHART_HEAD),
+        (404, "ImPlot v1.0", "«library»  deps/implot  ·  no PlotCandlestick", EXT_FILL, EXT_HEAD),
         (466, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
         (542, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
-        (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", ART_FILL, PRIV_HEAD),
-        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 2", ART_FILL, PRIV_HEAD),
-        (786, "Catch2 tests", "statement_tests  ·  chart_*  ·  market_data", CLASS_FILL, CLASS_HEAD),
-        (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PRIV_FILL, PRIV_HEAD),
+        (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", PANEL_FILL, PANEL_HEAD),
+        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 2", PANEL_FILL, PANEL_HEAD),
+        (786, "Catch2 tests", "statement_tests  ·  chart_*  ·  market_data", PANEL_FILL, PANEL_HEAD),
+        (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PANEL_FILL, PANEL_HEAD),
     ]
     for ey, name, detail, fill, head in ext:
         inner(ctx, 1266, ey, 496, 54, name, None, fill, head, [detail], head_h=20)
@@ -649,7 +705,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
 
 
 def draw_lifeline_head(ctx: cairo.Context, x: float, y: float, w: float, name: str) -> None:
-    inner(ctx, x - w / 2, y, w, 34, name, None, SEQ_HEAD, CLASS_HEAD, head_h=34, name_size=10.5)
+    inner(ctx, x - w / 2, y, w, 34, name, None, PANEL_FILL, PANEL_HEAD, head_h=34, name_size=10.5)
 
 
 def draw_figure2(ctx: cairo.Context) -> None:
@@ -793,9 +849,9 @@ def draw_figure2(ctx: cairo.Context) -> None:
         86,
         [
             "Legend",
-            "Filled arrow = synchronous call.   Open dashed = return / async.",
-            "Ball = provided interface.   Socket = required interface.",
-            "Nested boxes = UML composition.   Dashed «use» = dependency.",
+            "Solid blue = synchronous call.   Dashed amber = async.   Dashed green = return.",
+            "Accent bar = system, executables, DATA, and charts.   Nested boxes = composition.",
+            "Ball = provided interface.   Socket = required.   Dashed «use» = dependency.",
         ],
     )
 
@@ -1130,8 +1186,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         86,
         "instrument",
         "«table» v1",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["PK id  ·  symbol + exchange", "ON DELETE RESTRICT to children"],
         head_h=22,
     )
@@ -1143,8 +1199,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         86,
         "bar",
         "«table» v1",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["1m (60) and 1d (86400)", "as-traded OHLCV  ·  WITHOUT ROWID"],
         head_h=22,
     )
@@ -1156,8 +1212,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         86,
         "coverage_day",
         "«table» v1",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["per instrument / timeframe / session", "complete / partial / missing / error"],
         head_h=22,
     )
@@ -1169,8 +1225,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         86,
         "corporate_action",
         "«table» v1",
-        CLASS_FILL,
-        CLASS_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["splits + dividends as-stored", "adjustBarsForSplits at 1d read"],
         head_h=22,
     )
@@ -1182,8 +1238,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         86,
         "statement_snapshot",
         "«table» v2",
-        CHART_FILL,
-        CHART_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["PK (instrument, statement, timeframe)", "income | balance | cashflow  ×  annually | quarterly | trailing"],
         head_h=22,
     )
@@ -1195,8 +1251,8 @@ def draw_figure6(ctx: cairo.Context) -> None:
         100,
         "statement_cell",
         "«table» v2  CASCADE from snapshot",
-        CHART_FILL,
-        CHART_HEAD,
+        PANEL_FILL,
+        PANEL_HEAD,
         ["PK + line_item + period_end (YYYY-MM-DD or TTM)", "value_kind int | real | text  ·  exactly one value_*", "omitted vendor key → no row (never zero)"],
         head_h=22,
     )
