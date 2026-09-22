@@ -12,7 +12,7 @@ from pathlib import Path
 import cairo
 
 OUT_DIR = Path(__file__).resolve().parent
-W, H = 1800, 3860
+W, H = 1800, 4440
 SCALE = 2
 
 BG = (0.97, 0.968, 0.955)
@@ -294,7 +294,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ctx,
         374,
         316,
-        "Chart menu  ·  DockSpace  ·  DATA left 30%  ·  remainder = chart_dock_id",
+        "TitleBar  ·  StatusRail  ·  DATA left 30%  ·  one visible chartbook",
         10,
         color=MUTED,
         align="center",
@@ -310,7 +310,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         "«object»",
         CLASS_FILL,
         CLASS_HEAD,
-        ["busy_timeout = 0  ·  coverage queries", "ctor: one-shot Writer migrate"],
+        ["busy_timeout = 0  ·  1m + 1d coverage", "ctor: one-shot Writer migrate v2"],
         head_h=20,
     )
     inner(
@@ -323,7 +323,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         "«active»",
         CLASS_FILL,
         CLASS_HEAD,
-        ["Writer + CurlClient  ·  enqueue", "80 ms pace  ·  GUI polls Snapshot"],
+        ["Writer + CurlClient  ·  1m / 1d / splits", "80 ms pace  ·  per-serial failures"],
         head_h=20,
     )
     inner(
@@ -332,7 +332,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         450,
         604,
         222,
-        "CChartBook",
+        "ChartbookHost",
         "«composition»",
         CHART_FILL,
         CHART_HEAD,
@@ -348,7 +348,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         "«object»",
         CLASS_FILL,
         CLASS_HEAD,
-        ["own GUI Reader", "busy_timeout = 0", "declared after DATA", "so migrate runs first"],
+        ["own GUI Reader", "busy_timeout = 0", "after DATA migrate", "CChartBook ×N in memory"],
         head_h=20,
     )
     inner(
@@ -363,8 +363,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         CHART_HEAD,
         [
             "CChartSettings  ·  Chart Settings modal",
-            "loadChartBars  ·  queryBars 1m  ·  transformChartBars",
-            "drawCandlesticks  ·  1m/5m/15m/1h/1d  ·  Days to Load",
+            "1d from Store  ·  5m/15m/1h composite  ·  split-adjust 1d",
+            "drawCandlesticks + volume  ·  .chartbook.json",
         ],
         head_h=20,
     )
@@ -397,7 +397,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         None,
         CLASS_FILL,
         CLASS_HEAD,
-        ["Store Writer  ·  CurlClient", "loadMboumApiKey  ·  ingestSymbol", "CLI: SYMBOL  [--from --to --db]", "progress: std::clog per session"],
+        ["Store Writer  ·  CurlClient", "ingestSymbol / ingestDailySymbol", "--timeframe 1m|1d  ·  IngestDefaults", "progress: std::clog per session"],
         head_h=20,
     )
     note_box(
@@ -421,11 +421,11 @@ def draw_figure1(ctx: cairo.Context) -> None:
         124,
         [
             "Charting is GUI-only",
-            "src/chart/  ·  CChartSettings header-only.",
-            "Charts never call MBoum or CurlClient.",
-            "DATA row select does not set pane symbol.",
-            "Studies are pane memory, not SQLite.",
-            "CStudy.h has no Bar and no ImGui.",
+            "Charts enqueue IngestWorker; no HTTP.",
+            "1d bars are stored; 5m/15m/1h are not.",
+            "Daily plot uses adjustBarsForSplits.",
+            "Studies and chartbooks are not SQLite.",
+            "Files: data/chartbooks/*.chartbook.json",
         ],
     )
 
@@ -464,7 +464,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         None,
         CLASS_FILL,
         CLASS_HEAD,
-        ["findRepoRoot()   defaultMarketDataDbPath()   defaultSecretsPath()"],
+        ["findRepoRoot()  ·  db/secrets paths  ·  IngestDefaults 14d / 5y"],
         head_h=20,
     )
 
@@ -483,14 +483,14 @@ def draw_figure1(ctx: cairo.Context) -> None:
     draw_text(ctx, 48, 922, "public API", 10.5, True, color=MUTED)
 
     cells = [
-        ("ingestSymbol()", "requires HttpGet  ·  NYSE walk; skip complete"),
-        ("Store", "queryBars / coverage  ·  Reader/Writer  ·  WAL"),
+        ("ingestSymbol()", "1m RTH sessions  ·  skip complete"),
+        ("ingestDailySymbol()", "daily bars + coverage  ·  ingestSplits"),
+        ("Store", "1m+1d bars  ·  statements v2  ·  WAL"),
+        ("Schema", "schemaV1 + schemaV2  ·  user_version 2"),
+        ("Adjust", "adjustBarsForSplits  ·  daily charts only"),
         ("Secrets", "loadMboumApiKey(secrets.json  \"mboum\")"),
-        ("Schema", "schemaV1()  ·  user_version 1  ·  frozen"),
-        ("Time", "IANA tzdb  ·  US RTH UTC windows"),
-        ("NyseCalendar", "holidays  ·  observed New Year  ·  open?"),
-        ("MboumJson", "v3 historical URL  ·  parse page"),
-        ("MboumMap", "mapV3Bar  ·  RTH filter  ·  drop forming"),
+        ("MboumJson / Map", "v3 1m + daily + history splits  ·  nlohmann"),
+        ("Time / NYSE", "RTH UTC windows  ·  holidays"),
     ]
     cw, ch = 256, 68
     for i, (name, detail) in enumerate(cells):
@@ -555,18 +555,18 @@ def draw_figure1(ctx: cairo.Context) -> None:
         1104,
         254,
         64,
-        "Types.h",
-        None,
-        CLASS_FILL,
-        CLASS_HEAD,
-        ["Bar  Coverage*  Instrument"],
+        "schema/v2.sql",
+        "«artifact» embedded",
+        ART_FILL,
+        PRIV_HEAD,
+        ["statement_snapshot  ·  statement_cell"],
         head_h=22,
     )
     draw_text(
         ctx,
         48,
         1186,
-        "Store write APIs open one BEGIN IMMEDIATE.  ingestSession is the only txn and calls unlocked helpers.  Nested SqliteTxn throws.",
+        "Open: apply v1 if user_version < 1, then v2 if < 2, then set user_version = 2.  Newer databases are refused.  v1 SQL is not altered in place.",
         10,
         color=MUTED,
     )
@@ -574,7 +574,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ctx,
         48,
         1202,
-        "Charts read only (queryBars).  Studies are not Store rows.  Schema v1 stays frozen.  libs/market-data does not depend on ImGui or ImPlot.",
+        "replaceStatement replaces one grid and deletes omitted cells.  Missing vendor keys are not stored as zero.  No statement HTTP ingest yet.  Studies are not Store rows.",
         10,
         color=MUTED,
     )
@@ -582,7 +582,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     # --- environment ---
     package(ctx, 1248, 94, 532, 1248, "Environment", "«external»")
 
-    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", ART_FILL, PRIV_HEAD, ["GO in DATA  ·  Chart menu  ·  ingest CLI"], head_h=22)
+    inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", ART_FILL, PRIV_HEAD, ["GO in DATA  ·  File/Chart menus  ·  ingest CLI"], head_h=22)
 
     ext = [
         (218, "GLFW 3.3", "«library»  window / Vulkan surface", EXT_FILL, EXT_HEAD),
@@ -592,8 +592,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
         (466, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
         (542, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
         (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", ART_FILL, PRIV_HEAD),
-        (694, "data/market-data.sqlite", "«artifact»  WAL + SHM  ·  schema v1", ART_FILL, PRIV_HEAD),
-        (786, "Catch2 tests", "chart_load / view / transform / study  ·  market_data", CLASS_FILL, CLASS_HEAD),
+        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 2", ART_FILL, PRIV_HEAD),
+        (786, "Catch2 tests", "statement_tests  ·  chart_*  ·  market_data", CLASS_FILL, CLASS_HEAD),
         (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PRIV_FILL, PRIV_HEAD),
     ]
     for ey, name, detail, fill, head in ext:
@@ -627,7 +627,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
             "Concurrency (K19) + charts (D4, D10)",
             "One Writer connection, N Readers.",
             "Never share sqlite3* across threads.",
-            "GUI Readers: InventoryPanel + CChartBook.",
+            "GUI Readers: InventoryPanel + ChartbookHost.",
             "busy_timeout=0: keep last snapshot unless",
             "the error is not busy/locked.",
             "Worker / CLI Writer busy_timeout=5000.",
@@ -642,6 +642,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
             "computeStudies is GUI-thread, never throws.",
             "Busy keep-candles does not recompute studies.",
             "Apply/OK recomputes without loadChartBars.",
+            "Statements: Store only (no GUI/HTTP yet).",
+            "Chartbooks: data/chartbooks/*.chartbook.json.",
         ],
     )
 
@@ -779,8 +781,8 @@ def draw_figure2(ctx: cairo.Context) -> None:
         [
             "Store modes",
             "Writer: ingest CLI and IngestWorker thread.",
-            "Readers: InventoryPanel + CChartBook (GUI thread).",
-            "InventoryPanel ctor opens a one-shot Writer to migrate.",
+            "Readers: InventoryPanel + ChartbookHost (GUI thread).",
+            "Writer migrate applies schema v1 then v2 (user_version 2).",
         ],
     )
     note_box(
@@ -807,8 +809,8 @@ def draw_figure3(ctx: cairo.Context) -> None:
         "Window",
         "ImGuiLayer",
         "Workspace",
-        "InventoryPanel",
-        "CChartBook",
+        "TitleBar",
+        "ChartbookHost",
         "VulkanSwapchain",
     ]
     xs = [110, 360, 610, 870, 1130, 1390, 1650]
@@ -842,17 +844,17 @@ def draw_figure3(ctx: cairo.Context) -> None:
     activation(1, m[0] - 8, m[0] + 12)
     activation(2, m[1] - 8, m[1] + 12)
     activation(3, m[2] - 8, m[5] + 12)
-    activation(4, m[4] - 8, m[4] + 12)
-    activation(5, m[3] - 8, m[5] + 12)
+    activation(4, m[3] - 8, m[3] + 12)
+    activation(5, m[4] - 8, m[5] + 12)
     activation(2, m[6] - 8, m[7] + 12)
     activation(6, m[7] - 8, m[7] + 12)
 
     call(0, 1, m[0], "1  pollEvents()")
     call(0, 2, m[1], "2  newFrame()")
-    call(0, 3, m[2], "3  draw()")
-    call(3, 5, m[3], "4  drawMenu()  Chart >> New / Settings / Studies / Close")
-    call(3, 4, m[4], "5  inventory.draw()  ·  pollWorker")
-    call(3, 5, m[5], "6  charts.draw(chart_dock_id)")
+    call(0, 3, m[2], "3  draw(window)")
+    call(3, 4, m[3], "4  drawTitleBar  File / Chart / View + tabs")
+    call(3, 5, m[4], "5  drawStatusRail  ingest · focused chart · NY clock")
+    call(3, 5, m[5], "6  books.drawSpace  DATA + CChartBook panes")
     call(0, 2, m[6], "7  render(clear = Theme::kCanvas)")
     call(2, 6, m[7], "8  render + present")
 
@@ -868,7 +870,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 408,
-        "CMake: terminal compiles CChart* plus CStudyCompute / CStudySettings / CStudyPlot and deps/implot (not implot_demo).  terminal_tests compile CChartLoad.cpp, CChartTransform.cpp, and CStudyCompute.cpp (no ImGui).",
+        "CMake: terminal compiles ChartbookHost, TitleBar, StatusRail, CChart*, CStudy*.  terminal_tests compile load/transform/axis/command/study/chartbook file helpers (no ImGui).",
         10.5,
         color=MUTED,
     )
@@ -876,7 +878,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 426,
-        "Default ingest FROM/TO is the last 14 calendar days.  Chart Days to Load default is 14 sessions with bar_count > 0.  Grain is 1-minute as-traded OHLCV.",
+        "IngestDefaults: 14 calendar days intraday, 5 years daily.  Stored grain is 1m and 1d as-traded OHLCV.  5m/15m/1h are load-time composites.",
         10.5,
         color=MUTED,
     )
@@ -1108,6 +1110,181 @@ def draw_figure5(ctx: cairo.Context) -> None:
     )
 
 
+def draw_figure6(ctx: cairo.Context) -> None:
+    y0 = 3900
+    draw_text(ctx, 28, y0, "Figure 6.  Financial data store  (schema v2 + Store APIs)", 13.5, True)
+    draw_text(
+        ctx,
+        28,
+        y0 + 18,
+        "SQLite WAL at data/market-data.sqlite.  kSchemaUserVersion = 2.  Bars stay as-traded.  Statements are a second product in the same Store.",
+        11,
+        color=MUTED,
+    )
+
+    inner(
+        ctx,
+        28,
+        y0 + 40,
+        220,
+        86,
+        "instrument",
+        "«table» v1",
+        CLASS_FILL,
+        CLASS_HEAD,
+        ["PK id  ·  symbol + exchange", "ON DELETE RESTRICT to children"],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        264,
+        y0 + 40,
+        220,
+        86,
+        "bar",
+        "«table» v1",
+        CLASS_FILL,
+        CLASS_HEAD,
+        ["1m (60) and 1d (86400)", "as-traded OHLCV  ·  WITHOUT ROWID"],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        500,
+        y0 + 40,
+        220,
+        86,
+        "coverage_day",
+        "«table» v1",
+        CLASS_FILL,
+        CLASS_HEAD,
+        ["per instrument / timeframe / session", "complete / partial / missing / error"],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        736,
+        y0 + 40,
+        220,
+        86,
+        "corporate_action",
+        "«table» v1",
+        CLASS_FILL,
+        CLASS_HEAD,
+        ["splits + dividends as-stored", "adjustBarsForSplits at 1d read"],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        992,
+        y0 + 40,
+        380,
+        86,
+        "statement_snapshot",
+        "«table» v2",
+        CHART_FILL,
+        CHART_HEAD,
+        ["PK (instrument, statement, timeframe)", "income | balance | cashflow  ×  annually | quarterly | trailing"],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        992,
+        y0 + 138,
+        380,
+        100,
+        "statement_cell",
+        "«table» v2  CASCADE from snapshot",
+        CHART_FILL,
+        CHART_HEAD,
+        ["PK + line_item + period_end (YYYY-MM-DD or TTM)", "value_kind int | real | text  ·  exactly one value_*", "omitted vendor key → no row (never zero)"],
+        head_h=22,
+    )
+
+    line_arrow(ctx, 1182, y0 + 138, 1182, y0 + 126, SYNC, dashed=False, lw=1.1)
+    draw_text(ctx, 1194, y0 + 134, "FK CASCADE", 8.5, italic=True, color=SYNC)
+
+    names = ["Caller", "Store", "statement_snapshot", "statement_cell", "SQLite WAL"]
+    xs = [120, 420, 780, 1140, 1500]
+    top = y0 + 256
+    life_top = top + 34
+    bottom = y0 + 470
+
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 176, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    def activation(i: int, y1: float, y2: float) -> None:
+        x = xs[i]
+        rect(ctx, x - 5, y1, 10, max(12.0, y2 - y1), SEQ_ACT, SYNC, 0.9)
+
+    def call(i: int, j: int, y: float, label: str, *, ret: bool = False) -> None:
+        x1, x2 = xs[i], xs[j]
+        color = RETURN if ret else SYNC
+        dx = 6 if x2 > x1 else -6
+        line_arrow(ctx, x1 + dx, y, x2 - dx, y, color, dashed=ret, open_head=ret)
+        draw_text(ctx, (x1 + x2) / 2, y - 5, label, 9.5, color=color, align="center")
+
+    y = [top + 52 + 36 * i for i in range(6)]
+    activation(1, y[0] - 8, y[5] + 10)
+    activation(2, y[1] - 8, y[1] + 12)
+    activation(3, y[2] - 8, y[3] + 12)
+    activation(4, y[0] - 8, y[4] + 12)
+
+    call(0, 1, y[0], "1  replaceStatement(snapshot, cells)  BEGIN IMMEDIATE")
+    call(1, 2, y[1], "2  UPSERT snapshot  (instrument, statement, timeframe)")
+    call(1, 3, y[2], "3  DELETE cells for that grid")
+    call(1, 3, y[3], "4  INSERT each cell  (int XOR real XOR text)")
+    call(1, 4, y[4], "5  COMMIT")
+    call(1, 0, y[5], "6  queryStatementCells / Line / Period  ·  findStatementSnapshot", ret=True)
+
+    note_box(
+        ctx,
+        28,
+        y0 + 486,
+        560,
+        86,
+        [
+            "Migrate",
+            "Empty file: v1 SQL then v2 SQL, user_version = 2.",
+            "Existing v1 DB: apply v2.sql only, then set 2.",
+            "user_version > 2 is refused.  v1 tables are not ALTERed.",
+        ],
+    )
+    note_box(
+        ctx,
+        608,
+        y0 + 486,
+        560,
+        86,
+        [
+            "Facts",
+            "Three timeframes are separate series, not views.",
+            "TTM is a period_end token, not a date.  Income has no TTM column.",
+            "Dollars are absolute.  No currency column on these payloads.",
+        ],
+    )
+    note_box(
+        ctx,
+        1188,
+        y0 + 486,
+        584,
+        86,
+        [
+            "Not in this slice",
+            "No statement HTTP ingest and no statements GUI yet.",
+            "Store + schema + Catch2 (statement_tests.h) only.",
+            "Module map: income-statement-v2 / balance-sheet-v2 / cashflow-statement-v2.",
+        ],
+    )
+
+
 def paint(ctx: cairo.Context) -> None:
     set_color(ctx, BG)
     ctx.paint()
@@ -1116,6 +1293,7 @@ def paint(ctx: cairo.Context) -> None:
     draw_figure3(ctx)
     draw_figure4(ctx)
     draw_figure5(ctx)
+    draw_figure6(ctx)
 
 
 def main() -> None:
