@@ -25,7 +25,9 @@ constexpr std::size_t kIngestFailureHistory = 64;
 [[nodiscard]] bool sameIngestJob(const IngestWorker::Job& a, const IngestWorker::Job& b)
 {
     return a.symbol == b.symbol && a.from == b.from && a.to == b.to &&
-           a.timeframe_s == b.timeframe_s && a.splits_only == b.splits_only;
+           a.timeframe_s == b.timeframe_s && a.splits_only == b.splits_only &&
+           a.statements == b.statements && a.statement == b.statement &&
+           a.statement_timeframe == b.statement_timeframe;
 }
 
 }  // namespace
@@ -209,6 +211,16 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
         snap_.message = job.symbol + " " + formatSessionDate(day.session_date) + " " +
                         std::string(toSql(day.status)) + " bars=" + std::to_string(day.bar_count);
     };
+    if (job.statements)
+    {
+        {
+            const std::lock_guard<std::mutex> lock(mu_);
+            snap_.message = job.symbol + " " + std::string(toSql(job.statement)) + " " +
+                            std::string(toSql(job.statement_timeframe));
+        }
+        (void)ingestStatement(store, get, job.symbol, job.statement, job.statement_timeframe);
+        return;
+    }
     if (job.splits_only)
     {
         (void)ingestSplits(store, get, job.symbol);

@@ -665,6 +665,52 @@ using json = nlohmann::json;
     return object;
 }
 
+[[nodiscard]] json financialsToJson(const ChartbookFinancials& financials)
+{
+    json object = json::object();
+    object["symbol"] = financials.symbol;
+    object["statement"] = financials.statement;
+    object["timeframe"] = financials.timeframe;
+    return object;
+}
+
+[[nodiscard]] bool financialsFromJson(const json& value, ChartbookFinancials& financials, std::string& error)
+{
+    const json* object = nullptr;
+    if (!readObject(value, "financials", object, error))
+    {
+        return false;
+    }
+    if (object->contains("symbol") && !readString(*object, "symbol", financials.symbol, error))
+    {
+        return false;
+    }
+    if (object->contains("statement"))
+    {
+        if (!readString(*object, "statement", financials.statement, error))
+        {
+            return false;
+        }
+        if (financials.statement != "income" && financials.statement != "balance" &&
+            financials.statement != "cashflow")
+        {
+            return fail(error, "unknown statement");
+        }
+    }
+    if (object->contains("timeframe"))
+    {
+        if (!readString(*object, "timeframe", financials.timeframe, error))
+        {
+            return false;
+        }
+        if (financials.timeframe != "annually" && financials.timeframe != "quarterly")
+        {
+            return fail(error, "unknown statement timeframe");
+        }
+    }
+    return true;
+}
+
 [[nodiscard]] bool dataFromJson(const json& value, ChartbookData& data, std::string& error)
 {
     const json* object = nullptr;
@@ -784,7 +830,7 @@ using json = nlohmann::json;
 
 [[nodiscard]] bool parseWindowToken(std::string_view window, std::string& error)
 {
-    if (window == "data")
+    if (window == "data" || window == "financials")
     {
         return true;
     }
@@ -1145,6 +1191,7 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
     root["focused_pane"] = document.focused_pane;
     root["next_pane_id"] = document.next_pane_id;
     root["data"] = dataToJson(document.data);
+    root["financials"] = financialsToJson(document.financials);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -1274,6 +1321,12 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         return result;
     }
     if (!object->contains("data") || !dataFromJson(object->at("data"), result.document.data, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("financials") &&
+        !financialsFromJson(object->at("financials"), result.document.financials, result.error))
     {
         result.document = {};
         return result;

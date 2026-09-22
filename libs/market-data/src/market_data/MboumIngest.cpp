@@ -537,4 +537,73 @@ IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, std::string_vi
     return result;
 }
 
+IngestStatementResult ingestStatement(Store& store,
+                                      const HttpGet& get,
+                                      std::string_view symbol,
+                                      StatementKind statement,
+                                      StatementTimeframe timeframe)
+{
+    if (symbol.empty())
+    {
+        throw std::runtime_error("ingest symbol is empty");
+    }
+    IngestStatementResult result;
+    result.instrument_id = ensureInstrument(store, symbol);
+
+    HttpResponse http;
+    try
+    {
+        http = get(mboumV2StatementUrl(symbol, statement, timeframe));
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum statement request failed: ") + ex.what());
+    }
+    if (http.status == 401 || http.status == 403)
+    {
+        throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+    if (http.status != 200)
+    {
+        throw std::runtime_error("MBoum statement request failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+
+    MboumV2Statement page;
+    try
+    {
+        page = parseMboumV2Statement(http.body);
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum statement parse failed: ") + ex.what());
+    }
+
+    std::vector<StatementCell> cells;
+    cells.reserve(page.cells.size());
+    for (const MboumV2StatementCell& raw : page.cells)
+    {
+        StatementCell cell;
+        cell.instrument_id = result.instrument_id;
+        cell.statement = statement;
+        cell.timeframe = timeframe;
+        cell.line_item = raw.line_item;
+        cell.period_end = raw.period_end;
+        cell.value = raw.value;
+        cells.push_back(std::move(cell));
+    }
+
+    StatementSnapshot snapshot;
+    snapshot.instrument_id = result.instrument_id;
+    snapshot.statement = statement;
+    snapshot.timeframe = timeframe;
+    snapshot.source = "mboum";
+    snapshot.fetched_at = nowUtc();
+    store.replaceStatement(snapshot, cells);
+    result.cell_count = static_cast<int>(cells.size());
+    result.no_data = page.no_data;
+    return result;
+}
+
 }  // namespace terminal

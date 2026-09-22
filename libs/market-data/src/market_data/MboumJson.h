@@ -46,4 +46,24 @@ struct MboumV1SplitEvent
 [[nodiscard]] std::vector<MboumV1SplitEvent> parseMboumV1SplitEvents(std::string_view json);
 [[nodiscard]] std::string mboumV1SplitsUrl(std::string_view ticker);
 
+// One v2 modules statement. body line items keep vendor key order.
+// A missing period key is omitted. TTM is a period token, not a date.
+struct MboumV2StatementCell
+{
+    std::string line_item;
+    std::string period_end;
+    StatementValue value;
+};
+
+struct MboumV2Statement
+{
+    bool no_data{false};
+    std::vector<MboumV2StatementCell> cells;
+};
+
+[[nodiscard]] MboumV2Statement parseMboumV2Statement(std::string_view json);
+[[nodiscard]] std::string mboumV2StatementUrl(std::string_view ticker,
+                                              StatementKind statement,
+                                              StatementTimeframe timeframe);
+
 }  // namespace terminal

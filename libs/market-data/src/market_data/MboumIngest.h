@@ -72,4 +72,20 @@ struct IngestSplitsResult
                                               const HttpGet& get,
                                               std::string_view symbol);
 
+struct IngestStatementResult
+{
+    InstrumentId instrument_id{};
+    int cell_count{};
+    bool no_data{false};
+};
+
+// GET /v1/markets/stock/modules for one v2 statement and timeframe.
+// HTTP 200 with no grid records an empty snapshot so the pane does not fetch it again.
+// Transport errors, non-200 responses, and parse failures throw and leave the grid unchanged.
+[[nodiscard]] IngestStatementResult ingestStatement(Store& store,
+                                                    const HttpGet& get,
+                                                    std::string_view symbol,
+                                                    StatementKind statement,
+                                                    StatementTimeframe timeframe);
+
 }  // namespace terminal

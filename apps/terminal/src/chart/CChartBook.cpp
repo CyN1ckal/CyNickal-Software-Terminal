@@ -190,6 +190,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     panes_.clear();
     name_ = document.name;
     data_ = document.data;
+    financials_.importState(document.financials);
+    financials_.setWindowScope(runtime_id_);
     layout_ = document.layout;
     floating_ = document.floating;
     next_id_ = std::max(document.next_pane_id, 1);
@@ -222,6 +224,7 @@ CChartbookDocument CChartBook::exportDocument() const
     document.focused_pane = focused_id_;
     document.next_pane_id = next_id_;
     document.data = data_;
+    document.financials = financials_.exportState();
     document.layout = layout_;
     document.floating = floating_;
     for (const std::unique_ptr<CChartPane>& pane : panes_)
@@ -290,6 +293,7 @@ bool CChartBook::consumeLayoutRequest() noexcept
 void CChartBook::setWindowScope(int runtime_id)
 {
     runtime_id_ = runtime_id;
+    financials_.setWindowScope(runtime_id_);
     for (const std::unique_ptr<CChartPane>& pane : panes_)
     {
         pane->setWindowScope(runtime_id_);
@@ -310,6 +314,17 @@ void CChartBook::placePane(int pane_id, bool force, bool floating, ImGuiID dock,
 bool CChartBook::containsPane(int pane_id) const
 {
     return findPane(pane_id) != nullptr;
+}
+
+bool CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    financials_.setWindowScope(runtime_id_);
+    return financials_.draw(store, store_error, ingest);
+}
+
+void CChartBook::placeFinancials(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    financials_.setPlacement(force, floating, dock, pos, size);
 }
 
 void CChartBook::drawMenu()

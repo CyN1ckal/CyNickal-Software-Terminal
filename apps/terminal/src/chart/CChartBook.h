@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartbookDocument.h"
+#include "ui/FinancialsPanel.h"
 
 #include "imgui.h"
 
@@ -31,6 +32,8 @@ public:
 
     void drawMenu();
     void draw(Store* store, std::string_view store_error, IngestWorker* ingest);
+    [[nodiscard]] bool drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void placeFinancials(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] const CChartPane* focusedPane() const;
     void addPane();
     void closeFocused();
@@ -60,6 +63,7 @@ private:
 
     int runtime_id_{0};
     std::string name_;
+    FinancialsPanel financials_;
     ChartbookData data_{};
     ChartbookLayout layout_{};
     std::vector<ChartbookFloating> floating_;

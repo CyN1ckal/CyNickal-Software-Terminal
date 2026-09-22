@@ -26,6 +26,9 @@ public:
         int timeframe_s{kTimeframe1m};
         bool splits_only{false};
         std::uint64_t serial{0};
+        bool statements{false};
+        StatementKind statement{StatementKind::Income};
+        StatementTimeframe statement_timeframe{StatementTimeframe::Annually};
     };
 
     // `accepted` is false when an identical job is already queued or running.

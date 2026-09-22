@@ -34,6 +34,7 @@ add_library(terminal_core OBJECT
     src/platform/vulkan/VulkanUtils.cpp
     src/platform/window/Window.cpp
     src/data/IngestWorker.cpp
+    src/data/StatementSheet.cpp
     src/chart/CChartAxis.cpp
     src/chart/CChartCommand.cpp
     src/chart/CChartLoad.cpp
@@ -61,6 +62,7 @@ add_library(terminal_gui OBJECT
     src/ui/ChartbookHost.cpp
     src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
+    src/ui/FinancialsPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp
@@ -166,6 +168,7 @@ if(CYN_TESTING)
         src/chart/CChartbookDocument.cpp
         src/chart/CChartbookFile.cpp
         src/chart/CStudyCompute.cpp
+        src/data/StatementSheet.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h

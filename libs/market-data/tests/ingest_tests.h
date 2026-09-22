@@ -596,3 +596,157 @@ TEST_CASE("ingestDailySymbol propagates a splits fetch failure and writes no bar
     CHECK(store.queryBars(found.front().id, terminal::kTimeframe1d, 0, 4000000000).empty());
     CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
 }
+
+TEST_CASE("parse v2 statement keeps vendor order, typed values, and TTM")
+{
+    constexpr std::string_view json = R"({
+      "meta": {"version": "v1.0"},
+      "body": {
+        "revenue": {"2025-09-27": 416161000000, "2024-09-28": 391035000000},
+        "epsdil": {"2025-09-27": 6.08},
+        "fiscalYear": {"2025-09-27": "2025", "TTM": "2025"}
+      }
+    })";
+    const auto page = terminal::parseMboumV2Statement(json);
+    CHECK_FALSE(page.no_data);
+    REQUIRE(page.cells.size() == 5);
+    CHECK(page.cells[0].line_item == "revenue");
+    CHECK(page.cells[0].period_end == "2025-09-27");
+    CHECK(std::get<std::int64_t>(page.cells[0].value) == 416161000000);
+    CHECK(page.cells[1].period_end == "2024-09-28");
+    CHECK(page.cells[2].line_item == "epsdil");
+    CHECK(std::get<double>(page.cells[2].value) == 6.08);
+    CHECK(page.cells[4].period_end == "TTM");
+    CHECK(std::get<std::string>(page.cells[4].value) == "2025");
+}
+
+TEST_CASE("parse v2 statement treats no-data as an empty grid and rejects a bad period")
+{
+    const auto empty = terminal::parseMboumV2Statement(
+        R"({"success":false,"message":"No data returned"})");
+    CHECK(empty.no_data);
+    CHECK(empty.cells.empty());
+    CHECK_THROWS_AS(terminal::parseMboumV2Statement(R"({"body":{"revenue":{"FY2025":1}}})"),
+                    std::runtime_error);
+    const auto skipped = terminal::parseMboumV2Statement(
+        R"({"body":{"revenue":{"2025-09-27":null,"2024-09-28":2}}})");
+    REQUIRE(skipped.cells.size() == 1);
+    CHECK(skipped.cells[0].period_end == "2024-09-28");
+}
+
+TEST_CASE("v2 statement URL names the module and timeframe")
+{
+    const auto annual = terminal::mboumV2StatementUrl("AAPL", terminal::StatementKind::Income,
+                                                      terminal::StatementTimeframe::Annually);
+    CHECK(annual.find("ticker=AAPL") != std::string::npos);
+    CHECK(annual.find("module=income-statement-v2") != std::string::npos);
+    CHECK(annual.find("timeframe=annually") != std::string::npos);
+    const auto quarter = terminal::mboumV2StatementUrl("MSFT", terminal::StatementKind::Cashflow,
+                                                       terminal::StatementTimeframe::Quarterly);
+    CHECK(quarter.find("module=cashflow-statement-v2") != std::string::npos);
+    CHECK(quarter.find("timeframe=quarterly") != std::string::npos);
+    const auto balance = terminal::mboumV2StatementUrl("IBM", terminal::StatementKind::Balance,
+                                                       terminal::StatementTimeframe::Annually);
+    CHECK(balance.find("module=balance-sheet-v2") != std::string::npos);
+}
+
+TEST_CASE("ingestStatement stores yearly and quarterly grids and an empty no-data snapshot")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const char* annual = R"({
+      "body": {"revenue": {"2025-09-27": 10, "2024-09-28": 9}}
+    })";
+    const char* quarter = R"({
+      "body": {"revenue": {"2025-06-28": 3}}
+    })";
+    auto annual_get = [&](std::string_view url) {
+        CHECK(std::string(url).find("timeframe=annually") != std::string::npos);
+        CHECK(std::string(url).find("module=income-statement-v2") != std::string::npos);
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = annual;
+        return response;
+    };
+    const auto yearly = terminal::ingestStatement(store, annual_get, "AAPL",
+                                                  terminal::StatementKind::Income,
+                                                  terminal::StatementTimeframe::Annually);
+    CHECK(yearly.cell_count == 2);
+    CHECK_FALSE(yearly.no_data);
+    auto quarter_get = [&](std::string_view url) {
+        CHECK(std::string(url).find("timeframe=quarterly") != std::string::npos);
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = quarter;
+        return response;
+    };
+    const auto quarterly = terminal::ingestStatement(store, quarter_get, "AAPL",
+                                                     terminal::StatementKind::Income,
+                                                     terminal::StatementTimeframe::Quarterly);
+    CHECK(quarterly.instrument_id == yearly.instrument_id);
+    CHECK(quarterly.cell_count == 1);
+    const auto annual_line = store.queryStatementLine(
+        yearly.instrument_id, terminal::StatementKind::Income,
+        terminal::StatementTimeframe::Annually, "revenue");
+    REQUIRE(annual_line.size() == 2);
+    const auto quarter_line = store.queryStatementLine(
+        yearly.instrument_id, terminal::StatementKind::Income,
+        terminal::StatementTimeframe::Quarterly, "revenue");
+    REQUIRE(quarter_line.size() == 1);
+    CHECK(std::get<std::int64_t>(quarter_line[0].value) == 3);
+
+    auto none = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = R"({"success":false,"message":"No data returned"})";
+        return response;
+    };
+    const auto cleared = terminal::ingestStatement(store, none, "AAPL", terminal::StatementKind::Income,
+                                                   terminal::StatementTimeframe::Quarterly);
+    CHECK(cleared.no_data);
+    CHECK(cleared.cell_count == 0);
+    CHECK(store.findStatementSnapshot(yearly.instrument_id, terminal::StatementKind::Income,
+                                      terminal::StatementTimeframe::Quarterly)
+              .has_value());
+    CHECK(store.queryStatementCells(yearly.instrument_id, terminal::StatementKind::Income,
+                                    terminal::StatementTimeframe::Quarterly)
+              .empty());
+    CHECK(store.queryStatementLine(yearly.instrument_id, terminal::StatementKind::Income,
+                                   terminal::StatementTimeframe::Annually, "revenue")
+              .size() == 2);
+}
+
+TEST_CASE("ingestStatement HTTP and parse failures leave the stored grid")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    auto ok = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = R"({"body":{"revenue":{"2025-09-27":4}}})";
+        return response;
+    };
+    const auto first = terminal::ingestStatement(store, ok, "AAPL", terminal::StatementKind::Income,
+                                                 terminal::StatementTimeframe::Annually);
+    auto http = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 500;
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestStatement(store, http, "AAPL", terminal::StatementKind::Income,
+                                              terminal::StatementTimeframe::Annually),
+                    std::runtime_error);
+    auto parse = [](std::string_view) {
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = "not-json";
+        return response;
+    };
+    CHECK_THROWS_AS(terminal::ingestStatement(store, parse, "AAPL", terminal::StatementKind::Income,
+                                              terminal::StatementTimeframe::Annually),
+                    std::runtime_error);
+    const auto kept = store.queryStatementLine(first.instrument_id, terminal::StatementKind::Income,
+                                               terminal::StatementTimeframe::Annually, "revenue");
+    REQUIRE(kept.size() == 1);
+    CHECK(std::get<std::int64_t>(kept[0].value) == 4);
+}

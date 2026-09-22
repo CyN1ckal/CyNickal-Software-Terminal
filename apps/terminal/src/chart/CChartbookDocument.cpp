@@ -212,9 +212,10 @@ ChartbookLayout chartbookSplit(ChartbookSplitAxis axis, float ratio, const Chart
     return layout;
 }
 
-void chartbookInsertPane(ChartbookLayout& layout, int pane_id)
+namespace {
+
+void chartbookInsertWindow(ChartbookLayout& layout, const std::string& window_id)
 {
-    const std::string window_id = paneWindowId(pane_id);
     if (layout.root < 0 || layout.nodes.empty())
     {
         layout = chartbookLeaf({window_id}, window_id);
@@ -272,6 +273,29 @@ void chartbookInsertPane(ChartbookLayout& layout, int pane_id)
 
     layout = chartbookSplit(ChartbookSplitAxis::Horizontal, 0.5f, layout,
                             chartbookLeaf({window_id}, window_id));
+}
+
+}  // namespace
+
+void chartbookInsertPane(ChartbookLayout& layout, int pane_id)
+{
+    chartbookInsertWindow(layout, paneWindowId(pane_id));
+}
+
+void chartbookInsertFinancials(ChartbookLayout& layout)
+{
+    bool present = false;
+    if (layout.root >= 0)
+    {
+        visitWindows(layout, layout.root, [&present](const std::string& window) {
+            present = present || window == "financials";
+        });
+    }
+    if (present)
+    {
+        return;
+    }
+    chartbookInsertWindow(layout, "financials");
 }
 
 void chartbookInsertData(ChartbookLayout& layout)

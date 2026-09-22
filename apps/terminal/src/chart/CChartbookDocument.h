@@ -69,7 +69,7 @@ struct ChartbookFloating
 };
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
-// A leaf uses windows ("data" or "pane:<id>") and selected.
+// A leaf uses windows ("data", "financials", or "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -85,6 +85,15 @@ struct ChartbookLayout
 {
     std::vector<ChartbookLayoutNode> nodes;
     int root{-1};
+};
+
+// Financials sheet fields for one chart space. statement is income|balance|cashflow.
+// timeframe is annually|quarterly.
+struct ChartbookFinancials
+{
+    std::string symbol;
+    std::string statement{"income"};
+    std::string timeframe{"annually"};
 };
 
 struct ChartbookPane
@@ -104,6 +113,7 @@ struct CChartbookDocument
     int focused_pane{0};
     int next_pane_id{1};
     ChartbookData data{};
+    ChartbookFinancials financials{};
     ChartbookLayout layout{};
     std::vector<ChartbookFloating> floating;
     std::vector<ChartbookPane> panes;
@@ -124,6 +134,9 @@ void chartbookInsertPane(ChartbookLayout& layout, int pane_id);
 
 // Dock DATA on the left at the default ratio when this space does not already show it.
 void chartbookInsertData(ChartbookLayout& layout);
+
+// Dock the financials sheet on the chart side when this space does not already show it.
+void chartbookInsertFinancials(ChartbookLayout& layout);
 
 // Drop one window. An emptied leaf is replaced by its sibling.
 void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);

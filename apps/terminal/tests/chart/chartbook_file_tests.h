@@ -282,6 +282,43 @@ TEST_CASE("a new pane docks beside DATA and a closed pane is not open")
     CHECK(terminal::chartbookWindowReferenced(document, "pane:1"));
 }
 
+TEST_CASE("financials docks on the chart tab and round trips")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertFinancials(document.layout);
+    CHECK(terminal::chartbookWindowReferenced(document, "financials"));
+    const terminal::ChartbookLayoutNode& root =
+        document.layout.nodes[static_cast<std::size_t>(document.layout.root)];
+    REQUIRE(root.is_split);
+    const terminal::ChartbookLayoutNode& chart =
+        document.layout.nodes[static_cast<std::size_t>(root.second)];
+    CHECK_FALSE(chart.is_split);
+    CHECK(chart.selected == "financials");
+    document.financials.symbol = "AAPL";
+    document.financials.statement = "cashflow";
+    document.financials.timeframe = "quarterly";
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    CHECK(loaded.document.financials.symbol == "AAPL");
+    CHECK(loaded.document.financials.statement == "cashflow");
+    CHECK(loaded.document.financials.timeframe == "quarterly");
+    CHECK(terminal::chartbookWindowReferenced(loaded.document, "financials"));
+
+    const char* bad_period = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "data": {},
+        "financials": {"symbol": "AAPL", "statement": "income", "timeframe": "trailing"},
+        "layout": {"windows": ["financials"], "selected": "financials"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult rejected = terminal::chartbookFromJson(bad_period);
+    CHECK_FALSE(rejected.ok);
+}
+
 TEST_CASE("saved data column order must name every live column once")
 {
     std::vector<int> orders;

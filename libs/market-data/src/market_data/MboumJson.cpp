@@ -7,7 +7,10 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cmath>
+#include <limits>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -91,6 +94,172 @@ namespace {
     }
     const auto seconds = static_cast<UnixSeconds>(it->get<double>());
     return seconds;
+}
+
+[[nodiscard]] bool trimmedToken(std::string_view text)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+    const auto first = text.find_first_not_of(" \t\r\n");
+    const auto last = text.find_last_not_of(" \t\r\n");
+    return first == 0 && last == text.size() - 1;
+}
+
+[[nodiscard]] bool isFiscalPeriodEnd(std::string_view period)
+{
+    if (period == "TTM")
+    {
+        return true;
+    }
+    if (period.size() != 10 || period[4] != '-' || period[7] != '-')
+    {
+        return false;
+    }
+    for (const std::size_t index : {0U, 1U, 2U, 3U, 5U, 6U, 8U, 9U})
+    {
+        const char ch = period[index];
+        if (ch < '0' || ch > '9')
+        {
+            return false;
+        }
+    }
+    const int month = (period[5] - '0') * 10 + (period[6] - '0');
+    const int day = (period[8] - '0') * 10 + (period[9] - '0');
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+[[nodiscard]] bool messageIsNoStatement(const nlohmann::ordered_json& root)
+{
+    const auto message = root.find("message");
+    if (message == root.end() || !message->is_string())
+    {
+        return false;
+    }
+    return message->get_ref<const std::string&>().find("No data returned") != std::string::npos;
+}
+
+[[nodiscard]] StatementValue statementValueFromJson(const nlohmann::ordered_json& value)
+{
+    if (value.is_string())
+    {
+        const auto& text = value.get_ref<const std::string&>();
+        if (text.empty())
+        {
+            throw std::runtime_error("statement text is empty");
+        }
+        return text;
+    }
+    if (value.is_number_unsigned())
+    {
+        const auto wide = value.get<std::uint64_t>();
+        if (wide > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+        {
+            return static_cast<double>(wide);
+        }
+        return static_cast<std::int64_t>(wide);
+    }
+    if (value.is_number_integer())
+    {
+        return value.get<std::int64_t>();
+    }
+    if (value.is_number_float())
+    {
+        const double real = value.get<double>();
+        if (!std::isfinite(real))
+        {
+            throw std::runtime_error("statement real is not finite");
+        }
+        return real;
+    }
+    throw std::runtime_error("statement value is not a number or string");
+}
+
+[[nodiscard]] std::string_view statementModule(StatementKind statement)
+{
+    switch (statement)
+    {
+    case StatementKind::Income:
+        return "income-statement-v2";
+    case StatementKind::Balance:
+        return "balance-sheet-v2";
+    case StatementKind::Cashflow:
+        return "cashflow-statement-v2";
+    }
+    throw std::runtime_error("unknown StatementKind");
+}
+
+[[nodiscard]] MboumV2Statement parseMboumV2StatementBody(const nlohmann::ordered_json& root)
+{
+    if (!root.is_object())
+    {
+        throw std::runtime_error("expected JSON object");
+    }
+    const auto success = root.find("success");
+    if (success != root.end() && success->is_boolean() && !success->get<bool>())
+    {
+        if (messageIsNoStatement(root))
+        {
+            MboumV2Statement page;
+            page.no_data = true;
+            return page;
+        }
+        throw std::runtime_error("MBoum statement returned no grid");
+    }
+    if (messageIsNoStatement(root))
+    {
+        MboumV2Statement page;
+        page.no_data = true;
+        return page;
+    }
+
+    const auto body = root.find("body");
+    if (body == root.end() || !body->is_object())
+    {
+        throw std::runtime_error("MBoum statement body is missing");
+    }
+
+    MboumV2Statement page;
+    std::set<std::pair<std::string, std::string>> seen;
+    for (auto line = body->begin(); line != body->end(); ++line)
+    {
+        const std::string& line_item = line.key();
+        if (!trimmedToken(line_item))
+        {
+            throw std::runtime_error("statement line_item is empty");
+        }
+        if (line->is_null())
+        {
+            continue;
+        }
+        if (!line->is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+        for (auto period = line->begin(); period != line->end(); ++period)
+        {
+            if (period->is_null())
+            {
+                continue;
+            }
+            const std::string& period_end = period.key();
+            if (!isFiscalPeriodEnd(period_end))
+            {
+                throw std::runtime_error("statement period_end is invalid");
+            }
+            if (!seen.emplace(line_item, period_end).second)
+            {
+                throw std::runtime_error("duplicate statement cell");
+            }
+            MboumV2StatementCell cell;
+            cell.line_item = line_item;
+            cell.period_end = period_end;
+            cell.value = statementValueFromJson(*period);
+            page.cells.push_back(std::move(cell));
+        }
+    }
+    return page;
 }
 
 }  // namespace
@@ -317,6 +486,32 @@ std::string mboumV1SplitsUrl(std::string_view ticker)
     std::string url = "https://api.mboum.com/v1/markets/stock/history?ticker=";
     url.append(ticker);
     url += "&interval=1mo&diffandsplits=true";
+    return url;
+}
+
+MboumV2Statement parseMboumV2Statement(std::string_view json)
+{
+    try
+    {
+        const auto root = nlohmann::ordered_json::parse(json);
+        return parseMboumV2StatementBody(root);
+    }
+    catch (const nlohmann::json::exception& ex)
+    {
+        throw std::runtime_error(std::string("invalid MBoum JSON: ") + ex.what());
+    }
+}
+
+std::string mboumV2StatementUrl(std::string_view ticker,
+                                StatementKind statement,
+                                StatementTimeframe timeframe)
+{
+    std::string url = "https://api.mboum.com/v1/markets/stock/modules?ticker=";
+    url.append(ticker);
+    url += "&module=";
+    url.append(statementModule(statement));
+    url += "&timeframe=";
+    url.append(toSql(timeframe));
     return url;
 }
 
