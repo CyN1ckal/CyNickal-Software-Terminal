@@ -666,29 +666,15 @@ using nlohmann::json;
     return object;
 }
 
-[[nodiscard]] json financialsToJson(const ChartbookFinancials& financials)
+[[nodiscard]] bool readFinancialsFields(const json& object, ChartbookFinancials& financials, std::string& error)
 {
-    json object = json::object();
-    object["symbol"] = financials.symbol;
-    object["statement"] = financials.statement;
-    object["timeframe"] = financials.timeframe;
-    return object;
-}
-
-[[nodiscard]] bool financialsFromJson(const json& value, ChartbookFinancials& financials, std::string& error)
-{
-    const json* object = nullptr;
-    if (!readObject(value, "financials", object, error))
+    if (object.contains("symbol") && !readString(object, "symbol", financials.symbol, error))
     {
         return false;
     }
-    if (object->contains("symbol") && !readString(*object, "symbol", financials.symbol, error))
+    if (object.contains("statement"))
     {
-        return false;
-    }
-    if (object->contains("statement"))
-    {
-        if (!readString(*object, "statement", financials.statement, error))
+        if (!readString(object, "statement", financials.statement, error))
         {
             return false;
         }
@@ -698,9 +684,9 @@ using nlohmann::json;
             return fail(error, "unknown statement");
         }
     }
-    if (object->contains("timeframe"))
+    if (object.contains("timeframe"))
     {
-        if (!readString(*object, "timeframe", financials.timeframe, error))
+        if (!readString(object, "timeframe", financials.timeframe, error))
         {
             return false;
         }
@@ -708,6 +694,104 @@ using nlohmann::json;
         {
             return fail(error, "unknown statement timeframe");
         }
+    }
+    return true;
+}
+
+[[nodiscard]] bool acceptFinancialsId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "financials id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.financials, [id](const ChartbookFinancials& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_financials_id <= id)
+    {
+        return fail(error, "financials id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json financialsToJson(const std::vector<ChartbookFinancials>& financials)
+{
+    json array = json::array();
+    for (const ChartbookFinancials& panel : financials)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["symbol"] = panel.symbol;
+        object["statement"] = panel.statement;
+        object["timeframe"] = panel.timeframe;
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+// An object is the older single sheet. An array is the collection. next_present says the file
+// already stored next_financials_id; a legacy object fills that in when it was omitted.
+[[nodiscard]] bool financialsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                      std::string& error)
+{
+    if (value.is_object())
+    {
+        ChartbookFinancials panel;
+        if (value.contains("id"))
+        {
+            if (!readInt(value, "id", panel.id, error) || panel.id <= 0)
+            {
+                return fail(error, "financials id is missing");
+            }
+        }
+        else
+        {
+            panel.id = 1;
+        }
+        if (!readFinancialsFields(value, panel, error))
+        {
+            return false;
+        }
+        if (!next_present || document.next_financials_id <= panel.id)
+        {
+            document.next_financials_id = panel.id + 1;
+        }
+        if (!acceptFinancialsId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.financials.push_back(std::move(panel));
+        return true;
+    }
+    if (!value.is_array())
+    {
+        return fail(error, "financials is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_financials_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "financials", item, error))
+        {
+            return false;
+        }
+        ChartbookFinancials panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "financials id is missing");
+        }
+        if (!readFinancialsFields(*item, panel, error))
+        {
+            return false;
+        }
+        if (!acceptFinancialsId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.financials.push_back(std::move(panel));
     }
     return true;
 }
@@ -831,7 +915,8 @@ using nlohmann::json;
 
 [[nodiscard]] bool parseWindowToken(std::string_view window, std::string& error)
 {
-    if (window == "data" || window == "financials")
+    int financials_id = 0;
+    if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id))
     {
         return true;
     }
@@ -1164,6 +1249,88 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing pane");
         }
     }
+    for (const std::string& window : windows)
+    {
+        if (window == "financials")
+        {
+            return fail(error, "financials window is missing an id");
+        }
+        int financials_id = 0;
+        if (!financialsIdFromWindow(window, financials_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.financials, [&](const ChartbookFinancials& panel) {
+            return panel.id == financials_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing financials panel");
+        }
+    }
+    return true;
+}
+
+void replaceBareFinancials(std::string& window, const std::string& replacement)
+{
+    if (window == "financials")
+    {
+        window = replacement;
+    }
+}
+
+[[nodiscard]] bool documentHasBareFinancials(const CChartbookDocument& document)
+{
+    if (std::ranges::any_of(document.floating, [](const ChartbookFloating& item) {
+            return item.window == "financials";
+        }))
+    {
+        return true;
+    }
+    return std::ranges::any_of(document.layout.nodes, [](const ChartbookLayoutNode& node) {
+        return !node.is_split && (node.selected == "financials" ||
+                                  std::ranges::find(node.windows, "financials") != node.windows.end());
+    });
+}
+
+// Older files name the one sheet "financials". Rewrite that token onto the single panel id.
+[[nodiscard]] bool migrateLegacyFinancialsWindow(CChartbookDocument& document, std::string& error)
+{
+    if (!documentHasBareFinancials(document))
+    {
+        return true;
+    }
+    if (document.financials.size() > 1)
+    {
+        return fail(error, "financials window is missing an id");
+    }
+    if (document.financials.empty())
+    {
+        ChartbookFinancials panel;
+        panel.id = 1;
+        if (document.next_financials_id <= panel.id)
+        {
+            document.next_financials_id = panel.id + 1;
+        }
+        document.financials.push_back(std::move(panel));
+    }
+    const std::string replacement = financialsWindowId(document.financials.front().id);
+    for (ChartbookLayoutNode& node : document.layout.nodes)
+    {
+        if (node.is_split)
+        {
+            continue;
+        }
+        for (std::string& window : node.windows)
+        {
+            replaceBareFinancials(window, replacement);
+        }
+        replaceBareFinancials(node.selected, replacement);
+    }
+    for (ChartbookFloating& item : document.floating)
+    {
+        replaceBareFinancials(item.window, replacement);
+    }
     return true;
 }
 
@@ -1191,6 +1358,8 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
     root["name"] = document.name;
     root["focused_pane"] = document.focused_pane;
     root["next_pane_id"] = document.next_pane_id;
+    root["focused_financials"] = document.focused_financials;
+    root["next_financials_id"] = document.next_financials_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
     root["layout"] = std::move(layout);
@@ -1321,16 +1490,45 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         result.document = {};
         return result;
     }
+    if (object->contains("focused_financials") &&
+        !readInt(*object, "focused_financials", result.document.focused_financials, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    bool next_financials_present = false;
+    if (object->contains("next_financials_id"))
+    {
+        next_financials_present = true;
+        if (!readInt(*object, "next_financials_id", result.document.next_financials_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
     if (!object->contains("data") || !dataFromJson(object->at("data"), result.document.data, result.error))
     {
         result.document = {};
         return result;
     }
     if (object->contains("financials") &&
-        !financialsFromJson(object->at("financials"), result.document.financials, result.error))
+        !financialsFromJson(object->at("financials"), result.document, next_financials_present, result.error))
     {
         result.document = {};
         return result;
+    }
+    if (result.document.focused_financials != 0)
+    {
+        const bool focused_ok =
+            std::ranges::any_of(result.document.financials, [&](const ChartbookFinancials& panel) {
+                return panel.id == result.document.focused_financials;
+            });
+        if (!focused_ok)
+        {
+            result.error = "focused financials is missing";
+            result.document = {};
+            return result;
+        }
     }
     if (!object->contains("panes") || !object->at("panes").is_array())
     {
@@ -1418,14 +1616,18 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         }
     }
     if (!object->contains("layout") ||
-        !readLayout(object->at("layout"), result.document.layout, result.document.layout.root, 0,
-                    result.error) ||
-        !documentWindowsOk(result.document, result.error))
+        !readLayout(object->at("layout"), result.document.layout, result.document.layout.root, 0, result.error))
     {
         if (result.error.empty())
         {
             result.error = "layout is missing";
         }
+        result.document = {};
+        return result;
+    }
+    if (!migrateLegacyFinancialsWindow(result.document, result.error) ||
+        !documentWindowsOk(result.document, result.error))
+    {
         result.document = {};
         return result;
     }

@@ -21,7 +21,7 @@ class Store;
 class FinancialsPanel
 {
 public:
-    FinancialsPanel() = default;
+    explicit FinancialsPanel(int id);
     ~FinancialsPanel() = default;
 
     FinancialsPanel(const FinancialsPanel&) = delete;
@@ -29,12 +29,16 @@ public:
     FinancialsPanel(FinancialsPanel&&) = delete;
     FinancialsPanel& operator=(FinancialsPanel&&) = delete;
 
+    [[nodiscard]] int id() const noexcept;
+    [[nodiscard]] bool windowOpen() const noexcept;
+    void closeWindow();
+    void requestFocus();
     void importState(const ChartbookFinancials& state);
     [[nodiscard]] ChartbookFinancials exportState() const;
     void setWindowScope(int runtime_id) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
 
-    // True while the window stays open.
+    // True when this window is focused.
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
 
 private:
@@ -61,6 +65,9 @@ private:
     bool blocked_{false};
     bool fetch_now_{false};
     bool needs_reload_{true};
+    int id_{0};
+    bool window_open_{true};
+    bool focus_on_appear_{false};
     int runtime_id_{0};
     bool place_force_{false};
     bool place_floating_{false};

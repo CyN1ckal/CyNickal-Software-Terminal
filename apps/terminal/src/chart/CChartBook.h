@@ -32,11 +32,14 @@ public:
 
     void drawMenu();
     void draw(Store* store, std::string_view store_error, IngestWorker* ingest);
-    [[nodiscard]] bool drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest);
-    void placeFinancials(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    void drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void placeFinancials(int financials_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] const CChartPane* focusedPane() const;
+    [[nodiscard]] const FinancialsPanel* focusedFinancials() const;
     void addPane();
+    void addFinancials();
     void closeFocused();
+    void closeFocusedFinancials();
     void openFocusedSettings();
     void openFocusedStudies();
 
@@ -55,21 +58,27 @@ public:
     void setWindowScope(int runtime_id);
     void placePane(int pane_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] bool containsPane(int pane_id) const;
+    [[nodiscard]] bool containsFinancials(int financials_id) const;
 
 private:
     void eraseClosed();
+    void eraseClosedFinancials();
     [[nodiscard]] CChartPane* focused();
     [[nodiscard]] const CChartPane* findPane(int pane_id) const;
+    [[nodiscard]] FinancialsPanel* focusedFinancialsPanel();
+    [[nodiscard]] const FinancialsPanel* findFinancials(int financials_id) const;
 
     int runtime_id_{0};
     std::string name_;
-    FinancialsPanel financials_;
     ChartbookData data_{};
     ChartbookLayout layout_{};
     std::vector<ChartbookFloating> floating_;
     std::vector<std::unique_ptr<CChartPane>> panes_;
+    std::vector<std::unique_ptr<FinancialsPanel>> financials_;
     int next_id_{1};
     int focused_id_{0};
+    int next_financials_id_{1};
+    int focused_financials_id_{0};
     bool layout_request_{false};
 };
 

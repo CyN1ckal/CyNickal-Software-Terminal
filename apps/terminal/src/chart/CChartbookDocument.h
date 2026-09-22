@@ -69,7 +69,7 @@ struct ChartbookFloating
 };
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
-// A leaf uses windows ("data", "financials", or "pane:<id>") and selected.
+// A leaf uses windows ("data", "financials:<id>", or "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -87,10 +87,11 @@ struct ChartbookLayout
     int root{-1};
 };
 
-// Financials sheet fields for one chart space. statement is income|balance|cashflow.
-// timeframe is annually|quarterly.
+// One financials sheet. statement is income|balance|cashflow.
+// timeframe is annually|quarterly. A chartbook holds several, the same way it holds chart panes.
 struct ChartbookFinancials
 {
+    int id{0};
     std::string symbol;
     std::string statement{"income"};
     std::string timeframe{"annually"};
@@ -112,16 +113,44 @@ struct CChartbookDocument
     std::string name;
     int focused_pane{0};
     int next_pane_id{1};
+    int focused_financials{0};
+    int next_financials_id{1};
     ChartbookData data{};
-    ChartbookFinancials financials{};
     ChartbookLayout layout{};
     std::vector<ChartbookFloating> floating;
     std::vector<ChartbookPane> panes;
+    std::vector<ChartbookFinancials> financials;
 };
 
 [[nodiscard]] inline std::string paneWindowId(int pane_id)
 {
     return "pane:" + std::to_string(pane_id);
+}
+
+[[nodiscard]] inline std::string financialsWindowId(int financials_id)
+{
+    return "financials:" + std::to_string(financials_id);
+}
+
+// True when window is "financials:<id>" and the id is a positive integer of at most 9 digits.
+[[nodiscard]] inline bool financialsIdFromWindow(std::string_view window, int& financials_id) noexcept
+{
+    constexpr std::string_view prefix = "financials:";
+    if (!window.starts_with(prefix) || window.size() > prefix.size() + 9)
+    {
+        return false;
+    }
+    financials_id = 0;
+    for (const char digit : window.substr(prefix.size()))
+    {
+        if (digit < '0' || digit > '9')
+        {
+            financials_id = 0;
+            return false;
+        }
+        financials_id = (financials_id * 10) + (digit - '0');
+    }
+    return financials_id > 0;
 }
 
 [[nodiscard]] ChartbookLayout chartbookLeaf(std::vector<std::string> windows, std::string selected);
@@ -135,8 +164,8 @@ void chartbookInsertPane(ChartbookLayout& layout, int pane_id);
 // Dock DATA on the left at the default ratio when this space does not already show it.
 void chartbookInsertData(ChartbookLayout& layout);
 
-// Dock the financials sheet on the chart side when this space does not already show it.
-void chartbookInsertFinancials(ChartbookLayout& layout);
+// Dock one financials sheet the same way a new chart pane docks.
+void chartbookInsertFinancials(ChartbookLayout& layout, int financials_id);
 
 // Drop one window. An emptied leaf is replaced by its sibling.
 void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
@@ -147,6 +176,8 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 [[nodiscard]] bool chartbookWindowReferenced(const CChartbookDocument& document, std::string_view window_id);
 
 [[nodiscard]] bool chartbookPaneIsOpen(const CChartbookDocument& document, int pane_id);
+
+[[nodiscard]] bool chartbookFinancialsIsOpen(const CChartbookDocument& document, int financials_id);
 
 [[nodiscard]] CChartbookDocument makeDefaultChartbook(std::string name);
 

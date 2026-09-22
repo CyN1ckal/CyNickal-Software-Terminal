@@ -34,9 +34,10 @@ struct BuiltWindow
     {
         return "###cb" + std::to_string(runtime) + "_data";
     }
-    if (window == "financials")
+    int financials_id = 0;
+    if (financialsIdFromWindow(window, financials_id))
     {
-        return "###cb" + std::to_string(runtime) + "_financials";
+        return "###cb" + std::to_string(runtime) + "_financials" + std::to_string(financials_id);
     }
     if (window.starts_with("pane:"))
     {
@@ -62,9 +63,15 @@ struct BuiltWindow
     {
         return "data";
     }
-    if (rest == "financials")
+    constexpr std::string_view financials_prefix = "financials";
+    if (rest.starts_with(financials_prefix))
     {
-        return "financials";
+        const std::string suffix = rest.substr(financials_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "financials:" + suffix;
     }
     if (rest.starts_with("pane"))
     {
@@ -306,14 +313,6 @@ bool ChartbookHost::dataShown(const OpenBook& open)
     return chartbookWindowReferenced(probe, "data");
 }
 
-bool ChartbookHost::financialsShown(const OpenBook& open)
-{
-    CChartbookDocument probe;
-    probe.layout = open.book->layout();
-    probe.floating = open.book->floating();
-    return chartbookWindowReferenced(probe, "financials");
-}
-
 void ChartbookHost::show(int index, bool fill_defaults)
 {
     if (index < 0 || std::cmp_greater_equal(index, books_.size()) || index == active_)
@@ -535,16 +534,14 @@ void ChartbookHost::drawViewMenu()
             apply_layout_ = true;
         }
     }
-    const bool financials = financialsShown(open);
-    if (ImGui::MenuItem("Financials", nullptr, financials))
+    if (ImGui::MenuItem("New Financials"))
     {
-        if (!financials)
-        {
-            ChartbookLayout layout = open.book->layout();
-            chartbookInsertFinancials(layout);
-            open.book->setLayout(std::move(layout));
-            apply_layout_ = true;
-        }
+        open.book->addFinancials();
+    }
+    const bool close_financials = open.book->focusedFinancials() != nullptr;
+    if (ImGui::MenuItem("Close Financials", nullptr, false, close_financials))
+    {
+        open.book->closeFocusedFinancials();
     }
     endTitleMenu();
 }
@@ -1204,13 +1201,14 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
     inventory.setWindowScope(runtime);
     for (const BuiltWindow& window : built)
     {
+        int financials_id = 0;
         if (window.window == "data")
         {
             inventory.setPlacement(true, false, window.dock, ImVec2{}, ImVec2{});
         }
-        else if (window.window == "financials")
+        else if (financialsIdFromWindow(window.window, financials_id))
         {
-            open.book->placeFinancials(true, false, window.dock, ImVec2{}, ImVec2{});
+            open.book->placeFinancials(financials_id, true, false, window.dock, ImVec2{}, ImVec2{});
         }
         else
         {
@@ -1222,13 +1220,14 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
     {
         const ImVec2 pos{floating.x, floating.y};
         const ImVec2 floating_size{floating.w, floating.h};
+        int financials_id = 0;
         if (floating.window == "data")
         {
             inventory.setPlacement(true, true, 0, pos, floating_size);
         }
-        else if (floating.window == "financials")
+        else if (financialsIdFromWindow(floating.window, financials_id))
         {
-            open.book->placeFinancials(true, true, 0, pos, floating_size);
+            open.book->placeFinancials(financials_id, true, true, 0, pos, floating_size);
         }
         else
         {
@@ -1318,7 +1317,13 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             {
                 continue;
             }
-            if (id != "data" && id != "financials" && !open.book->containsPane(paneIdOf(id)))
+            int financials_id = 0;
+            const bool is_financials = financialsIdFromWindow(id, financials_id);
+            if (id != "data" && !is_financials && !open.book->containsPane(paneIdOf(id)))
+            {
+                continue;
+            }
+            if (is_financials && !open.book->containsFinancials(financials_id))
             {
                 continue;
             }
@@ -1380,11 +1385,11 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     {
         consider("data");
     }
-    if (financialsShown(open))
-    {
-        consider("financials");
-    }
     const CChartbookDocument exported = open.book->exportDocument();
+    for (const ChartbookFinancials& panel : exported.financials)
+    {
+        consider(financialsWindowId(panel.id));
+    }
     for (const ChartbookPane& pane : exported.panes)
     {
         consider(paneWindowId(pane.id));
@@ -1398,11 +1403,14 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             complete = false;
         }
     }
-    if (dataShown(open) && std::ranges::find(seen, std::string("data")) == seen.end())
+    for (const ChartbookFinancials& panel : exported.financials)
     {
-        complete = false;
+        if (std::ranges::find(seen, financialsWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
     }
-    if (financialsShown(open) && std::ranges::find(seen, std::string("financials")) == seen.end())
+    if (dataShown(open) && std::ranges::find(seen, std::string("data")) == seen.end())
     {
         complete = false;
     }
@@ -1514,30 +1522,14 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
             closed_data = true;
         }
     }
-    bool closed_financials = false;
-    if (financialsShown(open))
-    {
-        if (!open.book->drawFinancials(store_.get(), open_error_, inventory.ingestWorker()))
-        {
-            ChartbookLayout layout = open.book->layout();
-            chartbookRemoveWindow(layout, "financials");
-            open.book->setLayout(std::move(layout));
-            std::vector<ChartbookFloating> floating = open.book->floating();
-            std::erase_if(floating, [](const ChartbookFloating& item) {
-                return item.window == "financials";
-            });
-            open.book->setFloating(std::move(floating));
-            apply_layout_ = true;
-            closed_financials = true;
-        }
-    }
+    open.book->drawFinancials(store_.get(), open_error_, inventory.ingestWorker());
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
     if (restore_tabs_)
     {
         restoreOpenTabs();
         restore_tabs_ = false;
     }
-    if (!closed_data && !closed_financials)
+    if (!closed_data)
     {
         captureLayout(dock_id);
     }

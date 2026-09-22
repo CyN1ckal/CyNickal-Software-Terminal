@@ -282,20 +282,9 @@ void chartbookInsertPane(ChartbookLayout& layout, int pane_id)
     chartbookInsertWindow(layout, paneWindowId(pane_id));
 }
 
-void chartbookInsertFinancials(ChartbookLayout& layout)
+void chartbookInsertFinancials(ChartbookLayout& layout, int financials_id)
 {
-    bool present = false;
-    if (layout.root >= 0)
-    {
-        visitWindows(layout, layout.root, [&present](const std::string& window) {
-            present = present || window == "financials";
-        });
-    }
-    if (present)
-    {
-        return;
-    }
-    chartbookInsertWindow(layout, "financials");
+    chartbookInsertWindow(layout, financialsWindowId(financials_id));
 }
 
 void chartbookInsertData(ChartbookLayout& layout)
@@ -339,6 +328,11 @@ bool chartbookWindowReferenced(const CChartbookDocument& document, std::string_v
 bool chartbookPaneIsOpen(const CChartbookDocument& document, int pane_id)
 {
     return chartbookWindowReferenced(document, paneWindowId(pane_id));
+}
+
+bool chartbookFinancialsIsOpen(const CChartbookDocument& document, int financials_id)
+{
+    return chartbookWindowReferenced(document, financialsWindowId(financials_id));
 }
 
 namespace {
@@ -500,6 +494,7 @@ CChartbookDocument makeDefaultChartbook(std::string name)
     document.name = std::move(name);
     document.focused_pane = 1;
     document.next_pane_id = 2;
+    document.next_financials_id = 1;
     document.data.ingest_timeframe = "1m";
     document.layout = chartbookSplit(ChartbookSplitAxis::Horizontal, kChartbookDefaultDataRatio,
                                      chartbookLeaf({"data"}, "data"),

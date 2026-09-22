@@ -75,6 +75,28 @@ void drawRight(const char* text, const ImVec4& color)
 
 }  // namespace
 
+FinancialsPanel::FinancialsPanel(int id) : id_(id) {}
+
+int FinancialsPanel::id() const noexcept
+{
+    return id_;
+}
+
+bool FinancialsPanel::windowOpen() const noexcept
+{
+    return window_open_;
+}
+
+void FinancialsPanel::closeWindow()
+{
+    window_open_ = false;
+}
+
+void FinancialsPanel::requestFocus()
+{
+    focus_on_appear_ = true;
+}
+
 void FinancialsPanel::importState(const ChartbookFinancials& state)
 {
     active_symbol_ = normalizeChartSymbol(state.symbol);
@@ -117,6 +139,7 @@ void FinancialsPanel::importState(const ChartbookFinancials& state)
 ChartbookFinancials FinancialsPanel::exportState() const
 {
     ChartbookFinancials state;
+    state.id = id_;
     state.symbol = active_symbol_;
     state.statement = std::string(toSql(statement_));
     state.timeframe = std::string(toSql(timeframe_));
@@ -482,6 +505,11 @@ void FinancialsPanel::drawSheet() const
 
 bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
+    if (focus_on_appear_)
+    {
+        ImGui::SetNextWindowFocus();
+        focus_on_appear_ = false;
+    }
     if (place_force_)
     {
         if (place_floating_)
@@ -500,22 +528,21 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
         place_force_ = false;
     }
 
-    char title[96];
+    char title[160];
     if (active_symbol_.empty())
     {
-        std::snprintf(title, sizeof(title), "FINANCIALS###cb%d_financials", runtime_id_);
+        std::snprintf(title, sizeof(title), "FINANCIALS %d###cb%d_financials%d", id_, runtime_id_, id_);
     }
     else
     {
-        std::snprintf(title, sizeof(title), "%s  %s  %s###cb%d_financials", active_symbol_.c_str(),
-                      statementLabel(statement_), periodLabel(timeframe_), runtime_id_);
+        std::snprintf(title, sizeof(title), "%s  %s  %s###cb%d_financials%d", active_symbol_.c_str(),
+                      statementLabel(statement_), periodLabel(timeframe_), runtime_id_, id_);
     }
 
-    bool open = true;
-    if (!ImGui::Begin(title, &open, ImGuiWindowFlags_NoSavedSettings))
+    if (!ImGui::Begin(title, &window_open_, ImGuiWindowFlags_NoSavedSettings))
     {
         ImGui::End();
-        return open;
+        return false;
     }
     if (store == nullptr && !store_error.empty())
     {
@@ -546,8 +573,9 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
         drawSheet();
     }
     ImGui::EndChild();
+    const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
     ImGui::End();
-    return open;
+    return focused;
 }
 
 }  // namespace terminal

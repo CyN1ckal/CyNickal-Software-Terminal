@@ -50,6 +50,20 @@ void dropClosedPanes(CChartbookDocument& document)
             stale.push_back(window);
         }
     };
+    const auto considerFinancials = [&](const std::string& window) {
+        int financials_id = 0;
+        if (!financialsIdFromWindow(window, financials_id))
+        {
+            return;
+        }
+        const bool present = std::ranges::any_of(document.financials, [&](const ChartbookFinancials& panel) {
+            return panel.id == financials_id;
+        });
+        if (!present)
+        {
+            stale.push_back(window);
+        }
+    };
     std::vector<int> pending;
     if (document.layout.root >= 0)
     {
@@ -73,11 +87,13 @@ void dropClosedPanes(CChartbookDocument& document)
         for (const std::string& window : node.windows)
         {
             consider(window);
+            considerFinancials(window);
         }
     }
     for (const ChartbookFloating& floating : document.floating)
     {
         consider(floating.window);
+        considerFinancials(floating.window);
     }
     for (const std::string& window : stale)
     {
@@ -146,6 +162,55 @@ void CChartBook::eraseClosed()
     }
 }
 
+void CChartBook::eraseClosedFinancials()
+{
+    const auto removed = std::ranges::remove_if(financials_, [](const std::unique_ptr<FinancialsPanel>& panel) {
+        return !panel->windowOpen();
+    });
+    financials_.erase(removed.begin(), removed.end());
+    if (focusedFinancialsPanel() == nullptr)
+    {
+        focused_financials_id_ = 0;
+    }
+}
+
+FinancialsPanel* CChartBook::focusedFinancialsPanel()
+{
+    if (focused_financials_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        if (panel->id() == focused_financials_id_ && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+const FinancialsPanel* CChartBook::focusedFinancials() const
+{
+    return findFinancials(focused_financials_id_);
+}
+
+const FinancialsPanel* CChartBook::findFinancials(int financials_id) const
+{
+    if (financials_id == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        if (panel->id() == financials_id && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
 void CChartBook::addPane()
 {
     auto pane = std::make_unique<CChartPane>(next_id_);
@@ -158,11 +223,31 @@ void CChartBook::addPane()
     layout_request_ = true;
 }
 
+void CChartBook::addFinancials()
+{
+    auto panel = std::make_unique<FinancialsPanel>(next_financials_id_);
+    panel->setWindowScope(runtime_id_);
+    focused_financials_id_ = next_financials_id_;
+    panel->requestFocus();
+    chartbookInsertFinancials(layout_, next_financials_id_);
+    ++next_financials_id_;
+    financials_.push_back(std::move(panel));
+    layout_request_ = true;
+}
+
 void CChartBook::closeFocused()
 {
     if (CChartPane* pane = focused())
     {
         pane->closeWindow();
+    }
+}
+
+void CChartBook::closeFocusedFinancials()
+{
+    if (FinancialsPanel* panel = focusedFinancialsPanel())
+    {
+        panel->closeWindow();
     }
 }
 
@@ -187,14 +272,34 @@ void CChartBook::openFocusedStudies()
 void CChartBook::loadDocument(const CChartbookDocument& document)
 {
     panes_.clear();
+    financials_.clear();
     name_ = document.name;
     data_ = document.data;
-    financials_.importState(document.financials);
-    financials_.setWindowScope(runtime_id_);
     layout_ = document.layout;
     floating_ = document.floating;
     next_id_ = std::max(document.next_pane_id, 1);
     focused_id_ = document.focused_pane;
+    next_financials_id_ = std::max(document.next_financials_id, 1);
+    focused_financials_id_ = document.focused_financials;
+    for (const ChartbookFinancials& record : document.financials)
+    {
+        if (!chartbookFinancialsIsOpen(document, record.id))
+        {
+            continue;
+        }
+        auto panel = std::make_unique<FinancialsPanel>(record.id);
+        panel->setWindowScope(runtime_id_);
+        panel->importState(record);
+        if (record.id == focused_financials_id_)
+        {
+            panel->requestFocus();
+        }
+        financials_.push_back(std::move(panel));
+    }
+    if (findFinancials(focused_financials_id_) == nullptr)
+    {
+        focused_financials_id_ = financials_.empty() ? 0 : financials_.front()->id();
+    }
     for (const ChartbookPane& record : document.panes)
     {
         if (!chartbookPaneIsOpen(document, record.id))
@@ -222,8 +327,9 @@ CChartbookDocument CChartBook::exportDocument() const
     document.name = name_;
     document.focused_pane = focused_id_;
     document.next_pane_id = next_id_;
+    document.focused_financials = focused_financials_id_;
+    document.next_financials_id = next_financials_id_;
     document.data = data_;
-    document.financials = financials_.exportState();
     document.layout = layout_;
     document.floating = floating_;
     for (const std::unique_ptr<CChartPane>& pane : panes_)
@@ -231,6 +337,13 @@ CChartbookDocument CChartBook::exportDocument() const
         if (pane->windowOpen())
         {
             document.panes.push_back(pane->exportRecord());
+        }
+    }
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        if (panel->windowOpen())
+        {
+            document.financials.push_back(panel->exportState());
         }
     }
     dropClosedPanes(document);
@@ -292,7 +405,10 @@ bool CChartBook::consumeLayoutRequest() noexcept
 void CChartBook::setWindowScope(int runtime_id)
 {
     runtime_id_ = runtime_id;
-    financials_.setWindowScope(runtime_id_);
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        panel->setWindowScope(runtime_id_);
+    }
     for (const std::unique_ptr<CChartPane>& pane : panes_)
     {
         pane->setWindowScope(runtime_id_);
@@ -315,15 +431,34 @@ bool CChartBook::containsPane(int pane_id) const
     return findPane(pane_id) != nullptr;
 }
 
-bool CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
+bool CChartBook::containsFinancials(int financials_id) const
 {
-    financials_.setWindowScope(runtime_id_);
-    return financials_.draw(store, store_error, ingest);
+    return findFinancials(financials_id) != nullptr;
 }
 
-void CChartBook::placeFinancials(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+void CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
-    financials_.setPlacement(force, floating, dock, pos, size);
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        panel->setWindowScope(runtime_id_);
+        if (panel->draw(store, store_error, ingest))
+        {
+            focused_financials_id_ = panel->id();
+        }
+    }
+    eraseClosedFinancials();
+}
+
+void CChartBook::placeFinancials(int financials_id, bool force, bool floating, ImGuiID dock, ImVec2 pos,
+                                 ImVec2 size)
+{
+    for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
+    {
+        if (panel->id() == financials_id)
+        {
+            panel->setPlacement(force, floating, dock, pos, size);
+        }
+    }
 }
 
 void CChartBook::drawMenu()

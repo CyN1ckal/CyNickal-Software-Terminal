@@ -7,8 +7,10 @@
 #include "chart/CChartbookFile.h"
 #include "chart/CStudy.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <utility>
 
 namespace {
 
@@ -131,6 +133,9 @@ TEST_CASE("chartbook json round trip keeps panes, studies, and layout")
     CHECK(terminal::chartbookPaneIsOpen(loaded.document, 1));
     CHECK(terminal::chartbookPaneIsOpen(loaded.document, 2));
     CHECK_FALSE(terminal::chartbookPaneIsOpen(loaded.document, 9));
+    CHECK(loaded.document.focused_financials == 0);
+    CHECK(loaded.document.next_financials_id == 1);
+    CHECK(loaded.document.financials.empty());
 }
 
 TEST_CASE("chartbook file rejects a bad format, an unknown period, and an unknown study")
@@ -282,28 +287,77 @@ TEST_CASE("a new pane docks beside DATA and a closed pane is not open")
     CHECK(terminal::chartbookWindowReferenced(document, "pane:1"));
 }
 
-TEST_CASE("financials docks on the chart tab and round trips")
+TEST_CASE("financials panels dock with the charts and round trip as a collection")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
-    terminal::chartbookInsertFinancials(document.layout);
-    CHECK(terminal::chartbookWindowReferenced(document, "financials"));
+    terminal::chartbookInsertFinancials(document.layout, 1);
+    terminal::chartbookInsertFinancials(document.layout, 2);
+    CHECK(terminal::chartbookFinancialsIsOpen(document, 1));
+    CHECK(terminal::chartbookFinancialsIsOpen(document, 2));
+    CHECK_FALSE(terminal::chartbookFinancialsIsOpen(document, 9));
     const terminal::ChartbookLayoutNode& root =
         document.layout.nodes[static_cast<std::size_t>(document.layout.root)];
     REQUIRE(root.is_split);
     const terminal::ChartbookLayoutNode& chart =
         document.layout.nodes[static_cast<std::size_t>(root.second)];
     CHECK_FALSE(chart.is_split);
-    CHECK(chart.selected == "financials");
-    document.financials.symbol = "AAPL";
-    document.financials.statement = "cashflow";
-    document.financials.timeframe = "quarterly";
+    CHECK(chart.selected == terminal::financialsWindowId(2));
+    CHECK(std::ranges::find(chart.windows, terminal::financialsWindowId(1)) != chart.windows.end());
+
+    terminal::ChartbookFinancials income;
+    income.id = 1;
+    income.symbol = "AAPL";
+    income.statement = "cashflow";
+    income.timeframe = "quarterly";
+    terminal::ChartbookFinancials balance;
+    balance.id = 2;
+    balance.symbol = "MSFT";
+    balance.statement = "balance";
+    balance.timeframe = "annually";
+    document.financials.push_back(std::move(income));
+    document.financials.push_back(std::move(balance));
+    document.focused_financials = 2;
+    document.next_financials_id = 3;
     const terminal::ChartbookLoadResult loaded =
         terminal::chartbookFromJson(terminal::chartbookToJson(document));
     REQUIRE(loaded.ok);
-    CHECK(loaded.document.financials.symbol == "AAPL");
-    CHECK(loaded.document.financials.statement == "cashflow");
-    CHECK(loaded.document.financials.timeframe == "quarterly");
-    CHECK(terminal::chartbookWindowReferenced(loaded.document, "financials"));
+    REQUIRE(loaded.document.financials.size() == 2);
+    CHECK(loaded.document.focused_financials == 2);
+    CHECK(loaded.document.next_financials_id == 3);
+    CHECK(loaded.document.financials[0].id == 1);
+    CHECK(loaded.document.financials[0].symbol == "AAPL");
+    CHECK(loaded.document.financials[0].statement == "cashflow");
+    CHECK(loaded.document.financials[0].timeframe == "quarterly");
+    CHECK(loaded.document.financials[1].symbol == "MSFT");
+    CHECK(loaded.document.financials[1].statement == "balance");
+    CHECK(terminal::chartbookFinancialsIsOpen(loaded.document, 1));
+    CHECK(terminal::chartbookFinancialsIsOpen(loaded.document, 2));
+
+    const char* legacy = R"({
+        "format": 1,
+        "name": "old",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "data": {},
+        "financials": {"symbol": "META", "statement": "balance", "timeframe": "annually"},
+        "layout": {
+            "split": "horizontal",
+            "ratio": 0.2,
+            "first": {"windows": ["data"], "selected": "data"},
+            "second": {"windows": ["financials"], "selected": "financials"}
+        },
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult migrated = terminal::chartbookFromJson(legacy);
+    REQUIRE(migrated.ok);
+    REQUIRE(migrated.document.financials.size() == 1);
+    CHECK(migrated.document.financials[0].id == 1);
+    CHECK(migrated.document.financials[0].symbol == "META");
+    CHECK(migrated.document.financials[0].statement == "balance");
+    CHECK(migrated.document.financials[0].timeframe == "annually");
+    CHECK(migrated.document.next_financials_id == 2);
+    CHECK(terminal::chartbookFinancialsIsOpen(migrated.document, 1));
+    CHECK_FALSE(terminal::chartbookWindowReferenced(migrated.document, "financials"));
 
     const char* bad_period = R"({
         "format": 1,
@@ -315,8 +369,36 @@ TEST_CASE("financials docks on the chart tab and round trips")
         "layout": {"windows": ["financials"], "selected": "financials"},
         "panes": []
     })";
-    const terminal::ChartbookLoadResult rejected = terminal::chartbookFromJson(bad_period);
-    CHECK_FALSE(rejected.ok);
+    CHECK_FALSE(terminal::chartbookFromJson(bad_period).ok);
+
+    const char* bad_id = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_financials_id": 2,
+        "data": {},
+        "financials": [
+            {"id": 1, "symbol": "AAPL", "statement": "income", "timeframe": "annually"},
+            {"id": 1, "symbol": "MSFT", "statement": "balance", "timeframe": "quarterly"}
+        ],
+        "layout": {"windows": ["financials:1"], "selected": "financials:1"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(bad_id).ok);
+
+    const char* missing_panel = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_financials_id": 1,
+        "data": {},
+        "financials": [],
+        "layout": {"windows": ["financials:1"], "selected": "financials:1"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(missing_panel).ok);
 }
 
 TEST_CASE("saved data column order must name every live column once")
