@@ -880,7 +880,7 @@ void drawCandlesticks(std::span<const Bar> bars,
 **Layout**
 
 - `BeginPlot("##candles", ImVec2(-1, -1), NoTitle|NoLegend|NoMenus|NoBoxSelect|NoInputs|NoMouseText)`.
-- X is still **bar index** (session gaps are not holes). Labels are local-time dates at session starts and `HH:MM` between them. Do **not** use `ImPlotScale_Time` — wall-clock X would empty the pane overnight.
+- X is still **bar index** (session gaps are not holes). Labels are spaced from the measured text width so neighbors never overlap: intraday `HH:MM` on a clock step, with `YYYY-MM-DD` on the session open when it fits; daily and zoomed-out charts step through session, week, month (`YYYY-MM`), quarter, and year. Do **not** use `ImPlotScale_Time` — wall-clock X would empty the pane overnight.
 - Viewport: `bar_spacing_px` (default 8) × plot width decides how many bars fit. Last bar stays on the right when spacing increases (Sierra). `kChartRightFillBars` empty slots on the right.
 - Y: Sierra Scale Range — **Automatic** (visible high/low + padding %), **Constant Range** (fixed range centered on the last visible bar), **User Defined** (fixed top/bottom). Price scale on the right (`Opposite`).
 - Interactive scaling (right-click the Y scale): **Range** (drag expands/compresses), **Move** (drag pans), **Locked**. Ctrl inverts Range/Move. Double-click Y or **Reset Scale** clears extras.

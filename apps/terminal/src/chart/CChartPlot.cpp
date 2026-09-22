@@ -3,6 +3,7 @@
 
 #include "chart/CChartPlot.h"
 
+#include "chart/CChartAxis.h"
 #include "chart/CStudyCompute.h"
 #include "chart/CStudyPlot.h"
 #include "market_data/Time.h"
@@ -12,7 +13,6 @@
 #include "implot.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <ctime>
@@ -22,50 +22,6 @@
 
 namespace terminal {
 namespace {
-
-struct LocalStamp
-{
-    int year{};
-    int month{};
-    int day{};
-    int hour{};
-    int minute{};
-};
-
-[[nodiscard]] LocalStamp utcToLocalStamp(std::string_view tz, UnixSeconds ts)
-{
-    LocalStamp out{};
-    try
-    {
-        const std::string key(tz.empty() ? "UTC" : tz);
-        const std::chrono::time_zone* zone = std::chrono::locate_zone(key);
-        const std::chrono::sys_seconds tp{std::chrono::seconds{ts}};
-        const auto local = zone->to_local(tp);
-        const auto day = std::chrono::floor<std::chrono::days>(local);
-        const std::chrono::year_month_day ymd{day};
-        const std::chrono::hh_mm_ss hms{local - day};
-        out.year = static_cast<int>(ymd.year());
-        out.month = static_cast<int>(static_cast<unsigned>(ymd.month()));
-        out.day = static_cast<int>(static_cast<unsigned>(ymd.day()));
-        out.hour = static_cast<int>(hms.hours().count());
-        out.minute = static_cast<int>(hms.minutes().count());
-        return out;
-    }
-    catch (const std::exception&)
-    {
-        const auto t = static_cast<std::time_t>(ts);
-        std::tm utc{};
-        if (gmtime_r(&t, &utc) != nullptr)
-        {
-            out.year = utc.tm_year + 1900;
-            out.month = utc.tm_mon + 1;
-            out.day = utc.tm_mday;
-            out.hour = utc.tm_hour;
-            out.minute = utc.tm_min;
-        }
-        return out;
-    }
-}
 
 int formatXTick(double value, char* buf, int size, void* data)
 {
@@ -111,51 +67,23 @@ void buildTimeTicks(std::span<const Bar> bars,
     view.tick_xs.clear();
     view.tick_labels.clear();
     view.tick_ptrs.clear();
-    if (bars.empty() || win.first > win.last)
+
+    ChartTickMetrics metrics;
+    metrics.spacing_px = spacing_px;
+    metrics.date_px = ImGui::CalcTextSize("0000-00-00").x;
+    metrics.time_px = ImGui::CalcTextSize("00:00").x;
+    metrics.month_px = ImGui::CalcTextSize("0000-00").x;
+    metrics.year_px = ImGui::CalcTextSize("0000").x;
+    metrics.gap_px = std::max(8.0f, ImGui::GetFontSize() * 0.5f);
+
+    const std::vector<ChartAxisTick> ticks = buildChartTimeTicks(bars, win, tz, metrics);
+    view.tick_xs.reserve(ticks.size());
+    view.tick_labels.reserve(ticks.size());
+    for (const ChartAxisTick& tick : ticks)
     {
-        return;
+        view.tick_xs.push_back(tick.x);
+        view.tick_labels.push_back(tick.label);
     }
-
-    const int min_step =
-        std::max(1, static_cast<int>(std::lround(80.0 / static_cast<double>(spacing_px))));
-    int last_tick = win.first - min_step;
-    SessionDate prev_date = 0;
-    bool have_date = false;
-
-    for (int i = win.first; i <= win.last; ++i)
-    {
-        SessionDate date = 0;
-        try
-        {
-            date = utcToSessionDate(tz.empty() ? "UTC" : tz, bars[static_cast<std::size_t>(i)].ts);
-        }
-        catch (const std::exception&)
-        {
-            date = 0;
-        }
-        const bool session_start = !have_date || date != prev_date;
-        prev_date = date;
-        have_date = true;
-        if (!session_start && (i - last_tick) < min_step)
-        {
-            continue;
-        }
-
-        const LocalStamp stamp = utcToLocalStamp(tz, bars[static_cast<std::size_t>(i)].ts);
-        char buf[32];
-        if (session_start)
-        {
-            std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", stamp.year, stamp.month, stamp.day);
-        }
-        else
-        {
-            std::snprintf(buf, sizeof(buf), "%02d:%02d", stamp.hour, stamp.minute);
-        }
-        view.tick_xs.push_back(static_cast<double>(i));
-        view.tick_labels.emplace_back(buf);
-        last_tick = i;
-    }
-
     view.tick_ptrs.reserve(view.tick_labels.size());
     for (const std::string& label : view.tick_labels)
     {
@@ -433,7 +361,7 @@ void drawCrosshair(std::span<const Bar> bars,
     const bool bottom = chart_region == region_count;
     if (bottom && (hovered || region_count > 1))
     {
-        const LocalStamp stamp = utcToLocalStamp(tz, bar.ts);
+        const ChartLocalTime stamp = chartLocalTime(tz, bar.ts);
         char time_buf[32];
         std::snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d", stamp.year, stamp.month,
                       stamp.day, stamp.hour, stamp.minute);
@@ -444,7 +372,7 @@ void drawCrosshair(std::span<const Bar> bars,
     {
         return;
     }
-    const LocalStamp stamp = utcToLocalStamp(tz, bar.ts);
+    const ChartLocalTime stamp = chartLocalTime(tz, bar.ts);
     char time_buf[32];
     std::snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d", stamp.year, stamp.month,
                   stamp.day, stamp.hour, stamp.minute);
