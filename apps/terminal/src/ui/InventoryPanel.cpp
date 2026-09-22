@@ -159,6 +159,21 @@ IngestWorker* InventoryPanel::ingestWorker() noexcept
     return worker_.get();
 }
 
+const IngestWorker* InventoryPanel::ingestWorker() const noexcept
+{
+    return worker_.get();
+}
+
+std::string_view InventoryPanel::statusText() const noexcept
+{
+    return status_;
+}
+
+std::string_view InventoryPanel::openError() const noexcept
+{
+    return open_error_;
+}
+
 void InventoryPanel::fillDefaultDates()
 {
     const SessionDate today = utcToSessionDate("America/New_York", nowUtc());

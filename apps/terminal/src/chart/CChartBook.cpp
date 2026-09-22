@@ -46,6 +46,22 @@ CChartPane* CChartBook::focused()
     return nullptr;
 }
 
+const CChartPane* CChartBook::focusedPane() const
+{
+    if (focused_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<CChartPane>& pane : panes_)
+    {
+        if (pane->id() == focused_id_)
+        {
+            return pane.get();
+        }
+    }
+    return nullptr;
+}
+
 void CChartBook::eraseClosed()
 {
     panes_.erase(std::remove_if(panes_.begin(), panes_.end(),

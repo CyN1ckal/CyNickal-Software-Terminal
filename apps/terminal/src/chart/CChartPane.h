@@ -36,6 +36,10 @@ public:
     [[nodiscard]] bool windowOpen() const noexcept;
     [[nodiscard]] const CChartSettings& settings() const noexcept;
     [[nodiscard]] ChartLoadStatus status() const noexcept;
+    // Toolbar sentence: load message, or the unconfigured / busy prompt when that message is empty.
+    [[nodiscard]] std::string_view statusLine() const noexcept;
+    [[nodiscard]] std::string_view keyNote() const noexcept;
+    [[nodiscard]] int barCount() const noexcept;
     [[nodiscard]] const std::vector<CStudyInstance>& studies() const noexcept;
     [[nodiscard]] bool settingsOpen() const noexcept;
     [[nodiscard]] bool studiesOpen() const noexcept;

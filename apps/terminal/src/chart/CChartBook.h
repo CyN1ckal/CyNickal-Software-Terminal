@@ -28,6 +28,7 @@ public:
 
     void drawMenu();
     void draw(ImGuiID chart_dock_id, IngestWorker* ingest);
+    [[nodiscard]] const CChartPane* focusedPane() const;
     void addPane();
     void closeFocused();
     void openFocusedSettings();

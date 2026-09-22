@@ -3,6 +3,7 @@
 
 #include "ui/Workspace.h"
 
+#include "ui/StatusRail.h"
 #include "ui/Theme.h"
 
 #include "imgui_internal.h"
@@ -51,6 +52,10 @@ void Workspace::draw()
         charts_.drawMenu();
         ImGui::EndMainMenuBar();
     }
+
+    // Submitted every frame, before the dock reads the work area. Same contract as the menu bar:
+    // the rail insets the viewport and has no hide path.
+    drawStatusRail(inventory_, charts_);
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);

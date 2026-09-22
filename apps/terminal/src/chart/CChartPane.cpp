@@ -129,6 +129,39 @@ ChartLoadStatus CChartPane::status() const noexcept
     return loaded_.status;
 }
 
+std::string_view CChartPane::statusLine() const noexcept
+{
+    if (!loaded_.message.empty())
+    {
+        return loaded_.message;
+    }
+    switch (loaded_.status)
+    {
+    case ChartLoadStatus::Unconfigured:
+        return "Type a symbol and press Enter, or open Chart Settings.";
+    case ChartLoadStatus::Busy:
+        return "store busy";
+    case ChartLoadStatus::Ready:
+    case ChartLoadStatus::Empty:
+    case ChartLoadStatus::UnknownSymbol:
+    case ChartLoadStatus::AmbiguousSymbol:
+    case ChartLoadStatus::Unsupported:
+    case ChartLoadStatus::Error:
+        return {};
+    }
+    return {};
+}
+
+std::string_view CChartPane::keyNote() const noexcept
+{
+    return key_note_;
+}
+
+int CChartPane::barCount() const noexcept
+{
+    return static_cast<int>(loaded_.bars.size());
+}
+
 const std::vector<CStudyInstance>& CChartPane::studies() const noexcept
 {
     return studies_;
@@ -662,30 +695,9 @@ void CChartPane::drawStudiesPopup()
 void CChartPane::drawStatusLine() const
 {
     const ImVec4 color = statusColor(loaded_.status);
-    const char* text = loaded_.message.c_str();
-    if (loaded_.message.empty())
-    {
-        switch (loaded_.status)
-        {
-        case ChartLoadStatus::Unconfigured:
-            text = "Type a symbol and press Enter, or open Chart Settings.";
-            break;
-        case ChartLoadStatus::Busy:
-            text = "store busy";
-            break;
-        case ChartLoadStatus::Ready:
-            text = "";
-            break;
-        case ChartLoadStatus::Empty:
-        case ChartLoadStatus::UnknownSymbol:
-        case ChartLoadStatus::AmbiguousSymbol:
-        case ChartLoadStatus::Unsupported:
-        case ChartLoadStatus::Error:
-            text = loaded_.message.c_str();
-            break;
-        }
-    }
-    ImGui::TextColored(color, "%s", text);
+    const std::string_view text = statusLine();
+    const auto text_n = static_cast<int>(text.size());
+    ImGui::TextColored(color, "%.*s", text_n, text.data());
 }
 
 void CChartPane::drawKeyBuffer() const

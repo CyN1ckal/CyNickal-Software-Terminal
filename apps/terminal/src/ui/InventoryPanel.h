@@ -31,6 +31,9 @@ public:
 
     void draw();
     [[nodiscard]] IngestWorker* ingestWorker() noexcept;
+    [[nodiscard]] const IngestWorker* ingestWorker() const noexcept;
+    [[nodiscard]] std::string_view statusText() const noexcept;
+    [[nodiscard]] std::string_view openError() const noexcept;
 
 private:
     void fillDefaultDates();

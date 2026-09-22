@@ -19,6 +19,7 @@ add_executable(terminal
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
     src/ui/Workspace.cpp
+    src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
     src/data/IngestWorker.cpp
     src/chart/CChartAxis.cpp
