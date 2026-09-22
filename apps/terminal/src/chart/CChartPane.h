@@ -69,6 +69,7 @@ private:
     bool window_open_{true};
     bool settings_open_{false};
     bool focus_on_appear_{false};
+    bool refocus_keyboard_{false};
     CChartSettings settings_{};
     CChartSettings draft_{};
     CChartSettings loaded_settings_{};

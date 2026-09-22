@@ -727,6 +727,8 @@ void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, Ing
         settings_.period = command.period;
     }
     applyLiveSettings(store, store_error, ingest);
+    // Reloading the plot can move the keyboard target off this pane.
+    refocus_keyboard_ = true;
 }
 
 void CChartPane::handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -741,54 +743,56 @@ void CChartPane::handleChartKeys(Store* store, std::string_view store_error, Ing
         key_buffer_.clear();
         return;
     }
+    // The scale menu and other popups own the keys while they are open.
+    if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+    {
+        return;
+    }
     const auto now = std::chrono::steady_clock::now();
     if (!key_buffer_.empty() && now - key_buffer_at_ >= kChartKeyBufferTimeout)
     {
         key_buffer_.clear();
     }
-    // A focused button owns Enter and Space. Typing starts after a click on the chart.
-    if (!ImGui::IsAnyItemFocused())
+    const ImGuiIO& io = ImGui::GetIO();
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
     {
-        const ImGuiIO& io = ImGui::GetIO();
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+        key_buffer_.clear();
+        key_note_.clear();
+    }
+    else if (io.KeyCtrl || io.KeyAlt || io.KeySuper)
+    {
+        // Leave shortcuts alone.
+    }
+    else
+    {
+        if (ImGui::IsKeyPressed(ImGuiKey_Backspace) && !key_buffer_.empty())
         {
-            key_buffer_.clear();
+            key_buffer_.pop_back();
+            key_buffer_at_ = now;
             key_note_.clear();
         }
-        else if (io.KeyCtrl || io.KeyAlt || io.KeySuper)
+        for (const ImWchar ch : io.InputQueueCharacters)
         {
-            // Leave shortcuts alone.
+            if (ch > 127 || key_buffer_.size() >= kChartKeyBufferMax)
+            {
+                continue;
+            }
+            const auto c = static_cast<char>(ch);
+            const auto u = static_cast<unsigned char>(c);
+            if (std::isalnum(u) == 0 && c != '/' && c != '.' && c != '-' && c != ' ')
+            {
+                continue;
+            }
+            key_buffer_.push_back(c);
+            key_buffer_at_ = now;
+            key_note_.clear();
         }
-        else
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))
         {
-            if (ImGui::IsKeyPressed(ImGuiKey_Backspace) && !key_buffer_.empty())
-            {
-                key_buffer_.pop_back();
-                key_buffer_at_ = now;
-                key_note_.clear();
-            }
-            for (const ImWchar ch : io.InputQueueCharacters)
-            {
-                if (ch > 127 || key_buffer_.size() >= kChartKeyBufferMax)
-                {
-                    continue;
-                }
-                const auto c = static_cast<char>(ch);
-                const auto u = static_cast<unsigned char>(c);
-                if (std::isalnum(u) == 0 && c != '/' && c != '.' && c != '-' && c != ' ')
-                {
-                    continue;
-                }
-                key_buffer_.push_back(c);
-                key_buffer_at_ = now;
-                key_note_.clear();
-            }
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))
-            {
-                commitKeyBuffer(store, store_error, ingest);
-            }
+            commitKeyBuffer(store, store_error, ingest);
         }
     }
+    ImGui::SetNavCursorVisible(false);
     if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
     {
         settings_.bar_spacing_px += 1.0f;
@@ -828,7 +832,8 @@ void CChartPane::drawPlotBody()
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Theme::kPanel);
     if (ImGui::BeginChild("plot", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders,
-                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
+                              ImGuiWindowFlags_NoNavInputs))
     {
         const bool draw_bars = !loaded_.bars.empty() && (loaded_.status == ChartLoadStatus::Ready ||
                                                          loaded_.status == ChartLoadStatus::Error);
@@ -857,10 +862,11 @@ void CChartPane::drawPlotBody()
 bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_id,
                       IngestWorker* ingest)
 {
-    if (focus_on_appear_)
+    if (focus_on_appear_ || refocus_keyboard_)
     {
         ImGui::SetNextWindowFocus();
         focus_on_appear_ = false;
+        refocus_keyboard_ = false;
     }
     if (dock_id != 0)
     {
@@ -870,7 +876,8 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
     char title[160];
     formatChartTitle(title, sizeof(title), id_, settings_, key_buffer_);
 
-    if (!ImGui::Begin(title, &window_open_))
+    // Enter and arrows are chart commands, not navigation between Settings and the plot.
+    if (!ImGui::Begin(title, &window_open_, ImGuiWindowFlags_NoNavInputs))
     {
         ImGui::End();
         return false;
