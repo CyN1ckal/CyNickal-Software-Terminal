@@ -13,7 +13,6 @@ namespace {
 
 constexpr int kBaseWindowWidth = 1280;
 constexpr int kBaseWindowHeight = 800;
-constexpr auto kWindowTitle = "terminal";
 
 }  // namespace
 
@@ -34,6 +33,7 @@ int Application::run()
     while (!window_.shouldClose())
     {
         Window::pollEvents();
+        window_.pumpFrameDrag();
         rebuildSwapchainIfNeeded();
 
         if (window_.isIconified())
@@ -43,7 +43,7 @@ int Application::run()
         }
 
         ImGuiLayer::newFrame();
-        workspace_.draw();
+        workspace_.draw(window_);
         ImGuiLayer::render(swapchain_, Workspace::clearColor());
     }
 

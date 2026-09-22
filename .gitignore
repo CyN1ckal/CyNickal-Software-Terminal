@@ -60,6 +60,8 @@ desktop.ini
 
 # Market-data runtime DB (licensed history; schema SQL is tracked)
 data/*.sqlite
+data/chartbooks/
+data/terminal.json
 data/*.sqlite-wal
 data/*.sqlite-shm
 data/*.sqlite-journal

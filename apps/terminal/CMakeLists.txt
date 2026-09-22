@@ -18,7 +18,9 @@ add_executable(terminal
     src/platform/window/Window.cpp
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
+    src/ui/TitleBar.cpp
     src/ui/Workspace.cpp
+    src/ui/ChartbookHost.cpp
     src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
     src/data/IngestWorker.cpp
@@ -31,6 +33,8 @@ add_executable(terminal
     src/chart/CStudyPlot.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartBook.cpp
+    src/chart/CChartbookDocument.cpp
+    src/chart/CChartbookFile.cpp
     src/chart/CChartPlot.cpp
     ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
@@ -79,13 +83,19 @@ target_compile_definitions(terminal PRIVATE
 
 target_link_libraries(terminal PRIVATE
     market-data
+    nlohmann_json
     glfw
     Vulkan::Vulkan
     CURL::libcurl
 )
 
+if(WIN32)
+    target_link_libraries(terminal PRIVATE dwmapi)
+endif()
+
 if(UNIX AND NOT APPLE)
-    target_link_libraries(terminal PRIVATE ${CMAKE_DL_LIBS})
+    find_package(X11 REQUIRED)
+    target_link_libraries(terminal PRIVATE ${CMAKE_DL_LIBS} X11::X11)
 endif()
 
 if(CYN_TESTING)
@@ -95,12 +105,15 @@ if(CYN_TESTING)
         src/chart/CChartCommand.cpp
         src/chart/CChartLoad.cpp
         src/chart/CChartTransform.cpp
+        src/chart/CChartbookDocument.cpp
+        src/chart/CChartbookFile.cpp
         src/chart/CStudyCompute.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h
         tests/chart/chart_view_tests.h
         tests/chart/chart_transform_tests.h
+        tests/chart/chartbook_file_tests.h
         ${TERMINAL_CATCH_DIR}/catch_amalgamated.cpp
     )
     target_include_directories(terminal_tests PRIVATE
@@ -112,6 +125,7 @@ if(CYN_TESTING)
     )
     target_link_libraries(terminal_tests PRIVATE
         market-data
+        nlohmann_json
     )
     target_compile_options(terminal_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

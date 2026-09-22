@@ -3,87 +3,36 @@
 
 #include "ui/Workspace.h"
 
+#include "platform/window/Window.h"
 #include "ui/StatusRail.h"
 #include "ui/Theme.h"
-
-#include "imgui_internal.h"
+#include "ui/TitleBar.h"
 
 namespace terminal {
-namespace {
-
-constexpr float kDataPanelWidthRatio = 0.30f;
-
-void applyDefaultDockLayout(ImGuiID dockspace_id, const ImVec2& size, ImGuiID* out_chart_dock)
-{
-    ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace_id);
-    if (node != nullptr && node->IsSplitNode())
-    {
-        // Saved left/right split: DATA stays on the left, new charts use the right node.
-        if (node->SplitAxis == ImGuiAxis_X && node->ChildNodes[1] != nullptr)
-        {
-            *out_chart_dock = node->ChildNodes[1]->ID;
-        }
-        return;
-    }
-
-    ImGui::DockBuilderRemoveNode(dockspace_id);
-    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, size);
-
-    ImGuiID left = 0;
-    ImGuiID rest = 0;
-    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, kDataPanelWidthRatio, &left, &rest);
-    ImGui::DockBuilderDockWindow("DATA", left);
-    *out_chart_dock = rest;
-    ImGui::DockBuilderFinish(dockspace_id);
-}
-
-}  // namespace
 
 const ImVec4& Workspace::clearColor() noexcept
 {
     return Theme::kCanvas;
 }
 
-void Workspace::draw()
+WorkspaceClose Workspace::draw(Window& window)
 {
-    if (ImGui::BeginMainMenuBar())
+    // One caption bar for the window buttons and the menus. It stays up across every chartbook.
+    drawTitleBar(window, books_, inventory_);
+    const WorkspaceClose close = books_.drawChrome(inventory_, window.shouldClose());
+    drawStatusRail(inventory_, books_.activeBook());
+    books_.drawSpace(inventory_);
+    drawWindowResizeBorders(window);
+
+    if (close == WorkspaceClose::Quit)
     {
-        charts_.drawMenu();
-        ImGui::EndMainMenuBar();
+        window.setShouldClose(true);
     }
-
-    // Submitted every frame, before the dock reads the work area. Same contract as the menu bar:
-    // the rail insets the viewport and has no hide path.
-    drawStatusRail(inventory_, charts_);
-
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
-    ImGui::SetNextWindowViewport(viewport->ID);
-
-    const ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("Workspace", nullptr, flags);
-    ImGui::PopStyleVar(3);
-
-    const ImGuiID dock_id = ImGui::GetID("WorkspaceDock");
-    if (!dock_layout_applied_)
+    else if (close == WorkspaceClose::Cancel)
     {
-        applyDefaultDockLayout(dock_id, viewport->WorkSize, &chart_dock_id_);
-        dock_layout_applied_ = true;
+        window.setShouldClose(false);
     }
-    ImGui::DockSpace(dock_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
-    ImGui::End();
-
-    inventory_.draw();
-    charts_.draw(chart_dock_id_, inventory_.ingestWorker());
+    return close;
 }
 
 }  // namespace terminal

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "chart/CChartbookDocument.h"
+
 #include "imgui.h"
 #include "market_data/Store.h"
 #include "market_data/Types.h"
@@ -29,7 +31,12 @@ public:
     InventoryPanel(InventoryPanel&&) = delete;
     InventoryPanel& operator=(InventoryPanel&&) = delete;
 
-    void draw();
+    // True while the window stays open. False when the user closes it.
+    bool draw();
+    void setWindowScope(int runtime_id) noexcept;
+    void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    [[nodiscard]] ChartbookData exportData() const;
+    void importData(const ChartbookData& data);
     [[nodiscard]] IngestWorker* ingestWorker() noexcept;
     [[nodiscard]] const IngestWorker* ingestWorker() const noexcept;
     [[nodiscard]] std::string_view statusText() const noexcept;
@@ -45,6 +52,10 @@ private:
     void drawSummaryTable();
     void drawDayTable();
     void applySortSpecs();
+    void resolveSelection();
+    void applySavedColumns();
+    void snapshotColumns();
+    void noteColumnEdits();
 
     std::filesystem::path db_path_;
     std::unique_ptr<Store> store_;
@@ -59,6 +70,21 @@ private:
     char symbol_[32]{};
     char from_[16]{};
     char to_[16]{};
+    std::string selected_symbol_;
+    std::string selected_timeframe_;
+    std::string pending_symbol_;
+    std::string pending_timeframe_;
+    std::vector<ChartbookColumn> columns_;
+    std::string sort_column_;
+    bool sort_descending_{false};
+    bool apply_columns_{false};
+    bool ignore_settings_dirty_{false};
+    int runtime_id_{0};
+    bool place_force_{false};
+    bool place_floating_{false};
+    ImGuiID place_dock_{0};
+    ImVec2 place_pos_;
+    ImVec2 place_size_;
     std::chrono::steady_clock::time_point last_refresh_;
 };
 

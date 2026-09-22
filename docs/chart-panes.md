@@ -24,7 +24,7 @@ This design adds a **chartbook** of independent chart panes:
 - `CChartPane` — one dockable ImGui chart surface that owns settings, a bar snapshot, a settings popup, and a study list.
 - `CChartBook` — container owned by `Workspace` that creates, focuses, closes, and draws panes.
 
-Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions, plus stored daily bars for Day1. 5m / 15m / 1h candlesticks are `transformChartBars` on the 1-minute result and are not written back. Day1 reads `kTimeframe1d` and split-adjusts that copy in memory. Other bar types and limiters are rejected. Studies are computed from those loaded bars; they are not stored.
+Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions, plus stored daily bars for Day1. 5m / 15m / 1h candlesticks are `transformChartBars` on the 1-minute result and are not written back. Day1 reads `kTimeframe1d` and split-adjusts that copy in memory. Other bar types and limiters are rejected. Studies are computed from those loaded bars. They are saved in the chartbook file, not in SQLite.
 
 Charts never talk to MBoum. They only read the existing Store.
 
@@ -92,7 +92,7 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 6. An ImPlot candlestick plot (custom candles on ImPlot axes). Hover OHLC readout. No pan/zoom.
 7. A Chart menu to create, configure, study, and close panes.
 8. Keep charting in `apps/terminal/`. `libs/market-data` is read-only from this feature.
-9. Pane-owned studies. A simple moving average (source + length) draws on a chosen chart region. Volume draws a histogram of each bar's volume, defaulting to the pane under the candles. Not persisted.
+9. Pane-owned studies. A simple moving average (source + length) draws on a chosen chart region. Volume draws a histogram of each bar's volume, defaulting to the pane under the candles. Saved in the chartbook file.
 
 ### Non-Goals (v1)
 
@@ -100,14 +100,14 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 |---|---|
 | Tick / volume / renko bars | Not implemented. 5m / 15m / 1h / 1d candlesticks are an in-memory transform of 1-minute rows, not new Store tables. |
 | Drawing tools, replay, volume profile | Volume as a chart-region study is in scope (see **Studies**). Volume profile is not. |
-| Persist studies or write study values to SQLite | Same rule as `CChartSettings`: pane memory only. |
+| Write study values or chart settings into SQLite | Studies and settings live in the chartbook file. Computed series stay in memory. |
 | Chart linking across panes | Sierra has it; skip. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
 | Charts ingesting from MBoum | DATA / `IngestWorker` only. |
 | Schema v2, `queryBars` LIMIT | Daily split adjustment is in-memory after `queryBars`. Intraday stays as-traded. |
 | ImPlot time axis / pan / zoom | Vendored; v1 uses index X and `NoInputs`. |
 | Vulkan plot pipeline | Immediate-mode is enough for ≤ ~100k bars. |
-| Persist `CChartSettings` / chartbook files | Dock geometry may land in `imgui.ini`; settings do not. |
+| Chartbook groups, duplicate-to-chartbook | One file per space. Several books can be loaded; one is visible. |
 | Pan / zoom / bar spacing / locked Y scale | Auto-fit all loaded bars. |
 | Background bar-loader thread | 14 sessions is a few milliseconds; sync on GUI thread with busy handling. |
 | Feature flags | Incremental PRs; revert to roll back. |
@@ -426,7 +426,7 @@ private:
     CChartSettings draft_{};
     CChartSettings loaded_settings_{};  // identity of bars currently in loaded_
     ChartLoadResult loaded_{};
-    // Studies are pane state, not CChartSettings, and are not persisted.
+    // Studies are pane state, not CChartSettings. The chartbook file persists the applied list.
     std::vector<CStudyInstance> studies_;
     std::vector<CStudyInstance> study_draft_;
     std::vector<CStudySeries> computed_;
@@ -959,16 +959,19 @@ A Ready Day1 chart enqueues one splits-only job per symbol. The symbol is rememb
 
 ### Persistence
 
-| What | Persisted in v1? |
-|---|---|
-| Dock split DATA vs rest | Yes, via gitignored `imgui.ini` |
-| Chart window dock position/size | Yes, keyed by `###chart_<id>` |
-| `CChartSettings` (symbol, days, …) | **No** |
-| Study instances and computed series | **No** — pane memory only; not SQLite, not `imgui.ini` |
-| Pane existence across process restarts | **No** — settings are not restored. Startup always opens one pane (`###chart_1`) in the right dock |
-| DATA inventory state | Unchanged, already not persisted |
+A chartbook is one chart space: the dock between the menu bar and the status rail, including DATA. The title bar, menu bar (File, Chart, View, and one master tab per loaded book), and the bottom status rail stay up when the space changes. They are not written into the file.
 
-On restart, `###chart_1` is created again and keeps its saved dock. Extra `###chart_N` windows from the previous run are not recreated, so their dock nodes stay empty until the user opens another chart or deletes the ini.
+Files are `data/chartbooks/<name>.chartbook.json` (gitignored). Format version is 1. `data/terminal.json` lists chartbooks to open at startup, in tab order. The last one that opens is visible. An empty list starts `chartbook1` with DATA on the left at 30% and one empty chart. Opening a book scrolls each chart to the newest bar.
+
+| What | Persisted? |
+|---|---|
+| Dock tree under the menu, including DATA and floated windows | Yes, in the chartbook file |
+| `CChartSettings`, applied studies, interactive scale, region ratios | Yes, in the chartbook file |
+| DATA toolbar, selected row, summary sort, column layout | Yes, in the chartbook file |
+| Scroll position, bar snapshots, ingest queue, status rail | No |
+| Title bar, menu bar, status rail | No — process chrome |
+
+`imgui.ini` does not own this layout. Chart and DATA windows use `NoSavedSettings` and book-scoped ids (`###cb<runtime>_pane<id>`, `###cb<runtime>_data`).
 
 ### Threading
 
@@ -1176,8 +1179,8 @@ No feature flag. Land as ordered PRs (see **PR Plan**). Each PR is mergeable: ty
 
 None that block v1 implementation. The following are explicit **non-decisions for later**, not work to guess in the first PRs:
 
-- Hoist the GUI `Store` into `Workspace` so DATA and charts share one Reader.
-- Persist `CChartSettings` and `CStudyInstance` together (ini, json, or a chartbook file). Neither is persisted today.
+- Share one GUI `Store` reader between DATA and charts. Charts use the reader on `ChartbookHost`; DATA keeps its own.
+- Chartbook groups and copying charts between books. A chartbook file already stores settings, studies, DATA, and the dock.
 - DATA double-click → new pane or focused symbol.
 - Modeless Chart Settings (Sierra’s current settings UI).
 - Local-time axis labels vs UTC.
@@ -1263,4 +1266,4 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
 
 **Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a local `YYYY-MM-DD HH:MM` OHLC line. Wheel changes bar spacing; drag pans. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
 
-After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned moving average and volume series in **Studies**: `studiesForLoad` after `loadChartBars`, Studies modal, Chart Region, overlay and subgraph draw. They are not persisted. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, volume profile, drawing tools, DATA double-click, settings and study persistence, Store hoist.
+After PR 3 the base chart surface is implemented. Higher periods composite at load (`transformChartBars`) and are not stored. Studies are the pane-owned moving average and volume series in **Studies**: `studiesForLoad` after `loadChartBars`, Studies modal, Chart Region, overlay and subgraph draw. Applied studies and the chart space are saved in the chartbook file. Follow-on work (not this plan): other bar types, DateRange limiter, EMA, volume profile, drawing tools, DATA double-click, chartbook groups.

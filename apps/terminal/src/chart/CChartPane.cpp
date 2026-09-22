@@ -34,8 +34,8 @@ constexpr std::size_t kChartKeyBufferMax = 32;
            " .. " + formatSessionDate(request.to);
 }
 
-void formatChartTitle(char* title, std::size_t title_n, int id, const CChartSettings& settings,
-                      std::string_view typed)
+void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
+                      const CChartSettings& settings, std::string_view typed)
 {
     const char* period = chartPeriodCode(settings.period);
     const int typed_n = static_cast<int>(typed.size());
@@ -43,30 +43,31 @@ void formatChartTitle(char* title, std::size_t title_n, int id, const CChartSett
     {
         if (typed.empty() && settings.period == ChartBarPeriod::Minute1)
         {
-            std::snprintf(title, title_n, "CHART %d###chart_%d", id, id);
+            std::snprintf(title, title_n, "CHART %d###cb%d_pane%d", id, runtime_id, id);
             return;
         }
         if (typed.empty())
         {
-            std::snprintf(title, title_n, "CHART %d  %s###chart_%d", id, period, id);
+            std::snprintf(title, title_n, "CHART %d  %s###cb%d_pane%d", id, period, runtime_id, id);
             return;
         }
         if (settings.period == ChartBarPeriod::Minute1)
         {
-            std::snprintf(title, title_n, "CHART %d  %.*s###chart_%d", id, typed_n, typed.data(), id);
+            std::snprintf(title, title_n, "CHART %d  %.*s###cb%d_pane%d", id, typed_n, typed.data(),
+                          runtime_id, id);
             return;
         }
-        std::snprintf(title, title_n, "CHART %d  %s  %.*s###chart_%d", id, period, typed_n, typed.data(),
-                      id);
+        std::snprintf(title, title_n, "CHART %d  %s  %.*s###cb%d_pane%d", id, period, typed_n, typed.data(),
+                      runtime_id, id);
         return;
     }
     if (typed.empty())
     {
-        std::snprintf(title, title_n, "%s  %s###chart_%d", settings.symbol.c_str(), period, id);
+        std::snprintf(title, title_n, "%s  %s###cb%d_pane%d", settings.symbol.c_str(), period, runtime_id, id);
         return;
     }
-    std::snprintf(title, title_n, "%s  %s  %.*s###chart_%d", settings.symbol.c_str(), period, typed_n,
-                  typed.data(), id);
+    std::snprintf(title, title_n, "%s  %s  %.*s###cb%d_pane%d", settings.symbol.c_str(), period, typed_n,
+                  typed.data(), runtime_id, id);
 }
 
 [[nodiscard]] const char* periodDisplayName(ChartBarPeriod period) noexcept
@@ -871,8 +872,46 @@ void CChartPane::drawPlotBody()
     ImGui::PopStyleColor();
 }
 
-bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_id,
-                      IngestWorker* ingest)
+void CChartPane::setWindowScope(int runtime_id) noexcept
+{
+    runtime_id_ = runtime_id;
+}
+
+void CChartPane::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    place_force_ = force;
+    place_floating_ = floating;
+    place_dock_ = dock;
+    place_pos_ = pos;
+    place_size_ = size;
+}
+
+ChartbookPane CChartPane::exportRecord() const
+{
+    ChartbookPane record;
+    record.id = id_;
+    record.settings = settings_;
+    record.interactive = view_.interactive;
+    record.region_ratios = view_.region_ratios;
+    record.next_study_id = next_study_id_;
+    record.studies = studies_;
+    return record;
+}
+
+void CChartPane::importRecord(const ChartbookPane& record)
+{
+    settings_ = record.settings;
+    clampV1Limits(settings_);
+    studies_ = record.studies;
+    next_study_id_ = record.next_study_id > 0 ? record.next_study_id : 1;
+    view_.interactive = record.interactive;
+    view_.region_ratios = record.region_ratios;
+    loaded_settings_ = {};
+    loaded_ = {};
+    computed_.clear();
+}
+
+bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     if (focus_on_appear_ || refocus_keyboard_)
     {
@@ -880,16 +919,30 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
         focus_on_appear_ = false;
         refocus_keyboard_ = false;
     }
-    if (dock_id != 0)
+    if (place_force_)
     {
-        ImGui::SetNextWindowDockID(dock_id, ImGuiCond_FirstUseEver);
+        if (place_floating_)
+        {
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + place_pos_.x, viewport->WorkPos.y + place_pos_.y),
+                                    ImGuiCond_Always);
+            ImGui::SetNextWindowSize(place_size_, ImGuiCond_Always);
+            ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+            ImGui::SetNextWindowViewport(viewport->ID);
+        }
+        else if (place_dock_ != 0)
+        {
+            ImGui::SetNextWindowDockID(place_dock_, ImGuiCond_Always);
+        }
+        place_force_ = false;
     }
 
     char title[160];
-    formatChartTitle(title, sizeof(title), id_, settings_, key_buffer_);
+    formatChartTitle(title, sizeof(title), runtime_id_, id_, settings_, key_buffer_);
 
     // Enter and arrows are chart commands, not navigation between Settings and the plot.
-    if (!ImGui::Begin(title, &window_open_, ImGuiWindowFlags_NoNavInputs))
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoSavedSettings;
+    if (!ImGui::Begin(title, &window_open_, flags))
     {
         ImGui::End();
         return false;

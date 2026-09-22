@@ -11,6 +11,8 @@
 #include "market_data/NyseCalendar.h"
 #include "market_data/Time.h"
 
+#include "imgui_internal.h"
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -298,22 +300,239 @@ void InventoryPanel::submitIngest()
     }
 }
 
-void InventoryPanel::draw()
+void InventoryPanel::setWindowScope(int runtime_id) noexcept
 {
-    if (!ImGui::Begin("DATA"))
+    runtime_id_ = runtime_id;
+}
+
+void InventoryPanel::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    place_force_ = force;
+    place_floating_ = floating;
+    place_dock_ = dock;
+    place_pos_ = pos;
+    place_size_ = size;
+}
+
+ChartbookData InventoryPanel::exportData() const
+{
+    ChartbookData data;
+    data.symbol = symbol_;
+    data.from = from_;
+    data.to = to_;
+    data.ingest_timeframe = ingest_timeframe_s_ == kTimeframe1d ? "1d" : "1m";
+    data.selected_symbol = selected_symbol_;
+    data.selected_timeframe = selected_timeframe_;
+    data.sort_column = sort_column_;
+    data.sort_descending = sort_descending_;
+    data.columns = columns_;
+    return data;
+}
+
+void InventoryPanel::importData(const ChartbookData& data)
+{
+    std::snprintf(symbol_, sizeof(symbol_), "%s", data.symbol.c_str());
+    ingest_timeframe_s_ = data.ingest_timeframe == "1d" ? kTimeframe1d : kTimeframe1m;
+    if (data.from.empty() || data.to.empty())
+    {
+        fillDefaultDates();
+    }
+    else
+    {
+        std::snprintf(from_, sizeof(from_), "%s", data.from.c_str());
+        std::snprintf(to_, sizeof(to_), "%s", data.to.c_str());
+    }
+    selected_symbol_ = data.selected_symbol;
+    selected_timeframe_ = data.selected_timeframe;
+    pending_symbol_ = data.selected_symbol;
+    pending_timeframe_ = data.selected_timeframe;
+    selected_id_.reset();
+    columns_ = data.columns;
+    sort_column_ = data.sort_column;
+    sort_descending_ = data.sort_descending;
+    apply_columns_ = true;
+    ignore_settings_dirty_ = true;
+    resolveSelection();
+}
+
+void InventoryPanel::resolveSelection()
+{
+    if (pending_symbol_.empty())
+    {
+        return;
+    }
+    const int timeframe_s = pending_timeframe_ == "1d" ? kTimeframe1d : kTimeframe1m;
+    for (const CoverageSummary& row : summaries_)
+    {
+        if (row.instrument.symbol == pending_symbol_ && row.timeframe_s == timeframe_s)
+        {
+            selected_id_ = row.instrument.id;
+            selected_timeframe_s_ = row.timeframe_s;
+            selected_symbol_ = row.instrument.symbol;
+            selected_timeframe_ = pending_timeframe_.empty() ? "1m" : pending_timeframe_;
+            pending_symbol_.clear();
+            pending_timeframe_.clear();
+            return;
+        }
+    }
+}
+
+void InventoryPanel::applySavedColumns()
+{
+    ImGuiTable* table = ImGui::GetCurrentTable();
+    if (table == nullptr)
+    {
+        return;
+    }
+    for (int column_n = 0; column_n < table->ColumnsCount; ++column_n)
+    {
+        ImGuiTableColumn& column = table->Columns[column_n];
+        column.SortOrder = -1;
+        column.SortDirection = ImGuiSortDirection_None;
+    }
+    if (!columns_.empty())
+    {
+        std::vector<int> orders;
+        const int column_count = std::min(table->ColumnsCount, kChartbookDataColumnCount);
+        const bool apply_order = chartbookColumnDisplayOrders(columns_, column_count, orders) &&
+                                 column_count == table->ColumnsCount;
+        for (int column_n = 0; column_n < column_count; ++column_n)
+        {
+            const std::string id = kChartbookDataColumns[column_n];
+            const auto found = std::ranges::find_if(columns_, [&](const ChartbookColumn& column) {
+                return column.id == id;
+            });
+            if (found == columns_.end())
+            {
+                continue;
+            }
+            ImGuiTableColumn& column = table->Columns[column_n];
+            column.IsUserEnabled = found->visible;
+            column.IsUserEnabledNextFrame = found->visible;
+            if (apply_order)
+            {
+                column.DisplayOrder = static_cast<ImGuiTableColumnIdx>(orders[static_cast<std::size_t>(column_n)]);
+            }
+            if (found->width > 1.f)
+            {
+                column.WidthRequest = found->width;
+                column.WidthGiven = found->width;
+            }
+        }
+        if (apply_order)
+        {
+            for (int column_n = 0; column_n < table->ColumnsCount; ++column_n)
+            {
+                const int order = table->Columns[column_n].DisplayOrder;
+                if (order >= 0 && order < table->ColumnsCount)
+                {
+                    table->DisplayOrderToIndex[order] = static_cast<ImGuiTableColumnIdx>(column_n);
+                }
+            }
+        }
+    }
+    if (!sort_column_.empty())
+    {
+        for (int column_n = 0; column_n < table->ColumnsCount && column_n < kChartbookDataColumnCount; ++column_n)
+        {
+            if (sort_column_ != kChartbookDataColumns[column_n])
+            {
+                continue;
+            }
+            ImGuiTableColumn& column = table->Columns[column_n];
+            column.SortOrder = 0;
+            column.SortDirection =
+                sort_descending_ ? ImGuiSortDirection_Descending : ImGuiSortDirection_Ascending;
+        }
+    }
+    table->IsSortSpecsDirty = true;
+}
+
+void InventoryPanel::snapshotColumns()
+{
+    ImGuiTable* table = ImGui::GetCurrentTable();
+    if (table == nullptr)
+    {
+        return;
+    }
+    columns_.clear();
+    sort_column_.clear();
+    sort_descending_ = false;
+    for (int column_n = 0; column_n < table->ColumnsCount && column_n < kChartbookDataColumnCount; ++column_n)
+    {
+        const ImGuiTableColumn& column = table->Columns[column_n];
+        ChartbookColumn saved;
+        saved.id = kChartbookDataColumns[column_n];
+        saved.width = column.WidthGiven;
+        saved.visible = column.IsUserEnabled;
+        saved.order = column.DisplayOrder;
+        columns_.push_back(std::move(saved));
+        if (column.SortOrder == 0 && column.SortDirection != ImGuiSortDirection_None)
+        {
+            sort_column_ = kChartbookDataColumns[column_n];
+            sort_descending_ = column.SortDirection == ImGuiSortDirection_Descending;
+        }
+    }
+}
+
+void InventoryPanel::noteColumnEdits()
+{
+    ImGuiTable* table = ImGui::GetCurrentTable();
+    if (table == nullptr)
+    {
+        return;
+    }
+    if (ignore_settings_dirty_)
+    {
+        ignore_settings_dirty_ = false;
+        table->IsSettingsDirty = false;
+        return;
+    }
+    if (table->IsSettingsDirty)
+    {
+        snapshotColumns();
+        table->IsSettingsDirty = false;
+    }
+}
+
+bool InventoryPanel::draw()
+{
+    if (place_force_)
+    {
+        if (place_floating_)
+        {
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + place_pos_.x, viewport->WorkPos.y + place_pos_.y),
+                                    ImGuiCond_Always);
+            ImGui::SetNextWindowSize(place_size_, ImGuiCond_Always);
+            ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+            ImGui::SetNextWindowViewport(viewport->ID);
+        }
+        else if (place_dock_ != 0)
+        {
+            ImGui::SetNextWindowDockID(place_dock_, ImGuiCond_Always);
+        }
+        place_force_ = false;
+    }
+
+    char title[64];
+    std::snprintf(title, sizeof(title), "DATA###cb%d_data", runtime_id_);
+    bool open = true;
+    if (!ImGui::Begin(title, &open, ImGuiWindowFlags_NoSavedSettings))
     {
         ImGui::End();
-        return;
+        return open;
     }
 
     if (!open_error_.empty() && store_ == nullptr)
     {
         ImGui::TextColored(Theme::kDown, "%s", open_error_.c_str());
         ImGui::End();
-        return;
+        return open;
     }
 
     pollWorker();
+    resolveSelection();
     drawToolbar();
     ImGui::Separator();
     ImGui::TextColored(Theme::kMuted, "%s", status_.c_str());
@@ -331,6 +550,7 @@ void InventoryPanel::draw()
     }
     ImGui::EndChild();
     ImGui::End();
+    return open;
 }
 
 void InventoryPanel::drawToolbar()
@@ -499,6 +719,11 @@ void InventoryPanel::drawSummaryTable()
     ImGui::TableSetupColumn("ERR", ImGuiTableColumnFlags_WidthFixed, 40.0f);
     ImGui::TableSetupColumn("FIRST");
     ImGui::TableSetupColumn("LAST");
+    if (apply_columns_)
+    {
+        applySavedColumns();
+        apply_columns_ = false;
+    }
     ImGui::TableHeadersRow();
     applySortSpecs();
 
@@ -507,6 +732,7 @@ void InventoryPanel::drawSummaryTable()
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextColored(Theme::kMuted, "No names yet. Enter a symbol and GO.");
+        noteColumnEdits();
         ImGui::EndTable();
         return;
     }
@@ -531,6 +757,10 @@ void InventoryPanel::drawSummaryTable()
             {
                 selected_id_ = row.instrument.id;
                 selected_timeframe_s_ = row.timeframe_s;
+                selected_symbol_ = row.instrument.symbol;
+                selected_timeframe_ = timeframeLabel(row.timeframe_s);
+                pending_symbol_.clear();
+                pending_timeframe_.clear();
                 ingest_timeframe_s_ = row.timeframe_s;
                 std::snprintf(symbol_, sizeof(symbol_), "%s", row.instrument.symbol.c_str());
                 refreshDays();
@@ -573,6 +803,7 @@ void InventoryPanel::drawSummaryTable()
             ImGui::TextUnformatted(last.c_str());
         }
     }
+    noteColumnEdits();
     ImGui::EndTable();
 }
 

@@ -8,3 +8,5 @@
 #include "chart/chart_study_tests.h"
 #include "chart/chart_transform_tests.h"
 #include "chart/chart_view_tests.h"
+#include "ui/frame_chrome_tests.h"
+#include "chart/chartbook_file_tests.h"

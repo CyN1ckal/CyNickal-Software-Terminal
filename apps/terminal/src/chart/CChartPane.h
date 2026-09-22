@@ -6,6 +6,7 @@
 #include "chart/CChartLoad.h"
 #include "chart/CChartSettings.h"
 #include "chart/CChartView.h"
+#include "chart/CChartbookDocument.h"
 #include "chart/CStudy.h"
 #include "market_data/Store.h"
 
@@ -48,8 +49,12 @@ public:
     void openStudies();
     void closeWindow();
     void requestFocus();
+    void setWindowScope(int runtime_id) noexcept;
+    void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    [[nodiscard]] ChartbookPane exportRecord() const;
+    void importRecord(const ChartbookPane& record);
 
-    bool draw(Store* store, std::string_view store_error, ImGuiID dock_id, IngestWorker* ingest);
+    bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
 
 private:
     void drawSettingsPopup(Store* store, std::string_view store_error, IngestWorker* ingest);
@@ -70,6 +75,12 @@ private:
     void commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest);
 
     int id_{};
+    int runtime_id_{0};
+    bool place_force_{false};
+    bool place_floating_{false};
+    ImGuiID place_dock_{0};
+    ImVec2 place_pos_;
+    ImVec2 place_size_;
     bool window_open_{true};
     bool settings_open_{false};
     bool focus_on_appear_{false};
