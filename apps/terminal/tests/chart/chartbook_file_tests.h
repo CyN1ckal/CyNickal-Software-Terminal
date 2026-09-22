@@ -281,3 +281,84 @@ TEST_CASE("a new pane docks beside DATA and a closed pane is not open")
     CHECK_FALSE(terminal::chartbookWindowReferenced(document, "data"));
     CHECK(terminal::chartbookWindowReferenced(document, "pane:1"));
 }
+
+TEST_CASE("saved data column order must name every live column once")
+{
+    std::vector<int> orders;
+    std::vector<terminal::ChartbookColumn> partial;
+    partial.push_back({"symbol", 80.f, true, 0});
+    CHECK_FALSE(terminal::chartbookColumnDisplayOrders(partial, terminal::kChartbookDataColumnCount, orders));
+    CHECK(orders.empty());
+
+    std::vector<terminal::ChartbookColumn> columns;
+    for (int index = 0; index < terminal::kChartbookDataColumnCount; ++index)
+    {
+        terminal::ChartbookColumn column;
+        column.id = terminal::kChartbookDataColumns[index];
+        column.width = 40.f;
+        column.visible = true;
+        column.order = terminal::kChartbookDataColumnCount - 1 - index;
+        columns.push_back(std::move(column));
+    }
+    REQUIRE(terminal::chartbookColumnDisplayOrders(columns, terminal::kChartbookDataColumnCount, orders));
+    REQUIRE(orders.size() == static_cast<std::size_t>(terminal::kChartbookDataColumnCount));
+    CHECK(orders.front() == terminal::kChartbookDataColumnCount - 1);
+    CHECK(orders.back() == 0);
+
+    columns[1].order = columns[0].order;
+    CHECK_FALSE(terminal::chartbookColumnDisplayOrders(columns, terminal::kChartbookDataColumnCount, orders));
+    CHECK(orders.empty());
+}
+
+TEST_CASE("a failed chartbook write leaves the previous file and its bak")
+{
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() / "terminal-chartbook-replace";
+    std::filesystem::remove_all(directory);
+    std::filesystem::create_directories(directory);
+
+    const std::filesystem::path path = directory / "book.chartbook.json";
+    const terminal::CChartbookDocument first = terminal::makeDefaultChartbook("first");
+    terminal::CChartbookDocument second = first;
+    second.name = "second";
+    terminal::CChartbookDocument third = first;
+    third.name = "third";
+    REQUIRE(terminal::saveChartbook(path, first).empty());
+    REQUIRE(terminal::saveChartbook(path, second).empty());
+
+    const std::filesystem::path blocked = path.string() + ".tmp";
+    std::filesystem::create_directory(blocked);
+    const std::string error = terminal::saveChartbook(path, third);
+    CHECK_FALSE(error.empty());
+    std::filesystem::remove_all(blocked);
+
+    const terminal::ChartbookLoadResult current = terminal::loadChartbook(path);
+    REQUIRE(current.ok);
+    CHECK(current.document.name == "second");
+    const terminal::ChartbookLoadResult backup = terminal::loadChartbook(path.string() + ".bak");
+    REQUIRE(backup.ok);
+    CHECK(backup.document.name == "first");
+
+    const std::filesystem::path startup = directory / "terminal.json";
+    terminal::StartupSettings settings;
+    settings.open_on_startup = {"a"};
+    REQUIRE(terminal::saveStartupSettings(startup, settings).empty());
+    settings.open_on_startup = {"b"};
+    REQUIRE(terminal::saveStartupSettings(startup, settings).empty());
+    const std::filesystem::path startup_blocked = startup.string() + ".tmp";
+    std::filesystem::create_directory(startup_blocked);
+    settings.open_on_startup = {"c"};
+    CHECK_FALSE(terminal::saveStartupSettings(startup, settings).empty());
+    std::filesystem::remove_all(startup_blocked);
+
+    const terminal::StartupLoadResult startup_now = terminal::loadStartupSettings(startup);
+    REQUIRE(startup_now.ok);
+    REQUIRE(startup_now.settings.open_on_startup.size() == 1);
+    CHECK(startup_now.settings.open_on_startup[0] == "b");
+    const terminal::StartupLoadResult startup_bak = terminal::loadStartupSettings(startup.string() + ".bak");
+    REQUIRE(startup_bak.ok);
+    REQUIRE(startup_bak.settings.open_on_startup.size() == 1);
+    CHECK(startup_bak.settings.open_on_startup[0] == "a");
+
+    std::filesystem::remove_all(directory);
+}

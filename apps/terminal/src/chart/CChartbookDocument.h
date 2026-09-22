@@ -26,10 +26,6 @@ inline constexpr int kChartbookDataColumnCount = 11;
 
 [[nodiscard]] bool isChartbookDataColumn(std::string_view id) noexcept;
 
-// ImGui requires DisplayOrder to be a permutation. Empty orders means the saved list is partial or repeated.
-[[nodiscard]] bool chartbookColumnDisplayOrders(const std::vector<ChartbookColumn>& columns, int column_count,
-                                                std::vector<int>& orders);
-
 enum class ChartbookSplitAxis : std::uint8_t
 {
     Horizontal = 0,  // first = left, second = right
@@ -43,6 +39,10 @@ struct ChartbookColumn
     bool visible{true};
     int order{0};
 };
+
+// False unless columns names every id in 0..column_count-1 once and the orders are a permutation.
+[[nodiscard]] bool chartbookColumnDisplayOrders(const std::vector<ChartbookColumn>& columns, int column_count,
+                                                std::vector<int>& orders);
 
 // DATA panel fields that belong to one chart space. Empty selected_* means no row.
 // sort_column empty means the summary table is unsorted.

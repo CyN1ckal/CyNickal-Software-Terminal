@@ -444,6 +444,7 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
     {
         save_as_then_quit_ = false;
         save_as_then_close_ = false;
+        save_as_then_save_all_ = false;
         if (saveBook(active_, inventory))
         {
             file_error_.clear();
@@ -454,6 +455,7 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
         save_as_index_ = active_;
         save_as_then_quit_ = false;
         save_as_then_close_ = false;
+        save_as_then_save_all_ = false;
         modal_error_.clear();
         const std::string stem = books_[static_cast<std::size_t>(active_)].book->name();
         std::snprintf(name_, sizeof(name_), "%s", stem.c_str());
@@ -462,9 +464,16 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
     if (ImGui::MenuItem("Save All"))
     {
         save_as_then_quit_ = false;
-        if (!saveAll(inventory))
+        save_as_then_close_ = false;
+        save_as_then_save_all_ = true;
+        if (saveAll(inventory))
         {
-            save_as_then_quit_ = false;
+            save_as_then_save_all_ = false;
+            file_error_.clear();
+        }
+        else if (pending_modal_ != Modal::SaveAs)
+        {
+            save_as_then_save_all_ = false;
         }
     }
     if (ImGui::MenuItem("Close Chartbook"))
@@ -654,20 +663,25 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
 {
     // Menus and other modals are different ImGui windows. OpenPopup and BeginPopupModal
     // only meet when they run in this host, so Save As can follow File >> Save or Save All.
-    ImGui::SetNextWindowPos(ImVec2(-1000.0f, -1000.0f), ImGuiCond_Always);
+    // The host has to stay inside the main viewport. A position outside it becomes another
+    // OS window while viewports are enabled, and that window shows up as a blank desktop entry.
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::SetNextWindowPos(viewport->Pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(1.0f, 1.0f), ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
     const ImGuiWindowFlags host_flags =
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
     ImGui::Begin("##chartbook_modals", nullptr, host_flags);
+    ImGui::PopStyleVar();
     if (pending_modal_ != Modal::None)
     {
         ImGui::OpenPopup(modalTitle(pending_modal_));
         pending_modal_ = Modal::None;
     }
 
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Open Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
@@ -758,9 +772,18 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         const std::filesystem::path path = chartbookPathForStem(name_);
         if (ImGui::Button("Save"))
         {
-            if (path.empty() || save_as_index_ < 0)
+            const int existing = path.empty() ? -1 : findPath(path);
+            if (save_as_index_ < 0 || save_as_index_ >= static_cast<int>(books_.size()))
+            {
+                modal_error_ = "That chartbook is no longer open.";
+            }
+            else if (path.empty())
             {
                 modal_error_ = "Use a single name without reserved characters.";
+            }
+            else if (existing >= 0 && existing != save_as_index_)
+            {
+                modal_error_ = "That chartbook is already open.";
             }
             else
             {
@@ -786,9 +809,11 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
                     modal_error_.clear();
                     const bool closing = save_as_then_close_;
                     const bool quitting = save_as_then_quit_;
+                    const bool save_all = save_as_then_save_all_;
                     const int saved_index = save_as_index_;
                     save_as_then_close_ = false;
                     save_as_then_quit_ = false;
+                    save_as_then_save_all_ = false;
                     ImGui::CloseCurrentPopup();
                     if (closing)
                     {
@@ -811,6 +836,10 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
                             requestModal(Modal::Quit);
                         }
                     }
+                    else if (save_all && !saveAll(inventory) && pending_modal_ == Modal::SaveAs)
+                    {
+                        save_as_then_save_all_ = true;
+                    }
                 }
             }
         }
@@ -821,6 +850,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             const bool reopen_close = save_as_then_close_;
             save_as_then_quit_ = false;
             save_as_then_close_ = false;
+            save_as_then_save_all_ = false;
             modal_error_.clear();
             ImGui::CloseCurrentPopup();
             if (reopen_quit)
@@ -842,33 +872,49 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Close Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        const int index = close_index_ >= 0 ? close_index_ : active_;
-        const std::string label = books_[static_cast<std::size_t>(index)].book->name();
-        ImGui::Text("Save changes to %s?", label.c_str());
-        if (ImGui::Button("Save"))
+        if (close_index_ < 0 || close_index_ >= static_cast<int>(books_.size()))
         {
-            save_as_then_close_ = true;
-            save_as_then_quit_ = false;
-            if (saveBook(index, inventory))
+            ImGui::CloseCurrentPopup();
+        }
+        else
+        {
+            const int index = close_index_;
+            const std::string label = books_[static_cast<std::size_t>(index)].book->name();
+            ImGui::Text("Save changes to %s?", label.c_str());
+            if (ImGui::Button("Save"))
+            {
+                save_as_then_close_ = true;
+                save_as_then_quit_ = false;
+                save_as_then_save_all_ = false;
+                if (saveBook(index, inventory))
+                {
+                    destroyBook(index);
+                    close_index_ = -1;
+                    save_as_then_close_ = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                else if (pending_modal_ == Modal::SaveAs)
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                else
+                {
+                    save_as_then_close_ = false;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Don't Save"))
             {
                 destroyBook(index);
                 close_index_ = -1;
-                save_as_then_close_ = false;
                 ImGui::CloseCurrentPopup();
             }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Don't Save"))
-        {
-            destroyBook(index);
-            close_index_ = -1;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-        {
-            close_index_ = -1;
-            ImGui::CloseCurrentPopup();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                close_index_ = -1;
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::EndPopup();
     }
@@ -880,11 +926,22 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         if (ImGui::Button("Save All"))
         {
             save_as_then_quit_ = true;
+            save_as_then_close_ = false;
+            save_as_then_save_all_ = false;
             if (saveAll(inventory))
             {
                 quit_modal_ = false;
                 quit_now_ = true;
+                save_as_then_quit_ = false;
                 ImGui::CloseCurrentPopup();
+            }
+            else if (pending_modal_ == Modal::SaveAs)
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            else
+            {
+                save_as_then_quit_ = false;
             }
         }
         ImGui::SameLine();
@@ -986,8 +1043,87 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
     ImGui::End();
 }
 
+void ChartbookHost::restoreOpenTabs()
+{
+    if (active_ < 0 || active_ >= static_cast<int>(books_.size()))
+    {
+        return;
+    }
+    const OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    const ChartbookLayout& layout = open.book->layout();
+    const int runtime = open.book->runtimeId();
+    std::vector<int> pending;
+    if (layout.root >= 0)
+    {
+        pending.push_back(layout.root);
+    }
+    for (int steps = 0; !pending.empty() && steps < 64; ++steps)
+    {
+        const int index = pending.back();
+        pending.pop_back();
+        if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+        {
+            continue;
+        }
+        const ChartbookLayoutNode& node = layout.nodes[static_cast<std::size_t>(index)];
+        if (node.is_split)
+        {
+            if (node.second >= 0)
+            {
+                pending.push_back(node.second);
+            }
+            if (node.first >= 0)
+            {
+                pending.push_back(node.first);
+            }
+            continue;
+        }
+        ImVector<ImGuiWindow*> windows;
+        ImGuiWindow* selected = nullptr;
+        bool complete = !node.windows.empty();
+        for (const std::string& id : node.windows)
+        {
+            const std::string name = dockWindowName(runtime, id);
+            ImGuiWindow* window = name.empty() ? nullptr : ImGui::FindWindowByID(ImHashStr(name.c_str()));
+            if (window == nullptr || window->DockNode == nullptr)
+            {
+                complete = false;
+                break;
+            }
+            windows.push_back(window);
+            if (id == node.selected)
+            {
+                selected = window;
+            }
+        }
+        if (!complete)
+        {
+            continue;
+        }
+        ImGuiDockNode* leaf = windows[0]->DockNode;
+        const bool same_node = std::ranges::all_of(windows, [leaf](const ImGuiWindow* window) {
+            return window->DockNode == leaf;
+        });
+        if (!same_node || leaf == nullptr)
+        {
+            continue;
+        }
+        for (int window_n = 0; window_n < leaf->Windows.Size; ++window_n)
+        {
+            ImGuiWindow* window = leaf->Windows[window_n];
+            if (!windows.contains(window))
+            {
+                windows.push_back(window);
+            }
+        }
+        leaf->Windows.swap(windows);
+        orderDockLeaf(leaf, selected != nullptr ? selected : leaf->Windows[0]);
+    }
+}
+
 void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVec2 size)
 {
+    restore_tabs_ = true;
     OpenBook& open = books_[static_cast<std::size_t>(active_)];
     const ChartbookLayout& layout = open.book->layout();
     const int runtime = open.book->runtimeId();
@@ -1335,6 +1471,11 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
         }
     }
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
+    if (restore_tabs_)
+    {
+        restoreOpenTabs();
+        restore_tabs_ = false;
+    }
     if (!closed_data)
     {
         captureLayout(dock_id);
