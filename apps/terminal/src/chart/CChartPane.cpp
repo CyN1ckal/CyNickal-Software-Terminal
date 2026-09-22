@@ -238,10 +238,8 @@ void CChartPane::applyStudyDraft()
 {
     for (CStudyInstance& inst : study_draft_)
     {
-        if (auto* params = std::get_if<MovingAverageParams>(&inst.params))
-        {
-            clampMovingAverageParams(*params);
-        }
+        clampStudyOptions(inst);
+        normalizeStudyOutputs(inst);
     }
     studies_ = study_draft_;
     computed_ = studiesForLoad(loaded_, studies_);
@@ -996,7 +994,8 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
             continue;
         }
         ImGui::SameLine();
-        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(inst.color), "%s", label.c_str());
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)), "%s",
+                           label.c_str());
     }
 
     drawSettingsPopup(store, store_error, ingest);

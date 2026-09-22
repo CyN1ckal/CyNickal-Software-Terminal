@@ -6,6 +6,8 @@
 #include "chart/chart_command_tests.h"
 #include "chart/chart_load_tests.h"
 #include "chart/chart_study_tests.h"
+#include "chart/moving_average_tests.h"
+#include "chart/bollinger_tests.h"
 #include "chart/chart_transform_tests.h"
 #include "chart/chart_view_tests.h"
 #include "data/statement_sheet_tests.h"

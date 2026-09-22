@@ -3,6 +3,8 @@
 
 #include "chart/CStudyCompute.h"
 
+#include "chart/studies/StudyRegistry.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -10,107 +12,129 @@
 #include <utility>
 
 namespace terminal {
-namespace {
 
-void computeSma(std::span<const Bar> bars, const MovingAverageParams& raw, CStudySeries& out)
+bool isStudyInstanceSupported(const CStudyInstance& inst) noexcept
 {
-    auto params = raw;
-    clampMovingAverageParams(params);
-    const auto n = static_cast<int>(bars.size());
-    const int length = params.length;
-    out.values.assign(static_cast<std::size_t>(n), studyNaN());
-    if (n <= 0 || length > n)
+    const StudyType* type = findStudy(inst.type_id);
+    return type != nullptr && type->process != nullptr && inst.options.size() == type->options.size();
+}
+
+void clampStudyOptions(CStudyInstance& inst) noexcept
+{
+    const StudyType* type = findStudy(inst.type_id);
+    if (type == nullptr || inst.options.size() != type->options.size())
     {
         return;
     }
-    double sum = 0.0;
-    for (int i = 0; i < n; ++i)
+    for (std::size_t index = 0; index < type->options.size(); ++index)
     {
-        const auto index = static_cast<std::size_t>(i);
-        sum += barSourceValue(bars[index], params.source);
-        if (i >= length)
+        const StudyOption& option = type->options[index];
+        int& value = inst.options[index];
+        if (!option.choices.empty())
         {
-            sum -= barSourceValue(bars[static_cast<std::size_t>(i - length)], params.source);
+            const auto count = static_cast<int>(option.choices.size());
+            if (value < 0 || value >= count)
+            {
+                value = option.fallback;
+                if (value < 0 || value >= count)
+                {
+                    value = 0;
+                }
+            }
+            continue;
         }
-        if (i >= length - 1)
-        {
-            out.values[index] = sum / static_cast<double>(length);
-        }
+        value = std::clamp(value, option.min, option.max);
     }
 }
 
-CStudySeries beginSeries(const CStudyInstance& inst)
-{
-    CStudySeries series;
-    series.study_id = inst.id;
-    series.kind = inst.kind;
-    series.chart_region = clampStudyChartRegion(inst.chart_region);
-    series.placement = series.chart_region == kStudyMainChartRegion ? StudyPlacement::Overlay
-                                                                    : StudyPlacement::Subgraph;
-    series.color = inst.color;
-    series.label = studyShortLabel(inst);
-    return series;
-}
+namespace {
 
-void computeVolume(std::span<const Bar> bars, CStudySeries& out)
+[[nodiscard]] CStudyOutputStyle studyOutputStyle(const CStudyInstance& inst, std::size_t index) noexcept
 {
-    out.values.resize(bars.size());
-    for (std::size_t i = 0; i < bars.size(); ++i)
+    if (index < inst.outputs.size())
     {
-        out.values[i] = bars[i].volume;
+        return inst.outputs[index];
     }
+    return CStudyOutputStyle{.color = inst.color, .line = StudyLineStyle::Solid};
 }
 
 }  // namespace
 
-bool isStudyInstanceSupported(const CStudyInstance& inst) noexcept
+void normalizeStudyOutputs(CStudyInstance& inst)
 {
-    if (findStudyType(inst.kind) == nullptr)
+    const StudyType* type = findStudy(inst.type_id);
+    if (type == nullptr)
     {
-        return false;
+        return;
     }
-    switch (inst.kind)
+    // An empty directional study has no saved bar colors. Use the candle palette
+    // instead of copying the old label color onto both bars.
+    if (type->color_by_bar && inst.outputs.empty())
     {
-    case StudyKind::MovingAverage:
+        assignStudyOutputDefaults(inst, 0);
+        return;
+    }
+    if (inst.outputs.size() == type->outputs.size())
     {
-        const auto* params = std::get_if<MovingAverageParams>(&inst.params);
-        if (params == nullptr)
+        if (!inst.outputs.empty())
         {
-            return false;
+            inst.color = inst.outputs.front().color;
         }
-        auto clamped = *params;
-        clampMovingAverageParams(clamped);
-        return clamped.method == MovingAverageMethod::Simple;
+        return;
     }
-    case StudyKind::Volume:
-        return std::holds_alternative<VolumeParams>(inst.params);
+    std::vector<CStudyOutputStyle> next;
+    next.reserve(type->outputs.size());
+    for (std::size_t index = 0; index < type->outputs.size(); ++index)
+    {
+        if (index < inst.outputs.size())
+        {
+            next.push_back(inst.outputs[index]);
+            continue;
+        }
+        next.push_back(CStudyOutputStyle{.color = inst.color, .line = StudyLineStyle::Solid});
     }
-    return false;
+    inst.outputs = std::move(next);
+    if (!inst.outputs.empty())
+    {
+        inst.color = inst.outputs.front().color;
+    }
+}
+
+void assignStudyOutputDefaults(CStudyInstance& inst, int slot)
+{
+    const StudyType* type = findStudy(inst.type_id);
+    if (type == nullptr)
+    {
+        return;
+    }
+    const int base = type->palette_index >= 0 ? type->palette_index : slot;
+    inst.color = studyPaletteColor(base);
+    inst.outputs.clear();
+    inst.outputs.reserve(type->outputs.size());
+    for (std::size_t index = 0; index < type->outputs.size(); ++index)
+    {
+        const StudyOutput& output = type->outputs[index];
+        const int chosen =
+            output.palette_index >= 0 ? output.palette_index : base + static_cast<int>(index);
+        inst.outputs.push_back(
+            CStudyOutputStyle{.color = studyPaletteColor(chosen), .line = StudyLineStyle::Solid});
+    }
+    if (!inst.outputs.empty())
+    {
+        inst.color = inst.outputs.front().color;
+    }
 }
 
 std::string studyShortLabel(const CStudyInstance& inst)
 {
-    switch (inst.kind)
+    const StudyType* type = findStudy(inst.type_id);
+    if (type == nullptr || type->label == nullptr || inst.options.size() != type->options.size())
     {
-    case StudyKind::MovingAverage:
-    {
-        const auto* params = std::get_if<MovingAverageParams>(&inst.params);
-        if (params == nullptr)
-        {
-            return {};
-        }
-        auto clamped = *params;
-        clampMovingAverageParams(clamped);
-        std::string label = "MA ";
-        label += std::to_string(clamped.length);
-        label += ' ';
-        label += studySourceCode(clamped.source);
-        return label;
+        return {};
     }
-    case StudyKind::Volume:
-        return "Vol";
-    }
-    return {};
+    std::string label;
+    type->label(inst.options, label);
+    return label;
 }
 
 std::vector<CStudySeries> computeStudies(std::span<const Bar> bars,
@@ -123,36 +147,38 @@ std::vector<CStudySeries> computeStudies(std::span<const Bar> bars,
         {
             continue;
         }
-        const auto* info = findStudyType(inst.kind);
-        if (info == nullptr)
+        const StudyType* type = findStudy(inst.type_id);
+        if (type == nullptr || type->process == nullptr)
         {
             continue;
         }
-        switch (inst.kind)
+        std::string instance_label;
+        std::vector<StudyTrace> traces;
+        type->process(bars, inst.options, instance_label, traces);
+        for (std::size_t index = 0; index < traces.size(); ++index)
         {
-        case StudyKind::MovingAverage:
-        {
-            const auto* params = std::get_if<MovingAverageParams>(&inst.params);
-            if (params == nullptr)
+            StudyTrace& trace = traces[index];
+            const auto style = studyOutputStyle(inst, index);
+            CStudySeries series;
+            series.study_id = inst.id;
+            series.type_id = inst.type_id;
+            series.chart_region = clampStudyChartRegion(inst.chart_region);
+            series.placement = series.chart_region == kStudyMainChartRegion ? StudyPlacement::Overlay
+                                                                            : StudyPlacement::Subgraph;
+            series.color = style.color;
+            series.line = style.line;
+            series.histogram = type->graph == StudyGraph::Histogram;
+            if (type->color_by_bar && index == 0)
             {
-                break;
+                series.color_by_bar = true;
+                series.color = studyOutputStyle(inst, 0).color;
+                series.down_color = studyOutputStyle(inst, 1).color;
             }
-            CStudySeries series = beginSeries(inst);
-            computeSma(bars, *params, series);
+            series.anchor_zero = type->anchor_zero;
+            series.value_decimals = type->value_decimals;
+            series.label = trace.label.empty() ? instance_label : std::move(trace.label);
+            series.values = std::move(trace.values);
             out.push_back(std::move(series));
-            break;
-        }
-        case StudyKind::Volume:
-        {
-            if (!std::holds_alternative<VolumeParams>(inst.params))
-            {
-                break;
-            }
-            CStudySeries series = beginSeries(inst);
-            computeVolume(bars, series);
-            out.push_back(std::move(series));
-            break;
-        }
         }
     }
     return out;
@@ -247,7 +273,7 @@ ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
 
     const int region = clampStudyChartRegion(chart_region);
     bool any = false;
-    bool volume = false;
+    bool anchor = false;
     double lo = 0.0;
     double hi = 0.0;
     for (const CStudySeries& item : series)
@@ -257,9 +283,9 @@ ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
         {
             continue;
         }
-        if (item.kind == StudyKind::Volume)
+        if (item.anchor_zero)
         {
-            volume = true;
+            anchor = true;
         }
         for (int i = first; i <= last; ++i)
         {
@@ -285,7 +311,7 @@ ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
     {
         return out;
     }
-    if (volume)
+    if (anchor)
     {
         lo = std::min(lo, 0.0);
         hi = std::max(hi, 0.0);

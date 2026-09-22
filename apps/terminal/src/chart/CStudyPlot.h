@@ -13,7 +13,8 @@ namespace terminal {
 
 // Lines and volume histograms for one chart region. Call inside BeginPlot,
 // after candles (region 1) or alone (lower regions), and before the crosshair.
-// NaN breaks a line. Volume bars grow from zero and use the candle up/down colors.
+// NaN breaks a line. Line series use their own solid, dotted, or dashed stroke.
+// Volume bars grow from zero. Up and down candles use that study's two colors.
 void drawStudyRegion(std::span<const CStudySeries> studies,
                      int chart_region,
                      const ChartVisibleWindow& win,

@@ -5,9 +5,12 @@
 
 #include "catch_amalgamated.hpp"
 #include "chart/CStudyCompute.h"
+#include "chart/studies/CMovingAverage.h"
+#include "chart/studies/StudyRegistry.h"
 
 #include <cmath>
 #include <initializer_list>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -30,18 +33,15 @@ std::vector<terminal::Bar> smaCloseBars(std::initializer_list<double> closes)
 
 terminal::CStudyInstance makeSmaInstance(int id,
                                          int length,
-                                         terminal::StudySource source,
+                                         terminal::CMovingAverage::Source source,
                                          bool enabled = true)
 {
     terminal::CStudyInstance inst;
     inst.id = id;
-    inst.kind = terminal::StudyKind::MovingAverage;
+    inst.type_id = "moving_average";
     inst.enabled = enabled;
-    terminal::MovingAverageParams params;
-    params.source = source;
-    params.length = length;
-    params.method = terminal::MovingAverageMethod::Simple;
-    inst.params = params;
+    // The third slot is the chartbook method token. The average ignores it.
+    inst.options = {length, static_cast<int>(source), 0};
     return inst;
 }
 
@@ -51,7 +51,7 @@ TEST_CASE("empty bars still emit one labeled moving average")
 {
     const std::vector<terminal::Bar> bars;
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(7, 20, terminal::StudySource::Close)};
+        makeSmaInstance(7, 20, terminal::CMovingAverage::Source::Close)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     CHECK(series[0].study_id == 7);
@@ -64,7 +64,7 @@ TEST_CASE("length 1 moving average copies the close")
 {
     const auto bars = smaCloseBars({1.5, 2.5, 3.5});
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(1, 1, terminal::StudySource::Close)};
+        makeSmaInstance(1, 1, terminal::CMovingAverage::Source::Close)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     REQUIRE(series[0].values.size() == 3);
@@ -77,7 +77,7 @@ TEST_CASE("length 3 simple moving average warms up with NaN")
 {
     const auto bars = smaCloseBars({1.0, 2.0, 3.0, 4.0, 5.0});
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(1, 3, terminal::StudySource::Close)};
+        makeSmaInstance(1, 3, terminal::CMovingAverage::Source::Close)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     REQUIRE(series[0].values.size() == 5);
@@ -100,8 +100,8 @@ TEST_CASE("moving average source selects open or close")
     second.close = 7.0;
     const std::vector<terminal::Bar> bars{first, second};
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(1, 1, terminal::StudySource::Open),
-        makeSmaInstance(2, 1, terminal::StudySource::Close)};
+        makeSmaInstance(1, 1, terminal::CMovingAverage::Source::Open),
+        makeSmaInstance(2, 1, terminal::CMovingAverage::Source::Close)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 2);
     REQUIRE(series[0].values.size() == 2);
@@ -118,7 +118,7 @@ TEST_CASE("moving average longer than the series is all NaN")
 {
     const auto bars = smaCloseBars({1.0, 2.0, 3.0});
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(1, 4, terminal::StudySource::Close)};
+        makeSmaInstance(1, 4, terminal::CMovingAverage::Source::Close)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     REQUIRE(series[0].values.size() == bars.size());
@@ -133,12 +133,12 @@ TEST_CASE("disabled studies are omitted")
 {
     const auto bars = smaCloseBars({1.0, 2.0, 3.0, 4.0, 5.0});
     const std::vector<terminal::CStudyInstance> only_disabled{
-        makeSmaInstance(1, 1, terminal::StudySource::Close, false)};
+        makeSmaInstance(1, 1, terminal::CMovingAverage::Source::Close, false)};
     CHECK(terminal::computeStudies(bars, only_disabled).empty());
 
     const std::vector<terminal::CStudyInstance> mixed{
-        makeSmaInstance(1, 1, terminal::StudySource::Close, false),
-        makeSmaInstance(2, 1, terminal::StudySource::Close, true)};
+        makeSmaInstance(1, 1, terminal::CMovingAverage::Source::Close, false),
+        makeSmaInstance(2, 1, terminal::CMovingAverage::Source::Close, true)};
     const auto series = terminal::computeStudies(bars, mixed);
     REQUIRE(series.size() == 1);
     CHECK(series[0].study_id == 2);
@@ -148,8 +148,8 @@ TEST_CASE("disabled studies are omitted")
 TEST_CASE("two moving averages keep id order and labels")
 {
     const auto bars = smaCloseBars({1.0, 2.0, 3.0});
-    terminal::CStudyInstance slow = makeSmaInstance(4, 20, terminal::StudySource::Close);
-    terminal::CStudyInstance fast = makeSmaInstance(8, 50, terminal::StudySource::Close);
+    terminal::CStudyInstance slow = makeSmaInstance(4, 20, terminal::CMovingAverage::Source::Close);
+    terminal::CStudyInstance fast = makeSmaInstance(8, 50, terminal::CMovingAverage::Source::Close);
     slow.color = terminal::kStudyPalette[0];
     fast.color = terminal::kStudyPalette[1];
     const std::vector<terminal::CStudyInstance> studies{slow, fast};
@@ -165,60 +165,61 @@ TEST_CASE("two moving averages keep id order and labels")
     CHECK(series[1].values.size() == 3);
 }
 
-TEST_CASE("clampMovingAverageParams locks length and method")
-{
-    terminal::MovingAverageParams params;
-    params.length = 0;
-    params.method = terminal::MovingAverageMethod::Exponential;
-    terminal::clampMovingAverageParams(params);
-    CHECK(params.length == 1);
-    CHECK(params.method == terminal::MovingAverageMethod::Simple);
-
-    params.length = 99999;
-    params.method = terminal::MovingAverageMethod::Weighted;
-    terminal::clampMovingAverageParams(params);
-    CHECK(params.length == terminal::kStudyMaxLength);
-    CHECK(params.method == terminal::MovingAverageMethod::Simple);
-
-    params.length = 20;
-    params.source = terminal::StudySource::High;
-    params.method = terminal::MovingAverageMethod::Simple;
-    terminal::clampMovingAverageParams(params);
-    CHECK(params.length == 20);
-    CHECK(params.source == terminal::StudySource::High);
-    CHECK(params.method == terminal::MovingAverageMethod::Simple);
-}
-
 TEST_CASE("studyShortLabel formats length and source")
 {
-    const auto inst = makeSmaInstance(1, 20, terminal::StudySource::Close);
+    const auto inst = makeSmaInstance(1, 20, terminal::CMovingAverage::Source::Close);
     CHECK(terminal::studyShortLabel(inst) == "MA 20 C");
 }
 
-TEST_CASE("non-simple moving average methods compute as simple")
+TEST_CASE("moving average and volume register process callbacks")
 {
-    auto inst = makeSmaInstance(5, 1, terminal::StudySource::Close);
-    auto* params = std::get_if<terminal::MovingAverageParams>(&inst.params);
-    REQUIRE(params != nullptr);
-    params->method = terminal::MovingAverageMethod::Exponential;
-    const auto bars = smaCloseBars({4.0, 8.0});
-    const std::vector<terminal::CStudyInstance> studies{inst};
-    const auto series = terminal::computeStudies(bars, studies);
-    REQUIRE(series.size() == 1);
-    REQUIRE(series[0].values.size() == 2);
-    CHECK(series[0].values[0] == Catch::Approx(4.0));
-    CHECK(series[0].values[1] == Catch::Approx(8.0));
-    CHECK(series[0].label == "MA 1 C");
+    const terminal::StudyType* moving = terminal::findStudy("moving_average");
+    const terminal::StudyType* volume = terminal::findStudy("volume");
+    REQUIRE(moving != nullptr);
+    REQUIRE(volume != nullptr);
+    CHECK(moving->process != nullptr);
+    CHECK(volume->process != nullptr);
+    CHECK(moving->options.size() == 3);
+    CHECK(volume->options.empty());
+    REQUIRE(moving->outputs.size() == 1);
+    REQUIRE(volume->outputs.size() == 2);
+    CHECK(std::string_view{moving->outputs[0].key} == "average");
+    CHECK(std::string_view{volume->outputs[0].key} == "up");
+    CHECK(std::string_view{volume->outputs[1].key} == "down");
+    CHECK(volume->color_by_bar);
+    CHECK(volume->outputs[0].palette_index == 2);
+    CHECK(volume->outputs[1].palette_index == 3);
+    CHECK(moving->default_chart_region == terminal::kStudyMainChartRegion);
+    CHECK(volume->default_chart_region == terminal::kStudyVolumeChartRegion);
+    CHECK(volume->graph == terminal::StudyGraph::Histogram);
+    CHECK(volume->anchor_zero);
+    CHECK(volume->palette_index == 2);
 }
 
 TEST_CASE("unsupported study kinds are omitted")
 {
-    auto inst = makeSmaInstance(1, 1, terminal::StudySource::Close);
-    inst.kind = static_cast<terminal::StudyKind>(9);
+    auto inst = makeSmaInstance(1, 1, terminal::CMovingAverage::Source::Close);
+    inst.type_id = "not-a-study";
     const auto bars = smaCloseBars({1.0, 2.0, 3.0});
     const std::vector<terminal::CStudyInstance> studies{inst};
     CHECK(terminal::computeStudies(bars, studies).empty());
     CHECK_FALSE(terminal::isStudyInstanceSupported(inst));
+}
+
+TEST_CASE("study line styles are solid dotted and dashed")
+{
+    terminal::StudyLineStyle style = terminal::StudyLineStyle::Solid;
+    CHECK(terminal::parseStudyLineStyle("dotted", style));
+    CHECK(style == terminal::StudyLineStyle::Dotted);
+    CHECK(std::string_view{terminal::studyLineStyleToken(style)} == "dotted");
+    CHECK(std::string_view{terminal::studyLineStyleLabel(style)} == "Dotted");
+    CHECK(terminal::parseStudyLineStyle("dashed", style));
+    CHECK(style == terminal::StudyLineStyle::Dashed);
+    CHECK(std::string_view{terminal::studyLineStyleLabel(style)} == "Dashed");
+    CHECK(terminal::parseStudyLineStyle("solid", style));
+    CHECK(style == terminal::StudyLineStyle::Solid);
+    CHECK_FALSE(terminal::parseStudyLineStyle("dash", style));
+    CHECK(style == terminal::StudyLineStyle::Solid);
 }
 
 TEST_CASE("study palette cycles stratum colors")
@@ -278,7 +279,7 @@ TEST_CASE("overlayYExtent uses finite samples and skips mismatches")
 TEST_CASE("studiesForLoad follows ready bars and drops other statuses")
 {
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(1, 2, terminal::StudySource::Close)};
+        makeSmaInstance(1, 2, terminal::CMovingAverage::Source::Close)};
 
     terminal::ChartLoadResult ready;
     ready.status = terminal::ChartLoadStatus::Ready;
@@ -342,11 +343,14 @@ terminal::CStudyInstance makeVolumeInstance(int id, int region = terminal::kStud
 {
     terminal::CStudyInstance inst;
     inst.id = id;
-    inst.kind = terminal::StudyKind::Volume;
+    inst.type_id = "volume";
     inst.enabled = enabled;
     inst.chart_region = region;
     inst.color = terminal::kStudyPalette[2];
-    inst.params = terminal::VolumeParams{};
+    inst.outputs = {
+        {.color = terminal::kStudyPalette[2], .line = terminal::StudyLineStyle::Solid},
+        {.color = terminal::kStudyPalette[3], .line = terminal::StudyLineStyle::Solid},
+    };
     return inst;
 }
 
@@ -356,7 +360,7 @@ TEST_CASE("moving average of volume averages bar volume")
 {
     const auto bars = volumeBars({2.0, 4.0, 6.0, 8.0});
     const std::vector<terminal::CStudyInstance> studies{
-        makeSmaInstance(3, 2, terminal::StudySource::Volume)};
+        makeSmaInstance(3, 2, terminal::CMovingAverage::Source::Volume)};
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     CHECK(series[0].label == "MA 2 V");
@@ -375,16 +379,45 @@ TEST_CASE("volume copies each bar and defaults to chart region 2")
     const auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     CHECK(series[0].study_id == 3);
-    CHECK(series[0].kind == terminal::StudyKind::Volume);
+    CHECK(series[0].type_id == "volume");
+    CHECK(series[0].histogram);
+    CHECK(series[0].anchor_zero);
     CHECK(series[0].label == "Vol");
     CHECK(series[0].chart_region == 2);
     CHECK(series[0].placement == terminal::StudyPlacement::Subgraph);
+    CHECK(series[0].color_by_bar);
     CHECK(series[0].color == terminal::kStudyPalette[2]);
+    CHECK(series[0].down_color == terminal::kStudyPalette[3]);
     REQUIRE(series[0].values.size() == 3);
     CHECK(series[0].values[0] == Catch::Approx(10.0));
     CHECK(series[0].values[1] == Catch::Approx(0.0));
     CHECK(series[0].values[2] == Catch::Approx(25.5));
     CHECK(terminal::studyChartRegionCount(series) == 2);
+}
+
+TEST_CASE("volume up and down colors are independent")
+{
+    auto inst = makeVolumeInstance(3);
+    inst.outputs[0].color = terminal::kStudyPalette[0];
+    inst.outputs[1].color = terminal::kStudyPalette[1];
+    const auto bars = volumeBars({5.0});
+    const std::vector<terminal::CStudyInstance> studies{inst};
+    const auto series = terminal::computeStudies(bars, studies);
+    REQUIRE(series.size() == 1);
+    CHECK(series[0].color_by_bar);
+    CHECK(series[0].color == terminal::kStudyPalette[0]);
+    CHECK(series[0].down_color == terminal::kStudyPalette[1]);
+    CHECK(terminal::studyHistogramColor(series[0], true) == terminal::kStudyPalette[0]);
+    CHECK(terminal::studyHistogramColor(series[0], false) == terminal::kStudyPalette[1]);
+
+    terminal::CStudyInstance fresh;
+    fresh.type_id = "volume";
+    fresh.color = 1;
+    terminal::normalizeStudyOutputs(fresh);
+    REQUIRE(fresh.outputs.size() == 2);
+    CHECK(fresh.outputs[0].color == terminal::kStudyPalette[2]);
+    CHECK(fresh.outputs[1].color == terminal::kStudyPalette[3]);
+    CHECK(fresh.color == terminal::kStudyPalette[2]);
 }
 
 TEST_CASE("empty bars still emit one labeled volume series")
@@ -418,7 +451,7 @@ TEST_CASE("volume on chart region 1 is an overlay")
 
 TEST_CASE("moving average chart region selects the subgraph")
 {
-    auto inst = makeSmaInstance(6, 1, terminal::StudySource::Close);
+    auto inst = makeSmaInstance(6, 1, terminal::CMovingAverage::Source::Close);
     inst.chart_region = 4;
     const auto bars = smaCloseBars({2.0, 4.0});
     const std::vector<terminal::CStudyInstance> studies{inst};
@@ -460,7 +493,7 @@ TEST_CASE("disabled volume is omitted and a bad payload is unsupported")
     CHECK(terminal::computeStudies(bars, disabled).empty());
 
     auto inst = makeVolumeInstance(2);
-    inst.params = terminal::MovingAverageParams{};
+    inst.options = {20, 0, 0};
     CHECK_FALSE(terminal::isStudyInstanceSupported(inst));
     const std::vector<terminal::CStudyInstance> bad{inst};
     CHECK(terminal::computeStudies(bars, bad).empty());
@@ -469,11 +502,11 @@ TEST_CASE("disabled volume is omitted and a bad payload is unsupported")
 TEST_CASE("study region limits baseline volume and fit a moving average")
 {
     terminal::CStudySeries volume;
-    volume.kind = terminal::StudyKind::Volume;
+    volume.anchor_zero = true;
+    volume.histogram = true;
     volume.chart_region = 2;
     volume.values = {10.0, 40.0, 5.0};
     terminal::CStudySeries other;
-    other.kind = terminal::StudyKind::MovingAverage;
     other.chart_region = 3;
     other.values = {100.0, 110.0, 90.0};
     const std::vector<terminal::CStudySeries> series{volume, other};

@@ -14,46 +14,25 @@
 
 namespace terminal {
 
-inline void clampMovingAverageParams(MovingAverageParams& params) noexcept
-{
-    if (params.length < kStudyMinLength)
-    {
-        params.length = kStudyMinLength;
-    }
-    if (params.length > kStudyMaxLength)
-    {
-        params.length = kStudyMaxLength;
-    }
-    // v1 compute is SMA only; Exponential and Weighted stay on the enum.
-    if (params.method != MovingAverageMethod::Simple)
-    {
-        params.method = MovingAverageMethod::Simple;
-    }
-}
-
-[[nodiscard]] inline double barSourceValue(const Bar& bar, StudySource source) noexcept
-{
-    switch (source)
-    {
-    case StudySource::Open:
-        return bar.open;
-    case StudySource::High:
-        return bar.high;
-    case StudySource::Low:
-        return bar.low;
-    case StudySource::Close:
-        return bar.close;
-    case StudySource::Volume:
-        return bar.volume;
-    }
-    return bar.close;
-}
-
 [[nodiscard]] bool isStudyInstanceSupported(const CStudyInstance& inst) noexcept;
 
+// Pull integer options into the study's declared range. Unknown studies are left alone.
+void clampStudyOptions(CStudyInstance& inst) noexcept;
+
+// Resize outputs to the study's declared traces. An empty list copies color and a
+// solid line onto every output so an older chartbook keeps one color.
+void normalizeStudyOutputs(CStudyInstance& inst);
+
+// Palette colors for a study that was just added. slot is its place in the list
+// and is used when the study does not pin a palette index.
+void assignStudyOutputDefaults(CStudyInstance& inst, int slot);
+
 // Never throws. Disabled and unsupported instances are omitted.
-// Enabled + empty bars → one series, values.size()==0, label set.
-// Enabled + n bars → values.size()==n (NaN in warmup slots).
+// Each output trace becomes one series, in declared output order.
+// Color and line style come from CStudyInstance::outputs. A missing output uses
+// the study color and a solid line.
+// Empty bars leave values empty and labels set.
+// Enabled + n bars → each trace has values.size()==n (NaN in warmup slots).
 [[nodiscard]] std::vector<CStudySeries> computeStudies(std::span<const Bar> bars,
                                                        std::span<const CStudyInstance> studies);
 
@@ -71,7 +50,7 @@ inline void clampMovingAverageParams(MovingAverageParams& params) noexcept
 // An empty list is the price graph alone.
 [[nodiscard]] int studyChartRegionCount(std::span<const CStudySeries> series) noexcept;
 
-// Automatic Y for one chart region. Volume series include zero so bars grow
+// Automatic Y for one chart region. anchor_zero series include zero so bars grow
 // from the baseline. No finite samples → 0..1. Does not throw.
 [[nodiscard]] ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
                                                      int chart_region,

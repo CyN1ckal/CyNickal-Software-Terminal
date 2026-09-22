@@ -42,6 +42,10 @@ add_library(terminal_core OBJECT
     src/chart/CChartbookDocument.cpp
     src/chart/CChartbookFile.cpp
     src/chart/CStudyCompute.cpp
+    src/chart/studies/CMovingAverage.cpp
+    src/chart/studies/CVolume.cpp
+    src/chart/studies/CBollinger.cpp
+    src/chart/studies/StudyRegistry.cpp
     ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
 )
 target_link_libraries(terminal_core PRIVATE terminal_compile)
@@ -168,6 +172,10 @@ if(CYN_TESTING)
         src/chart/CChartbookDocument.cpp
         src/chart/CChartbookFile.cpp
         src/chart/CStudyCompute.cpp
+        src/chart/studies/CMovingAverage.cpp
+        src/chart/studies/CVolume.cpp
+        src/chart/studies/CBollinger.cpp
+        src/chart/studies/StudyRegistry.cpp
         src/data/StatementSheet.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h

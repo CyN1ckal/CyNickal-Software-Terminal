@@ -22,7 +22,7 @@ struct StudyDraftUi
 
 // Left list of studies on the chart, settings for the selection on the right,
 // and Add Study / Remove / OK / Apply / Cancel along the bottom.
-// Add Study opens a modal listing kStudyTypes in alphabetical order.
+// Add Study opens a modal listing registered studies in alphabetical order.
 [[nodiscard]] StudyDraftUi drawStudyDraftBody(std::vector<CStudyInstance>& draft,
                                               int& selected,
                                               int& next_id);

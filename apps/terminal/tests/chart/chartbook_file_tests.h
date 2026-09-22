@@ -6,6 +6,8 @@
 #include "catch_amalgamated.hpp"
 #include "chart/CChartbookFile.h"
 #include "chart/CStudy.h"
+#include "chart/studies/CBollinger.h"
+#include "chart/studies/CMovingAverage.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -21,11 +23,8 @@ namespace {
     using terminal::ChartScaleRange;
     using terminal::ChartbookFloating;
     using terminal::ChartbookPane;
+    using terminal::CMovingAverage;
     using terminal::CStudyInstance;
-    using terminal::MovingAverageParams;
-    using terminal::StudyKind;
-    using terminal::StudySource;
-    using terminal::VolumeParams;
     using terminal::chartbookLeaf;
     using terminal::chartbookSplit;
     using terminal::paneWindowId;
@@ -69,19 +68,19 @@ namespace {
     first.next_study_id = 3;
     CStudyInstance moving;
     moving.id = 1;
-    moving.kind = StudyKind::MovingAverage;
+    moving.type_id = "moving_average";
     moving.color = terminal::kStudyDefaultColor;
     moving.chart_region = 1;
-    MovingAverageParams params;
-    params.source = StudySource::Volume;
-    params.length = 20;
-    moving.params = params;
+    moving.options = {20, static_cast<int>(CMovingAverage::Source::Volume), 0};
     CStudyInstance volume;
     volume.id = 2;
-    volume.kind = StudyKind::Volume;
-    volume.color = terminal::kStudyPalette[3];
+    volume.type_id = "volume";
+    volume.color = terminal::kStudyPalette[2];
     volume.chart_region = 2;
-    volume.params = VolumeParams{};
+    volume.outputs = {
+        {.color = terminal::kStudyPalette[2], .line = terminal::StudyLineStyle::Solid},
+        {.color = terminal::kStudyPalette[3], .line = terminal::StudyLineStyle::Solid},
+    };
     first.studies.push_back(std::move(moving));
     first.studies.push_back(std::move(volume));
 
@@ -124,11 +123,22 @@ TEST_CASE("chartbook json round trip keeps panes, studies, and layout")
     CHECK(loaded.document.panes[0].interactive == terminal::ChartInteractiveScale::Range);
     CHECK(loaded.document.panes[0].region_ratios.size() == 2);
     REQUIRE(loaded.document.panes[0].studies.size() == 2);
-    const auto* moving = std::get_if<terminal::MovingAverageParams>(&loaded.document.panes[0].studies[0].params);
-    REQUIRE(moving != nullptr);
-    CHECK(moving->source == terminal::StudySource::Volume);
-    CHECK(moving->length == 20);
-    CHECK(loaded.document.panes[0].studies[1].kind == terminal::StudyKind::Volume);
+    const terminal::CStudyInstance& moving = loaded.document.panes[0].studies[0];
+    REQUIRE(moving.options.size() == 3);
+    CHECK(moving.options[0] == 20);
+    CHECK(moving.options[1] == static_cast<int>(terminal::CMovingAverage::Source::Volume));
+    CHECK(moving.options[2] == 0);
+    REQUIRE(moving.outputs.size() == 1);
+    CHECK(moving.outputs[0].color == terminal::kStudyDefaultColor);
+    CHECK(moving.outputs[0].line == terminal::StudyLineStyle::Solid);
+    CHECK(moving.color == terminal::kStudyDefaultColor);
+    const terminal::CStudyInstance& volume = loaded.document.panes[0].studies[1];
+    CHECK(volume.type_id == "volume");
+    REQUIRE(volume.outputs.size() == 2);
+    CHECK(volume.outputs[0].color == terminal::kStudyPalette[2]);
+    CHECK(volume.outputs[1].color == terminal::kStudyPalette[3]);
+    CHECK(volume.outputs[0].line == terminal::StudyLineStyle::Solid);
+    CHECK(volume.color == terminal::kStudyPalette[2]);
     CHECK(loaded.document.panes[1].settings.period == terminal::ChartBarPeriod::Day1);
     CHECK(terminal::chartbookPaneIsOpen(loaded.document, 1));
     CHECK(terminal::chartbookPaneIsOpen(loaded.document, 2));
@@ -201,6 +211,144 @@ TEST_CASE("chartbook file rejects a bad format, an unknown period, and an unknow
     CHECK(studies.document.panes[0].studies.size() == 1);
     CHECK(studies.document.data.columns.size() == 1);
     CHECK(studies.document.data.columns[0].id == "symbol");
+    const terminal::CStudyInstance& legacy = studies.document.panes[0].studies[0];
+    REQUIRE(legacy.outputs.size() == 1);
+    CHECK(legacy.outputs[0].color == 1);
+    CHECK(legacy.outputs[0].line == terminal::StudyLineStyle::Solid);
+    CHECK(legacy.color == 1);
+}
+
+TEST_CASE("chartbook studies keep per-output color and line style")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("bands");
+    terminal::CStudyInstance bands;
+    bands.id = 1;
+    bands.type_id = "bollinger";
+    bands.chart_region = 1;
+    bands.options = {20, static_cast<int>(terminal::CBollinger::Source::Close), 2};
+    bands.outputs = {
+        {.color = terminal::kStudyPalette[3], .line = terminal::StudyLineStyle::Dashed},
+        {.color = terminal::kStudyPalette[0], .line = terminal::StudyLineStyle::Solid},
+        {.color = terminal::kStudyPalette[1], .line = terminal::StudyLineStyle::Dotted},
+    };
+    bands.color = bands.outputs[0].color;
+    document.panes[0].next_study_id = 2;
+    document.panes[0].studies.push_back(std::move(bands));
+
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.panes[0].studies.size() == 1);
+    const terminal::CStudyInstance& study = loaded.document.panes[0].studies[0];
+    REQUIRE(study.outputs.size() == 3);
+    CHECK(study.color == terminal::kStudyPalette[3]);
+    CHECK(study.outputs[0].color == terminal::kStudyPalette[3]);
+    CHECK(study.outputs[0].line == terminal::StudyLineStyle::Dashed);
+    CHECK(study.outputs[1].color == terminal::kStudyPalette[0]);
+    CHECK(study.outputs[1].line == terminal::StudyLineStyle::Solid);
+    CHECK(study.outputs[2].color == terminal::kStudyPalette[1]);
+    CHECK(study.outputs[2].line == terminal::StudyLineStyle::Dotted);
+    REQUIRE(study.options.size() == 3);
+    CHECK(study.options[0] == 20);
+    CHECK(study.options[2] == 2);
+}
+
+TEST_CASE("chartbook rejects an unknown study line style")
+{
+    const char* text = R"({
+        "format": 1,
+        "name": "lines",
+        "focused_pane": 1,
+        "next_pane_id": 2,
+        "data": {},
+        "layout": {"windows": ["pane:1"], "selected": "pane:1"},
+        "panes": [{
+            "id": 1,
+            "settings": {
+                "symbol": "", "period": "1m", "bar_type": "candlestick",
+                "limit_mode": "session_count", "intraday_session_count": 14,
+                "historical_session_count": 1260, "scale_range": "automatic",
+                "constant_range": 0, "user_top": 0, "user_bottom": 0,
+                "bar_spacing_px": 8, "bar_width_frac": 0.6, "scale_padding_pct": 4
+            },
+            "interactive_scale": "move",
+            "next_study_id": 2,
+            "studies": [{
+                "id": 1, "kind": "moving_average", "enabled": true, "color": 1,
+                "chart_region": 1, "source": "close", "length": 10, "method": "simple",
+                "outputs": [{"key": "average", "color": 1, "line": "wavy"}]
+            }]
+        }]
+    })";
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(text);
+    CHECK_FALSE(loaded.ok);
+    CHECK(loaded.document.panes.empty());
+}
+
+TEST_CASE("legacy volume color keeps the candle up and down colors")
+{
+    const char* text = R"({
+        "format": 1,
+        "name": "volume",
+        "focused_pane": 1,
+        "next_pane_id": 2,
+        "data": {},
+        "layout": {"windows": ["pane:1"], "selected": "pane:1"},
+        "panes": [{
+            "id": 1,
+            "settings": {
+                "symbol": "", "period": "1m", "bar_type": "candlestick",
+                "limit_mode": "session_count", "intraday_session_count": 14,
+                "historical_session_count": 1260, "scale_range": "automatic",
+                "constant_range": 0, "user_top": 0, "user_bottom": 0,
+                "bar_spacing_px": 8, "bar_width_frac": 0.6, "scale_padding_pct": 4
+            },
+            "interactive_scale": "move",
+            "next_study_id": 2,
+            "studies": [{
+                "id": 1, "kind": "volume", "enabled": true, "color": 1,
+                "chart_region": 2,
+                "outputs": [{"key": "volume", "color": 1}]
+            }]
+        }]
+    })";
+    const terminal::ChartbookLoadResult legacy = terminal::chartbookFromJson(text);
+    REQUIRE(legacy.ok);
+    REQUIRE(legacy.document.panes[0].studies.size() == 1);
+    const terminal::CStudyInstance& volume = legacy.document.panes[0].studies[0];
+    REQUIRE(volume.outputs.size() == 2);
+    CHECK(volume.outputs[0].color == terminal::kStudyPalette[2]);
+    CHECK(volume.outputs[1].color == terminal::kStudyPalette[3]);
+    CHECK(volume.color == terminal::kStudyPalette[2]);
+
+    const char* bare = R"({
+        "format": 1,
+        "name": "volume",
+        "focused_pane": 1,
+        "next_pane_id": 2,
+        "data": {},
+        "layout": {"windows": ["pane:1"], "selected": "pane:1"},
+        "panes": [{
+            "id": 1,
+            "settings": {
+                "symbol": "", "period": "1m", "bar_type": "candlestick",
+                "limit_mode": "session_count", "intraday_session_count": 14,
+                "historical_session_count": 1260, "scale_range": "automatic",
+                "constant_range": 0, "user_top": 0, "user_bottom": 0,
+                "bar_spacing_px": 8, "bar_width_frac": 0.6, "scale_padding_pct": 4
+            },
+            "interactive_scale": "move",
+            "next_study_id": 2,
+            "studies": [{
+                "id": 1, "kind": "volume", "enabled": true, "color": 1, "chart_region": 2
+            }]
+        }]
+    })";
+    const terminal::ChartbookLoadResult older = terminal::chartbookFromJson(bare);
+    REQUIRE(older.ok);
+    REQUIRE(older.document.panes[0].studies[0].outputs.size() == 2);
+    CHECK(older.document.panes[0].studies[0].outputs[0].color == terminal::kStudyPalette[2]);
+    CHECK(older.document.panes[0].studies[0].outputs[1].color == terminal::kStudyPalette[3]);
 }
 
 TEST_CASE("chartbook names stay inside the chartbooks directory")

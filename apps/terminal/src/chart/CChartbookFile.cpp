@@ -4,6 +4,8 @@
 #include "chart/CChartbookFile.h"
 
 #include "RepoRoot.h"
+#include "chart/CStudyCompute.h"
+#include "chart/studies/StudyRegistry.h"
 
 #include <nlohmann/json.hpp>
 
@@ -219,100 +221,6 @@ using nlohmann::json;
     return false;
 }
 
-[[nodiscard]] const char* studyKindName(StudyKind kind) noexcept
-{
-    switch (kind)
-    {
-    case StudyKind::MovingAverage:
-        return "moving_average";
-    case StudyKind::Volume:
-        return "volume";
-    }
-    return "moving_average";
-}
-
-[[nodiscard]] const char* sourceName(StudySource source) noexcept
-{
-    switch (source)
-    {
-    case StudySource::Open:
-        return "open";
-    case StudySource::High:
-        return "high";
-    case StudySource::Low:
-        return "low";
-    case StudySource::Close:
-        return "close";
-    case StudySource::Volume:
-        return "volume";
-    }
-    return "close";
-}
-
-[[nodiscard]] bool parseSource(std::string_view text, StudySource& source)
-{
-    if (text == "open")
-    {
-        source = StudySource::Open;
-        return true;
-    }
-    if (text == "high")
-    {
-        source = StudySource::High;
-        return true;
-    }
-    if (text == "low")
-    {
-        source = StudySource::Low;
-        return true;
-    }
-    if (text == "close")
-    {
-        source = StudySource::Close;
-        return true;
-    }
-    if (text == "volume")
-    {
-        source = StudySource::Volume;
-        return true;
-    }
-    return false;
-}
-
-[[nodiscard]] const char* methodName(MovingAverageMethod method) noexcept
-{
-    switch (method)
-    {
-    case MovingAverageMethod::Simple:
-        return "simple";
-    case MovingAverageMethod::Exponential:
-        return "exponential";
-    case MovingAverageMethod::Weighted:
-        return "weighted";
-    }
-    return "simple";
-}
-
-[[nodiscard]] bool parseMethod(std::string_view text, MovingAverageMethod& method)
-{
-    if (text == "simple")
-    {
-        method = MovingAverageMethod::Simple;
-        return true;
-    }
-    if (text == "exponential")
-    {
-        method = MovingAverageMethod::Exponential;
-        return true;
-    }
-    if (text == "weighted")
-    {
-        method = MovingAverageMethod::Weighted;
-        return true;
-    }
-    return false;
-}
-
 [[nodiscard]] bool fail(std::string& error, std::string message)
 {
     error = std::move(message);
@@ -369,34 +277,24 @@ using nlohmann::json;
     return true;
 }
 
-[[nodiscard]] bool readColor(const json& object, std::uint32_t& out, std::string& error)
+[[nodiscard]] bool readNamedColor(const json& object, const char* key, std::uint32_t& out, std::string& error)
 {
-    if (!object.contains("color") || !object.at("color").is_number_unsigned())
+    if (!object.contains(key) || !object.at(key).is_number_unsigned())
     {
-        return fail(error, "color is missing");
+        return fail(error, std::string(key) + " is missing");
     }
-    const auto raw = object.at("color").get<std::uint64_t>();
+    const auto raw = object.at(key).get<std::uint64_t>();
     if (raw > 0xFFFFFFFFu)
     {
-        return fail(error, "color is out of range");
+        return fail(error, std::string(key) + " is out of range");
     }
     out = static_cast<std::uint32_t>(raw);
     return true;
 }
 
-[[nodiscard]] bool knownStudyKind(std::string_view text, StudyKind& kind)
+[[nodiscard]] bool readColor(const json& object, std::uint32_t& out, std::string& error)
 {
-    if (text == "moving_average")
-    {
-        kind = StudyKind::MovingAverage;
-        return true;
-    }
-    if (text == "volume")
-    {
-        kind = StudyKind::Volume;
-        return true;
-    }
-    return false;
+    return readNamedColor(object, "color", out, error);
 }
 
 [[nodiscard]] json settingsToJson(const CChartSettings& settings)
@@ -485,22 +383,188 @@ using nlohmann::json;
     return true;
 }
 
+void writeStudyOptions(json& object, const CStudyInstance& study, const StudyType& type)
+{
+    for (std::size_t index = 0; index < type.options.size(); ++index)
+    {
+        const StudyOption& option = type.options[index];
+        int value = option.fallback;
+        if (index < study.options.size())
+        {
+            value = study.options[index];
+        }
+        if (option.choices.empty())
+        {
+            object[option.key] = value;
+            continue;
+        }
+        const auto count = static_cast<int>(option.choices.size());
+        if (value < 0 || value >= count)
+        {
+            value = option.fallback;
+        }
+        if (value < 0 || value >= count)
+        {
+            value = 0;
+        }
+        object[option.key] = option.choices[static_cast<std::size_t>(value)].token;
+    }
+}
+
+[[nodiscard]] bool readStudyOptions(const json& object,
+                                    const StudyType& type,
+                                    CStudyInstance& study,
+                                    std::string& error)
+{
+    study.options.assign(type.options.size(), 0);
+    for (std::size_t index = 0; index < type.options.size(); ++index)
+    {
+        const StudyOption& option = type.options[index];
+        if (option.choices.empty())
+        {
+            if (!readInt(object, option.key, study.options[index], error))
+            {
+                return false;
+            }
+            continue;
+        }
+        std::string text;
+        if (!readString(object, option.key, text, error))
+        {
+            return false;
+        }
+        const auto found = std::ranges::find_if(option.choices, [&](const StudyChoice& choice) {
+            return text == choice.token;
+        });
+        if (found == option.choices.end())
+        {
+            return fail(error, std::string("unknown ") + option.key);
+        }
+        study.options[index] = static_cast<int>(found - option.choices.begin());
+    }
+    return true;
+}
+
+void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyType& type)
+{
+    if (type.outputs.empty())
+    {
+        return;
+    }
+    json rows = json::array();
+    const bool lines = type.graph == StudyGraph::Line;
+    for (std::size_t index = 0; index < type.outputs.size(); ++index)
+    {
+        const StudyOutput& output = type.outputs[index];
+        const bool have = index < study.outputs.size();
+        const std::uint32_t color = have ? study.outputs[index].color : study.color;
+        const StudyLineStyle line = have ? study.outputs[index].line : StudyLineStyle::Solid;
+        json row = json::object();
+        row["key"] = output.key != nullptr ? output.key : "";
+        row["color"] = color;
+        if (lines)
+        {
+            row["line"] = studyLineStyleToken(line);
+        }
+        rows.push_back(std::move(row));
+    }
+    object["outputs"] = std::move(rows);
+}
+
+[[nodiscard]] bool readStudyOutputs(const json& object,
+                                    const StudyType& type,
+                                    CStudyInstance& study,
+                                    std::string& error)
+{
+    study.outputs.assign(type.outputs.size(),
+                         CStudyOutputStyle{.color = study.color, .line = StudyLineStyle::Solid});
+    if (!object.contains("outputs"))
+    {
+        if (type.color_by_bar)
+        {
+            assignStudyOutputDefaults(study, 0);
+        }
+        else if (!study.outputs.empty())
+        {
+            study.color = study.outputs.front().color;
+        }
+        return true;
+    }
+    const json& rows = object.at("outputs");
+    if (!rows.is_array())
+    {
+        return fail(error, "outputs is not an array");
+    }
+    bool saw_output = false;
+    for (const json& row : rows)
+    {
+        if (!row.is_object())
+        {
+            return fail(error, "output is not an object");
+        }
+        std::string key;
+        if (!readString(row, "key", key, error))
+        {
+            return false;
+        }
+        // Older volume studies stored one label color under "volume". Bars did not use it.
+        if (type.color_by_bar && key == "volume")
+        {
+            continue;
+        }
+        const auto found = std::ranges::find_if(type.outputs, [&](const StudyOutput& output) {
+            return output.key != nullptr && key == output.key;
+        });
+        if (found == type.outputs.end())
+        {
+            return fail(error, "unknown output");
+        }
+        saw_output = true;
+        const auto index = static_cast<std::size_t>(found - type.outputs.begin());
+        if (!readNamedColor(row, "color", study.outputs[index].color, error))
+        {
+            return false;
+        }
+        if (!row.contains("line"))
+        {
+            continue;
+        }
+        std::string line;
+        if (!readString(row, "line", line, error))
+        {
+            return false;
+        }
+        StudyLineStyle style = StudyLineStyle::Solid;
+        if (!parseStudyLineStyle(line, style))
+        {
+            return fail(error, "unknown line");
+        }
+        study.outputs[index].line = style;
+    }
+    if (type.color_by_bar && !saw_output)
+    {
+        assignStudyOutputDefaults(study, 0);
+        return true;
+    }
+    if (!study.outputs.empty())
+    {
+        study.color = study.outputs.front().color;
+    }
+    return true;
+}
+
 [[nodiscard]] json studyToJson(const CStudyInstance& study)
 {
     json object = json::object();
     object["id"] = study.id;
-    object["kind"] = studyKindName(study.kind);
+    object["kind"] = study.type_id;
     object["enabled"] = study.enabled;
-    object["color"] = study.color;
+    object["color"] = studyPrimaryColor(study);
     object["chart_region"] = study.chart_region;
-    if (study.kind == StudyKind::MovingAverage)
+    if (const StudyType* type = findStudy(study.type_id))
     {
-        const auto* params = std::get_if<MovingAverageParams>(&study.params);
-        const MovingAverageParams fallback{};
-        const MovingAverageParams& moving = params != nullptr ? *params : fallback;
-        object["source"] = sourceName(moving.source);
-        object["length"] = moving.length;
-        object["method"] = methodName(moving.method);
+        writeStudyOptions(object, study, *type);
+        writeStudyOutputs(object, study, *type);
     }
     return object;
 }
@@ -518,38 +582,21 @@ using nlohmann::json;
     {
         return false;
     }
-    if (!knownStudyKind(kind_text, study.kind))
+    const StudyType* type = findStudy(kind_text);
+    if (type == nullptr)
     {
         skip = true;
         return true;
     }
+    study.type_id = kind_text;
     if (!readInt(*object, "id", study.id, error) || !readBool(*object, "enabled", study.enabled, error) ||
         !readColor(*object, study.color, error) ||
         !readInt(*object, "chart_region", study.chart_region, error))
     {
         return false;
     }
-    if (study.kind == StudyKind::Volume)
-    {
-        study.params = VolumeParams{};
-        return true;
-    }
-    MovingAverageParams moving;
-    std::string text;
-    if (!readString(*object, "source", text, error) || !parseSource(text, moving.source))
-    {
-        return fail(error, "unknown moving average source");
-    }
-    if (!readInt(*object, "length", moving.length, error))
-    {
-        return false;
-    }
-    if (!readString(*object, "method", text, error) || !parseMethod(text, moving.method))
-    {
-        return fail(error, "unknown moving average method");
-    }
-    study.params = moving;
-    return true;
+    return readStudyOptions(*object, *type, study, error) &&
+           readStudyOutputs(*object, *type, study, error);
 }
 
 [[nodiscard]] json paneToJson(const ChartbookPane& pane)
@@ -796,6 +843,122 @@ using nlohmann::json;
     return true;
 }
 
+[[nodiscard]] bool validOptionExpiration(int expiration)
+{
+    if (expiration == 0)
+    {
+        return true;
+    }
+    if (expiration < 19000101 || expiration > 21001231)
+    {
+        return false;
+    }
+    const int month = (expiration / 100) % 100;
+    const int day = expiration % 100;
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+[[nodiscard]] bool readOptionsFields(const json& object, ChartbookOptions& panel, std::string& error)
+{
+    if (object.contains("symbol") && !readString(object, "symbol", panel.symbol, error))
+    {
+        return false;
+    }
+    if (object.contains("expiration") && !readInt(object, "expiration", panel.expiration, error))
+    {
+        return false;
+    }
+    if (!validOptionExpiration(panel.expiration))
+    {
+        return fail(error, "option expiration is invalid");
+    }
+    if (object.contains("expiration_type") &&
+        !readString(object, "expiration_type", panel.expiration_type, error))
+    {
+        return false;
+    }
+    if (panel.expiration == 0)
+    {
+        if (!panel.expiration_type.empty())
+        {
+            return fail(error, "option expiration type needs a date");
+        }
+        return true;
+    }
+    if (panel.expiration_type != "weekly" && panel.expiration_type != "monthly")
+    {
+        return fail(error, "unknown option expiration type");
+    }
+    return true;
+}
+
+[[nodiscard]] bool acceptOptionsId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "options id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.options, [id](const ChartbookOptions& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_options_id <= id)
+    {
+        return fail(error, "options id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json optionsToJson(const std::vector<ChartbookOptions>& options)
+{
+    json array = json::array();
+    for (const ChartbookOptions& panel : options)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["symbol"] = panel.symbol;
+        object["expiration"] = panel.expiration;
+        object["expiration_type"] = panel.expiration_type;
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool optionsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                   std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "options is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_options_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "options", item, error))
+        {
+            return false;
+        }
+        ChartbookOptions panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "options id is missing");
+        }
+        if (!readOptionsFields(*item, panel, error))
+        {
+            return false;
+        }
+        if (!acceptOptionsId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.options.push_back(std::move(panel));
+    }
+    return true;
+}
+
 [[nodiscard]] bool dataFromJson(const json& value, ChartbookData& data, std::string& error)
 {
     const json* object = nullptr;
@@ -916,7 +1079,9 @@ using nlohmann::json;
 [[nodiscard]] bool parseWindowToken(std::string_view window, std::string& error)
 {
     int financials_id = 0;
-    if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id))
+    int options_id = 0;
+    if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
+        optionsIdFromWindow(window, options_id))
     {
         return true;
     }
@@ -1268,6 +1433,21 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing financials panel");
         }
     }
+    for (const std::string& window : windows)
+    {
+        int options_id = 0;
+        if (!optionsIdFromWindow(window, options_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.options, [&](const ChartbookOptions& panel) {
+            return panel.id == options_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing options panel");
+        }
+    }
     return true;
 }
 
@@ -1360,8 +1540,11 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_pane_id"] = document.next_pane_id;
     root["focused_financials"] = document.focused_financials;
     root["next_financials_id"] = document.next_financials_id;
+    root["focused_options"] = document.focused_options;
+    root["next_options_id"] = document.next_options_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
+    root["options"] = optionsToJson(document.options);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -1516,6 +1699,40 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
     {
         result.document = {};
         return result;
+    }
+    bool next_options_present = false;
+    if (object->contains("next_options_id"))
+    {
+        next_options_present = true;
+        if (!readInt(*object, "next_options_id", result.document.next_options_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_options") &&
+        !readInt(*object, "focused_options", result.document.focused_options, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("options") &&
+        !optionsFromJson(object->at("options"), result.document, next_options_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_options != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.options, [&](const ChartbookOptions& panel) {
+            return panel.id == result.document.focused_options;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused options is missing";
+            result.document = {};
+            return result;
+        }
     }
     if (result.document.focused_financials != 0)
     {

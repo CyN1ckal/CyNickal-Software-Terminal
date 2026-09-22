@@ -392,15 +392,16 @@ void drawCrosshair(std::span<const Bar> bars,
         {
             continue;
         }
-        if (series.kind == StudyKind::Volume)
+        const std::uint32_t tint = studyHistogramColor(series, bar.close >= bar.open);
+        if (series.value_decimals <= 0)
         {
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(series.color), "%s  %.0f",
-                               series.label.c_str(), value);
+            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(tint), "%s  %.0f", series.label.c_str(),
+                               value);
         }
         else
         {
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(series.color), "%s  %.4f",
-                               series.label.c_str(), value);
+            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(tint), "%s  %.4f", series.label.c_str(),
+                               value);
         }
     }
     ImGui::EndTooltip();

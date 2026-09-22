@@ -3,8 +3,6 @@
 
 #include "chart/CStudyPlot.h"
 
-#include "ui/Theme.h"
-
 #include "imgui.h"
 #include "implot.h"
 
@@ -13,6 +11,87 @@
 #include <cstddef>
 
 namespace terminal {
+namespace {
+
+constexpr float kStudyLineThickness = 1.5f;
+
+struct DashPattern
+{
+    float dash{1.0f};
+    float gap{1.0f};
+};
+
+[[nodiscard]] DashPattern dashPattern(StudyLineStyle style) noexcept
+{
+    if (style == StudyLineStyle::Dotted)
+    {
+        // About one stroke wide, then a gap, so the marks read as dots.
+        return {.dash = 1.75f, .gap = 3.5f};
+    }
+    return {.dash = 9.0f, .gap = 5.0f};
+}
+
+// phase is pixels into the dash pattern. It carries across bars so a short
+// segment does not restart on a dash and paint a solid line.
+void strokeStudyLine(ImDrawList* draw,
+                     ImVec2 from,
+                     ImVec2 to,
+                     ImU32 color,
+                     StudyLineStyle style,
+                     float& phase)
+{
+    if (style == StudyLineStyle::Solid)
+    {
+        draw->AddLine(from, to, color, kStudyLineThickness);
+        return;
+    }
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    const float length = std::hypot(dx, dy);
+    if (!(length > 0.0f))
+    {
+        return;
+    }
+    const DashPattern pattern = dashPattern(style);
+    const float period = pattern.dash + pattern.gap;
+    if (!(period > 0.0f))
+    {
+        draw->AddLine(from, to, color, kStudyLineThickness);
+        return;
+    }
+    const float ux = dx / length;
+    const float uy = dy / length;
+    float traveled = 0.0f;
+    while (traveled < length)
+    {
+        if (!(phase >= 0.0f) || phase >= period)
+        {
+            phase = 0.0f;
+        }
+        const bool ink = phase < pattern.dash;
+        const float room = ink ? pattern.dash - phase : period - phase;
+        const float step = std::min(room, length - traveled);
+        if (!(step > 0.0f))
+        {
+            break;
+        }
+        if (ink)
+        {
+            const float end_d = traveled + step;
+            draw->AddLine(ImVec2(from.x + (ux * traveled), from.y + (uy * traveled)),
+                          ImVec2(from.x + (ux * end_d), from.y + (uy * end_d)), color,
+                          kStudyLineThickness);
+        }
+        traveled += step;
+        phase += step;
+        if (phase >= period)
+        {
+            phase -= period;
+        }
+    }
+}
+
+}  // namespace
 
 void drawStudyRegion(std::span<const CStudySeries> studies,
                      int chart_region,
@@ -43,7 +122,7 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
     ImPlot::PushPlotClipRect();
     for (const CStudySeries& series : studies)
     {
-        if (series.kind != StudyKind::Volume || clampStudyChartRegion(series.chart_region) != region ||
+        if (!series.histogram || clampStudyChartRegion(series.chart_region) != region ||
             series.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;
@@ -57,10 +136,10 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
                 continue;
             }
             ImU32 color = series.color;
-            if (have_bars)
+            if (series.color_by_bar && have_bars)
             {
                 const Bar& bar = bars[index];
-                color = ImGui::ColorConvertFloat4ToU32(bar.close >= bar.open ? Theme::kUp : Theme::kDown);
+                color = studyHistogramColor(series, bar.close >= bar.open);
             }
             if (stems_only)
             {
@@ -84,12 +163,13 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
     }
     for (const CStudySeries& series : studies)
     {
-        if (series.kind == StudyKind::Volume || clampStudyChartRegion(series.chart_region) != region ||
+        if (series.histogram || clampStudyChartRegion(series.chart_region) != region ||
             series.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;
         }
         bool have_point = false;
+        float phase = 0.0f;
         ImVec2 previous{};
         for (int i = draw_first; i <= draw_last; ++i)
         {
@@ -97,12 +177,13 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
             if (!std::isfinite(y))
             {
                 have_point = false;
+                phase = 0.0f;
                 continue;
             }
             const ImVec2 point = ImPlot::PlotToPixels(static_cast<double>(i), y, ImAxis_X1, ImAxis_Y1);
             if (have_point)
             {
-                draw_list->AddLine(previous, point, series.color, 1.5f);
+                strokeStudyLine(draw_list, previous, point, series.color, series.line, phase);
             }
             previous = point;
             have_point = true;

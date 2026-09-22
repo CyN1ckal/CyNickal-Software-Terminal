@@ -4,46 +4,29 @@
 #include "chart/CStudySettings.h"
 
 #include "chart/CStudyCompute.h"
+#include "chart/studies/StudyRegistry.h"
 #include "ui/Theme.h"
 
 #include "imgui.h"
 
 #include <algorithm>
-#include <array>
 #include <cfloat>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace terminal {
 namespace {
 
 constexpr float kStudyListFraction = 0.38f;
 
-[[nodiscard]] const char* sourceLabel(StudySource source) noexcept
+[[nodiscard]] const char* studyTypeName(const CStudyInstance& inst) noexcept
 {
-    switch (source)
+    if (const StudyType* type = findStudy(inst.type_id))
     {
-    case StudySource::Open:
-        return "Open";
-    case StudySource::High:
-        return "High";
-    case StudySource::Low:
-        return "Low";
-    case StudySource::Close:
-        return "Close";
-    case StudySource::Volume:
-        return "Volume";
-    }
-    return "Close";
-}
-
-[[nodiscard]] const char* studyTypeName(StudyKind kind) noexcept
-{
-    if (const StudyTypeInfo* info = findStudyType(kind))
-    {
-        return info->display_name;
+        return type->display_name;
     }
     return "Study";
 }
@@ -93,64 +76,64 @@ void drawPropertyLabel(const char* label)
     ImGui::TableNextColumn();
 }
 
-[[nodiscard]] bool drawMovingAverageFields(CStudyInstance& inst, MovingAverageParams& params)
+[[nodiscard]] bool drawStudyOptions(CStudyInstance& inst, const StudyType& type)
 {
-    drawPropertyLabel("Input Data");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    char source_id[64];
-    std::snprintf(source_id, sizeof(source_id), "##study_source_%d", inst.id);
-    if (ImGui::BeginCombo(source_id, sourceLabel(params.source)))
+    bool submitted = false;
+    if (inst.options.size() != type.options.size())
     {
-        if (ImGui::Selectable("Close", params.source == StudySource::Close))
+        return false;
+    }
+    for (std::size_t index = 0; index < type.options.size(); ++index)
+    {
+        const StudyOption& option = type.options[index];
+        if (!option.shown)
         {
-            params.source = StudySource::Close;
+            continue;
         }
-        if (ImGui::Selectable("Open", params.source == StudySource::Open))
+        int& value = inst.options[index];
+        drawPropertyLabel(option.label);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        char field_id[96];
+        std::snprintf(field_id, sizeof(field_id), "##study_%d_%s", inst.id, option.key);
+        if (option.choices.empty())
         {
-            params.source = StudySource::Open;
+            // step 0: InputScalar's +/- buttons also return true when EnterReturnsTrue is set.
+            // Live-edit writes each keystroke. The study list is drawn before this widget, so
+            // a deactivate-only write would drop the value when the selection changes.
+            ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
+            const bool entered =
+                ImGui::InputInt(field_id, &value, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::PopItemFlag();
+            submitted = submitted || entered;
+            continue;
         }
-        if (ImGui::Selectable("High", params.source == StudySource::High))
+        const auto count = static_cast<int>(option.choices.size());
+        const char* preview = "";
+        if (value >= 0 && value < count)
         {
-            params.source = StudySource::High;
+            preview = option.choices[static_cast<std::size_t>(value)].label;
         }
-        if (ImGui::Selectable("Low", params.source == StudySource::Low))
+        if (!ImGui::BeginCombo(field_id, preview))
         {
-            params.source = StudySource::Low;
+            continue;
         }
-        if (ImGui::Selectable("Volume", params.source == StudySource::Volume))
+        for (int choice = 0; choice < count; ++choice)
         {
-            params.source = StudySource::Volume;
-            // Volume shares a scale with the volume pane. Leave a region the user already chose.
-            if (inst.chart_region == kStudyMainChartRegion)
+            const StudyChoice& item = option.choices[static_cast<std::size_t>(choice)];
+            ImGui::PushID(choice);
+            if (ImGui::Selectable(item.label, value == choice))
             {
-                inst.chart_region = kStudyVolumeChartRegion;
+                value = choice;
+                if (item.leave_price_scale && inst.chart_region == kStudyMainChartRegion)
+                {
+                    inst.chart_region = kStudyVolumeChartRegion;
+                }
             }
+            ImGui::PopID();
         }
         ImGui::EndCombo();
     }
-
-    drawPropertyLabel("Length");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    char len_id[64];
-    std::snprintf(len_id, sizeof(len_id), "##study_len_%d", inst.id);
-    // step 0: InputScalar's +/- buttons also return true when EnterReturnsTrue is set.
-    // Live-edit writes each keystroke. The study list is drawn before this widget, so
-    // a deactivate-only write would drop the length when the selection changes.
-    ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
-    const bool length_enter =
-        ImGui::InputInt(len_id, &params.length, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::PopItemFlag();
-
-    drawPropertyLabel("Method");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    char method_id[64];
-    std::snprintf(method_id, sizeof(method_id), "##study_method_%d", inst.id);
-    if (ImGui::BeginCombo(method_id, "Simple"))
-    {
-        ImGui::Selectable("Simple", true);
-        ImGui::EndCombo();
-    }
-    return length_enter;
+    return submitted;
 }
 
 void drawChartRegionField(CStudyInstance& inst)
@@ -191,64 +174,144 @@ void drawChartRegionField(CStudyInstance& inst)
     }
 }
 
-void drawColorField(CStudyInstance& inst)
+void drawOutputColorField(CStudyInstance& inst, std::size_t index, const char* label)
 {
-    drawPropertyLabel("Color");
-    const ImVec4 current = ImGui::ColorConvertU32ToFloat4(inst.color);
+    drawPropertyLabel(label);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    CStudyOutputStyle& style = inst.outputs[index];
+    const ImVec4 current = ImGui::ColorConvertU32ToFloat4(style.color);
     float rgba[4] = {current.x, current.y, current.z, current.w};
-    char color_id[64];
-    std::snprintf(color_id, sizeof(color_id), "Color##study_color_%d", inst.id);
+    char color_id[96];
+    std::snprintf(color_id, sizeof(color_id), "Color##study_color_%d_%d", inst.id,
+                  static_cast<int>(index));
     if (ImGui::ColorEdit4(color_id, rgba,
                           ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
                               ImGuiColorEditFlags_AlphaBar))
     {
         const ImVec4 edited(rgba[0], rgba[1], rgba[2], rgba[3]);
-        inst.color = ImGui::ColorConvertFloat4ToU32(edited);
+        style.color = ImGui::ColorConvertFloat4ToU32(edited);
+        if (index == 0)
+        {
+            inst.color = style.color;
+        }
     }
+}
+
+void drawLineStyleField(CStudyInstance& inst, std::size_t index)
+{
+    drawPropertyLabel("Line Style");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    CStudyOutputStyle& style = inst.outputs[index];
+    char field_id[96];
+    std::snprintf(field_id, sizeof(field_id), "##study_line_%d_%d", inst.id, static_cast<int>(index));
+    if (!ImGui::BeginCombo(field_id, studyLineStyleLabel(style.line)))
+    {
+        return;
+    }
+    constexpr StudyLineStyle kStyles[] = {
+        StudyLineStyle::Solid,
+        StudyLineStyle::Dotted,
+        StudyLineStyle::Dashed,
+    };
+    for (const StudyLineStyle choice : kStyles)
+    {
+        ImGui::PushID(static_cast<int>(choice));
+        if (ImGui::Selectable(studyLineStyleLabel(choice), style.line == choice))
+        {
+            style.line = choice;
+        }
+        ImGui::PopID();
+    }
+    ImGui::EndCombo();
+}
+
+void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
+{
+    if (type.outputs.empty())
+    {
+        drawPropertyLabel("Color");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        const ImVec4 current = ImGui::ColorConvertU32ToFloat4(inst.color);
+        float rgba[4] = {current.x, current.y, current.z, current.w};
+        char color_id[64];
+        std::snprintf(color_id, sizeof(color_id), "Color##study_color_%d", inst.id);
+        if (ImGui::ColorEdit4(color_id, rgba,
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
+                                  ImGuiColorEditFlags_AlphaBar))
+        {
+            const ImVec4 edited(rgba[0], rgba[1], rgba[2], rgba[3]);
+            inst.color = ImGui::ColorConvertFloat4ToU32(edited);
+        }
+        return;
+    }
+    normalizeStudyOutputs(inst);
+    const bool many = type.outputs.size() > 1;
+    const bool lines = type.graph == StudyGraph::Line;
+    for (std::size_t index = 0; index < type.outputs.size(); ++index)
+    {
+        const char* label = "Color";
+        if (many && type.outputs[index].label != nullptr && type.outputs[index].label[0] != '\0')
+        {
+            label = type.outputs[index].label;
+        }
+        drawOutputColorField(inst, index, label);
+        if (lines)
+        {
+            drawLineStyleField(inst, index);
+        }
+    }
+}
+
+[[nodiscard]] float studyPropertyLabelWidth(const StudyType& type)
+{
+    float width = ImGui::CalcTextSize("Chart Region").x;
+    width = std::max(width, ImGui::CalcTextSize("Line Style").x);
+    if (type.outputs.size() > 1)
+    {
+        for (const StudyOutput& output : type.outputs)
+        {
+            if (output.label != nullptr)
+            {
+                width = std::max(width, ImGui::CalcTextSize(output.label).x);
+            }
+        }
+    }
+    return width + ImGui::GetStyle().FramePadding.x;
 }
 
 [[nodiscard]] bool drawStudyProperties(CStudyInstance& inst)
 {
-    bool length_enter = false;
-    if (inst.kind == StudyKind::Volume)
+    const StudyType* type = findStudy(inst.type_id);
+    if (type == nullptr)
     {
-        drawMutedWrapped(
-            "Volume of each chart bar. Bars use the candle colors. Color sets the label.");
+        drawMutedWrapped("This study is not available.");
+        return false;
+    }
+    if (type->note != nullptr)
+    {
+        drawMutedWrapped(type->note);
         ImGui::Spacing();
     }
 
-    const float label_w =
-        ImGui::CalcTextSize("Chart Region").x + ImGui::GetStyle().FramePadding.x;
+    bool length_enter = false;
+    const float label_w = studyPropertyLabelWidth(*type);
     const ImGuiTableFlags table_flags = ImGuiTableFlags_SizingStretchProp |
                                         ImGuiTableFlags_PadOuterX | ImGuiTableFlags_NoSavedSettings;
     if (ImGui::BeginTable("##study_props", 2, table_flags))
     {
         ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, label_w);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-        if (inst.kind == StudyKind::MovingAverage)
-        {
-            if (auto* params = std::get_if<MovingAverageParams>(&inst.params))
-            {
-                length_enter = drawMovingAverageFields(inst, *params);
-            }
-        }
+        length_enter = drawStudyOptions(inst, *type);
         drawChartRegionField(inst);
-        drawColorField(inst);
+        drawOutputStyleFields(inst, *type);
         ImGui::EndTable();
     }
 
-    if (inst.kind == StudyKind::MovingAverage)
-    {
-        drawMutedWrapped("v1: simple moving average");
-    }
     drawMutedWrapped("Region 1 is the main price graph. Regions 2-12 are panes below it.");
     return length_enter;
 }
 
-void appendStudy(std::vector<CStudyInstance>& draft,
-                 int& selected,
-                 int& next_id,
-                 const StudyTypeInfo& info)
+void appendStudy(std::vector<CStudyInstance>& draft, int& selected, int& next_id, const StudyType& type)
 {
     if (static_cast<int>(draft.size()) >= kStudyMaxPerPane)
     {
@@ -256,12 +319,15 @@ void appendStudy(std::vector<CStudyInstance>& draft,
     }
     CStudyInstance inst;
     inst.id = next_id++;
-    inst.kind = info.kind;
-    inst.chart_region = info.default_chart_region;
-    inst.params = defaultParams(info.kind);
-    inst.color = info.kind == StudyKind::Volume ? kStudyPalette[2]
-                                                : studyPaletteColor(static_cast<int>(draft.size()));
-    draft.push_back(inst);
+    inst.type_id = type.id != nullptr ? type.id : "";
+    inst.chart_region = type.default_chart_region;
+    inst.options.resize(type.options.size());
+    for (std::size_t index = 0; index < type.options.size(); ++index)
+    {
+        inst.options[index] = type.options[index].fallback;
+    }
+    assignStudyOutputDefaults(inst, static_cast<int>(draft.size()));
+    draft.push_back(std::move(inst));
     selected = static_cast<int>(draft.size()) - 1;
 }
 
@@ -312,17 +378,24 @@ void drawStudyRow(CStudyInstance& inst, int index, int& selected)
         selected = index;
     }
     ImGui::SameLine();
-    const ImVec4 swatch = ImGui::ColorConvertU32ToFloat4(inst.color);
-    if (ImGui::ColorButton("##swatch", swatch,
-                           ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop |
-                               ImGuiColorEditFlags_NoPicker,
-                           ImVec2(row_h, row_h)))
+    const std::size_t swatch_count = inst.outputs.empty() ? 1 : inst.outputs.size();
+    for (std::size_t swatch = 0; swatch < swatch_count; ++swatch)
     {
-        selected = index;
+        const std::uint32_t packed =
+            swatch < inst.outputs.size() ? inst.outputs[swatch].color : inst.color;
+        ImGui::PushID(static_cast<int>(swatch));
+        if (ImGui::ColorButton("##swatch", ImGui::ColorConvertU32ToFloat4(packed),
+                               ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop |
+                                   ImGuiColorEditFlags_NoPicker,
+                               ImVec2(row_h, row_h)))
+        {
+            selected = index;
+        }
+        ImGui::PopID();
+        ImGui::SameLine();
     }
-    ImGui::SameLine();
 
-    const char* type_name = studyTypeName(inst.kind);
+    const char* type_name = studyTypeName(inst);
     const std::string short_label = studyShortLabel(inst);
     const ImVec2 hit_origin = ImGui::GetCursorScreenPos();
     const float remain = std::max(0.0f, ImGui::GetContentRegionAvail().x);
@@ -426,7 +499,7 @@ void drawStudyList(std::vector<CStudyInstance>& draft,
         {
             ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
         }
-        ImGui::TextUnformatted(studyTypeName(inst.kind));
+        ImGui::TextUnformatted(studyTypeName(inst));
         if (!inst.enabled)
         {
             ImGui::PopStyleColor();
@@ -435,7 +508,8 @@ void drawStudyList(std::vector<CStudyInstance>& draft,
         if (!short_label.empty())
         {
             ImGui::SameLine();
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(inst.color), "%s", short_label.c_str());
+            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)), "%s",
+                               short_label.c_str());
         }
         ImGui::Separator();
         ImGui::BeginChild("##study_fields", ImVec2(0.0f, 0.0f), ImGuiChildFlags_None);
@@ -464,14 +538,15 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
                       ImGuiStorage* state,
                       ImGuiID scroll_key)
 {
-    constexpr auto kTypeCount = static_cast<int>(std::size(kStudyTypes));
-    std::array<std::size_t, std::size(kStudyTypes)> order{};
+    const std::span<const StudyType* const> types = studyTypes();
+    const auto type_count = static_cast<int>(types.size());
+    std::vector<std::size_t> order(types.size());
     for (std::size_t i = 0; i < order.size(); ++i)
     {
         order[i] = i;
     }
-    std::ranges::stable_sort(order, [](std::size_t lhs, std::size_t rhs) {
-        return std::strcmp(kStudyTypes[lhs].display_name, kStudyTypes[rhs].display_name) < 0;
+    std::ranges::stable_sort(order, [&](std::size_t lhs, std::size_t rhs) {
+        return std::strcmp(types[lhs]->display_name, types[rhs]->display_name) < 0;
     });
 
     const float row_h = ImGui::GetFrameHeight();
@@ -488,7 +563,7 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
     ImGuiStorage* modal_state = ImGui::GetStateStorage();
     const ImGuiID pick_key = ImGui::GetID("##add_study_pick");
     int pick = modal_state->GetInt(pick_key, 0);
-    if (pick < 0 || pick >= kTypeCount)
+    if (pick < 0 || pick >= type_count)
     {
         pick = 0;
     }
@@ -498,9 +573,9 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
     bool commit = false;
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Theme::kBg0);
     ImGui::BeginChild("##add_study_list", ImVec2(0.0f, list_h), ImGuiChildFlags_Borders);
-    for (int row = 0; row < kTypeCount; ++row)
+    for (int row = 0; row < type_count; ++row)
     {
-        const StudyTypeInfo& info = kStudyTypes[order[static_cast<std::size_t>(row)]];
+        const StudyType& info = *types[order[static_cast<std::size_t>(row)]];
         ImGui::PushID(row);
         // Stay open on a single click so the row can be highlighted before Add.
         const ImGuiSelectableFlags flags =
@@ -519,7 +594,7 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
     ImGui::PopStyleColor();
     modal_state->SetInt(pick_key, pick);
 
-    const bool can_add = kTypeCount > 0 && !atCap(draft);
+    const bool can_add = type_count > 0 && !atCap(draft);
     ImGui::BeginDisabled(!can_add);
     ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
@@ -537,7 +612,7 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
                         ImGui::IsKeyPressed(ImGuiKey_Escape);
     if ((commit || add_clicked) && can_add)
     {
-        appendStudy(draft, selected, next_id, kStudyTypes[order[static_cast<std::size_t>(pick)]]);
+        appendStudy(draft, selected, next_id, *types[order[static_cast<std::size_t>(pick)]]);
         state->SetBool(scroll_key, true);
         ImGui::CloseCurrentPopup();
     }
@@ -620,6 +695,11 @@ StudyDraftUi drawStudyDraftBody(std::vector<CStudyInstance>& draft, int& selecte
     if (scroll_to_end)
     {
         state->SetBool(scroll_key, false);
+    }
+
+    for (CStudyInstance& inst : draft)
+    {
+        normalizeStudyOutputs(inst);
     }
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Theme::kBg0);
