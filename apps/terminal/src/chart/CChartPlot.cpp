@@ -19,11 +19,12 @@
 #include <exception>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace terminal {
 namespace {
 
-int formatXTick(double value, char* buf, int size, void* data)
+int formatXTick(double value, char* buf, int size, void* data) // NOLINT(misc-const-correctness)
 {
     const auto* bars = static_cast<const std::span<const Bar>*>(data);
     if (bars == nullptr || bars->empty() || buf == nullptr || size <= 0)
@@ -35,7 +36,7 @@ int formatXTick(double value, char* buf, int size, void* data)
     const UnixSeconds ts = (*bars)[static_cast<std::size_t>(idx)].ts;
     const auto t = static_cast<std::time_t>(ts);
     std::tm utc{};
-    if (gmtime_r(&t, &utc) == nullptr)
+    if (!tryUtcTm(t, utc))
     {
         buf[0] = '\0';
         return 0;
@@ -138,7 +139,7 @@ void handlePlotInput(std::span<const Bar> bars,
             const ChartVisibleWindow after =
                 computeVisibleWindow(static_cast<int>(bars.size()), view.last_plot_w,
                                      settings.bar_spacing_px, 0, kChartRightFillBars);
-            const double new_x_min = idx - rel * static_cast<double>(after.slot_count);
+            const double new_x_min = idx - (rel * static_cast<double>(after.slot_count));
             const double new_x_max = new_x_min + static_cast<double>(after.slot_count);
             view.scroll_from_end = static_cast<int>(std::lround(
                 static_cast<double>(static_cast<int>(bars.size()) - 1 + kChartRightFillBars) + 0.5 -
@@ -170,7 +171,7 @@ void handlePlotInput(std::span<const Bar> bars,
     {
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
-            settings.bar_spacing_px = std::clamp(settings.bar_spacing_px - io.MouseDelta.x * 0.05f,
+            settings.bar_spacing_px = std::clamp(settings.bar_spacing_px - (io.MouseDelta.x * 0.05f),
                                                  kChartMinBarSpacingPx, kChartMaxBarSpacingPx);
         }
         else
@@ -321,7 +322,7 @@ void drawCrosshair(std::span<const Bar> bars,
         return;
     }
 
-    const float sample_y = pos.y + size.y * 0.5f;
+    const float sample_y = pos.y + (size.y * 0.5f);
     const ImPlotPoint at = ImPlot::PixelsToPlot(mouse.x, sample_y, ImAxis_X1, ImAxis_Y1);
     int idx = static_cast<int>(std::lround(at.x));
     idx = std::clamp(idx, 0, static_cast<int>(bars.size()) - 1);
@@ -456,11 +457,8 @@ StudyRegionScale& studyRegionScale(CChartViewState& view, int chart_region)
 
 void ensureRegionRatios(CChartViewState& view, int regions)
 {
-    if (regions < 1)
-    {
-        regions = 1;
-    }
-    if (static_cast<int>(view.region_ratios.size()) == regions)
+    regions = std::max(regions, 1);
+    if (std::cmp_equal(view.region_ratios.size(), regions))
     {
         return;
     }

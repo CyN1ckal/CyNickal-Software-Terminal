@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <utility>
 
 namespace terminal {
 namespace {
@@ -111,7 +112,8 @@ void liftPopupsAboveFrame()
 {
     ImGuiContext& context = *ImGui::GetCurrentContext();
     constexpr int kMaxPopups = 32;
-    ImGuiWindow* popups[kMaxPopups] = {};
+    // BringWindowToDisplayFront takes a mutable window.
+    ImGuiWindow* popups[kMaxPopups] = {}; // NOLINT(misc-const-correctness)
     int count = 0;
     for (int i = 0; i < context.Windows.Size; ++i)
     {
@@ -178,15 +180,15 @@ void handleCaptionDrag(Window& window, ImVec2 drag_min, ImVec2 drag_max, ImGuiWi
 [[nodiscard]] float drawBrand(ImDrawList* draw_list, ImVec2 origin, float height, float scale, float buttons_left)
 {
     const float icon = std::min(kTitleIconSize * scale, std::max(8.0f, height - 8.0f));
-    const float icon_x = origin.x + kTitleIconPad * scale;
-    const float icon_y = origin.y + (height - icon) * 0.5f;
+    const float icon_x = origin.x + (kTitleIconPad * scale);
+    const float icon_y = origin.y + ((height - icon) * 0.5f);
     draw_list->AddRectFilled(ImVec2(icon_x, icon_y), ImVec2(icon_x + icon, icon_y + icon),
                              ImGui::GetColorU32(Theme::kAccent), 0.0f);
 
-    const float text_x = icon_x + icon + kTitleBrandGap * scale;
-    const float text_y = origin.y + (height - ImGui::GetTextLineHeight()) * 0.5f;
+    const float text_x = icon_x + icon + (kTitleBrandGap * scale);
+    const float text_y = origin.y + ((height - ImGui::GetTextLineHeight()) * 0.5f);
     const float text_w = ImGui::CalcTextSize(kWindowTitle).x;
-    const float clip_right = buttons_left - 8.0f * scale;
+    const float clip_right = buttons_left - (8.0f * scale);
     const float text_right = std::min(text_x + text_w, clip_right);
     if (text_right > text_x)
     {
@@ -194,7 +196,7 @@ void handleCaptionDrag(Window& window, ImVec2 drag_min, ImVec2 drag_max, ImGuiWi
         draw_list->AddText(ImVec2(text_x, text_y), ImGui::GetColorU32(Theme::kText), kWindowTitle);
         ImGui::PopClipRect();
     }
-    return text_right + kTitleMenuGap * scale;
+    return text_right + (kTitleMenuGap * scale);
 }
 
 void drawCaptionGlyph(ImDrawList* draw_list, CaptionButton button, ImVec2 center, float scale, ImU32 color,
@@ -219,10 +221,10 @@ void drawCaptionGlyph(ImDrawList* draw_list, CaptionButton button, ImVec2 center
     if (maximized)
     {
         const float shift = 2.0f * scale;
-        draw_list->AddRect(ImVec2(center.x - extent + shift * 2.0f, center.y - extent),
-                           ImVec2(center.x + extent, center.y + extent - shift * 2.0f), color, 0.0f, 0, thickness);
-        draw_list->AddRect(ImVec2(center.x - extent, center.y - extent + shift * 2.0f),
-                           ImVec2(center.x + extent - shift * 2.0f, center.y + extent), color, 0.0f, 0, thickness);
+        draw_list->AddRect(ImVec2(center.x - extent + (shift * 2.0f), center.y - extent),
+                           ImVec2(center.x + extent, center.y + extent - (shift * 2.0f)), color, 0.0f, 0, thickness);
+        draw_list->AddRect(ImVec2(center.x - extent, center.y - extent + (shift * 2.0f)),
+                           ImVec2(center.x + extent - (shift * 2.0f), center.y + extent), color, 0.0f, 0, thickness);
         return;
     }
     draw_list->AddRect(ImVec2(center.x - extent, center.y - extent), ImVec2(center.x + extent, center.y + extent),
@@ -242,13 +244,13 @@ void drawCaptionButtons(ImDrawList* draw_list, ImVec2 origin, ImVec2 size, float
     const float buttons_left = captionButtonsLeft(origin, size.x, scale);
     const bool maximized = window.isMaximized();
     const CaptionButton buttons[kCaptionButtonCount] = {CaptionButton::Minimize, CaptionButton::Maximize,
-                                                        CaptionButton::Close};
+                                                        CaptionButton::Close,};
     const char* ids[kCaptionButtonCount] = {"##min", "##max", "##close"};
 
     ImGui::PushItemFlag(ImGuiItemFlags_NoNavDefaultFocus, true);
     for (int i = 0; i < kCaptionButtonCount; ++i)
     {
-        const ImVec2 bmin(buttons_left + button_w * static_cast<float>(i), origin.y);
+        const ImVec2 bmin(buttons_left + (button_w * static_cast<float>(i)), origin.y);
         const ImVec2 bmax(bmin.x + button_w, origin.y + size.y);
         ImGui::SetCursorScreenPos(bmin);
         ImGui::PushID(i);
@@ -412,7 +414,7 @@ void drawWindowResizeBorders(Window& window)
         return;
     }
 
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGuiViewport const* viewport = ImGui::GetMainViewport();
     const float border = kFrameBorder * uiScale();
     const FrameBorders bands = frameBorderRects(viewport->Size.x, viewport->Size.y, border);
     ImGuiWindow* restore_focus = ImGui::GetCurrentContext()->NavWindow;
@@ -421,13 +423,14 @@ void drawWindowResizeBorders(Window& window)
         restore_focus = nullptr;
     }
 
-    ImGuiWindow* frames[8] = {};
+    // BringWindowToDisplayFront takes a mutable window.
+    ImGuiWindow* frames[8] = {}; // NOLINT(misc-const-correctness)
     int frame_count = 0;
     for (int i = 0; i < bands.count; ++i)
     {
         ImGuiWindow* frame = drawResizeBand(bands.rects[static_cast<std::size_t>(i)], viewport->Pos, viewport->ID,
                                             window, restore_focus);
-        if (frame != nullptr && frame_count < static_cast<int>(sizeof(frames) / sizeof(frames[0])))
+        if (frame != nullptr && std::cmp_less(frame_count, sizeof(frames) / sizeof(frames[0])))
         {
             frames[frame_count] = frame;
             ++frame_count;

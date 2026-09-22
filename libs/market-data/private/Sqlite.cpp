@@ -23,7 +23,7 @@ namespace {
     {
         message += " [";
         message += sql;
-        message += "]";
+        message += ']';
     }
     return message;
 }
@@ -84,7 +84,7 @@ void SqliteDb::exec(std::string_view sql)
         message += err != nullptr ? err : sqlite3_errmsg(db_);
         message += " [";
         message += owned;
-        message += "]";
+        message += ']';
         sqlite3_free(err);
         throw std::runtime_error(message);
     }

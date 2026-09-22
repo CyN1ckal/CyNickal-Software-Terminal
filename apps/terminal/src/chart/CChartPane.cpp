@@ -53,11 +53,14 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
         }
         if (settings.period == ChartBarPeriod::Minute1)
         {
-            std::snprintf(title, title_n, "CHART %d  %.*s###cb%d_pane%d", id, typed_n, typed.data(),
+            // %.*s uses typed_n as the length, so the view does not need a terminator.
+            std::snprintf(title, title_n, "CHART %d  %.*s###cb%d_pane%d", id, typed_n,
+                          typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
                           runtime_id, id);
             return;
         }
-        std::snprintf(title, title_n, "CHART %d  %s  %.*s###cb%d_pane%d", id, period, typed_n, typed.data(),
+        std::snprintf(title, title_n, "CHART %d  %s  %.*s###cb%d_pane%d", id, period, typed_n,
+                      typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
                       runtime_id, id);
         return;
     }
@@ -67,7 +70,8 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
         return;
     }
     std::snprintf(title, title_n, "%s  %s  %.*s###cb%d_pane%d", settings.symbol.c_str(), period, typed_n,
-                  typed.data(), runtime_id, id);
+                  typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
+                  runtime_id, id);
 }
 
 [[nodiscard]] const char* periodDisplayName(ChartBarPeriod period) noexcept
@@ -496,7 +500,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
         {
             for (const ChartBarPeriod period :
                  {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
-                  ChartBarPeriod::Hour1, ChartBarPeriod::Day1})
+                  ChartBarPeriod::Hour1, ChartBarPeriod::Day1,})
             {
                 if (ImGui::Selectable(periodDisplayName(period), draft_.period == period))
                 {
@@ -698,7 +702,8 @@ void CChartPane::drawStatusLine() const
     const ImVec4 color = statusColor(loaded_.status);
     const std::string_view text = statusLine();
     const auto text_n = static_cast<int>(text.size());
-    ImGui::TextColored(color, "%.*s", text_n, text.data());
+    // %.*s uses text_n as the length, so the view does not need a terminator.
+    ImGui::TextColored(color, "%.*s", text_n, text.data()); // NOLINT(bugprone-suspicious-stringview-data-usage)
 }
 
 void CChartPane::drawKeyBuffer() const

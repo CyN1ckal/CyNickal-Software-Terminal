@@ -1,6 +1,8 @@
 // Copyright 2026 CyNickal Software LLC
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+#include <algorithm>
+
 #include "chart/CChartTransform.h"
 
 #include "market_data/Time.h"
@@ -10,14 +12,8 @@ namespace {
 
 void foldMinute(Bar& bucket, const Bar& minute) noexcept
 {
-    if (minute.high > bucket.high)
-    {
-        bucket.high = minute.high;
-    }
-    if (minute.low < bucket.low)
-    {
-        bucket.low = minute.low;
-    }
+    bucket.high = std::max(minute.high, bucket.high);
+    bucket.low = std::min(minute.low, bucket.low);
     bucket.close = minute.close;
     bucket.volume += minute.volume;
 }
@@ -85,7 +81,7 @@ std::vector<Bar> transformChartBars(const std::vector<Bar>& bars_1m,
         UnixSeconds aligned = cached_open;
         if (period != ChartBarPeriod::Day1)
         {
-            aligned = cached_open + ((minute.ts - cached_open) / target_tf) * target_tf;
+            aligned = cached_open + (((minute.ts - cached_open) / target_tf) * target_tf);
         }
 
         const bool new_bucket =

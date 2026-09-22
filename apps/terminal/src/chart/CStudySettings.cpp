@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 
 namespace terminal {
 namespace {
@@ -49,7 +50,7 @@ constexpr float kStudyListFraction = 0.38f;
 
 [[nodiscard]] bool selectionInRange(const std::vector<CStudyInstance>& draft, int selected) noexcept
 {
-    return selected >= 0 && selected < static_cast<int>(draft.size());
+    return selected >= 0 && std::cmp_less(selected, draft.size());
 }
 
 void drawMutedWrapped(const char* text)
@@ -577,10 +578,10 @@ void drawStudyFooter(std::vector<CStudyInstance>& draft,
     }
 
     const ImGuiStyle& style = ImGui::GetStyle();
-    const float ok_w = ImGui::CalcTextSize("OK").x + style.FramePadding.x * 2.0f;
-    const float apply_w = ImGui::CalcTextSize("Apply").x + style.FramePadding.x * 2.0f;
-    const float cancel_w = ImGui::CalcTextSize("Cancel").x + style.FramePadding.x * 2.0f;
-    const float cluster = ok_w + apply_w + cancel_w + style.ItemSpacing.x * 2.0f;
+    const float ok_w = ImGui::CalcTextSize("OK").x + (style.FramePadding.x * 2.0f);
+    const float apply_w = ImGui::CalcTextSize("Apply").x + (style.FramePadding.x * 2.0f);
+    const float cancel_w = ImGui::CalcTextSize("Cancel").x + (style.FramePadding.x * 2.0f);
+    const float cluster = ok_w + apply_w + cancel_w + (style.ItemSpacing.x * 2.0f);
     const float align_x = ImGui::GetContentRegionMax().x - cluster;
     ImGui::SameLine();
     if (align_x > ImGui::GetCursorPosX())

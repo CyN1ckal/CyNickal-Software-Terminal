@@ -14,7 +14,7 @@
 #include <string_view>
 #include <utility>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -30,9 +30,10 @@ namespace {
 constexpr float kMinSplitRatio = 0.05f;
 constexpr float kMaxSplitRatio = 0.95f;
 constexpr int kLayoutDepthLimit = 32;
+constexpr std::size_t kNoParent = static_cast<std::size_t>(-1);
 constexpr std::string_view kReservedStemChars = "<>:\"/\\|?*";
 
-using json = nlohmann::json;
+using nlohmann::json;
 
 [[nodiscard]] float clampSplitRatio(float ratio) noexcept
 {
@@ -851,7 +852,7 @@ using json = nlohmann::json;
         {
             return fail(error, "unknown window id");
         }
-        value = value * 10 + (digit - '0');
+        value = (value * 10) + (digit - '0');
     }
     if (value <= 0)
     {
@@ -870,14 +871,14 @@ using json = nlohmann::json;
     pane_id = 0;
     for (const char digit : window.substr(prefix.size()))
     {
-        pane_id = pane_id * 10 + (digit - '0');
+        pane_id = (pane_id * 10) + (digit - '0');
     }
     return pane_id > 0;
 }
 
 [[nodiscard]] json layoutToJson(const ChartbookLayout& layout)
 {
-    if (layout.root < 0 || layout.root >= static_cast<int>(layout.nodes.size()))
+    if (layout.root < 0 || std::cmp_greater_equal(layout.root, layout.nodes.size()))
     {
         return json::object();
     }
@@ -888,7 +889,7 @@ using json = nlohmann::json;
     for (int steps = 0; !stack.empty() && steps < kLayoutDepthLimit * 4; ++steps)
     {
         const int index = stack.back();
-        if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+        if (index < 0 || std::cmp_greater_equal(index, layout.nodes.size()))
         {
             stack.pop_back();
             continue;
@@ -940,7 +941,7 @@ struct LayoutWork
     const json* value{nullptr};
     int phase{0};
     int depth{0};
-    std::size_t parent{static_cast<std::size_t>(-1)};
+    std::size_t parent{kNoParent};
     bool second{false};
     int first{-1};
     int second_index{-1};
@@ -1023,7 +1024,7 @@ struct LayoutWork
             const std::size_t parent = stack[pos].parent;
             const bool second = stack[pos].second;
             stack.pop_back();
-            if (parent == static_cast<std::size_t>(-1))
+            if (parent == kNoParent)
             {
                 out_index = result;
                 return true;
@@ -1074,7 +1075,7 @@ struct LayoutWork
         const std::size_t parent = stack[pos].parent;
         const bool second = stack[pos].second;
         stack.pop_back();
-        if (parent == static_cast<std::size_t>(-1))
+        if (parent == kNoParent)
         {
             out_index = result;
             return true;
@@ -1102,7 +1103,7 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
     {
         const int index = pending.back();
         pending.pop_back();
-        if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+        if (index < 0 || std::cmp_greater_equal(index, layout.nodes.size()))
         {
             continue;
         }
@@ -1465,7 +1466,7 @@ namespace {
 // POSIX rename replaces a file. std::filesystem::rename does not have to, and fails on Windows when the destination exists.
 [[nodiscard]] bool replaceFile(const std::filesystem::path& from, const std::filesystem::path& to, std::error_code& error)
 {
-#if defined(_WIN32)
+#ifdef _WIN32
     error.clear();
     if (MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == 0)
     {

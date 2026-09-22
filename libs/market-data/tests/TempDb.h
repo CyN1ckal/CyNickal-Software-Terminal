@@ -7,7 +7,11 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 
 class TempDb
 {
@@ -16,8 +20,13 @@ public:
     {
         static std::atomic<std::uint64_t> seq{0};
         const auto n = seq.fetch_add(1);
+#ifdef _WIN32
+        const auto pid = _getpid();
+#else
+        const auto pid = ::getpid();
+#endif
         path_ = std::filesystem::temp_directory_path() /
-                ("terminal-md-" + std::to_string(::getpid()) + "-" + std::to_string(n) + ".sqlite");
+                ("terminal-md-" + std::to_string(pid) + "-" + std::to_string(n) + ".sqlite");
         std::filesystem::remove(path_);
         removeSidecars();
     }

@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <limits>
 #include <string_view>
+#include <utility>
 
 namespace terminal {
 namespace {
@@ -32,7 +33,7 @@ constexpr std::string_view kPreferredLines[] = {
 {
     std::string out;
     const std::size_t count = digits.size();
-    out.reserve(count + count / 3);
+    out.reserve(count + (count / 3));
     for (std::size_t index = 0; index < count; ++index)
     {
         if (index > 0 && (count - index) % 3 == 0)
@@ -77,7 +78,7 @@ constexpr std::string_view kPreferredLines[] = {
     const bool negative = std::signbit(value) && value != 0.0;
     char buf[128];
     const int wrote = std::snprintf(buf, sizeof(buf), "%.4f", std::fabs(value));
-    if (wrote < 0 || wrote >= static_cast<int>(sizeof(buf)))
+    if (wrote < 0 || std::cmp_greater_equal(wrote, sizeof(buf)))
     {
         std::snprintf(buf, sizeof(buf), "%.4g", std::fabs(value));
         std::string fallback = buf;

@@ -100,8 +100,8 @@ void bindOptionalDouble(SqliteStmt& stmt, int idx, const std::optional<double>& 
             return false;
         }
     }
-    const int month = (period[5] - '0') * 10 + (period[6] - '0');
-    const int day = (period[8] - '0') * 10 + (period[9] - '0');
+    const int month = ((period[5] - '0') * 10) + (period[6] - '0');
+    const int day = ((period[8] - '0') * 10) + (period[9] - '0');
     return month >= 1 && month <= 12 && day >= 1 && day <= 31;
 }
 
@@ -142,7 +142,7 @@ void bindStatementValue(SqliteStmt& stmt, int kind_idx, const StatementValue& va
     throw std::runtime_error("statement cell has no value");
 }
 
-[[nodiscard]] StatementCell statementCellFromStmt(SqliteStmt& stmt)
+[[nodiscard]] StatementCell statementCellFromStmt(SqliteStmt const& stmt)
 {
     StatementCell cell;
     cell.instrument_id = stmt.columnInt64(0);
@@ -204,7 +204,7 @@ void requireTables(const std::vector<std::string>& have,
     }
 }
 
-[[nodiscard]] Instrument instrumentFromStmt(SqliteStmt& stmt)
+[[nodiscard]] Instrument instrumentFromStmt(SqliteStmt const& stmt)
 {
     Instrument row;
     row.id = stmt.columnInt64(0);
@@ -232,7 +232,7 @@ void requireTables(const std::vector<std::string>& have,
     return row;
 }
 
-[[nodiscard]] CoverageDay coverageFromStmt(SqliteStmt& stmt)
+[[nodiscard]] CoverageDay coverageFromStmt(SqliteStmt const& stmt)
 {
     CoverageDay row;
     row.instrument_id = stmt.columnInt64(0);
@@ -468,7 +468,7 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
         throw std::runtime_error("database user_version exceeds this binary");
     }
     constexpr std::string_view kV1Tables[] = {
-        "bar", "corporate_action", "coverage_day", "instrument"};
+        "bar", "corporate_action", "coverage_day", "instrument",};
     if (version >= 1)
     {
         requireTables(tableNames(), version, kV1Tables);
@@ -492,7 +492,7 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                 "coverage_day",
                                                 "instrument",
                                                 "statement_cell",
-                                                "statement_snapshot"};
+                                                "statement_snapshot",};
     requireTables(tableNames(), userVersion(), kAllTables);
     impl_->prepare();
 }

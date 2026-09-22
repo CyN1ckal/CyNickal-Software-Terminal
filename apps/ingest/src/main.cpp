@@ -32,7 +32,7 @@ void usage()
 
 }  // namespace
 
-int main(int argc, char** argv)
+int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
 {
     try
     {
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
                 usage();
                 return 0;
             }
-            else if (arg.starts_with("-"))
+            else if (arg.starts_with('-'))
             {
                 throw std::runtime_error("unknown flag: " + std::string(arg));
             }

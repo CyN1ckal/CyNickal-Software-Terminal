@@ -16,7 +16,7 @@ constexpr const char* kUserAgent =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/129.0.0.0 Safari/537.36";
 
-extern "C" size_t writeResponseBody(char* ptr, size_t size, size_t nmemb, void* userdata)
+extern "C" size_t writeResponseBody(char const* ptr, size_t size, size_t nmemb, void* userdata)
 {
     auto* body = static_cast<std::string*>(userdata);
     const size_t n = size * nmemb;
@@ -133,7 +133,8 @@ HttpResponse CurlClient::getWithRetry(std::string_view url)
 
 void CurlClient::appendHeader(const char* line)
 {
-    curl_slist* next = curl_slist_append(static_cast<curl_slist*>(headers_), line);
+    // headers_ is void* and must keep a mutable curl_slist.
+    curl_slist* next = curl_slist_append(static_cast<curl_slist*>(headers_), line); // NOLINT(misc-const-correctness)
     if (next == nullptr)
     {
         throw std::runtime_error("curl_slist_append failed");

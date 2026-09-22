@@ -3,6 +3,8 @@
 
 #include "chart/CChartAxis.h"
 
+#include "market_data/Time.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -20,7 +22,7 @@ enum class LabelKind : std::uint8_t
     Time,
     Date,
     Month,
-    Year
+    Year,
 };
 
 struct Mark
@@ -43,12 +45,12 @@ constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
 
 [[nodiscard]] int dateKey(const ChartLocalTime& stamp) noexcept
 {
-    return stamp.year * 10000 + stamp.month * 100 + stamp.day;
+    return (stamp.year * 10000) + (stamp.month * 100) + stamp.day;
 }
 
 [[nodiscard]] int mondayKey(int year, int month, int day) noexcept
 {
-    const int fallback = year * 10000 + month * 100 + day;
+    const int fallback = (year * 10000) + (month * 100) + day;
     if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31)
     {
         return fallback;
@@ -67,7 +69,7 @@ constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
     const auto y = static_cast<int>(monday.year());
     const auto m = static_cast<int>(static_cast<unsigned>(monday.month()));
     const auto d = static_cast<int>(static_cast<unsigned>(monday.day()));
-    return y * 10000 + m * 100 + d;
+    return (y * 10000) + (m * 100) + d;
 }
 
 [[nodiscard]] float kindWidth(LabelKind kind, const ChartTickMetrics& metrics) noexcept
@@ -124,14 +126,14 @@ constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
     }
     const auto plot_w = static_cast<float>(span * static_cast<double>(spacing));
     const auto px = static_cast<float>((static_cast<double>(index) - win.x_min) * static_cast<double>(spacing));
-    return px + width * 0.5f <= plot_w + 1.0f;
+    return px + (width * 0.5f) <= plot_w + 1.0f;
 }
 
 [[nodiscard]] bool collides(int index_a, float width_a, int index_b, float width_b, float spacing, float gap) noexcept
 {
     const int delta = index_a > index_b ? index_a - index_b : index_b - index_a;
     const auto dist = static_cast<float>(delta) * spacing;
-    return dist + 0.01f < (0.5f * (width_a + width_b) + gap);
+    return dist + 0.01f < ((0.5f * (width_a + width_b)) + gap);
 }
 
 [[nodiscard]] bool seriesFits(const std::vector<int>& indices, float width, float spacing, float gap) noexcept
@@ -283,7 +285,7 @@ constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
                 --trim;
             }
             const bool fits = trim == 0 ||
-                              static_cast<float>(index - kept[trim - 1]) * spacing + 0.01f >= need;
+                              (static_cast<float>(index - kept[trim - 1]) * spacing) + 0.01f >= need;
             if (fits)
             {
                 kept.resize(trim);
@@ -291,7 +293,7 @@ constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
             }
             continue;
         }
-        if (kept.empty() || static_cast<float>(index - kept.back()) * spacing + 0.01f >= need)
+        if (kept.empty() || (static_cast<float>(index - kept.back()) * spacing) + 0.01f >= need)
         {
             kept.push_back(index);
         }
@@ -310,7 +312,7 @@ bool placeDate(std::vector<Placed>& ticks, int index, float date_px, float spaci
     {
         if (tick.index == index)
         {
-            next.push_back(Placed{index, LabelKind::Date, date_px});
+            next.push_back(Placed{.index=index, .kind=LabelKind::Date, .width=date_px});
             replaced = true;
             continue;
         }
@@ -331,7 +333,7 @@ bool placeDate(std::vector<Placed>& ticks, int index, float date_px, float spaci
         {
             ++where;
         }
-        next.insert(where, Placed{index, LabelKind::Date, date_px});
+        next.insert(where, Placed{.index=index, .kind=LabelKind::Date, .width=date_px});
     }
     ticks.swap(next);
     return true;
@@ -404,7 +406,7 @@ void upgradeSessionDates(std::vector<Placed>& ticks,
         }
         previous = candidates;
         const int bar_gap = minSameSessionGap(candidates, marks, origin);
-        if (bar_gap > 0 && static_cast<float>(bar_gap) * spacing + 0.01f < time_need)
+        if (bar_gap > 0 && (static_cast<float>(bar_gap) * spacing) + 0.01f < time_need)
         {
             continue;
         }
@@ -417,7 +419,7 @@ void upgradeSessionDates(std::vector<Placed>& ticks,
         placed.reserve(kept.size());
         for (const int index : kept)
         {
-            placed.push_back(Placed{index, LabelKind::Time, metrics.time_px});
+            placed.push_back(Placed{.index=index, .kind=LabelKind::Time, .width=metrics.time_px});
         }
         upgradeSessionDates(placed, marks, origin, first, last, metrics.date_px, spacing, gap);
         if (placed.empty() || (onlySessionOpens(placed, marks, origin) && !anyDate(placed)))
@@ -518,7 +520,7 @@ void addLeading(std::vector<int>& indices, int first, float width, float spacing
         placed.reserve(indices.size());
         for (const int index : indices)
         {
-            placed.push_back(Placed{index, kind, width});
+            placed.push_back(Placed{.index=index, .kind=kind, .width=width});
         }
         return placed;
     };
@@ -606,7 +608,7 @@ void addLeading(std::vector<int>& indices, int first, float width, float spacing
 
 [[nodiscard]] ChartAxisTick fallbackTick(const std::vector<Mark>& marks, int origin, int first, int last)
 {
-    const int center = first + (last - first) / 2;
+    const int center = first + ((last - first) / 2);
     const ChartLocalTime& stamp = markAt(marks, origin, center).stamp;
     const ChartLocalTime& left = markAt(marks, origin, first).stamp;
     const ChartLocalTime& right = markAt(marks, origin, last).stamp;
@@ -627,14 +629,8 @@ void addLeading(std::vector<int>& indices, int first, float width, float spacing
 
 [[nodiscard]] ChartTickMetrics sanitized(ChartTickMetrics metrics) noexcept
 {
-    if (metrics.spacing_px < 0.25f)
-    {
-        metrics.spacing_px = 0.25f;
-    }
-    if (metrics.gap_px < 0.0f)
-    {
-        metrics.gap_px = 0.0f;
-    }
+    metrics.spacing_px = std::max(metrics.spacing_px, 0.25f);
+    metrics.gap_px = std::max(metrics.gap_px, 0.0f);
     auto at_least_one = [](float width) {
         return width > 1.0f ? width : 1.0f;
     };
@@ -670,7 +666,7 @@ ChartLocalTime chartLocalTime(std::string_view timezone, UnixSeconds ts)
     {
         const auto t = static_cast<std::time_t>(ts);
         std::tm utc{};
-        if (gmtime_r(&t, &utc) != nullptr)
+        if (tryUtcTm(t, utc))
         {
             out.year = utc.tm_year + 1900;
             out.month = utc.tm_mon + 1;

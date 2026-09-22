@@ -33,7 +33,7 @@ void appendRemapped(ChartbookLayout& dest, const ChartbookLayout& src, int& root
 
 [[nodiscard]] const ChartbookLayoutNode* nodeAt(const ChartbookLayout& layout, int index) noexcept
 {
-    if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, layout.nodes.size()))
     {
         return nullptr;
     }
@@ -42,7 +42,7 @@ void appendRemapped(ChartbookLayout& dest, const ChartbookLayout& src, int& root
 
 [[nodiscard]] ChartbookLayoutNode* nodeAt(ChartbookLayout& layout, int index) noexcept
 {
-    if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, layout.nodes.size()))
     {
         return nullptr;
     }
@@ -345,7 +345,7 @@ namespace {
 
 [[nodiscard]] int findParentIndex(const ChartbookLayout& layout, int child)
 {
-    for (int index = 0; index < static_cast<int>(layout.nodes.size()); ++index)
+    for (int index = 0; std::cmp_less(index, layout.nodes.size()); ++index)
     {
         const ChartbookLayoutNode& node = layout.nodes[static_cast<std::size_t>(index)];
         if (node.is_split && (node.first == child || node.second == child))
@@ -380,7 +380,7 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id)
         const int index = pending.back();
         pending.pop_back();
         ChartbookLayoutNode* node =
-            index >= 0 && index < static_cast<int>(layout.nodes.size())
+            index >= 0 && std::cmp_less(index, layout.nodes.size())
                 ? &layout.nodes[static_cast<std::size_t>(index)]
                 : nullptr;
         if (node == nullptr)
@@ -404,7 +404,7 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id)
             leaf = index;
         }
     }
-    ChartbookLayoutNode* node = leaf >= 0 && leaf < static_cast<int>(layout.nodes.size())
+    ChartbookLayoutNode* node = leaf >= 0 && std::cmp_less(leaf, layout.nodes.size())
                                      ? &layout.nodes[static_cast<std::size_t>(leaf)]
                                      : nullptr;
     if (node == nullptr)
@@ -426,7 +426,7 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id)
     const ChartbookLayoutNode& split = layout.nodes[static_cast<std::size_t>(parent)];
     const int sibling = split.first == leaf ? split.second : split.first;
     const ChartbookLayoutNode* sibling_node =
-        sibling >= 0 && sibling < static_cast<int>(layout.nodes.size())
+        sibling >= 0 && std::cmp_less(sibling, layout.nodes.size())
             ? &layout.nodes[static_cast<std::size_t>(sibling)]
             : nullptr;
     if (sibling_node == nullptr)
@@ -459,17 +459,17 @@ bool chartbookLayoutsEquivalent(const ChartbookLayout& left, const ChartbookLayo
         int right{0};
     };
     std::vector<Pair> pending;
-    pending.push_back(Pair{left.root, right.root});
+    pending.push_back(Pair{.left=left.root, .right=right.root});
     for (int steps = 0; !pending.empty() && steps < 64; ++steps)
     {
         const Pair pair = pending.back();
         pending.pop_back();
         const ChartbookLayoutNode* a =
-            pair.left >= 0 && pair.left < static_cast<int>(left.nodes.size())
+            pair.left >= 0 && std::cmp_less(pair.left, left.nodes.size())
                 ? &left.nodes[static_cast<std::size_t>(pair.left)]
                 : nullptr;
         const ChartbookLayoutNode* b =
-            pair.right >= 0 && pair.right < static_cast<int>(right.nodes.size())
+            pair.right >= 0 && std::cmp_less(pair.right, right.nodes.size())
                 ? &right.nodes[static_cast<std::size_t>(pair.right)]
                 : nullptr;
         if (a == nullptr || b == nullptr || a->is_split != b->is_split)
@@ -482,8 +482,8 @@ bool chartbookLayoutsEquivalent(const ChartbookLayout& left, const ChartbookLayo
             {
                 return false;
             }
-            pending.push_back(Pair{a->second, b->second});
-            pending.push_back(Pair{a->first, b->first});
+            pending.push_back(Pair{.left=a->second, .right=b->second});
+            pending.push_back(Pair{.left=a->first, .right=b->first});
             continue;
         }
         if (a->windows != b->windows || a->selected != b->selected)

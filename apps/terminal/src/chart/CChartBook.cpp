@@ -28,7 +28,7 @@ namespace {
         {
             return false;
         }
-        pane_id = pane_id * 10 + (digit - '0');
+        pane_id = (pane_id * 10) + (digit - '0');
     }
     return pane_id > 0;
 }
@@ -59,7 +59,7 @@ void dropClosedPanes(CChartbookDocument& document)
     {
         const int index = pending.back();
         pending.pop_back();
-        if (index < 0 || index >= static_cast<int>(document.layout.nodes.size()))
+        if (index < 0 || std::cmp_greater_equal(index, document.layout.nodes.size()))
         {
             continue;
         }
@@ -136,11 +136,10 @@ const CChartPane* CChartBook::findPane(int pane_id) const
 
 void CChartBook::eraseClosed()
 {
-    panes_.erase(std::remove_if(panes_.begin(), panes_.end(),
-                                [](const std::unique_ptr<CChartPane>& pane) {
-                                    return !pane->windowOpen();
-                                }),
-                 panes_.end());
+    const auto removed = std::ranges::remove_if(panes_, [](const std::unique_ptr<CChartPane>& pane) {
+        return !pane->windowOpen();
+    });
+    panes_.erase(removed.begin(), removed.end());
     if (focused() == nullptr)
     {
         focused_id_ = 0;
@@ -335,7 +334,7 @@ void CChartBook::drawMenu()
         {
             addPane();
         }
-        CChartPane* pane = focused();
+        CChartPane const* pane = focused();
         const bool has_focus = pane != nullptr;
         const bool settings_enabled = has_focus && !pane->studiesOpen();
         const bool studies_enabled = has_focus && !pane->settingsOpen();
@@ -357,7 +356,7 @@ void CChartBook::drawMenu()
 
 void CChartBook::draw(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
-    for (std::unique_ptr<CChartPane>& pane : panes_)
+    for (std::unique_ptr<CChartPane> const& pane : panes_)
     {
         if (pane->draw(store, store_error, ingest))
         {

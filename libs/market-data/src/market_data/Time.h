@@ -6,11 +6,22 @@
 #include "market_data/Types.h"
 
 #include <chrono>
+#include <ctime>
 #include <optional>
 #include <string>
 #include <string_view>
 
 namespace terminal {
+
+// POSIX gmtime_r. MSVC only has gmtime_s, and the argument order is reversed.
+[[nodiscard]] inline bool tryUtcTm(std::time_t t, std::tm& out) noexcept
+{
+#ifdef _WIN32
+    return ::gmtime_s(&out, &t) == 0;
+#else
+    return ::gmtime_r(&t, &out) != nullptr;
+#endif
+}
 
 UnixSeconds nowUtc();
 

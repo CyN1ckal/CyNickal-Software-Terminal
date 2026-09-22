@@ -125,8 +125,8 @@ namespace {
             return false;
         }
     }
-    const int month = (period[5] - '0') * 10 + (period[6] - '0');
-    const int day = (period[8] - '0') * 10 + (period[9] - '0');
+    const int month = ((period[5] - '0') * 10) + (period[6] - '0');
+    const int day = ((period[8] - '0') * 10) + (period[9] - '0');
     return month >= 1 && month <= 12 && day >= 1 && day <= 31;
 }
 

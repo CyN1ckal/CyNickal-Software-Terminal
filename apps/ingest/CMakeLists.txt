@@ -20,6 +20,6 @@ target_compile_options(ingest PRIVATE
 
 if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(ingest PROPERTIES
-        CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+        CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
     )
 endif()

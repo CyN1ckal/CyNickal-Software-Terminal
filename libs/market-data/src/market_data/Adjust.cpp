@@ -31,7 +31,7 @@ std::vector<Bar> adjustBarsForSplits(std::vector<Bar> bars, std::span<const Corp
         {
             continue;
         }
-        splits.push_back(SplitFactor{action.ex_ts, ratio});
+        splits.push_back(SplitFactor{.ex_ts=action.ex_ts, .ratio=ratio});
     }
     if (splits.empty())
     {

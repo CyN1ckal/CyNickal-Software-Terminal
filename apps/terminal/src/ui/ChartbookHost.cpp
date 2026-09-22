@@ -86,7 +86,7 @@ struct BuiltWindow
         {
             return 0;
         }
-        value = value * 10 + (digit - '0');
+        value = (value * 10) + (digit - '0');
     }
     return value;
 }
@@ -125,7 +125,7 @@ void collapseEmptySplits(ChartbookLayout& layout)
     for (int pass = 0; pass < 16; ++pass)
     {
         bool changed = false;
-        for (int index = 0; index < static_cast<int>(layout.nodes.size()); ++index)
+        for (int index = 0; std::cmp_less(index, layout.nodes.size()); ++index)
         {
             ChartbookLayoutNode& node = layout.nodes[static_cast<std::size_t>(index)];
             if (!node.is_split)
@@ -186,7 +186,7 @@ void orderDockLeaf(ImGuiDockNode* node, ImGuiWindow* selected)
     ImVector<ImGuiTabItem> tabs;
     for (int index = 0; index < node->Windows.Size; ++index)
     {
-        ImGuiWindow* window = node->Windows[index];
+        ImGuiWindow const* window = node->Windows[index];
         for (int tab_n = 0; tab_n < node->TabBar->Tabs.Size; ++tab_n)
         {
             if (node->TabBar->Tabs[tab_n].Window != window)
@@ -241,7 +241,7 @@ ChartbookHost::ChartbookHost()
         {
             if (!file_error_.empty())
             {
-                file_error_ += "\n";
+                file_error_ += '\n';
             }
             file_error_ += error;
         }
@@ -287,7 +287,7 @@ const CChartBook& ChartbookHost::activeBook() const
 
 int ChartbookHost::findPath(const std::filesystem::path& path) const
 {
-    for (int index = 0; index < static_cast<int>(books_.size()); ++index)
+    for (int index = 0; std::cmp_less(index, books_.size()); ++index)
     {
         const std::filesystem::path& open = books_[static_cast<std::size_t>(index)].path;
         if (!open.empty() && chartbookPathsEqual(open, path))
@@ -316,7 +316,7 @@ bool ChartbookHost::financialsShown(const OpenBook& open)
 
 void ChartbookHost::show(int index, bool fill_defaults)
 {
-    if (index < 0 || index >= static_cast<int>(books_.size()) || index == active_)
+    if (index < 0 || std::cmp_greater_equal(index, books_.size()) || index == active_)
     {
         if (fill_defaults)
         {
@@ -333,7 +333,7 @@ void ChartbookHost::show(int index, bool fill_defaults)
 
 void ChartbookHost::destroyBook(int index)
 {
-    if (index < 0 || index >= static_cast<int>(books_.size()))
+    if (index < 0 || std::cmp_greater_equal(index, books_.size()))
     {
         return;
     }
@@ -344,7 +344,7 @@ void ChartbookHost::destroyBook(int index)
         active_ = 0;
         refresh_clean_ = true;
     }
-    else if (active_ >= static_cast<int>(books_.size()))
+    else if (std::cmp_greater_equal(active_, books_.size()))
     {
         active_ = static_cast<int>(books_.size()) - 1;
     }
@@ -358,7 +358,7 @@ void ChartbookHost::destroyBook(int index)
 
 bool ChartbookHost::saveBook(int index, InventoryPanel& inventory)
 {
-    if (index < 0 || index >= static_cast<int>(books_.size()))
+    if (index < 0 || std::cmp_greater_equal(index, books_.size()))
     {
         return false;
     }
@@ -416,7 +416,7 @@ const char* ChartbookHost::modalTitle(Modal modal) noexcept
 
 bool ChartbookHost::saveAll(InventoryPanel& inventory)
 {
-    for (int index = 0; index < static_cast<int>(books_.size()); ++index)
+    for (int index = 0; std::cmp_less(index, books_.size()); ++index)
     {
         const OpenBook& open = books_[static_cast<std::size_t>(index)];
         if (!open.dirty && !open.path.empty())
@@ -523,7 +523,7 @@ void ChartbookHost::drawViewMenu()
     {
         return;
     }
-    OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    OpenBook const& open = books_[static_cast<std::size_t>(active_)];
     const bool shown = dataShown(open);
     if (ImGui::MenuItem("DATA", nullptr, shown))
     {
@@ -574,9 +574,9 @@ void ChartbookHost::drawTabs(float tabs_right)
     int reorder_from = -1;
     int reorder_to = -1;
     int close_now = -1;
-    for (int index = 0; index < static_cast<int>(books_.size()); ++index)
+    for (int index = 0; std::cmp_less(index, books_.size()); ++index)
     {
-        OpenBook& open = books_[static_cast<std::size_t>(index)];
+        OpenBook const& open = books_[static_cast<std::size_t>(index)];
         const std::string label = open.book->name() + (open.dirty ? "*" : "");
         const bool highlight = index == active_;
         if (highlight)
@@ -632,7 +632,7 @@ void ChartbookHost::drawTabs(float tabs_right)
         }
     }
     if (reorder_from >= 0 && reorder_to >= 0 && reorder_from != reorder_to &&
-        reorder_from < static_cast<int>(books_.size()))
+        std::cmp_less(reorder_from, books_.size()))
     {
         OpenBook moved = std::move(books_[static_cast<std::size_t>(reorder_from)]);
         books_.erase(books_.begin() + reorder_from);
@@ -715,7 +715,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         const std::vector<std::string> names = chartbookStems();
         if (ImGui::BeginListBox("##open_list", ImVec2(320.f, 220.f)))
         {
-            for (int index = 0; index < static_cast<int>(names.size()); ++index)
+            for (int index = 0; std::cmp_less(index, names.size()); ++index)
             {
                 if (ImGui::Selectable(names[static_cast<std::size_t>(index)].c_str(), open_selected_ == index,
                                       ImGuiSelectableFlags_AllowDoubleClick))
@@ -748,7 +748,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             }
             ImGui::EndListBox();
         }
-        if (ImGui::Button("Open") && open_selected_ >= 0 && open_selected_ < static_cast<int>(names.size()))
+        if (ImGui::Button("Open") && open_selected_ >= 0 && std::cmp_less(open_selected_, names.size()))
         {
             const std::filesystem::path path =
                 chartbookPathForStem(names[static_cast<std::size_t>(open_selected_)]);
@@ -800,7 +800,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         if (ImGui::Button("Save"))
         {
             const int existing = path.empty() ? -1 : findPath(path);
-            if (save_as_index_ < 0 || save_as_index_ >= static_cast<int>(books_.size()))
+            if (save_as_index_ < 0 || std::cmp_greater_equal(save_as_index_, books_.size()))
             {
                 modal_error_ = "That chartbook is no longer open.";
             }
@@ -899,7 +899,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Close Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        if (close_index_ < 0 || close_index_ >= static_cast<int>(books_.size()))
+        if (close_index_ < 0 || std::cmp_greater_equal(close_index_, books_.size()))
         {
             ImGui::CloseCurrentPopup();
         }
@@ -992,7 +992,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
     {
         if (ImGui::BeginListBox("##startup_list", ImVec2(360.f, 180.f)))
         {
-            for (int index = 0; index < static_cast<int>(startup_edit_.size()); ++index)
+            for (int index = 0; std::cmp_less(index, startup_edit_.size()); ++index)
             {
                 const std::string& stored = startup_edit_[static_cast<std::size_t>(index)];
                 if (ImGui::Selectable(stored.c_str(), startup_selected_ == index))
@@ -1008,10 +1008,10 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         }
         ImGui::SameLine();
         if (ImGui::Button("Remove") && startup_selected_ >= 0 &&
-            startup_selected_ < static_cast<int>(startup_edit_.size()))
+            std::cmp_less(startup_selected_, startup_edit_.size()))
         {
             startup_edit_.erase(startup_edit_.begin() + startup_selected_);
-            if (startup_selected_ >= static_cast<int>(startup_edit_.size()))
+            if (std::cmp_greater_equal(startup_selected_, startup_edit_.size()))
             {
                 startup_selected_ = static_cast<int>(startup_edit_.size()) - 1;
             }
@@ -1072,7 +1072,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
 
 void ChartbookHost::restoreOpenTabs()
 {
-    if (active_ < 0 || active_ >= static_cast<int>(books_.size()))
+    if (active_ < 0 || std::cmp_greater_equal(active_, books_.size()))
     {
         return;
     }
@@ -1088,7 +1088,7 @@ void ChartbookHost::restoreOpenTabs()
     {
         const int index = pending.back();
         pending.pop_back();
-        if (index < 0 || index >= static_cast<int>(layout.nodes.size()))
+        if (index < 0 || std::cmp_greater_equal(index, layout.nodes.size()))
         {
             continue;
         }
@@ -1137,7 +1137,8 @@ void ChartbookHost::restoreOpenTabs()
         }
         for (int window_n = 0; window_n < leaf->Windows.Size; ++window_n)
         {
-            ImGuiWindow* window = leaf->Windows[window_n];
+            // windows stores mutable ImGuiWindow pointers.
+            ImGuiWindow* window = leaf->Windows[window_n]; // NOLINT(misc-const-correctness)
             if (!windows.contains(window))
             {
                 windows.push_back(window);
@@ -1151,7 +1152,7 @@ void ChartbookHost::restoreOpenTabs()
 void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVec2 size)
 {
     restore_tabs_ = true;
-    OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    OpenBook const& open = books_[static_cast<std::size_t>(active_)];
     const ChartbookLayout& layout = open.book->layout();
     const int runtime = open.book->runtimeId();
     ImGui::DockBuilderRemoveNode(dock_id);
@@ -1167,13 +1168,13 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
     std::vector<BuiltWindow> built;
     if (layout.root >= 0)
     {
-        jobs.push_back(Job{dock_id, layout.root});
+        jobs.push_back(Job{.node=dock_id, .index=layout.root});
     }
     for (int steps = 0; !jobs.empty() && steps < 64; ++steps)
     {
         const Job job = jobs.back();
         jobs.pop_back();
-        if (job.index < 0 || job.index >= static_cast<int>(layout.nodes.size()))
+        if (job.index < 0 || std::cmp_greater_equal(job.index, layout.nodes.size()))
         {
             continue;
         }
@@ -1186,7 +1187,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
                 if (!name.empty())
                 {
                     ImGui::DockBuilderDockWindow(name.c_str(), job.node);
-                    built.push_back(BuiltWindow{window, job.node});
+                    built.push_back(BuiltWindow{.window=window, .dock=job.node});
                 }
             }
             continue;
@@ -1195,8 +1196,8 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         ImGuiID second = 0;
         const ImGuiDir direction = node.axis == ChartbookSplitAxis::Vertical ? ImGuiDir_Up : ImGuiDir_Left;
         ImGui::DockBuilderSplitNode(job.node, direction, node.ratio, &first, &second);
-        jobs.push_back(Job{second, node.second});
-        jobs.push_back(Job{first, node.first});
+        jobs.push_back(Job{.node=second, .index=node.second});
+        jobs.push_back(Job{.node=first, .index=node.first});
     }
     ImGui::DockBuilderFinish(dock_id);
 
@@ -1239,7 +1240,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
 
 void ChartbookHost::captureLayout(ImGuiID dock_id)
 {
-    OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    OpenBook const& open = books_[static_cast<std::size_t>(active_)];
     ImGuiDockNode* root = ImGui::DockBuilderGetNode(dock_id);
     if (root == nullptr)
     {
@@ -1254,7 +1255,7 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
         bool second{false};
     };
     std::vector<Job> jobs;
-    jobs.push_back(Job{root, -1, false});
+    jobs.push_back(Job{.node=root, .parent=-1, .second=false});
     std::vector<std::string> seen;
     for (int steps = 0; !jobs.empty() && steps < 64; ++steps)
     {
@@ -1304,14 +1305,14 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             {
                 layout.nodes[static_cast<std::size_t>(job.parent)].first = index;
             }
-            jobs.push_back(Job{second, index, true});
-            jobs.push_back(Job{first, index, false});
+            jobs.push_back(Job{.node=second, .parent=index, .second=true});
+            jobs.push_back(Job{.node=first, .parent=index, .second=false});
             continue;
         }
         ChartbookLayoutNode leaf;
         for (int window_n = 0; window_n < job.node->Windows.Size; ++window_n)
         {
-            ImGuiWindow* window = job.node->Windows[window_n];
+            ImGuiWindow const* window = job.node->Windows[window_n];
             const std::string id = windowIdFromName(window->Name, runtime);
             if (id.empty() || id == "##StatusRail")
             {
@@ -1361,7 +1362,7 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             return;
         }
         const std::string name = dockWindowName(runtime, window_id);
-        ImGuiWindow* window = ImGui::FindWindowByName(name.c_str());
+        ImGuiWindow const* window = ImGui::FindWindowByName(name.c_str());
         if (window == nullptr || window->DockId != 0)
         {
             return;
@@ -1433,7 +1434,7 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
 
 void ChartbookHost::syncActive(InventoryPanel& inventory)
 {
-    if (active_ < 0 || active_ >= static_cast<int>(books_.size()))
+    if (active_ < 0 || std::cmp_greater_equal(active_, books_.size()))
     {
         return;
     }

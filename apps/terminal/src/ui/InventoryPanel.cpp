@@ -96,7 +96,7 @@ void cellInt(int value)
 {
     const auto t = static_cast<std::time_t>(ts);
     std::tm utc{};
-    if (gmtime_r(&t, &utc) == nullptr)
+    if (!tryUtcTm(t, utc))
     {
         return {};
     }
@@ -290,7 +290,7 @@ void InventoryPanel::submitIngest()
             status_ = "FROM must be on or before TO";
             return;
         }
-        worker_->enqueue(IngestWorker::Job{symbol_, from, to, ingest_timeframe_s_});
+        worker_->enqueue(IngestWorker::Job{.symbol=symbol_, .from=from, .to=to, .timeframe_s=ingest_timeframe_s_});
         status_ = std::string("queued ") + symbol_ + " " + formatSessionDate(from) + ".." +
                   formatSessionDate(to);
     }
@@ -642,7 +642,7 @@ void InventoryPanel::applySortSpecs()
     const ImGuiTableColumnSortSpecs& spec = specs->Specs[0];
     const int col = spec.ColumnIndex;
     const bool desc = spec.SortDirection == ImGuiSortDirection_Descending;
-    std::sort(summaries_.begin(), summaries_.end(), [&](const CoverageSummary& a, const CoverageSummary& b) {
+    std::ranges::sort(summaries_, [&](const CoverageSummary& a, const CoverageSummary& b) {
         int delta = 0;
         switch (col)
         {

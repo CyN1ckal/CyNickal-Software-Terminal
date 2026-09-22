@@ -31,14 +31,16 @@ using namespace std::chrono;
 [[nodiscard]] year_month_day nthWeekday(year y, month m, weekday wd, int n)
 {
     const sys_days first{y / m / 1};
-    const auto delta = static_cast<int>((wd - weekday{first}).count());
-    return year_month_day{first + days{delta + 7 * (n - 1)}};
+    // `.` binds tighter than `-`, so the parentheses select the weekday difference.
+    const auto delta = static_cast<int>((wd - weekday{first}).count()); // NOLINT(readability-redundant-parentheses)
+    return year_month_day{first + days{delta + (7 * (n - 1))}};
 }
 
 [[nodiscard]] year_month_day lastWeekdayOfMonth(year y, month m, weekday wd)
 {
     const sys_days last_day{y / m / std::chrono::last};
-    const auto delta = static_cast<int>((weekday{last_day} - wd).count());
+    // `.` binds tighter than `-`, so the parentheses select the weekday difference.
+    const auto delta = static_cast<int>((weekday{last_day} - wd).count()); // NOLINT(readability-redundant-parentheses)
     return year_month_day{last_day - days{delta}};
 }
 
@@ -52,13 +54,13 @@ using namespace std::chrono;
     const int e = b % 4;
     const int f = (b + 8) / 25;
     const int g = (b - f + 1) / 3;
-    const int h = (19 * a + b - d - g + 15) % 30;
+    const int h = ((19 * a) + b - d - g + 15) % 30;
     const int i = c / 4;
     const int k = c % 4;
-    const int l = (32 + 2 * e + 2 * i - h - k) % 7;
-    const int m = (a + 11 * h + 22 * l) / 451;
-    const int month_n = (h + l - 7 * m + 114) / 31;
-    const int dom = ((h + l - 7 * m + 114) % 31) + 1;
+    const int l = (32 + (2 * e) + (2 * i) - h - k) % 7;
+    const int m = (a + (11 * h) + (22 * l)) / 451;
+    const int month_n = (h + l - (7 * m) + 114) / 31;
+    const int dom = ((h + l - (7 * m) + 114) % 31) + 1;
     return year{y} / std::chrono::month{static_cast<unsigned>(month_n)} /
            std::chrono::day{static_cast<unsigned>(dom)};
 }
@@ -86,7 +88,9 @@ bool isNyseHoliday(year_month_day ymd)
     }
     const int y = static_cast<int>(ymd.year());
     const year yy{y};
-    if (ymd == observed(yy / January / 1) || ymd == observed((yy + years{1}) / January / 1))
+    // `/` binds tighter than `+`; the sum is January 1 of the next civil year.
+    if (ymd == observed(yy / January / 1) ||
+        ymd == observed((yy + years{1}) / January / 1)) // NOLINT(readability-redundant-parentheses)
     {
         // Saturday 1 Jan is observed the preceding Friday (previous year).
         return true;
@@ -168,10 +172,10 @@ bool sessionStillOpen(std::string_view iana_tz, SessionDate session_date, UnixSe
         return false;
     }
     using namespace std::chrono;
-    const zoned_time zt{std::string(iana_tz), sys_seconds{seconds{now_utc}}};
+    const zoned_time zt{iana_tz, sys_seconds{seconds{now_utc}}};
     const auto local = zt.get_local_time();
     const hh_mm_ss<seconds> tod{local - floor<days>(local)};
-    const int mins = static_cast<int>(tod.hours().count()) * 60 + static_cast<int>(tod.minutes().count());
+    const int mins = (static_cast<int>(tod.hours().count()) * 60) + static_cast<int>(tod.minutes().count());
     return mins < 16 * 60;
 }
 

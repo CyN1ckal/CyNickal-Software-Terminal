@@ -8,6 +8,7 @@
 #include "market_data/Schema.h"
 #include "market_data/Store.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
@@ -85,8 +86,12 @@ TEST_CASE("embedded schema matches v1.sql")
         std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / "v1.sql";
     std::ifstream in(sql_path, std::ios::binary);
     REQUIRE(in);
-    const std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    CHECK(file == terminal::schemaV1());
+    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // MSVC drops CR from raw string literals. The SQL text is what must match.
+    file.erase(std::remove(file.begin(), file.end(), '\r'), file.end());
+    std::string embedded(terminal::schemaV1());
+    embedded.erase(std::remove(embedded.begin(), embedded.end(), '\r'), embedded.end());
+    CHECK(file == embedded);
 }
 
 TEST_CASE("embedded schema matches v2.sql")
@@ -95,6 +100,9 @@ TEST_CASE("embedded schema matches v2.sql")
         std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / "v2.sql";
     std::ifstream in(sql_path, std::ios::binary);
     REQUIRE(in);
-    const std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    CHECK(file == terminal::schemaV2());
+    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    file.erase(std::remove(file.begin(), file.end(), '\r'), file.end());
+    std::string embedded(terminal::schemaV2());
+    embedded.erase(std::remove(embedded.begin(), embedded.end(), '\r'), embedded.end());
+    CHECK(file == embedded);
 }

@@ -58,9 +58,9 @@ void appendQueued(std::string& text, int queued)
     {
         if (!open_error.empty())
         {
-            return {std::string(open_error), Theme::kDown};
+            return {.text=std::string(open_error), .color=Theme::kDown};
         }
-        return {"ingest worker is not running", Theme::kDown};
+        return {.text="ingest worker is not running", .color=Theme::kDown};
     }
 
     const IngestWorker::Snapshot snap = worker->snapshot();
@@ -68,7 +68,7 @@ void appendQueued(std::string& text, int queued)
     {
         std::string text = snap.error;
         appendQueued(text, snap.queued);
-        return {std::move(text), Theme::kDown};
+        return {.text=std::move(text), .color=Theme::kDown};
     }
 
     const bool active = snap.running || (!snap.message.empty() && snap.message != "idle");
@@ -77,23 +77,23 @@ void appendQueued(std::string& text, int queued)
         std::string text = snap.message.empty() ? "starting " + snap.symbol : snap.message;
         appendQueued(text, snap.queued);
         const ImVec4 color = snap.running ? Theme::kAccent : Theme::kText;
-        return {std::move(text), color};
+        return {.text=std::move(text), .color=color};
     }
 
     const std::string_view inventory_status = inventory.statusText();
     if (inventory_status.empty())
     {
-        return {"idle", Theme::kMuted};
+        return {.text="idle", .color=Theme::kMuted};
     }
     if (inventory_status == open_error)
     {
-        return {std::string(inventory_status), Theme::kDown};
+        return {.text=std::string(inventory_status), .color=Theme::kDown};
     }
     if (inventory_status == "idle" || inventory_status == "no coverage yet")
     {
-        return {std::string(inventory_status), Theme::kMuted};
+        return {.text=std::string(inventory_status), .color=Theme::kMuted};
     }
-    return {std::string(inventory_status), Theme::kText};
+    return {.text=std::string(inventory_status), .color=Theme::kText};
 }
 
 [[nodiscard]] ImVec4 chartTone(ChartLoadStatus status)
@@ -119,17 +119,17 @@ void appendQueued(std::string& text, int queued)
 {
     if (pane == nullptr)
     {
-        return {"no chart", Theme::kMuted};
+        return {.text="no chart", .color=Theme::kMuted};
     }
     if (!pane->keyNote().empty())
     {
-        return {std::string(pane->keyNote()), Theme::kDown};
+        return {.text=std::string(pane->keyNote()), .color=Theme::kDown};
     }
 
     const std::string_view line = pane->statusLine();
     if (isDownloadLine(line))
     {
-        return {std::string(line), Theme::kAccent};
+        return {.text=std::string(line), .color=Theme::kAccent};
     }
 
     std::string text;
@@ -154,7 +154,7 @@ void appendQueued(std::string& text, int queued)
             text += std::to_string(pane->barCount());
             text += " bars";
         }
-        return {std::move(text), Theme::kText};
+        return {.text=std::move(text), .color=Theme::kText};
     }
 
     if (!line.empty())
@@ -162,7 +162,7 @@ void appendQueued(std::string& text, int queued)
         text += "  ";
         text += line;
     }
-    return {std::move(text), chartTone(pane->status())};
+    return {.text=std::move(text), .color=chartTone(pane->status())};
 }
 
 [[nodiscard]] std::string formatEtClock()
@@ -191,7 +191,7 @@ void appendQueued(std::string& text, int queued)
     {
         const auto wall = static_cast<std::time_t>(ts);
         std::tm utc{};
-        if (gmtime_r(&wall, &utc) == nullptr)
+        if (!tryUtcTm(wall, utc))
         {
             return "--";
         }
@@ -220,7 +220,7 @@ void drawGap()
     const ImVec2 window = ImGui::GetWindowPos();
     const float height = ImGui::GetWindowHeight();
     const ImVec2 screen = ImGui::GetCursorScreenPos();
-    const float x = screen.x + kRailGap * 0.5f;
+    const float x = screen.x + (kRailGap * 0.5f);
     ImGui::GetWindowDrawList()->AddLine(ImVec2(x, window.y + 3.0f), ImVec2(x, window.y + height - 3.0f),
                                         ImGui::GetColorU32(Theme::kLine));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + kRailGap);
@@ -270,8 +270,8 @@ void drawStatusRail(const InventoryPanel& inventory, const CChartBook& charts)
         ImGui::PopFont();
     }
 
-    const float inner = std::max(0.0f, width - kRailPadX * 2.0f);
-    const float remain = std::max(0.0f, inner - clock_w - kRailGap * 2.0f);
+    const float inner = std::max(0.0f, width - (kRailPadX * 2.0f));
+    const float remain = std::max(0.0f, inner - clock_w - (kRailGap * 2.0f));
     const float chart_natural = ImGui::CalcTextSize(chart.text.c_str()).x;
     const float chart_w = std::min(chart_natural, remain * 0.46f);
     const float action_w = std::max(0.0f, remain - chart_w);

@@ -62,8 +62,8 @@ using namespace std::chrono;
 {
     const zoned_time start_z{tz, start_local, choose::earliest};
     const zoned_time end_z{tz, end_local, choose::earliest};
-    return UtcWindow{toUnix(floor<seconds>(start_z.get_sys_time())),
-                     toUnix(floor<seconds>(end_z.get_sys_time()))};
+    return UtcWindow{.start=toUnix(floor<seconds>(start_z.get_sys_time())),
+                     .end=toUnix(floor<seconds>(end_z.get_sys_time())),};
 }
 
 [[nodiscard]] bool parseInt(std::string_view text, int& out)
@@ -267,9 +267,9 @@ UtcWindow usRthUtcWindow(std::string_view iana_tz, SessionDate session_date)
 
 bool isUsRthLocal(hh_mm_ss<seconds> local_hms) noexcept
 {
-    const auto mins = static_cast<int>(local_hms.hours().count()) * 60 +
+    const auto mins = (static_cast<int>(local_hms.hours().count()) * 60) +
                       static_cast<int>(local_hms.minutes().count());
-    return mins >= (9 * 60 + 30) && mins < (16 * 60);
+    return mins >= ((9 * 60) + 30) && mins < (16 * 60);
 }
 
 bool isUsRthAt(std::string_view iana_tz, UnixSeconds ts)

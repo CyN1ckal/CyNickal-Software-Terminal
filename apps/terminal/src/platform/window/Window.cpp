@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <stdexcept>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -28,6 +28,15 @@
 #endif
 #ifndef DWMWA_BORDER_COLOR
 #define DWMWA_BORDER_COLOR 34
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_COLOR_NONE
+#define DWMWA_COLOR_NONE 0xFFFFFFFE
 #endif
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
@@ -61,8 +70,64 @@ void glfwErrorCallback(int error, const char* description)
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-#if defined(_WIN32)
-WNDPROC g_original_wnd_proc = nullptr;
+#ifdef _WIN32
+// Assigned from SetWindowLongPtrW when the frame proc is installed.
+WNDPROC g_original_wnd_proc = nullptr; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+// Stratum caption. A light-mode caption or border reads as a white bar.
+constexpr COLORREF kFrameColor = RGB(0x0D, 0x11, 0x16);
+
+void applyMaximizedClient(HWND hwnd, NCCALCSIZE_PARAMS* params)
+{
+    MONITORINFO info{};
+    info.cbSize = sizeof(info);
+    const HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST); // NOLINT(misc-misplaced-const)
+    if (monitor == nullptr || GetMonitorInfoW(monitor, &info) == FALSE)
+    {
+        return;
+    }
+
+    const FramePxRect window{
+        .left = params->rgrc[0].left,
+        .top = params->rgrc[0].top,
+        .right = params->rgrc[0].right,
+        .bottom = params->rgrc[0].bottom,
+    };
+    const FramePxRect work{
+        .left = info.rcWork.left,
+        .top = info.rcWork.top,
+        .right = info.rcWork.right,
+        .bottom = info.rcWork.bottom,
+    };
+    const FramePxRect client = maximizedClientRect(window, work);
+    params->rgrc[0].left = client.left;
+    params->rgrc[0].top = client.top;
+    params->rgrc[0].right = client.right;
+    params->rgrc[0].bottom = client.bottom;
+}
+
+// Drop the thin DWM border while maximized. It is the white top edge once the
+// client already fills the work area. Restored windows keep the dark border.
+void applyFrameBorderColor(HWND hwnd, bool zoomed)
+{
+    static bool in_call = false;
+    static bool have_state = false;
+    static bool zoomed_state = false;
+    if (in_call || (have_state && zoomed_state == zoomed))
+    {
+        return;
+    }
+
+    in_call = true;
+    const COLORREF color = zoomed ? static_cast<COLORREF>(DWMWA_COLOR_NONE) : kFrameColor;
+    const HRESULT result = DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &color, sizeof(color));
+    in_call = false;
+    if (SUCCEEDED(result))
+    {
+        have_state = true;
+        zoomed_state = zoomed;
+    }
+}
 
 // The client fills the window. ImGui paints the caption and the resize bands,
 // then starts the sizing loop with WM_NCLBUTTONDOWN. A resize hit from this
@@ -74,18 +139,14 @@ LRESULT CALLBACK frameWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_NCCALCSIZE:
         if (wParam != 0)
         {
-            // A maximized window is placed as if the thick frame still existed.
-            // Inset by that frame or the client covers the taskbar.
-            if (IsZoomed(hwnd) != FALSE)
+            const bool zoomed = IsZoomed(hwnd) != FALSE;
+            if (zoomed)
             {
-                auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
-                const int frame_x = GetSystemMetrics(SM_CXFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
-                const int frame_y = GetSystemMetrics(SM_CYFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
-                params->rgrc[0].left += frame_x;
-                params->rgrc[0].right -= frame_x;
-                params->rgrc[0].top += frame_y;
-                params->rgrc[0].bottom -= frame_y;
+                // lParam is the Win32 NCCALCSIZE_PARAMS pointer packed in an integer.
+                auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam); // NOLINT(performance-no-int-to-ptr)
+                applyMaximizedClient(hwnd, params);
             }
+            applyFrameBorderColor(hwnd, zoomed);
             return 0;
         }
         break;
@@ -133,7 +194,7 @@ LRESULT CALLBACK frameWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 #endif
 
-#if defined(__linux__)
+#ifdef __linux__
 // EWMH _NET_WM_MOVERESIZE direction field.
 [[nodiscard]] int x11MoveResizeDirection(bool moving, FrameEdge edge)
 {
@@ -325,8 +386,8 @@ void Window::pumpFrameDrag() noexcept
     const auto dx = static_cast<float>((window_x + cursor_x) - frame_drag_.origin_cursor_x);
     const auto dy = static_cast<float>((window_y + cursor_y) - frame_drag_.origin_cursor_y);
     const FrameEdge edge = frame_drag_.moving ? FrameEdge::None : frame_drag_.edge;
-    const FrameRect origin{static_cast<float>(frame_drag_.origin_x), static_cast<float>(frame_drag_.origin_y),
-                           static_cast<float>(frame_drag_.origin_w), static_cast<float>(frame_drag_.origin_h)};
+    const FrameRect origin{.x=static_cast<float>(frame_drag_.origin_x), .y=static_cast<float>(frame_drag_.origin_y),
+                           .width=static_cast<float>(frame_drag_.origin_w), .height=static_cast<float>(frame_drag_.origin_h),};
     const FrameRect next = applyFrameDrag(edge, origin, dx, dy, static_cast<float>(min_width_),
                                           static_cast<float>(min_height_));
 
@@ -362,7 +423,7 @@ VkSurfaceKHR Window::createSurface(VkInstance instance, const VkAllocationCallba
 
 void Window::installBorderlessFrame()
 {
-#if defined(_WIN32)
+#ifdef _WIN32
     HWND hwnd = glfwGetWin32Window(window_);
     if (hwnd == nullptr)
     {
@@ -375,15 +436,18 @@ void Window::installBorderlessFrame()
     SetWindowLongPtrW(hwnd, GWL_STYLE, style);
 
     // Square frame. Win11 rounds borderless windows unless told not to, and a
-    // white border reads against the Stratum caption.
+    // light-mode caption is the white bar along the top.
     const int corner = DWMWCP_DONOTROUND;
     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
-    const COLORREF border = RGB(0x0D, 0x11, 0x16);
-    DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &border, sizeof(border));
+    const BOOL immersive_dark = TRUE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &immersive_dark, sizeof(immersive_dark));
+    DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &kFrameColor, sizeof(kFrameColor));
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &kFrameColor, sizeof(kFrameColor));
 
     if (g_original_wnd_proc == nullptr)
     {
-        g_original_wnd_proc = reinterpret_cast<WNDPROC>(
+        // SetWindowLongPtrW returns the previous proc as LONG_PTR.
+        g_original_wnd_proc = reinterpret_cast<WNDPROC>( // NOLINT(performance-no-int-to-ptr)
             SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(frameWndProc)));
     }
 
@@ -396,7 +460,7 @@ void Window::installBorderlessFrame()
 
 bool Window::beginNativeDrag(bool moving, FrameEdge edge) noexcept
 {
-#if defined(_WIN32)
+#ifdef _WIN32
     HWND hwnd = glfwGetWin32Window(window_);
     if (hwnd == nullptr)
     {

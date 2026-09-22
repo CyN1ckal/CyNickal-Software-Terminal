@@ -11,6 +11,7 @@
 #include <cctype>
 #include <exception>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace terminal {
@@ -42,7 +43,7 @@ int clampSessionCount(int session_count, ChartBarPeriod period) noexcept
             continue;
         }
         collected.push_back(day);
-        if (static_cast<int>(collected.size()) >= session_count)
+        if (std::cmp_greater_equal(collected.size(), session_count))
         {
             break;
         }

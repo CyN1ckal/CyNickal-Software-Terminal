@@ -22,7 +22,7 @@ enum class PeriodUnit : std::uint8_t
     Minute,
     Hour,
     Day,
-    Unsupported
+    Unsupported,
 };
 
 constexpr int kChartSymbolMaxLen = 31;
@@ -224,7 +224,7 @@ struct PeriodAttempt
             out.message = std::string{text} + " is not a chart period";
             return out;
         }
-        value = value * 10 + (text[i] - '0');
+        value = (value * 10) + (text[i] - '0');
         ++i;
     }
     while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i])) != 0)
@@ -319,21 +319,15 @@ int chartDownloadLookbackDays(const CChartSettings& settings, SessionDate today)
 {
     int sessions = chartSessionCount(settings);
     const int cap = chartMaxSessionCount(settings.period);
-    if (sessions < kChartMinSessionCount)
-    {
-        sessions = kChartMinSessionCount;
-    }
-    if (sessions > cap)
-    {
-        sessions = cap;
-    }
+    sessions = std::max(sessions, kChartMinSessionCount);
+    sessions = std::min(sessions, cap);
     if (chartPeriodIsHistorical(settings.period))
     {
         const int spanned = calendarDaysBackForSessions(today, sessions);
         return spanned > kIngestDefaultDailyDays ? spanned : kIngestDefaultDailyDays;
     }
     const int spanned =
-        sessions * kChartDownloadWeekSpan / kChartDownloadWeekDays + kChartIntradayDownloadPadDays;
+        (sessions * kChartDownloadWeekSpan / kChartDownloadWeekDays) + kChartIntradayDownloadPadDays;
     return spanned > kChartIntradayDownloadMinDays ? spanned : kChartIntradayDownloadMinDays;
 }
 
@@ -348,10 +342,7 @@ ChartDownloadRequest chartDownloadWindow(const CChartSettings& settings, Session
     const auto ymd = sessionDateToYmd(today);
     request.from =
         toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{lookback});
-    if (request.from > request.to)
-    {
-        request.from = request.to;
-    }
+    request.from = std::min(request.from, request.to);
     return request;
 }
 

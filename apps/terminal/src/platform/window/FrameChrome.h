@@ -44,6 +44,14 @@ struct FrameRect {
     float height = 0.0f;
 };
 
+// Screen rectangle in pixels. Right and bottom are exclusive, matching RECT.
+struct FramePxRect {
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+};
+
 [[nodiscard]] inline FrameBorders frameBorderRects(float width, float height, float border) noexcept
 {
     FrameBorders out;
@@ -138,6 +146,28 @@ struct FrameRect {
         next.y = origin.y + (origin.height - next.height);
     }
     return next;
+}
+
+// Client rect of a maximized borderless window.
+// `window` is the proposed window rect. `work` is the monitor work area.
+// An undecorated maximize is already the work area. A thick frame hangs past
+// it, off the monitor and over the taskbar. The client is the overlap.
+// Insetting the work-area window by the resize border leaves a gap, and the
+// top of that gap is the non-client strip painted white.
+[[nodiscard]] inline FramePxRect maximizedClientRect(const FramePxRect& window,
+                                                     const FramePxRect& work) noexcept
+{
+    const FramePxRect client{
+        .left = std::max(window.left, work.left),
+        .top = std::max(window.top, work.top),
+        .right = std::min(window.right, work.right),
+        .bottom = std::min(window.bottom, work.bottom),
+    };
+    if (client.right <= client.left || client.bottom <= client.top)
+    {
+        return window;
+    }
+    return client;
 }
 
 }  // namespace terminal

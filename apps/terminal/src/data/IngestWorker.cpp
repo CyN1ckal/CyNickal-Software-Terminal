@@ -41,7 +41,7 @@ IngestWorker::IngestWorker(std::filesystem::path db_path, std::filesystem::path 
 IngestWorker::~IngestWorker()
 {
     {
-        const std::lock_guard<std::mutex> lock(mu_);
+        const std::scoped_lock<std::mutex> lock(mu_);
         stop_ = true;
     }
     cv_.notify_all();
@@ -55,7 +55,7 @@ IngestWorker::EnqueueResult IngestWorker::enqueue(Job job)
 {
     EnqueueResult out;
     {
-        const std::lock_guard<std::mutex> lock(mu_);
+        const std::scoped_lock<std::mutex> lock(mu_);
         if (running_valid_ && sameIngestJob(running_job_, job))
         {
             out.serial = running_job_.serial;
@@ -86,13 +86,13 @@ IngestWorker::EnqueueResult IngestWorker::enqueue(Job job)
 
 IngestWorker::Snapshot IngestWorker::snapshot() const
 {
-    const std::lock_guard<std::mutex> lock(mu_);
+    const std::scoped_lock<std::mutex> lock(mu_);
     return snap_;
 }
 
 IngestWorker::SerialFailure IngestWorker::failureForSerial(std::uint64_t serial) const
 {
-    const std::lock_guard<std::mutex> lock(mu_);
+    const std::scoped_lock<std::mutex> lock(mu_);
     const auto found = std::ranges::find_if(failures_, [serial](const FailedSerial& row) {
         return row.serial == serial;
     });
@@ -108,7 +108,7 @@ IngestWorker::SerialFailure IngestWorker::failureForSerial(std::uint64_t serial)
 
 void IngestWorker::clearDirty()
 {
-    const std::lock_guard<std::mutex> lock(mu_);
+    const std::scoped_lock<std::mutex> lock(mu_);
     snap_.dirty = false;
 }
 
@@ -151,7 +151,7 @@ void IngestWorker::run()
                     http = std::make_unique<CurlClient>(loadMboumApiKey(secrets_path_));
                 }
                 runJob(store, *http, job);
-                const std::lock_guard<std::mutex> lock(mu_);
+                const std::scoped_lock<std::mutex> lock(mu_);
                 running_valid_ = false;
                 snap_.finished_serial = job.serial;
                 snap_.running = !jobs_.empty();
@@ -166,9 +166,9 @@ void IngestWorker::run()
             catch (const std::exception& ex)
             {
                 std::string message = ex.what();
-                const std::lock_guard<std::mutex> lock(mu_);
+                const std::scoped_lock<std::mutex> lock(mu_);
                 running_valid_ = false;
-                failures_.push_back(FailedSerial{job.serial, message});
+                failures_.push_back(FailedSerial{.serial=job.serial, .message=message});
                 if (failures_.size() > kIngestFailureHistory)
                 {
                     failures_.pop_front();
@@ -185,7 +185,7 @@ void IngestWorker::run()
     }
     catch (const std::exception& ex)
     {
-        const std::lock_guard<std::mutex> lock(mu_);
+        const std::scoped_lock<std::mutex> lock(mu_);
         snap_.error = ex.what();
         snap_.message = "store open failed";
         snap_.running = false;
@@ -204,7 +204,7 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
         return http.getWithRetry(url);
     };
     auto on_day = [this, &job](const IngestDayResult& day) {
-        const std::lock_guard<std::mutex> lock(mu_);
+        const std::scoped_lock<std::mutex> lock(mu_);
         snap_.current_date = day.session_date;
         ++snap_.days_done;
         snap_.dirty = true;
@@ -214,7 +214,7 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
     if (job.statements)
     {
         {
-            const std::lock_guard<std::mutex> lock(mu_);
+            const std::scoped_lock<std::mutex> lock(mu_);
             snap_.message = job.symbol + " " + std::string(toSql(job.statement)) + " " +
                             std::string(toSql(job.statement_timeframe));
         }

@@ -94,7 +94,7 @@ if(CYN_TESTING)
     add_test(NAME market_data_tests COMMAND market_data_tests)
     if(TERMINAL_ENABLE_CLANG_TIDY)
         set_target_properties(market_data_tests PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--quiet;-extra-arg=-Wno-unknown-warning-option"
+            CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
         )
         set_source_files_properties(
             ${CMAKE_SOURCE_DIR}/deps/catch/catch_amalgamated.cpp
