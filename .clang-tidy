@@ -1,4 +1,4 @@
-# First-party checks for src/. deps/imgui/ is third-party and is not analyzed.
+# First-party checks for src/. deps/imgui/ and deps/implot/ are third-party and are not analyzed.
 # Noisy or C-API-incompatible checks are disabled so remaining findings can be fixed.
 Checks: >
   clang-diagnostic-*,

@@ -1,0 +1,8 @@
+# Third-party. Do not inherit the repo WarningsAsErrors policy.
+# clang-tidy exits with an error when every check is disabled, so one
+# check that cannot match this library stays enabled.
+InheritParentConfig: false
+Checks: '-*,llvm-twine-local'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+FormatStyle: none

@@ -48,6 +48,14 @@ add_executable(terminal
     ${TERMINAL_IMPLOT_DIR}/implot_items.cpp
 )
 
+# deps/implot is third-party. Its diagnostics are not ours.
+set_source_files_properties(
+    ${TERMINAL_IMPLOT_DIR}/implot.cpp
+    ${TERMINAL_IMPLOT_DIR}/implot_items.cpp
+    PROPERTIES
+        COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-w>$<$<CXX_COMPILER_ID:MSVC>:/w>"
+)
+
 if(TERMINAL_ENABLE_CLANG_TIDY)
     set_target_properties(terminal PROPERTIES
             CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
@@ -74,6 +82,8 @@ target_include_directories(terminal PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/apps/common
     ${TERMINAL_IMGUI_DIR}
+)
+target_include_directories(terminal SYSTEM PRIVATE
     ${TERMINAL_IMPLOT_DIR}
 )
 
