@@ -12,8 +12,8 @@
 namespace terminal {
 
 // Higher-timeframe charts are built at load time from 1-minute Store rows.
-// Canonical SQLite grain stays kTimeframe1m; this API does not persist
-// composite bars.
+// Canonical persisted grains are kTimeframe1m and kTimeframe1d. 5m/15m/1h
+// remain load-time composites and are not written back to SQLite.
 //
 // Alignment origin is the US RTH open (09:30 local), not the Unix epoch.
 // Buckets never span session dates. Day1 is one RTH session, labeled with

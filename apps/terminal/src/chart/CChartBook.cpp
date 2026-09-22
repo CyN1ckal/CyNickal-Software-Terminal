@@ -123,11 +123,11 @@ void CChartBook::drawMenu()
     }
 }
 
-void CChartBook::draw(ImGuiID chart_dock_id)
+void CChartBook::draw(ImGuiID chart_dock_id, IngestWorker* ingest)
 {
     for (std::unique_ptr<CChartPane>& pane : panes_)
     {
-        if (pane->draw(store_.get(), open_error_, chart_dock_id))
+        if (pane->draw(store_.get(), open_error_, chart_dock_id, ingest))
         {
             focused_id_ = pane->id();
         }

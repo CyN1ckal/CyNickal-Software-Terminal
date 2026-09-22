@@ -42,9 +42,26 @@ enum class ChartScaleRange : std::uint8_t
     UserDefined       // fixed top/bottom
 };
 
-inline constexpr int kChartDefaultSessionCount = 14;
+inline constexpr int kChartNyseSessionsPerYear = 252;
 inline constexpr int kChartMinSessionCount = 1;
-inline constexpr int kChartMaxSessionCount = 252;  // ~1 NYSE year; queryBars year target < 50 ms
+inline constexpr int kChartDefaultIntradaySessionCount = 14;  // 2 NYSE weeks
+inline constexpr int kChartDefaultHistoricalSessionCount = kChartNyseSessionsPerYear * 5;
+inline constexpr int kChartMaxIntradaySessionCount = kChartNyseSessionsPerYear;
+inline constexpr int kChartMaxHistoricalSessionCount = kChartNyseSessionsPerYear * 10;
+inline constexpr int kChartDefaultSessionCount = kChartDefaultIntradaySessionCount;
+inline constexpr int kChartMaxSessionCount = kChartMaxIntradaySessionCount;
+inline constexpr int kChartMaxDailySessionCount = kChartMaxHistoricalSessionCount;
+
+[[nodiscard]] inline bool chartPeriodIsHistorical(ChartBarPeriod period) noexcept
+{
+    return period == ChartBarPeriod::Day1;
+}
+
+[[nodiscard]] inline int chartMaxSessionCount(ChartBarPeriod period) noexcept
+{
+    return chartPeriodIsHistorical(period) ? kChartMaxHistoricalSessionCount
+                                           : kChartMaxIntradaySessionCount;
+}
 inline constexpr float kChartMinBarSpacingPx = 1.0f;
 inline constexpr float kChartMaxBarSpacingPx = 128.0f;
 inline constexpr float kChartDefaultBarSpacingPx = 8.0f;
@@ -58,8 +75,9 @@ struct CChartSettings
     ChartBarPeriod period{ChartBarPeriod::Minute1};
     ChartBarType bar_type{ChartBarType::Candlestick};
     ChartDataLimitMode limit_mode{ChartDataLimitMode::SessionCount};
-    int session_count{kChartDefaultSessionCount};
-    int bar_count{kUsRthExpected1m * kChartDefaultSessionCount};  // reserved
+    int intraday_session_count{kChartDefaultIntradaySessionCount};
+    int historical_session_count{kChartDefaultHistoricalSessionCount};
+    int bar_count{kUsRthExpected1m * kChartDefaultIntradaySessionCount};  // reserved
     SessionDate range_from{};  // reserved, YYYYMMDD
     SessionDate range_to{};    // reserved, YYYYMMDD
     ChartScaleRange scale_range{ChartScaleRange::Automatic};
@@ -84,7 +102,7 @@ struct CChartSettings
     case ChartBarPeriod::Hour1:
         return 3600;
     case ChartBarPeriod::Day1:
-        return 86400;  // period id; do not pass to queryBars (store grain is 1m)
+        return kTimeframe1d;
     }
     return kTimeframe1m;
 }
@@ -113,16 +131,27 @@ struct CChartSettings
            s.limit_mode == ChartDataLimitMode::SessionCount;
 }
 
+inline void clampSessionCountField(int& value, int max_sessions) noexcept
+{
+    if (value < kChartMinSessionCount)
+    {
+        value = kChartMinSessionCount;
+    }
+    if (value > max_sessions)
+    {
+        value = max_sessions;
+    }
+}
+
+[[nodiscard]] inline int chartSessionCount(const CChartSettings& s) noexcept
+{
+    return chartPeriodIsHistorical(s.period) ? s.historical_session_count : s.intraday_session_count;
+}
+
 inline void clampV1Limits(CChartSettings& s) noexcept
 {
-    if (s.session_count < kChartMinSessionCount)
-    {
-        s.session_count = kChartMinSessionCount;
-    }
-    if (s.session_count > kChartMaxSessionCount)
-    {
-        s.session_count = kChartMaxSessionCount;
-    }
+    clampSessionCountField(s.intraday_session_count, kChartMaxIntradaySessionCount);
+    clampSessionCountField(s.historical_session_count, kChartMaxHistoricalSessionCount);
     if (s.bar_spacing_px < kChartMinBarSpacingPx)
     {
         s.bar_spacing_px = kChartMinBarSpacingPx;
@@ -163,7 +192,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
                                                 const CChartSettings& b) noexcept
 {
     return a.symbol == b.symbol && a.period == b.period && a.bar_type == b.bar_type &&
-           a.limit_mode == b.limit_mode && a.session_count == b.session_count;
+           a.limit_mode == b.limit_mode && chartSessionCount(a) == chartSessionCount(b);
 }
 
 }  // namespace terminal

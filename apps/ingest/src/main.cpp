@@ -24,7 +24,8 @@ namespace {
 
 void usage()
 {
-    std::cerr << "Usage: ingest [--from YYYYMMDD] [--to YYYYMMDD] [--db PATH] [--secrets PATH] SYMBOL [SYMBOL...]\n"
+    std::cerr << "Usage: ingest [--timeframe 1m|1d] [--from YYYYMMDD] [--to YYYYMMDD] "
+                 "[--db PATH] [--secrets PATH] SYMBOL [SYMBOL...]\n"
                  "Reads the MBoum API key from secrets.json key \"mboum\". Never pass the key on the CLI.\n";
 }
 
@@ -38,6 +39,7 @@ int main(int argc, char** argv)
         std::filesystem::path db = terminal::defaultMarketDataDbPath();
         std::optional<terminal::SessionDate> from;
         std::optional<terminal::SessionDate> to;
+        int timeframe = terminal::kTimeframe1m;
         std::vector<std::string> symbols;
 
         for (int i = 1; i < argc; ++i)
@@ -53,6 +55,22 @@ int main(int argc, char** argv)
             if (arg == "--from")
             {
                 from = terminal::parseSessionDate(need("--from"));
+            }
+            else if (arg == "--timeframe")
+            {
+                const std::string_view value = need("--timeframe");
+                if (value == "1m")
+                {
+                    timeframe = terminal::kTimeframe1m;
+                }
+                else if (value == "1d")
+                {
+                    timeframe = terminal::kTimeframe1d;
+                }
+                else
+                {
+                    throw std::runtime_error("timeframe must be 1m or 1d");
+                }
             }
             else if (arg == "--to")
             {
@@ -92,7 +110,14 @@ int main(int argc, char** argv)
         if (!from.has_value())
         {
             const auto ymd = terminal::sessionDateToYmd(to_date);
-            from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
+            if (timeframe == terminal::kTimeframe1d)
+            {
+                from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{365 * 5});
+            }
+            else
+            {
+                from_date = terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
+            }
         }
 
         const std::string key = terminal::loadMboumApiKey(secrets);
@@ -102,7 +127,9 @@ int main(int argc, char** argv)
 
         for (const auto& symbol : symbols)
         {
-            std::clog << "ingest " << symbol << " " << from_date << ".." << to_date << '\n';
+            std::clog << "ingest " << symbol << " "
+                      << (timeframe == terminal::kTimeframe1d ? "1d " : "1m ") << from_date << ".."
+                      << to_date << '\n';
             bool first = true;
             auto get = [&](std::string_view url) {
                 if (!first)
@@ -112,7 +139,9 @@ int main(int argc, char** argv)
                 first = false;
                 return http.getWithRetry(url);
             };
-            const auto result = terminal::ingestSymbol(store, get, symbol, from_date, to_date);
+            const auto result = timeframe == terminal::kTimeframe1d
+                                    ? terminal::ingestDailySymbol(store, get, symbol, from_date, to_date)
+                                    : terminal::ingestSymbol(store, get, symbol, from_date, to_date);
             for (const auto& day : result.days)
             {
                 std::clog << "  " << day.session_date << " " << terminal::toSql(day.status)

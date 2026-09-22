@@ -78,7 +78,7 @@ void Workspace::draw()
     ImGui::End();
 
     inventory_.draw();
-    charts_.draw(chart_dock_id_);
+    charts_.draw(chart_dock_id_, inventory_.ingestWorker());
 }
 
 }  // namespace terminal

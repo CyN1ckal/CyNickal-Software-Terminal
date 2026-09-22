@@ -31,8 +31,19 @@ struct MboumV2BarRow
     double volume{};
 };
 
+struct MboumV3DailyRow
+{
+    std::string date;  // "YYYY-MM-DD"
+    double open{};
+    double high{};
+    double low{};
+    double close{};
+    double volume{};
+};
+
 std::optional<Bar> mapV3Bar(const Instrument& inst, const MboumV3BarRow& row, UnixSeconds now_utc);
 std::optional<Bar> mapV2Bar(const Instrument& inst, const MboumV2BarRow& row, UnixSeconds now_utc);
+std::optional<Bar> mapV3DailyBar(const Instrument& inst, const MboumV3DailyRow& row, UnixSeconds now_utc);
 
 struct MboumSplitRow
 {

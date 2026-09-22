@@ -7,18 +7,67 @@
 #include "chart/CChartTransform.h"
 #include "chart/CStudyCompute.h"
 #include "chart/CStudySettings.h"
+#include "data/IngestWorker.h"
 #include "ui/Theme.h"
+
+#include "market_data/Time.h"
 
 #include "imgui.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <exception>
 #include <string>
 
 namespace terminal {
 namespace {
 
 constexpr auto kReloadInterval = std::chrono::seconds(2);
+constexpr auto kChartKeyBufferTimeout = std::chrono::seconds(30);
+constexpr std::size_t kChartKeyBufferMax = 32;
+
+[[nodiscard]] std::string chartDownloadingMessage(const ChartDownloadRequest& request)
+{
+    const char* timeframe = request.timeframe_s == kTimeframe1d ? "1d" : "1m";
+    return request.symbol + "  downloading " + timeframe + "  " + formatSessionDate(request.from) +
+           " .. " + formatSessionDate(request.to);
+}
+
+void formatChartTitle(char* title, std::size_t title_n, int id, const CChartSettings& settings,
+                      std::string_view typed)
+{
+    const char* period = chartPeriodCode(settings.period);
+    const int typed_n = static_cast<int>(typed.size());
+    if (settings.symbol.empty())
+    {
+        if (typed.empty() && settings.period == ChartBarPeriod::Minute1)
+        {
+            std::snprintf(title, title_n, "CHART %d###chart_%d", id, id);
+            return;
+        }
+        if (typed.empty())
+        {
+            std::snprintf(title, title_n, "CHART %d  %s###chart_%d", id, period, id);
+            return;
+        }
+        if (settings.period == ChartBarPeriod::Minute1)
+        {
+            std::snprintf(title, title_n, "CHART %d  %.*s###chart_%d", id, typed_n, typed.data(), id);
+            return;
+        }
+        std::snprintf(title, title_n, "CHART %d  %s  %.*s###chart_%d", id, period, typed_n, typed.data(),
+                      id);
+        return;
+    }
+    if (typed.empty())
+    {
+        std::snprintf(title, title_n, "%s  %s###chart_%d", settings.symbol.c_str(), period, id);
+        return;
+    }
+    std::snprintf(title, title_n, "%s  %s  %.*s###chart_%d", settings.symbol.c_str(), period, typed_n,
+                  typed.data(), id);
+}
 
 [[nodiscard]] const char* periodDisplayName(ChartBarPeriod period) noexcept
 {
@@ -187,7 +236,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
     }
     const bool reset_view = loaded_settings_.symbol != settings_.symbol ||
                             loaded_settings_.period != settings_.period ||
-                            loaded_settings_.session_count != settings_.session_count;
+                            chartSessionCount(loaded_settings_) != chartSessionCount(settings_);
     loaded_ = incoming;
     loaded_settings_ = settings_;
     if (reset_view)
@@ -198,7 +247,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
     computed_ = studiesForLoad(loaded_, studies_);
 }
 
-void CChartPane::applyDraft(Store* store, std::string_view store_error)
+void CChartPane::applyDraft(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     draft_.symbol = normalizeChartSymbol(draft_symbol_);
     std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
@@ -212,10 +261,118 @@ void CChartPane::applyDraft(Store* store, std::string_view store_error)
         resetChartScale(view_);
     }
     settings_ = draft_;
+    applyLiveSettings(store, store_error, ingest);
+}
+
+void CChartPane::applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    clampV1Limits(settings_);
+    const bool showing = loaded_.status == ChartLoadStatus::Ready &&
+                         loaded_settings_.symbol == settings_.symbol &&
+                         loaded_settings_.period == settings_.period;
+    download_error_.clear();
+    download_serial_ = 0;
+    if (!showing)
+    {
+        requestMissingData(store, ingest);
+    }
     reload(store, store_error);
 }
 
-void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
+void CChartPane::requestMissingData(Store* store, IngestWorker* ingest)
+{
+    download_serial_ = 0;
+    pending_download_ = {};
+    if (store == nullptr || normalizeChartSymbol(settings_.symbol).empty())
+    {
+        return;
+    }
+
+    ChartDownloadRequest window;
+    try
+    {
+        const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+        window = chartDownloadWindow(settings_, today);
+        const std::optional<ChartDownloadRequest> needed =
+            chartDownloadRequest(*store, settings_, today);
+        if (!needed.has_value())
+        {
+            return;
+        }
+        window = needed.value_or(ChartDownloadRequest{});
+    }
+    catch (const std::exception& ex)
+    {
+        if (!isStoreBusyError(ex.what()) || window.symbol.empty())
+        {
+            download_error_ = ex.what();
+            return;
+        }
+    }
+
+    if (window.symbol.empty())
+    {
+        return;
+    }
+    pending_download_ = window;
+    if (ingest == nullptr)
+    {
+        download_error_ = "ingest worker is not running";
+        return;
+    }
+    IngestWorker::Job job;
+    job.symbol = window.symbol;
+    job.from = window.from;
+    job.to = window.to;
+    job.timeframe_s = window.timeframe_s;
+    const IngestWorker::EnqueueResult result = ingest->enqueue(std::move(job));
+    download_serial_ = result.serial;
+}
+
+void CChartPane::overlayDownloadStatus(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    if (loaded_.status == ChartLoadStatus::Ready)
+    {
+        download_serial_ = 0;
+        download_error_.clear();
+        return;
+    }
+    if (!download_error_.empty())
+    {
+        loaded_.status = ChartLoadStatus::Error;
+        loaded_.message = download_error_;
+        return;
+    }
+    if (download_serial_ == 0)
+    {
+        return;
+    }
+    if (ingest != nullptr)
+    {
+        const IngestWorker::Snapshot snap = ingest->snapshot();
+        if (snap.finished_serial >= download_serial_)
+        {
+            download_serial_ = 0;
+            if (snap.error_serial == download_serial_ && !snap.error.empty())
+            {
+                download_error_ = snap.error;
+                loaded_.status = ChartLoadStatus::Error;
+                loaded_.message = download_error_;
+                return;
+            }
+            reload(store, store_error);
+            return;
+        }
+    }
+    if (loaded_.status == ChartLoadStatus::UnknownSymbol || loaded_.status == ChartLoadStatus::Empty ||
+        loaded_.status == ChartLoadStatus::Busy)
+    {
+        loaded_.status = ChartLoadStatus::Empty;
+        loaded_.message = chartDownloadingMessage(pending_download_);
+    }
+}
+
+void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     char popup_id[64];
     std::snprintf(popup_id, sizeof(popup_id), "Chart Settings###chart_settings_%d", id_);
@@ -264,11 +421,15 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
         }
         ImGui::TextColored(Theme::kMuted, "v1: candlesticks only");
 
-        ImGui::TextUnformatted("Days to Load");
+        ImGui::TextUnformatted("Intraday Days to Load");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputInt("##days", &draft_.session_count);
-        ImGui::TextColored(Theme::kMuted, "Bar count and date range are reserved.");
+        ImGui::InputInt("##intraday_days", &draft_.intraday_session_count);
+        ImGui::TextUnformatted("Historical Days to Load");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(80.0f);
+        ImGui::InputInt("##historical_days", &draft_.historical_session_count);
+        ImGui::TextColored(Theme::kMuted, "Intraday default 2 weeks. Historical default 5 years.");
 
         ImGui::Separator();
         ImGui::TextUnformatted("Bar Spacing (px)");
@@ -359,7 +520,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error)
 
         if (enter || apply || ok)
         {
-            applyDraft(store, store_error);
+            applyDraft(store, store_error, ingest);
         }
         if (ok)
         {
@@ -388,29 +549,23 @@ void CChartPane::drawStudiesPopup()
     {
         ImGui::OpenPopup(popup_id);
     }
-    if (ImGui::BeginPopupModal(popup_id, &studies_open_, ImGuiWindowFlags_AlwaysAutoResize))
+    // A split list/settings layout needs a real size. AlwaysAutoResize collapses it.
+    // Frame height tracks UI scale, so the window stays about 800×460 at 13 px type.
+    const float row = ImGui::GetFrameHeight();
+    ImGui::SetNextWindowSize(ImVec2(row * 42.0f, row * 24.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(row * 36.0f, row * 18.0f),
+                                        ImVec2(row * 70.0f, row * 48.0f));
+    if (ImGui::BeginPopupModal(popup_id, &studies_open_,
+                               ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
     {
-        const bool length_enter =
+        const StudyDraftUi ui =
             drawStudyDraftBody(study_draft_, study_draft_selected_, next_study_id_);
 
-        ImGui::Separator();
-        ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
-        const bool ok = ImGui::Button("OK");
-        ImGui::PopStyleColor(3);
-        ImGui::SameLine();
-        const bool apply = ImGui::Button("Apply");
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
-        const bool cancel = ImGui::Button("Cancel");
-        ImGui::PopStyleColor();
-
-        if (length_enter || apply || ok)
+        if (ui.length_enter || ui.apply || ui.ok)
         {
             applyStudyDraft();
         }
-        if (ok)
+        if (ui.ok)
         {
             studies_open_ = false;
             ImGui::CloseCurrentPopup();
@@ -429,7 +584,7 @@ void CChartPane::drawStudiesPopup()
         {
             escape = ImGui::Shortcut(ImGuiKey_Escape);
         }
-        if (cancel || escape)
+        if (ui.cancel || escape)
         {
             cancelStudyDraft();
             ImGui::CloseCurrentPopup();
@@ -451,7 +606,7 @@ void CChartPane::drawStatusLine() const
         switch (loaded_.status)
         {
         case ChartLoadStatus::Unconfigured:
-            text = "Open Chart Settings to choose a symbol.";
+            text = "Type a symbol and press Enter, or open Chart Settings.";
             break;
         case ChartLoadStatus::Busy:
             text = "store busy";
@@ -471,15 +626,106 @@ void CChartPane::drawStatusLine() const
     ImGui::TextColored(color, "%s", text);
 }
 
-void CChartPane::handleChartKeys()
+void CChartPane::drawKeyBuffer() const
+{
+    if (!key_buffer_.empty())
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(Theme::kAccent, "%s", key_buffer_.c_str());
+        return;
+    }
+    if (!key_note_.empty())
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(Theme::kDown, "%s", key_note_.c_str());
+    }
+}
+
+void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    const std::string text = key_buffer_;
+    key_buffer_.clear();
+    const ChartCommand command = parseChartCommand(text, settings_.period);
+    if (command.kind == ChartCommandKind::Empty)
+    {
+        return;
+    }
+    if (command.kind == ChartCommandKind::Rejected)
+    {
+        key_note_ = command.message;
+        return;
+    }
+    key_note_.clear();
+    if (command.kind == ChartCommandKind::Symbol)
+    {
+        settings_.symbol = command.symbol;
+    }
+    else
+    {
+        settings_.period = command.period;
+    }
+    applyLiveSettings(store, store_error, ingest);
+}
+
+void CChartPane::handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     if (settings_open_ || studies_open_ || ImGui::GetIO().WantTextInput)
     {
+        key_buffer_.clear();
         return;
     }
     if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows))
     {
+        key_buffer_.clear();
         return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (!key_buffer_.empty() && now - key_buffer_at_ >= kChartKeyBufferTimeout)
+    {
+        key_buffer_.clear();
+    }
+    // A focused button owns Enter and Space. Typing starts after a click on the chart.
+    if (!ImGui::IsAnyItemFocused())
+    {
+        const ImGuiIO& io = ImGui::GetIO();
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+        {
+            key_buffer_.clear();
+            key_note_.clear();
+        }
+        else if (io.KeyCtrl || io.KeyAlt || io.KeySuper)
+        {
+            // Leave shortcuts alone.
+        }
+        else
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_Backspace) && !key_buffer_.empty())
+            {
+                key_buffer_.pop_back();
+                key_buffer_at_ = now;
+                key_note_.clear();
+            }
+            for (const ImWchar ch : io.InputQueueCharacters)
+            {
+                if (ch > 127 || key_buffer_.size() >= kChartKeyBufferMax)
+                {
+                    continue;
+                }
+                const auto c = static_cast<char>(ch);
+                const auto u = static_cast<unsigned char>(c);
+                if (std::isalnum(u) == 0 && c != '/' && c != '.' && c != '-' && c != ' ')
+                {
+                    continue;
+                }
+                key_buffer_.push_back(c);
+                key_buffer_at_ = now;
+                key_note_.clear();
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))
+            {
+                commitKeyBuffer(store, store_error, ingest);
+            }
+        }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
     {
@@ -544,7 +790,8 @@ void CChartPane::drawPlotBody()
     ImGui::PopStyleColor();
 }
 
-bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_id)
+bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_id,
+                      IngestWorker* ingest)
 {
     if (focus_on_appear_)
     {
@@ -556,22 +803,25 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
         ImGui::SetNextWindowDockID(dock_id, ImGuiCond_FirstUseEver);
     }
 
-    char title[96];
-    if (settings_.symbol.empty())
-    {
-        std::snprintf(title, sizeof(title), "CHART %d###chart_%d", id_, id_);
-    }
-    else
-    {
-        std::snprintf(title, sizeof(title), "%s  %s###chart_%d", settings_.symbol.c_str(),
-                      chartPeriodCode(settings_.period), id_);
-    }
+    char title[160];
+    formatChartTitle(title, sizeof(title), id_, settings_, key_buffer_);
 
     if (!ImGui::Begin(title, &window_open_))
     {
         ImGui::End();
         return false;
     }
+
+    handleChartKeys(store, store_error, ingest);
+    if (!settings_.symbol.empty())
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (now - last_reload_ >= kReloadInterval)
+        {
+            reload(store, store_error);
+        }
+    }
+    overlayDownloadStatus(store, store_error, ingest);
 
     ImGui::BeginDisabled(studies_open_);
     if (ImGui::Button("Settings"))
@@ -588,6 +838,7 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
     ImGui::EndDisabled();
     ImGui::SameLine();
     drawStatusLine();
+    drawKeyBuffer();
     for (const CStudyInstance& inst : studies_)
     {
         if (!inst.enabled)
@@ -603,18 +854,9 @@ bool CChartPane::draw(Store* store, std::string_view store_error, ImGuiID dock_i
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(inst.color), "%s", label.c_str());
     }
 
-    drawSettingsPopup(store, store_error);
+    drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();
-    handleChartKeys();
-
-    if (!settings_.symbol.empty())
-    {
-        const auto now = std::chrono::steady_clock::now();
-        if (now - last_reload_ >= kReloadInterval)
-        {
-            reload(store, store_error);
-        }
-    }
+    overlayDownloadStatus(store, store_error, ingest);
 
     drawPlotBody();
 

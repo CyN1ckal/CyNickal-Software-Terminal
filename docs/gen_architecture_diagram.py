@@ -657,7 +657,7 @@ def draw_figure2(ctx: cairo.Context) -> None:
         ctx,
         28,
         y0 + 18,
-        "DATA  GO  and  ingest CLI share this path.  enqueue is asynchronous; the CLI calls ingestSymbol on the calling thread.",
+        "DATA  GO  and  ingest CLI share this path.  enqueue is asynchronous; 1m calls ingestSymbol, 1d calls ingestDailySymbol (paged interval=daily).",
         11,
         color=MUTED,
     )
@@ -889,7 +889,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
         ctx,
         28,
         y0 + 18,
-        "On reload, studiesForLoad runs when loaded_ is assigned, not on keep-candles.  Studies Apply/OK also calls it without assigning loaded_.  No MBoum.  Studies are not stored.",
+        "Day1 queryBars(id, 86400) when daily coverage exists; else 1m + transformChartBars.  Studies Apply/OK recomputes without assigning loaded_.  No MBoum.  Studies are not stored.",
         11,
         color=MUTED,
     )

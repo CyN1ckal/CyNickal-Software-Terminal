@@ -4,10 +4,12 @@
 #include "market_data/Store.h"
 
 #include "Sqlite.h"
+#include "market_data/NyseCalendar.h"
 #include "market_data/Schema.h"
 #include "market_data/Time.h"
 #include "market_data/Types.h"
 
+#include <chrono>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -678,18 +680,69 @@ IngestSessionResult Store::ingestSession(std::span<const Bar> bars,
     return result;
 }
 
+IngestDailyRangeResult Store::ingestDailyRange(std::span<const Bar> bars,
+                                               InstrumentId id,
+                                               SessionDate from,
+                                               SessionDate to)
+{
+    if (from > to)
+    {
+        throw std::runtime_error("ingestDailyRange from is after to");
+    }
+    const auto found = findInstrumentById(id);
+    if (!found.has_value())
+    {
+        throw std::runtime_error("ingestDailyRange: unknown instrument");
+    }
+    const Instrument& instrument = *found;
+    using namespace std::chrono;
+    const UnixSeconds now = nowUtc();
+    SqliteTxn txn(impl_->db.handle());
+    IngestDailyRangeResult result;
+    result.bars = upsertBarsUnlocked(
+        bars, now, &instrument, kTimeframe1d, from, kUsRthExpected1d, to);
+
+    sys_days cursor{sessionDateToYmd(from)};
+    const sys_days last{sessionDateToYmd(to)};
+    for (; cursor <= last; cursor += days{1})
+    {
+        const weekday wd{cursor};
+        if (wd == Saturday || wd == Sunday)
+        {
+            continue;
+        }
+        const year_month_day ymd{cursor};
+        const SessionDate date = toSessionDate(ymd);
+        const bool holiday = isNyseHoliday(ymd);
+        const std::optional<int> expected =
+            holiday ? std::optional<int>{0} : std::optional<int>{kUsRthExpected1d};
+        const bool still_open = !holiday && sessionStillOpen(instrument.timezone, date, now);
+        result.coverage.push_back(
+            refreshCoverageFromBarsUnlocked(id, kTimeframe1d, date, expected, still_open));
+    }
+    txn.commit();
+    return result;
+}
+
 UpsertBarsResult Store::upsertBarsUnlocked(std::span<const Bar> bars,
                                            UnixSeconds now,
                                            const Instrument* session_filter,
                                            int timeframe_s,
                                            SessionDate session_date,
-                                           std::optional<int> expected_count)
+                                           std::optional<int> expected_count,
+                                           std::optional<SessionDate> session_date_end)
 {
     UpsertBarsResult result;
     const bool filter_rth = session_filter != nullptr && expected_count == kUsRthExpected1m;
-    const UtcWindow day_window = session_filter != nullptr
-                                     ? sessionUtcWindow(session_filter->timezone, session_date)
-                                     : UtcWindow{};
+    UtcWindow day_window{};
+    if (session_filter != nullptr)
+    {
+        day_window = sessionUtcWindow(session_filter->timezone, session_date);
+        if (session_date_end.has_value())
+        {
+            day_window.end = sessionUtcWindow(session_filter->timezone, *session_date_end).end;
+        }
+    }
     const UtcWindow rth_window =
         filter_rth ? usRthUtcWindow(session_filter->timezone, session_date) : UtcWindow{};
     auto& ins = impl_->ins_bar;

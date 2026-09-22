@@ -281,6 +281,28 @@ bool isUsRthAt(std::string_view iana_tz, UnixSeconds ts)
     return isUsRthLocal(tod);
 }
 
+std::optional<SessionDate> tryParseIsoDate(std::string_view text)
+{
+    if (text.size() != 10 || text[4] != '-' || text[7] != '-')
+    {
+        return std::nullopt;
+    }
+    int y = 0;
+    int mon = 0;
+    int d = 0;
+    if (!parseInt(text.substr(0, 4), y) || !parseInt(text.substr(5, 2), mon) ||
+        !parseInt(text.substr(8, 2), d))
+    {
+        return std::nullopt;
+    }
+    const year_month_day ymd{year{y}, month{static_cast<unsigned>(mon)}, day{static_cast<unsigned>(d)}};
+    if (!ymd.ok())
+    {
+        return std::nullopt;
+    }
+    return toSessionDate(ymd);
+}
+
 SessionDate parseSessionDate(std::string_view text)
 {
     std::string digits;

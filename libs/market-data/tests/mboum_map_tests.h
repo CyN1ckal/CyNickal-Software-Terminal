@@ -49,6 +49,69 @@ TEST_CASE("mapV3Bar forming and non-RTH are nullopt")
     CHECK_FALSE(terminal::mapV3Bar(inst, row, *later).has_value());
 }
 
+TEST_CASE("mapV3DailyBar stamps RTH open with timeframe 86400")
+{
+    terminal::Instrument inst;
+    inst.id = 1;
+    inst.timezone = "America/New_York";
+    terminal::MboumV3DailyRow row;
+    row.date = "2025-01-15";
+    row.open = 234.0;
+    row.high = 238.0;
+    row.low = 233.0;
+    row.close = 237.0;
+    row.volume = 45000000;
+    const auto now = terminal::naiveLocalToUtc("America/New_York", "2025-01-16 12:00");
+    REQUIRE(now.has_value());
+    const auto bar = terminal::mapV3DailyBar(inst, row, *now);
+    REQUIRE(bar.has_value());
+    CHECK(bar->instrument_id == 1);
+    CHECK(bar->timeframe_s == terminal::kTimeframe1d);
+    CHECK(bar->ts == terminal::usRthUtcWindow("America/New_York", 20250115).start);
+    CHECK(bar->open == 234.0);
+    CHECK(bar->close == 237.0);
+    CHECK(bar->volume == 45000000.0);
+}
+
+TEST_CASE("mapV3DailyBar forming at 15:59 is nullopt and closed at 16:00 maps")
+{
+    terminal::Instrument inst;
+    inst.id = 1;
+    inst.timezone = "America/New_York";
+    terminal::MboumV3DailyRow row;
+    row.date = "2025-01-15";
+    row.open = 1;
+    row.high = 1;
+    row.low = 1;
+    row.close = 1;
+    row.volume = 1;
+    const auto during = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 15:59");
+    const auto closed = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 16:00");
+    REQUIRE(during.has_value());
+    REQUIRE(closed.has_value());
+    CHECK_FALSE(terminal::mapV3DailyBar(inst, row, *during).has_value());
+    const auto bar = terminal::mapV3DailyBar(inst, row, *closed);
+    REQUIRE(bar.has_value());
+    CHECK(bar->timeframe_s == terminal::kTimeframe1d);
+}
+
+TEST_CASE("mapV3DailyBar rejects unparseable date")
+{
+    terminal::Instrument inst;
+    inst.id = 1;
+    inst.timezone = "America/New_York";
+    terminal::MboumV3DailyRow row;
+    row.date = "2025-02-31";
+    row.open = 1;
+    row.high = 1;
+    row.low = 1;
+    row.close = 1;
+    row.volume = 1;
+    const auto now = terminal::naiveLocalToUtc("America/New_York", "2025-03-01 12:00");
+    REQUIRE(now.has_value());
+    CHECK_FALSE(terminal::mapV3DailyBar(inst, row, *now).has_value());
+}
+
 TEST_CASE("mapV2Bar prefers timestamp_unix")
 {
     terminal::Instrument inst;

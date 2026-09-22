@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "chart/CChartCommand.h"
 #include "chart/CChartSettings.h"
 #include "market_data/Store.h"
 #include "market_data/Types.h"
@@ -43,5 +44,12 @@ struct ChartLoadResult
 
 [[nodiscard]] ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings);
 [[nodiscard]] bool isStoreBusyError(std::string_view what) noexcept;
+
+// nullopt when the chart can already draw this symbol, the symbol is empty, or the
+// name is ambiguous. Day1 needs stored daily bars. Intraday periods need 1-minute bars.
+// `today` is the ingest window's end date.
+[[nodiscard]] std::optional<ChartDownloadRequest> chartDownloadRequest(const Store& store,
+                                                                       const CChartSettings& settings,
+                                                                       SessionDate today);
 
 }  // namespace terminal

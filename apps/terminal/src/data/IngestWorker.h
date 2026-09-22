@@ -6,6 +6,7 @@
 #include "market_data/Types.h"
 
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <filesystem>
 #include <mutex>
@@ -22,6 +23,16 @@ public:
         std::string symbol;
         SessionDate from{};
         SessionDate to{};
+        int timeframe_s{kTimeframe1m};
+        std::uint64_t serial{0};
+    };
+
+    // `accepted` is false when an identical job is already queued or running.
+    // `serial` is that job either way, and Snapshot::finished_serial passes it when the job ends.
+    struct EnqueueResult
+    {
+        bool accepted{false};
+        std::uint64_t serial{0};
     };
 
     struct Snapshot
@@ -34,6 +45,8 @@ public:
         SessionDate current_date{};
         std::string message;
         std::string error;
+        std::uint64_t finished_serial{0};
+        std::uint64_t error_serial{0};
     };
 
     IngestWorker(std::filesystem::path db_path, std::filesystem::path secrets_path);
@@ -44,7 +57,7 @@ public:
     IngestWorker(IngestWorker&&) = delete;
     IngestWorker& operator=(IngestWorker&&) = delete;
 
-    void enqueue(Job job);
+    EnqueueResult enqueue(Job job);
     [[nodiscard]] Snapshot snapshot() const;
     void clearDirty();
 
@@ -57,6 +70,9 @@ private:
     mutable std::mutex mu_;
     std::condition_variable cv_;
     std::deque<Job> jobs_;
+    Job running_job_{};
+    bool running_valid_{false};
+    std::uint64_t next_serial_{1};
     Snapshot snap_;
     bool stop_ = false;
     std::thread thread_;

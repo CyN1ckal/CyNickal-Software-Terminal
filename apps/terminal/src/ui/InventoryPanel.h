@@ -30,6 +30,7 @@ public:
     InventoryPanel& operator=(InventoryPanel&&) = delete;
 
     void draw();
+    [[nodiscard]] IngestWorker* ingestWorker() noexcept;
 
 private:
     void fillDefaultDates();
@@ -50,6 +51,8 @@ private:
     std::vector<CoverageSummary> summaries_;
     std::vector<CoverageDay> days_;
     std::optional<InstrumentId> selected_id_;
+    int selected_timeframe_s_{kTimeframe1m};
+    int ingest_timeframe_s_{kTimeframe1m};
     char symbol_[32]{};
     char from_[16]{};
     char to_[16]{};

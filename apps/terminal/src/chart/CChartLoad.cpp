@@ -6,24 +6,47 @@
 #include "chart/CChartTransform.h"
 #include "market_data/Time.h"
 
+#include <algorithm>
 #include <cctype>
 #include <exception>
 #include <string>
+#include <vector>
 
 namespace terminal {
 namespace {
 
-int clampSessionCount(int session_count) noexcept
+int clampSessionCount(int session_count, ChartBarPeriod period) noexcept
 {
     if (session_count < kChartMinSessionCount)
     {
         return kChartMinSessionCount;
     }
-    if (session_count > kChartMaxSessionCount)
+    const int max_sessions = chartMaxSessionCount(period);
+    if (session_count > max_sessions)
     {
-        return kChartMaxSessionCount;
+        return max_sessions;
     }
     return session_count;
+}
+
+[[nodiscard]] std::vector<CoverageDay> collectSessions(const std::vector<CoverageDay>& days,
+                                                       int session_count)
+{
+    std::vector<CoverageDay> collected;
+    collected.reserve(static_cast<std::size_t>(session_count));
+    for (const CoverageDay& day : days)
+    {
+        if (day.bar_count <= 0)
+        {
+            continue;
+        }
+        collected.push_back(day);
+        if (static_cast<int>(collected.size()) >= session_count)
+        {
+            break;
+        }
+    }
+    return collected;
 }
 
 ChartLoadResult caughtAsStatus(const std::exception& ex)
@@ -32,6 +55,12 @@ ChartLoadResult caughtAsStatus(const std::exception& ex)
     out.message = ex.what();
     out.status = isStoreBusyError(out.message) ? ChartLoadStatus::Busy : ChartLoadStatus::Error;
     return out;
+}
+
+[[nodiscard]] bool coverageHasBars(const Store& store, InstrumentId id, int timeframe_s)
+{
+    const std::vector<CoverageDay> days = store.queryCoverageDays(id, timeframe_s);
+    return std::ranges::any_of(days, [](const CoverageDay& day) { return day.bar_count > 0; });
 }
 
 }  // namespace
@@ -72,7 +101,7 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         {
             ChartLoadResult out;
             out.status = ChartLoadStatus::Unconfigured;
-            out.message = "Open Chart Settings to choose a symbol.";
+            out.message = "Type a symbol and press Enter, or open Chart Settings.";
             return out;
         }
         if (!isChartSettingsSupported(settings))
@@ -83,7 +112,7 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
             return out;
         }
 
-        const int session_count = clampSessionCount(settings.session_count);
+        const int session_count = clampSessionCount(chartSessionCount(settings), settings.period);
         const std::vector<Instrument> found = store.findInstrumentsBySymbol(symbol);
         if (found.empty())
         {
@@ -108,25 +137,22 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
                                         ? std::string_view{"America/New_York"}
                                         : std::string_view{instrument.timezone};
 
-        const std::vector<CoverageDay> days = store.queryCoverageDays(id, kTimeframe1m);
         std::vector<CoverageDay> collected;
-        collected.reserve(static_cast<std::size_t>(session_count));
-        for (const CoverageDay& day : days)
+        const bool daily = settings.period == ChartBarPeriod::Day1;
+        if (daily)
         {
-            if (day.bar_count <= 0)
-            {
-                continue;
-            }
-            collected.push_back(day);
-            if (static_cast<int>(collected.size()) >= session_count)
-            {
-                break;
-            }
+            // Historical charts read the stored daily series only. 1-minute rows are not a substitute.
+            collected = collectSessions(store.queryCoverageDays(id, kTimeframe1d), session_count);
+        }
+        else
+        {
+            collected = collectSessions(store.queryCoverageDays(id, kTimeframe1m), session_count);
         }
         if (collected.empty())
         {
             out.status = ChartLoadStatus::Empty;
-            out.message = "no 1m bars for " + symbol;
+            out.message = std::string{"no "} + chartPeriodCode(settings.period) + " bars for " +
+                          symbol;
             return out;
         }
 
@@ -137,10 +163,17 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         out.sessions_used = static_cast<int>(collected.size());
         out.ts_begin = usRthUtcWindow(tz, first_session).start;
         out.ts_end = usRthUtcWindow(tz, last_session).end;
-        out.bars = store.queryBars(id, kTimeframe1m, out.ts_begin, out.ts_end);
-        if (chartNeedsBarTransform(settings))
+        if (daily)
         {
-            out.bars = transformChartBars(out.bars, settings.period, tz);
+            out.bars = store.queryBars(id, kTimeframe1d, out.ts_begin, out.ts_end);
+        }
+        else
+        {
+            out.bars = store.queryBars(id, kTimeframe1m, out.ts_begin, out.ts_end);
+            if (chartNeedsBarTransform(settings))
+            {
+                out.bars = transformChartBars(out.bars, settings.period, tz);
+            }
         }
         if (out.bars.empty())
         {
@@ -162,6 +195,35 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
     {
         return caughtAsStatus(ex);
     }
+}
+
+std::optional<ChartDownloadRequest> chartDownloadRequest(const Store& store,
+                                                         const CChartSettings& settings,
+                                                         SessionDate today)
+{
+    ChartDownloadRequest window = chartDownloadWindow(settings, today);
+    if (window.symbol.empty() || !isChartSettingsSupported(settings))
+    {
+        return std::nullopt;
+    }
+
+    const std::vector<Instrument> found = store.findInstrumentsBySymbol(window.symbol);
+    if (found.size() > 1)
+    {
+        return std::nullopt;
+    }
+    if (found.size() == 1)
+    {
+        const InstrumentId id = found.front().id;
+        const int timeframe_s =
+            settings.period == ChartBarPeriod::Day1 ? kTimeframe1d : kTimeframe1m;
+        const bool has_bars = coverageHasBars(store, id, timeframe_s);
+        if (has_bars)
+        {
+            return std::nullopt;
+        }
+    }
+    return window;
 }
 
 }  // namespace terminal

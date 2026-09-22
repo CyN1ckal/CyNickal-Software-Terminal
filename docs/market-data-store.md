@@ -1156,7 +1156,37 @@ Vendor (https://docs.mboum.com/, 2026-09-12): base `https://api.mboum.com`, `Aut
 | `dividends` | `false` (default is already false; set explicitly) |
 | `order` | `asc` |
 
-Intraday date format is `YYYYMMDDHHMMSS`. Daily EOD would be `YYYYMMDD`; v1 does not pull daily.
+Intraday date format is `YYYYMMDDHHMMSS`. Daily EOD is `YYYYMMDD` (`interval=daily`); see Daily below.
+
+### Daily: `GET /v3/markets/historical?interval=daily`
+
+Same endpoint as 1-minute. `limit` is newest-N inside `[startDate, endDate]` (max 4000), then `order=asc` sorts the page. Page older history by setting `endDate` to the day before the page’s first `date`. Empty windows 404 with `"No historical data found for the specified criteria"`.
+
+| Query | Daily value |
+|---|---|
+| `ticker` | `instrument.symbol` |
+| `interval` | `daily` (`1d` / `1day` are rejected) |
+| `limit` | `4000` (`kMboumDailyPageLimit`) |
+| `startDate` / `endDate` | `YYYYMMDD` |
+| `splits` | `0` |
+| `dividends` | `0` |
+| `order` | `asc` |
+
+Example row (field is `date`, not `datetime`):
+
+```json
+{ "symbol": "AAPL", "date": "2026-01-05", "open": 271.01, "high": 271.51,
+  "low": 266.14, "close": 266.9144, "volume": 45703896 }
+```
+
+| JSON | `bar` column |
+|---|---|
+| (instrument PK) | `instrument_id` |
+| (fixed) | `timeframe_s = 86400` (`kTimeframe1d`) |
+| `date` → RTH open | `ts` = `usRthUtcWindow(tz, session).start` |
+| `open` `high` `low` `close` `volume` | same, as `double` |
+
+`expected_count = 1`. Coverage is per NYSE weekday in each received page span. Holidays in that span are complete 0/0. `isFormingBar` for daily uses `kUsRthDurationS` (6.5h), so a finished cash session persists after 16:00 local. `ingestDailySymbol` pages; `ingestDailyRange` writes one txn per page. CLI: `ingest --timeframe 1d`.
 
 Example row:
 
@@ -1894,7 +1924,7 @@ Integer millicents would need a per-instrument scale and overflow policy. v1 is 
 
 Defaults above are implementable. Only these stay open because they are vendor/product facts we cannot measure from the repo:
 
-1. **MBoum 1-minute history depth** (how far back `/v3/markets/historical?interval=1min` actually goes). Ingest should stop paging when the API 404s / empty-bodies a weekday that is not a holiday, and mark `missing` (retry later) rather than assuming a fixed epoch.
+1. **MBoum 1-minute history depth** (how far back `/v3/markets/historical?interval=1min` actually goes). Ingest should stop paging when the API 404s / empty-bodies a weekday that is not a holiday, and mark `missing` (retry later) rather than assuming a fixed epoch. Daily depth is measured: AAPL `interval=daily` pages back to 1984-09-07 at `limit=4000`.
 2. **NYSE holiday table source** for the ingest PR (static 2020–2030 list vs downloaded calendar). Store API does not care; pick static in the ingest PR unless you already have a calendar endpoint you trust.
 3. **Whether extended-hours 1-minute data is wanted in a v1.1 coverage definition.** v1 is RTH-only. Changing this later is a new `expected_count` rule, not a schema change.
 

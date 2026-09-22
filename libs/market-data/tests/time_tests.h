@@ -58,6 +58,15 @@ TEST_CASE("parseSessionDate accepts YYYYMMDD and YYYY-MM-DD")
     CHECK_THROWS_AS(terminal::parseSessionDate("15"), std::runtime_error);
 }
 
+TEST_CASE("tryParseIsoDate accepts YYYY-MM-DD and rejects invalid civil dates")
+{
+    CHECK(terminal::tryParseIsoDate("2025-01-15") == 20250115);
+    CHECK_FALSE(terminal::tryParseIsoDate("2025-02-31").has_value());
+    CHECK_FALSE(terminal::tryParseIsoDate("20250115").has_value());
+    CHECK_FALSE(terminal::tryParseIsoDate("2025-1-15").has_value());
+    CHECK_FALSE(terminal::tryParseIsoDate("").has_value());
+}
+
 TEST_CASE("isUsRthLocal is [09:30, 16:00)")
 {
     using namespace std::chrono;

@@ -75,6 +75,11 @@ public:
                                       std::optional<int> expected_count = std::nullopt,
                                       bool session_still_open = false);
 
+    IngestDailyRangeResult ingestDailyRange(std::span<const Bar> bars,
+                                            InstrumentId id,
+                                            SessionDate from,
+                                            SessionDate to);
+
     void upsertCorporateAction(const CorporateAction& action);
     [[nodiscard]] std::vector<CorporateAction> queryCorporateActions(InstrumentId id,
                                                                      UnixSeconds from_ex_ts,
@@ -86,7 +91,8 @@ private:
                                         const Instrument* session_filter,
                                         int timeframe_s,
                                         SessionDate session_date,
-                                        std::optional<int> expected_count);
+                                        std::optional<int> expected_count,
+                                        std::optional<SessionDate> session_date_end = std::nullopt);
     CoverageDay refreshCoverageFromBarsUnlocked(InstrumentId id,
                                                 int timeframe_s,
                                                 SessionDate session_date,

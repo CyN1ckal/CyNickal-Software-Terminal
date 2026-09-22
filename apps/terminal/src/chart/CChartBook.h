@@ -13,6 +13,7 @@
 namespace terminal {
 
 class CChartPane;
+class IngestWorker;
 
 class CChartBook
 {
@@ -26,7 +27,7 @@ public:
     CChartBook& operator=(CChartBook&&) = delete;
 
     void drawMenu();
-    void draw(ImGuiID chart_dock_id);
+    void draw(ImGuiID chart_dock_id, IngestWorker* ingest);
     void addPane();
     void closeFocused();
     void openFocusedSettings();

@@ -420,7 +420,7 @@ TEST_CASE("loadChartBars Minute5 still skips 0-bar holidays")
     terminal::CChartSettings settings;
     settings.symbol = "AAPL";
     settings.period = terminal::ChartBarPeriod::Minute5;
-    settings.session_count = 3;
+    settings.intraday_session_count = 3;
     const auto result = terminal::loadChartBars(store, settings);
     REQUIRE(result.status == terminal::ChartLoadStatus::Ready);
     CHECK(result.sessions_used == 3);
@@ -430,7 +430,7 @@ TEST_CASE("loadChartBars Minute5 still skips 0-bar holidays")
     CHECK(result.bars[0].timeframe_s == 300);
 }
 
-TEST_CASE("loadChartBars Day1 is one composite bar per loaded session")
+TEST_CASE("loadChartBars Day1 ignores 1m rows until daily bars exist")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
@@ -441,13 +441,10 @@ TEST_CASE("loadChartBars Day1 is one composite bar per loaded session")
     terminal::CChartSettings settings;
     settings.symbol = "AAPL";
     settings.period = terminal::ChartBarPeriod::Day1;
-    settings.session_count = 2;
+    settings.historical_session_count = 2;
     const auto result = terminal::loadChartBars(store, settings);
-    REQUIRE(result.status == terminal::ChartLoadStatus::Ready);
-    REQUIRE(result.bars.size() == 2);
-    CHECK(result.bars[0].timeframe_s == 86400);
-    CHECK(result.bars[0].ts == ny("2025-01-15 09:30"));
-    CHECK(result.bars[1].ts == ny("2025-01-16 09:30"));
+    CHECK(result.status == terminal::ChartLoadStatus::Empty);
+    CHECK(result.bars.empty());
 }
 
 TEST_CASE("loadChartBars still rejects non-candlestick and non-session limiters")

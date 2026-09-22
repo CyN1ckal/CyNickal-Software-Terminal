@@ -202,7 +202,7 @@ Body is 13 px. No display sizes. Numeric columns stay right-aligned.
 
 ## 6. Layout and motion
 
-Docking is the layout system. DATA is the left 30% on first run. Tables, not cards. Hairline rules, not gutters.
+Docking is the layout system. DATA is the left 30% on first run, and one chart pane fills the right side. Tables, not cards. Hairline rules, not gutters.
 
 Hover swaps color immediately. No eased motion. Scrollbars stay thin.
 

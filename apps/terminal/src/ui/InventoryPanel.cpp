@@ -14,6 +14,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <stdexcept>
 #include <string_view>
@@ -35,7 +36,22 @@ constexpr int kColLast = 10;
 
 [[nodiscard]] const char* timeframeLabel(int timeframe_s)
 {
-    return timeframe_s == kTimeframe1m ? "1m" : "";
+    if (timeframe_s == kTimeframe1d)
+    {
+        return "1d";
+    }
+    if (timeframe_s == kTimeframe1m)
+    {
+        return "1m";
+    }
+    return "";
+}
+
+[[nodiscard]] SessionDate defaultFromDate(SessionDate today, int timeframe_s)
+{
+    const auto ymd = sessionDateToYmd(today);
+    const int lookback = timeframe_s == kTimeframe1d ? 365 * 5 : 14;
+    return toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{lookback});
 }
 
 [[nodiscard]] ImVec4 statusColor(CoverageStatus status)
@@ -136,11 +152,15 @@ InventoryPanel::InventoryPanel() : db_path_(defaultMarketDataDbPath())
 
 InventoryPanel::~InventoryPanel() = default;
 
+IngestWorker* InventoryPanel::ingestWorker() noexcept
+{
+    return worker_.get();
+}
+
 void InventoryPanel::fillDefaultDates()
 {
     const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
-    const auto ymd = sessionDateToYmd(today);
-    const SessionDate from = toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{14});
+    const SessionDate from = defaultFromDate(today, ingest_timeframe_s_);
     std::snprintf(from_, sizeof(from_), "%08d", static_cast<int>(from));
     std::snprintf(to_, sizeof(to_), "%08d", static_cast<int>(today));
 }
@@ -189,6 +209,14 @@ void InventoryPanel::refreshSummaries()
     try
     {
         summaries_ = store_->queryCoverageSummaries(kTimeframe1m);
+        const auto daily = store_->queryCoverageSummaries(kTimeframe1d);
+        for (const CoverageSummary& row : daily)
+        {
+            if (row.session_count > 0 || row.bar_count > 0)
+            {
+                summaries_.push_back(row);
+            }
+        }
     }
     catch (const std::exception& ex)
     {
@@ -209,7 +237,7 @@ void InventoryPanel::refreshDays()
     }
     try
     {
-        days_ = store_->queryCoverageDays(selected_id_.value_or(0), kTimeframe1m);
+        days_ = store_->queryCoverageDays(selected_id_.value_or(0), selected_timeframe_s_);
     }
     catch (const std::exception& ex)
     {
@@ -243,7 +271,7 @@ void InventoryPanel::submitIngest()
             status_ = "FROM must be on or before TO";
             return;
         }
-        worker_->enqueue(IngestWorker::Job{symbol_, from, to});
+        worker_->enqueue(IngestWorker::Job{symbol_, from, to, ingest_timeframe_s_});
         status_ = std::string("queued ") + symbol_ + " " + formatSessionDate(from) + ".." +
                   formatSessionDate(to);
     }
@@ -295,6 +323,43 @@ void InventoryPanel::drawToolbar()
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
 
     ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("TF");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(52.0f);
+    const char* tf_label = ingest_timeframe_s_ == kTimeframe1d ? "1d" : "1m";
+    if (ImGui::BeginCombo("##ingest_tf", tf_label))
+    {
+        const bool sel_1m = ingest_timeframe_s_ == kTimeframe1m;
+        if (ImGui::Selectable("1m", sel_1m) && ingest_timeframe_s_ != kTimeframe1m)
+        {
+            const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+            char old_default[16]{};
+            std::snprintf(old_default, sizeof(old_default), "%08d",
+                          static_cast<int>(defaultFromDate(today, ingest_timeframe_s_)));
+            ingest_timeframe_s_ = kTimeframe1m;
+            if (std::strcmp(from_, old_default) == 0)
+            {
+                std::snprintf(from_, sizeof(from_), "%08d",
+                              static_cast<int>(defaultFromDate(today, ingest_timeframe_s_)));
+            }
+        }
+        const bool sel_1d = ingest_timeframe_s_ == kTimeframe1d;
+        if (ImGui::Selectable("1d", sel_1d) && ingest_timeframe_s_ != kTimeframe1d)
+        {
+            const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+            char old_default[16]{};
+            std::snprintf(old_default, sizeof(old_default), "%08d",
+                          static_cast<int>(defaultFromDate(today, ingest_timeframe_s_)));
+            ingest_timeframe_s_ = kTimeframe1d;
+            if (std::strcmp(from_, old_default) == 0)
+            {
+                std::snprintf(from_, sizeof(from_), "%08d",
+                              static_cast<int>(defaultFromDate(today, ingest_timeframe_s_)));
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
     ImGui::TextUnformatted("SYMBOL");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(72.0f);
@@ -382,6 +447,10 @@ void InventoryPanel::applySortSpecs()
         }
         if (delta == 0)
         {
+            delta = a.timeframe_s - b.timeframe_s;
+        }
+        if (delta == 0)
+        {
             delta = a.instrument.symbol.compare(b.instrument.symbol);
         }
         return desc ? delta > 0 : delta < 0;
@@ -404,8 +473,7 @@ void InventoryPanel::drawSummaryTable()
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("SYMBOL", ImGuiTableColumnFlags_DefaultSort);
     ImGui::TableSetupColumn("EXCH", ImGuiTableColumnFlags_WidthFixed, 48.0f);
-    ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort,
-                            36.0f);
+    ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed, 36.0f);
     ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 64.0f);
     ImGui::TableSetupColumn("SESS", ImGuiTableColumnFlags_WidthFixed, 48.0f);
     ImGui::TableSetupColumn("OK", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -435,15 +503,18 @@ void InventoryPanel::drawSummaryTable()
             const CoverageSummary& row = summaries_[static_cast<std::size_t>(i)];
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(kColSymbol);
-            const bool selected = selected_id_.value_or(-1) == row.instrument.id;
-            char label[64];
-            std::snprintf(label, sizeof(label), "%s##%lld", row.instrument.symbol.c_str(),
-                          static_cast<long long>(row.instrument.id));
+            const bool selected = selected_id_.value_or(-1) == row.instrument.id &&
+                                  selected_timeframe_s_ == row.timeframe_s;
+            char label[80];
+            std::snprintf(label, sizeof(label), "%s##%lld-%d", row.instrument.symbol.c_str(),
+                          static_cast<long long>(row.instrument.id), row.timeframe_s);
             if (ImGui::Selectable(label, selected,
                                   ImGuiSelectableFlags_SpanAllColumns |
                                       ImGuiSelectableFlags_AllowOverlap))
             {
                 selected_id_ = row.instrument.id;
+                selected_timeframe_s_ = row.timeframe_s;
+                ingest_timeframe_s_ = row.timeframe_s;
                 std::snprintf(symbol_, sizeof(symbol_), "%s", row.instrument.symbol.c_str());
                 refreshDays();
             }

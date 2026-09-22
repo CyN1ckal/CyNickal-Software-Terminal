@@ -6,6 +6,7 @@
 #include "TempDb.h"
 #include "catch_amalgamated.hpp"
 #include "market_data/Store.h"
+#include "market_data/Time.h"
 #include "market_data/Types.h"
 
 #include <chrono>
@@ -236,4 +237,63 @@ TEST_CASE("queryCoverageSummaries includes names with no coverage")
     CHECK(days[0].session_date == 20250116);
     CHECK(days[1].session_date == 20250115);
     CHECK(store.queryCoverageDays(rows[1].instrument.id, terminal::kTimeframe1m).empty());
+}
+
+TEST_CASE("ingestDailyRange writes 86400 bars and holiday coverage")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.upsertInstrument(makeAapl());
+    terminal::Bar bar;
+    bar.instrument_id = id;
+    bar.timeframe_s = terminal::kTimeframe1d;
+    bar.ts = terminal::usRthUtcWindow("America/New_York", 20250115).start;
+    bar.open = 10;
+    bar.high = 11;
+    bar.low = 9;
+    bar.close = 10;
+    bar.volume = 100;
+    const auto result = store.ingestDailyRange(std::vector<terminal::Bar>{bar}, id, 20250101, 20250115);
+    CHECK(result.bars.written == 1);
+    const auto daily = store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000);
+    REQUIRE(daily.size() == 1);
+    CHECK(daily.front().timeframe_s == terminal::kTimeframe1d);
+    CHECK(store.queryBars(id, terminal::kTimeframe1m, 0, 4000000000).empty());
+
+    const auto holiday = store.findCoverage(id, terminal::kTimeframe1d, 20250101);
+    REQUIRE(holiday.has_value());
+    const terminal::CoverageDay holiday_row = *holiday;
+    CHECK(holiday_row.status == terminal::CoverageStatus::Complete);
+    CHECK(holiday_row.bar_count == 0);
+    CHECK(holiday_row.expected_count == 0);
+
+    const auto session = store.findCoverage(id, terminal::kTimeframe1d, 20250115);
+    REQUIRE(session.has_value());
+    const terminal::CoverageDay session_row = *session;
+    CHECK(session_row.status == terminal::CoverageStatus::Complete);
+    CHECK(session_row.bar_count == 1);
+    CHECK(store.findCoverage(id, terminal::kTimeframe1m, 20250115).has_value() == false);
+}
+
+TEST_CASE("ingestDailyRange rejects the wrong instrument")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto aapl = store.upsertInstrument(makeAapl());
+    terminal::Instrument msft;
+    msft.symbol = "MSFT";
+    const auto msft_id = store.upsertInstrument(msft);
+    terminal::Bar bar;
+    bar.instrument_id = msft_id;
+    bar.timeframe_s = terminal::kTimeframe1d;
+    bar.ts = terminal::usRthUtcWindow("America/New_York", 20250115).start;
+    bar.open = 1;
+    bar.high = 1;
+    bar.low = 1;
+    bar.close = 1;
+    bar.volume = 1;
+    const auto result = store.ingestDailyRange(std::vector<terminal::Bar>{bar}, aapl, 20250115, 20250115);
+    CHECK(result.bars.written == 0);
+    CHECK(result.bars.rejected == 1);
+    CHECK(store.queryBars(aapl, terminal::kTimeframe1d, 0, 4000000000).empty());
 }

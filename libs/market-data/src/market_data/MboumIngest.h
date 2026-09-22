@@ -48,4 +48,13 @@ struct IngestSymbolResult
                                               SessionDate to,
                                               IngestDayCallback on_day = {});
 
+// Pages GET /v3/markets/historical?interval=daily (newest-N, limit 4000).
+// Coverage is written per NYSE weekday in each received page span.
+[[nodiscard]] IngestSymbolResult ingestDailySymbol(Store& store,
+                                                   const HttpGet& get,
+                                                   std::string_view symbol,
+                                                   SessionDate from,
+                                                   SessionDate to,
+                                                   const IngestDayCallback& on_day = {});
+
 }  // namespace terminal

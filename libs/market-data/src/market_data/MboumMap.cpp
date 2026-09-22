@@ -30,6 +30,17 @@ void fillOhlcv(Bar& bar, double open, double high, double low, double close, dou
     return bar;
 }
 
+[[nodiscard]] std::optional<Bar> finishDailyBar(const Instrument& inst, Bar bar, UnixSeconds now_utc)
+{
+    bar.instrument_id = inst.id;
+    bar.timeframe_s = kTimeframe1d;
+    if (isFormingBar(bar, now_utc) || !isValidBar(bar))
+    {
+        return std::nullopt;
+    }
+    return bar;
+}
+
 }  // namespace
 
 std::optional<Bar> mapV3Bar(const Instrument& inst, const MboumV3BarRow& row, UnixSeconds now_utc)
@@ -44,6 +55,19 @@ std::optional<Bar> mapV3Bar(const Instrument& inst, const MboumV3BarRow& row, Un
     bar.ts = *ts;
     fillOhlcv(bar, row.open, row.high, row.low, row.close, row.volume);
     return finishBar(inst, bar, now_utc);
+}
+
+std::optional<Bar> mapV3DailyBar(const Instrument& inst, const MboumV3DailyRow& row, UnixSeconds now_utc)
+{
+    const auto session = tryParseIsoDate(row.date);
+    if (!session.has_value())
+    {
+        return std::nullopt;
+    }
+    Bar bar;
+    bar.ts = usRthUtcWindow(inst.timezone, *session).start;
+    fillOhlcv(bar, row.open, row.high, row.low, row.close, row.volume);
+    return finishDailyBar(inst, bar, now_utc);
 }
 
 std::optional<Bar> mapV2Bar(const Instrument& inst, const MboumV2BarRow& row, UnixSeconds now_utc)

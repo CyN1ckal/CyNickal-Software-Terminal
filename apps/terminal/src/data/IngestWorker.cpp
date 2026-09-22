@@ -17,6 +17,14 @@
 #include <utility>
 
 namespace terminal {
+namespace {
+
+[[nodiscard]] bool sameIngestJob(const IngestWorker::Job& a, const IngestWorker::Job& b)
+{
+    return a.symbol == b.symbol && a.from == b.from && a.to == b.to && a.timeframe_s == b.timeframe_s;
+}
+
+}  // namespace
 
 IngestWorker::IngestWorker(std::filesystem::path db_path, std::filesystem::path secrets_path)
     : db_path_(std::move(db_path)), secrets_path_(std::move(secrets_path))
@@ -37,18 +45,37 @@ IngestWorker::~IngestWorker()
     }
 }
 
-void IngestWorker::enqueue(Job job)
+IngestWorker::EnqueueResult IngestWorker::enqueue(Job job)
 {
+    EnqueueResult out;
     {
         const std::lock_guard<std::mutex> lock(mu_);
+        if (running_valid_ && sameIngestJob(running_job_, job))
+        {
+            out.serial = running_job_.serial;
+            return out;
+        }
+        for (const Job& pending : jobs_)
+        {
+            if (sameIngestJob(pending, job))
+            {
+                out.serial = pending.serial;
+                return out;
+            }
+        }
+        job.serial = next_serial_;
+        ++next_serial_;
+        out.serial = job.serial;
+        out.accepted = true;
         jobs_.push_back(std::move(job));
         snap_.queued = static_cast<int>(jobs_.size());
-        if (snap_.message.empty() && !snap_.running)
+        if (!snap_.running)
         {
-            snap_.message = "queued";
+            snap_.message = "queued " + jobs_.back().symbol;
         }
     }
     cv_.notify_one();
+    return out;
 }
 
 IngestWorker::Snapshot IngestWorker::snapshot() const
@@ -85,6 +112,8 @@ void IngestWorker::run()
                 }
                 job = std::move(jobs_.front());
                 jobs_.pop_front();
+                running_job_ = job;
+                running_valid_ = true;
                 snap_.running = true;
                 snap_.queued = static_cast<int>(jobs_.size());
                 snap_.symbol = job.symbol;
@@ -101,9 +130,12 @@ void IngestWorker::run()
                 }
                 runJob(store, *http, job);
                 const std::lock_guard<std::mutex> lock(mu_);
+                running_valid_ = false;
+                snap_.finished_serial = job.serial;
                 snap_.running = !jobs_.empty();
                 snap_.queued = static_cast<int>(jobs_.size());
                 snap_.dirty = true;
+                snap_.error.clear();
                 if (!snap_.running)
                 {
                     snap_.message = "idle";
@@ -112,6 +144,9 @@ void IngestWorker::run()
             catch (const std::exception& ex)
             {
                 const std::lock_guard<std::mutex> lock(mu_);
+                running_valid_ = false;
+                snap_.finished_serial = job.serial;
+                snap_.error_serial = job.serial;
                 snap_.running = !jobs_.empty();
                 snap_.queued = static_cast<int>(jobs_.size());
                 snap_.dirty = true;
@@ -148,7 +183,14 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
         snap_.message = job.symbol + " " + formatSessionDate(day.session_date) + " " +
                         std::string(toSql(day.status)) + " bars=" + std::to_string(day.bar_count);
     };
-    (void)ingestSymbol(store, get, job.symbol, job.from, job.to, on_day);
+    if (job.timeframe_s == kTimeframe1d)
+    {
+        (void)ingestDailySymbol(store, get, job.symbol, job.from, job.to, on_day);
+    }
+    else
+    {
+        (void)ingestSymbol(store, get, job.symbol, job.from, job.to, on_day);
+    }
 }
 
 }  // namespace terminal

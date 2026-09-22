@@ -12,10 +12,14 @@
 #include "imgui.h"
 
 #include <chrono>
+#include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace terminal {
+
+class IngestWorker;
 
 class CChartPane
 {
@@ -41,19 +45,24 @@ public:
     void closeWindow();
     void requestFocus();
 
-    bool draw(Store* store, std::string_view store_error, ImGuiID dock_id);
+    bool draw(Store* store, std::string_view store_error, ImGuiID dock_id, IngestWorker* ingest);
 
 private:
-    void drawSettingsPopup(Store* store, std::string_view store_error);
+    void drawSettingsPopup(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawStudiesPopup();
-    void applyDraft(Store* store, std::string_view store_error);
+    void applyDraft(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void requestMissingData(Store* store, IngestWorker* ingest);
+    void overlayDownloadStatus(Store* store, std::string_view store_error, IngestWorker* ingest);
     void applyStudyDraft();
     void cancelDraft();
     void cancelStudyDraft();
     void reload(Store* store, std::string_view store_error);
     void drawStatusLine() const;
+    void drawKeyBuffer() const;
     void drawPlotBody();
-    void handleChartKeys();
+    void handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest);
 
     int id_{};
     bool window_open_{true};
@@ -64,6 +73,12 @@ private:
     CChartSettings loaded_settings_{};
     ChartLoadResult loaded_{};
     char draft_symbol_[32]{};
+    std::string key_buffer_;
+    std::chrono::steady_clock::time_point key_buffer_at_;
+    std::string key_note_;
+    ChartDownloadRequest pending_download_{};
+    std::uint64_t download_serial_{0};
+    std::string download_error_;
     CChartViewState view_;
     std::vector<CStudyInstance> studies_;
     std::vector<CStudyInstance> study_draft_;

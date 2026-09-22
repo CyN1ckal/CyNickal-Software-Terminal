@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "catch_amalgamated.hpp"
+#include "chart/chart_command_tests.h"
 #include "chart/chart_load_tests.h"
 #include "chart/chart_study_tests.h"
 #include "chart/chart_transform_tests.h"

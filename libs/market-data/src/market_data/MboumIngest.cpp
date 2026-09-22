@@ -8,7 +8,9 @@
 #include "market_data/NyseCalendar.h"
 #include "market_data/Time.h"
 
+#include <algorithm>
 #include <chrono>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -66,6 +68,97 @@ void writeHttpError(Store& store, InstrumentId id, SessionDate session_date)
     inst.currency = "USD";
     inst.timezone = "America/New_York";
     return store.upsertInstrument(inst);
+}
+
+[[nodiscard]] SessionDate dayBefore(SessionDate date)
+{
+    return toSessionDate(year_month_day{sys_days{sessionDateToYmd(date)} - days{1}});
+}
+
+[[nodiscard]] std::vector<CoverageDay> writeDailyRangeError(Store& store,
+                                                            InstrumentId id,
+                                                            SessionDate from,
+                                                            SessionDate to)
+{
+    std::vector<CoverageDay> out;
+    sys_days cursor{sessionDateToYmd(from)};
+    const sys_days last{sessionDateToYmd(to)};
+    for (; cursor <= last; cursor += days{1})
+    {
+        const weekday wd{cursor};
+        if (wd == Saturday || wd == Sunday)
+        {
+            continue;
+        }
+        const year_month_day ymd{cursor};
+        if (isNyseHoliday(ymd))
+        {
+            continue;
+        }
+        const SessionDate date = toSessionDate(ymd);
+        CoverageDay row;
+        if (const auto existing = store.findCoverage(id, kTimeframe1d, date); existing.has_value())
+        {
+            const CoverageDay& prior = *existing;
+            if (prior.status == CoverageStatus::Complete)
+            {
+                continue;
+            }
+            row = prior;
+        }
+        row.instrument_id = id;
+        row.timeframe_s = kTimeframe1d;
+        row.session_date = date;
+        row.status = CoverageStatus::Error;
+        row.expected_count = kUsRthExpected1d;
+        row.source = "mboum";
+        row.ingested_at = nowUtc();
+        store.upsertCoverage(row);
+        out.push_back(row);
+    }
+    return out;
+}
+
+[[nodiscard]] bool dailyRangeIsComplete(Store& store,
+                                        InstrumentId id,
+                                        std::string_view timezone,
+                                        SessionDate from,
+                                        SessionDate to,
+                                        UnixSeconds now)
+{
+    return std::ranges::all_of(nyseSessions(from, to), [&](SessionDate date) {
+        if (sessionStillOpen(timezone, date, now))
+        {
+            return false;
+        }
+        const auto existing = store.findCoverage(id, kTimeframe1d, date);
+        if (!existing.has_value())
+        {
+            return false;
+        }
+        const CoverageDay& row = *existing;
+        return row.status == CoverageStatus::Complete;
+    });
+}
+
+void emitCoverageDays(const std::vector<CoverageDay>& rows,
+                      int http_status,
+                      IngestSymbolResult& result,
+                      const IngestDayCallback& on_day)
+{
+    for (const CoverageDay& row : rows)
+    {
+        IngestDayResult day;
+        day.session_date = row.session_date;
+        day.status = row.status;
+        day.bar_count = row.bar_count;
+        day.http_status = http_status;
+        result.days.push_back(day);
+        if (on_day)
+        {
+            on_day(day);
+        }
+    }
 }
 
 }  // namespace
@@ -224,6 +317,146 @@ IngestSymbolResult ingestSymbol(Store& store,
         day.status = ingested.coverage.status;
         day.bar_count = ingested.coverage.bar_count;
         emit(day);
+    }
+    return result;
+}
+
+IngestSymbolResult ingestDailySymbol(Store& store,
+                                     const HttpGet& get,
+                                     std::string_view symbol,
+                                     SessionDate from,
+                                     SessionDate to,
+                                     const IngestDayCallback& on_day)
+{
+    if (symbol.empty())
+    {
+        throw std::runtime_error("ingest symbol is empty");
+    }
+    if (from > to)
+    {
+        throw std::runtime_error("ingest from is after to");
+    }
+    IngestSymbolResult result;
+    result.instrument_id = ensureInstrument(store, symbol);
+    const auto found = store.findInstrumentById(result.instrument_id);
+    if (!found.has_value())
+    {
+        throw std::runtime_error("instrument missing after upsert");
+    }
+    const Instrument& inst = *found;
+    const UnixSeconds now = nowUtc();
+
+    if (dailyRangeIsComplete(store, result.instrument_id, inst.timezone, from, to, now))
+    {
+        sys_days cursor{sessionDateToYmd(from)};
+        const sys_days last{sessionDateToYmd(to)};
+        for (; cursor <= last; cursor += days{1})
+        {
+            const weekday wd{cursor};
+            if (wd == Saturday || wd == Sunday)
+            {
+                continue;
+            }
+            const SessionDate date = toSessionDate(year_month_day{cursor});
+            if (const auto existing = store.findCoverage(result.instrument_id, kTimeframe1d, date);
+                existing.has_value())
+            {
+                emitCoverageDays({*existing}, 0, result, on_day);
+            }
+        }
+        return result;
+    }
+
+    SessionDate end = to;
+    while (end >= from)
+    {
+        const std::string url = mboumV3DailyUrl(symbol, from, end);
+        HttpResponse http;
+        try
+        {
+            http = get(url);
+        }
+        catch (const std::exception&)
+        {
+            emitCoverageDays(writeDailyRangeError(store, result.instrument_id, from, end),
+                             0,
+                             result,
+                             on_day);
+            break;
+        }
+
+        if (http.status == 401 || http.status == 403)
+        {
+            throw std::runtime_error("MBoum authentication failed (HTTP " +
+                                     std::to_string(http.status) + ")");
+        }
+
+        MboumV3DailyPage page;
+        bool parsed = false;
+        try
+        {
+            page = parseMboumV3Daily(http.body);
+            parsed = true;
+        }
+        catch (const std::exception&)
+        {
+            parsed = false;
+        }
+
+        if (http.status == 404 || (parsed && page.no_data))
+        {
+            break;
+        }
+        if (http.status != 200 || !parsed || page.splits)
+        {
+            emitCoverageDays(writeDailyRangeError(store, result.instrument_id, from, end),
+                             http.status,
+                             result,
+                             on_day);
+            break;
+        }
+
+        std::vector<Bar> bars;
+        bars.reserve(page.bars.size());
+        SessionDate page_from = 0;
+        SessionDate page_to = 0;
+        for (const auto& row : page.bars)
+        {
+            auto mapped = mapV3DailyBar(inst, row, now);
+            if (!mapped.has_value())
+            {
+                continue;
+            }
+            const Bar bar = *mapped;
+            const SessionDate session = utcToSessionDate(inst.timezone, bar.ts);
+            if (page_from == 0 || session < page_from)
+            {
+                page_from = session;
+            }
+            if (page_to == 0 || session > page_to)
+            {
+                page_to = session;
+            }
+            bars.push_back(bar);
+        }
+        if (bars.empty())
+        {
+            break;
+        }
+
+        const auto ingested = store.ingestDailyRange(bars, result.instrument_id, page_from, page_to);
+        emitCoverageDays(ingested.coverage, http.status, result, on_day);
+
+        if (static_cast<int>(page.bars.size()) < kMboumDailyPageLimit)
+        {
+            break;
+        }
+        const SessionDate older = dayBefore(page_from);
+        if (older < from || older >= end)
+        {
+            break;
+        }
+        end = older;
     }
     return result;
 }

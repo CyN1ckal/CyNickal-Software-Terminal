@@ -21,6 +21,7 @@ add_executable(terminal
     src/ui/Workspace.cpp
     src/ui/InventoryPanel.cpp
     src/data/IngestWorker.cpp
+    src/chart/CChartCommand.cpp
     src/chart/CChartLoad.cpp
     src/chart/CChartTransform.cpp
     src/chart/CStudyCompute.cpp
@@ -88,9 +89,11 @@ endif()
 if(CYN_TESTING)
     add_executable(terminal_tests
         tests/test_main.cpp
+        src/chart/CChartCommand.cpp
         src/chart/CChartLoad.cpp
         src/chart/CChartTransform.cpp
         src/chart/CStudyCompute.cpp
+        tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h
         tests/chart/chart_view_tests.h

@@ -18,7 +18,11 @@ using SessionDate = std::int32_t;
 using InstrumentId = std::int64_t;
 
 inline constexpr int kTimeframe1m = 60;
+inline constexpr int kTimeframe1d = 86400;
 inline constexpr int kUsRthExpected1m = 390;
+inline constexpr int kUsRthExpected1d = 1;
+inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
+inline constexpr int kMboumDailyPageLimit = 4000;
 inline constexpr int kSchemaUserVersion = 1;
 
 enum class AssetClass : std::uint8_t
@@ -124,6 +128,12 @@ struct IngestSessionResult
 {
     CoverageDay coverage;
     UpsertBarsResult bars;
+};
+
+struct IngestDailyRangeResult
+{
+    UpsertBarsResult bars;
+    std::vector<CoverageDay> coverage;
 };
 
 inline std::string_view toSql(AssetClass value)
@@ -274,7 +284,15 @@ inline bool isValidBar(const Bar& b) noexcept
 
 inline bool isFormingBar(const Bar& b, UnixSeconds now_utc) noexcept
 {
-    return b.timeframe_s > 0 && b.ts + b.timeframe_s > now_utc;
+    if (b.timeframe_s <= 0)
+    {
+        return false;
+    }
+    if (b.timeframe_s == kTimeframe1d)
+    {
+        return b.ts + kUsRthDurationS > now_utc;
+    }
+    return b.ts + b.timeframe_s > now_utc;
 }
 
 }  // namespace terminal
