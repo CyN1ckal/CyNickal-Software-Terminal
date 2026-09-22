@@ -39,6 +39,8 @@ public:
     [[nodiscard]] bool foreignKeysEnabled() const;
 
     static void testingSetUserVersion(const std::filesystem::path& path, int version);
+    // Empty file at user_version 1 with the v1 tables only. For migration tests.
+    static void testingCreateSchemaV1(const std::filesystem::path& path);
 
     InstrumentId upsertInstrument(const Instrument& instrument);
     [[nodiscard]] std::optional<Instrument> findInstrument(
@@ -84,6 +86,26 @@ public:
     [[nodiscard]] std::vector<CorporateAction> queryCorporateActions(InstrumentId id,
                                                                      UnixSeconds from_ex_ts,
                                                                      UnixSeconds to_ex_ts) const;
+
+    // Replaces one statement grid. Cells omitted from the span are deleted.
+    // An empty span still records the snapshot (a fetch that returned no facts).
+    void replaceStatement(const StatementSnapshot& snapshot, std::span<const StatementCell> cells);
+    [[nodiscard]] std::optional<StatementSnapshot> findStatementSnapshot(
+        InstrumentId id,
+        StatementKind statement,
+        StatementTimeframe timeframe) const;
+    [[nodiscard]] std::vector<StatementCell> queryStatementCells(
+        InstrumentId id,
+        StatementKind statement,
+        StatementTimeframe timeframe) const;
+    [[nodiscard]] std::vector<StatementCell> queryStatementLine(InstrumentId id,
+                                                                StatementKind statement,
+                                                                StatementTimeframe timeframe,
+                                                                std::string_view line_item) const;
+    [[nodiscard]] std::vector<StatementCell> queryStatementPeriod(InstrumentId id,
+                                                                  StatementKind statement,
+                                                                  StatementTimeframe timeframe,
+                                                                  std::string_view period_end) const;
 
 private:
     UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,

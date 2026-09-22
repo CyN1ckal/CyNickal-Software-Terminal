@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace terminal {
@@ -23,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 1;
+inline constexpr int kSchemaUserVersion = 2;
 
 enum class AssetClass : std::uint8_t
 {
@@ -50,6 +51,26 @@ enum class CorporateActionType : std::uint8_t
     Spinoff,
     Other
 };
+
+// MBoum modules: income-statement-v2, balance-sheet-v2, cashflow-statement-v2.
+enum class StatementKind : std::uint8_t
+{
+    Income,
+    Balance,
+    Cashflow
+};
+
+// API timeframe tokens. The three series are not views of one another.
+enum class StatementTimeframe : std::uint8_t
+{
+    Annually,
+    Quarterly,
+    Trailing
+};
+
+// monostate means the cell was not given a value. Stored rows always hold
+// one int, real, or text alternative. An omitted vendor key is no row.
+using StatementValue = std::variant<std::monostate, std::int64_t, double, std::string>;
 
 struct Instrument
 {
@@ -116,6 +137,25 @@ struct CorporateAction
     std::optional<double> amount;
     std::optional<std::string> currency;
     std::string source{"mboum"};
+};
+
+struct StatementSnapshot
+{
+    InstrumentId instrument_id{};
+    StatementKind statement{StatementKind::Income};
+    StatementTimeframe timeframe{StatementTimeframe::Annually};
+    std::string source{"mboum"};
+    UnixSeconds fetched_at{};
+};
+
+struct StatementCell
+{
+    InstrumentId instrument_id{};
+    StatementKind statement{StatementKind::Income};
+    StatementTimeframe timeframe{StatementTimeframe::Annually};
+    std::string line_item;
+    std::string period_end;
+    StatementValue value;
 };
 
 struct UpsertBarsResult
@@ -188,6 +228,34 @@ inline std::string_view toSql(CorporateActionType value)
     throw std::runtime_error("unknown CorporateActionType");
 }
 
+inline std::string_view toSql(StatementKind value)
+{
+    switch (value)
+    {
+    case StatementKind::Income:
+        return "income";
+    case StatementKind::Balance:
+        return "balance";
+    case StatementKind::Cashflow:
+        return "cashflow";
+    }
+    throw std::runtime_error("unknown StatementKind");
+}
+
+inline std::string_view toSql(StatementTimeframe value)
+{
+    switch (value)
+    {
+    case StatementTimeframe::Annually:
+        return "annually";
+    case StatementTimeframe::Quarterly:
+        return "quarterly";
+    case StatementTimeframe::Trailing:
+        return "trailing";
+    }
+    throw std::runtime_error("unknown StatementTimeframe");
+}
+
 inline AssetClass assetClassFromSql(std::string_view text)
 {
     if (text == "equity")
@@ -236,6 +304,40 @@ inline CoverageStatus coverageStatusFromSql(std::string_view text)
         return CoverageStatus::Error;
     }
     throw std::runtime_error("unknown coverage status");
+}
+
+inline StatementKind statementKindFromSql(std::string_view text)
+{
+    if (text == "income")
+    {
+        return StatementKind::Income;
+    }
+    if (text == "balance")
+    {
+        return StatementKind::Balance;
+    }
+    if (text == "cashflow")
+    {
+        return StatementKind::Cashflow;
+    }
+    throw std::runtime_error("unknown statement");
+}
+
+inline StatementTimeframe statementTimeframeFromSql(std::string_view text)
+{
+    if (text == "annually")
+    {
+        return StatementTimeframe::Annually;
+    }
+    if (text == "quarterly")
+    {
+        return StatementTimeframe::Quarterly;
+    }
+    if (text == "trailing")
+    {
+        return StatementTimeframe::Trailing;
+    }
+    throw std::runtime_error("unknown statement timeframe");
 }
 
 inline CorporateActionType corporateActionTypeFromSql(std::string_view text)

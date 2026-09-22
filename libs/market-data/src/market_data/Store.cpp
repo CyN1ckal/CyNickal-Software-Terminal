@@ -10,11 +10,14 @@
 #include "market_data/Types.h"
 
 #include <chrono>
+#include <cmath>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace terminal {
 
@@ -66,6 +69,139 @@ void bindOptionalDouble(SqliteStmt& stmt, int idx, const std::optional<double>& 
         return;
     }
     stmt.bindDouble(idx, *value);
+}
+
+[[nodiscard]] bool isTrimmedNonEmpty(std::string_view text)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+    const auto first = text.find_first_not_of(" \t\r\n");
+    const auto last = text.find_last_not_of(" \t\r\n");
+    return first == 0 && last == text.size() - 1;
+}
+
+[[nodiscard]] bool isStatementPeriodEnd(std::string_view period)
+{
+    if (period == "TTM")
+    {
+        return true;
+    }
+    if (period.size() != 10 || period[4] != '-' || period[7] != '-')
+    {
+        return false;
+    }
+    for (const std::size_t index : {0U, 1U, 2U, 3U, 5U, 6U, 8U, 9U})
+    {
+        const char ch = period[index];
+        if (ch < '0' || ch > '9')
+        {
+            return false;
+        }
+    }
+    const int month = (period[5] - '0') * 10 + (period[6] - '0');
+    const int day = (period[8] - '0') * 10 + (period[9] - '0');
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+void bindStatementValue(SqliteStmt& stmt, int kind_idx, const StatementValue& value)
+{
+    if (const auto* integer = std::get_if<std::int64_t>(&value))
+    {
+        stmt.bindText(kind_idx, "int");
+        stmt.bindInt64(kind_idx + 1, *integer);
+        stmt.bindNull(kind_idx + 2);
+        stmt.bindNull(kind_idx + 3);
+        return;
+    }
+    if (const auto* real = std::get_if<double>(&value))
+    {
+        if (!std::isfinite(*real))
+        {
+            throw std::runtime_error("statement cell real is not finite");
+        }
+        stmt.bindText(kind_idx, "real");
+        stmt.bindNull(kind_idx + 1);
+        stmt.bindDouble(kind_idx + 2, *real);
+        stmt.bindNull(kind_idx + 3);
+        return;
+    }
+    if (const auto* text = std::get_if<std::string>(&value))
+    {
+        if (text->empty())
+        {
+            throw std::runtime_error("statement cell text is empty");
+        }
+        stmt.bindText(kind_idx, "text");
+        stmt.bindNull(kind_idx + 1);
+        stmt.bindNull(kind_idx + 2);
+        stmt.bindText(kind_idx + 3, *text);
+        return;
+    }
+    throw std::runtime_error("statement cell has no value");
+}
+
+[[nodiscard]] StatementCell statementCellFromStmt(SqliteStmt& stmt)
+{
+    StatementCell cell;
+    cell.instrument_id = stmt.columnInt64(0);
+    cell.statement = statementKindFromSql(stmt.columnText(1));
+    cell.timeframe = statementTimeframeFromSql(stmt.columnText(2));
+    cell.line_item = stmt.columnText(3);
+    cell.period_end = stmt.columnText(4);
+    const auto kind = stmt.columnText(5);
+    if (kind == "int")
+    {
+        cell.value = stmt.columnInt64(6);
+    }
+    else if (kind == "real")
+    {
+        cell.value = stmt.columnDouble(7);
+    }
+    else if (kind == "text")
+    {
+        cell.value = stmt.columnText(8);
+    }
+    else
+    {
+        throw std::runtime_error("unknown statement value_kind");
+    }
+    return cell;
+}
+
+[[nodiscard]] std::vector<StatementCell> collectStatementCells(SqliteStmt& sel)
+{
+    std::vector<StatementCell> out;
+    while (sel.stepRow())
+    {
+        out.push_back(statementCellFromStmt(sel));
+    }
+    sel.reset();
+    return out;
+}
+
+void requireTables(const std::vector<std::string>& have,
+                   int version,
+                   std::span<const std::string_view> required)
+{
+    for (const auto want : required)
+    {
+        bool found = false;
+        for (const auto& name : have)
+        {
+            if (name == want)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            throw std::runtime_error("database user_version is " + std::to_string(version) +
+                                     " but missing required table '" + std::string(want) + "'");
+        }
+    }
 }
 
 [[nodiscard]] Instrument instrumentFromStmt(SqliteStmt& stmt)
@@ -169,6 +305,13 @@ struct Store::Impl
     SqliteStmt ins_corp;
     SqliteStmt upd_corp;
     mutable SqliteStmt sel_corp_range;
+    SqliteStmt upsert_statement_snapshot;
+    SqliteStmt del_statement_cells;
+    SqliteStmt ins_statement_cell;
+    mutable SqliteStmt sel_statement_snapshot;
+    mutable SqliteStmt sel_statement_cells;
+    mutable SqliteStmt sel_statement_line;
+    mutable SqliteStmt sel_statement_period;
 
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
         : path(std::move(db_path)), mode(store_mode), db(path)
@@ -271,6 +414,46 @@ struct Store::Impl
             "SELECT id, instrument_id, ex_ts, type, split_ratio, amount, currency, source "
             "FROM corporate_action WHERE instrument_id = ? AND ex_ts > ? AND ex_ts <= ? "
             "ORDER BY ex_ts");
+        upsert_statement_snapshot.prepare(
+            h,
+            "INSERT INTO statement_snapshot "
+            "(instrument_id, statement, timeframe, source, fetched_at) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT (instrument_id, statement, timeframe) DO UPDATE SET "
+            "source = excluded.source, fetched_at = excluded.fetched_at");
+        del_statement_cells.prepare(
+            h,
+            "DELETE FROM statement_cell "
+            "WHERE instrument_id = ? AND statement = ? AND timeframe = ?");
+        ins_statement_cell.prepare(
+            h,
+            "INSERT INTO statement_cell "
+            "(instrument_id, statement, timeframe, line_item, period_end, "
+            "value_kind, value_int, value_real, value_text) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sel_statement_snapshot.prepare(
+            h,
+            "SELECT source, fetched_at FROM statement_snapshot "
+            "WHERE instrument_id = ? AND statement = ? AND timeframe = ?");
+        constexpr std::string_view kCellColumns =
+            "instrument_id, statement, timeframe, line_item, period_end, "
+            "value_kind, value_int, value_real, value_text";
+        const std::string cell_order =
+            "ORDER BY line_item, CASE period_end WHEN 'TTM' THEN 1 ELSE 0 END, period_end";
+        sel_statement_cells.prepare(
+            h,
+            "SELECT " + std::string(kCellColumns) + " FROM statement_cell "
+            "WHERE instrument_id = ? AND statement = ? AND timeframe = ? " + cell_order);
+        sel_statement_line.prepare(
+            h,
+            "SELECT " + std::string(kCellColumns) + " FROM statement_cell "
+            "WHERE instrument_id = ? AND statement = ? AND timeframe = ? AND line_item = ? "
+            "ORDER BY CASE period_end WHEN 'TTM' THEN 1 ELSE 0 END, period_end");
+        sel_statement_period.prepare(
+            h,
+            "SELECT " + std::string(kCellColumns) + " FROM statement_cell "
+            "WHERE instrument_id = ? AND statement = ? AND timeframe = ? AND period_end = ? "
+            "ORDER BY line_item");
     }
 };
 
@@ -284,32 +467,33 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
     {
         throw std::runtime_error("database user_version exceeds this binary");
     }
-    if (version == 0)
+    constexpr std::string_view kV1Tables[] = {
+        "bar", "corporate_action", "coverage_day", "instrument"};
+    if (version >= 1)
+    {
+        requireTables(tableNames(), version, kV1Tables);
+    }
+    if (version < kSchemaUserVersion)
     {
         SqliteTxn txn(impl_->db.handle());
-        impl_->db.exec(schemaV1());
+        if (version < 1)
+        {
+            impl_->db.exec(schemaV1());
+        }
+        if (version < 2)
+        {
+            impl_->db.exec(schemaV2());
+        }
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
     }
-    const auto tables = tableNames();
-    constexpr std::string_view required[] = {"bar", "corporate_action", "coverage_day", "instrument"};
-    for (const auto want : required)
-    {
-        bool found = false;
-        for (const auto& name : tables)
-        {
-            if (name == want)
-            {
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-        {
-            throw std::runtime_error("database user_version is " + std::to_string(userVersion()) +
-                                     " but missing required table '" + std::string(want) + "'");
-        }
-    }
+    constexpr std::string_view kAllTables[] = {"bar",
+                                                "corporate_action",
+                                                "coverage_day",
+                                                "instrument",
+                                                "statement_cell",
+                                                "statement_snapshot"};
+    requireTables(tableNames(), userVersion(), kAllTables);
     impl_->prepare();
 }
 
@@ -355,6 +539,17 @@ void Store::testingSetUserVersion(const std::filesystem::path& path, int version
 {
     SqliteDb db(path);
     db.setUserVersion(version);
+}
+
+void Store::testingCreateSchemaV1(const std::filesystem::path& path)
+{
+    SqliteDb db(path);
+    if (db.userVersion() != 0)
+    {
+        throw std::runtime_error("testingCreateSchemaV1 requires user_version 0");
+    }
+    db.exec(schemaV1());
+    db.setUserVersion(1);
 }
 
 InstrumentId Store::upsertInstrument(const Instrument& instrument)
@@ -936,6 +1131,163 @@ std::vector<CorporateAction> Store::queryCorporateActions(InstrumentId id,
     }
     sel.reset();
     return out;
+}
+
+void Store::replaceStatement(const StatementSnapshot& snapshot, std::span<const StatementCell> cells)
+{
+    if (snapshot.instrument_id <= 0)
+    {
+        throw std::runtime_error("statement snapshot instrument is missing");
+    }
+    if (snapshot.fetched_at < 0)
+    {
+        throw std::runtime_error("statement snapshot fetched_at is negative");
+    }
+    if (!isTrimmedNonEmpty(snapshot.source))
+    {
+        throw std::runtime_error("statement snapshot source is empty");
+    }
+    if (!findInstrumentById(snapshot.instrument_id).has_value())
+    {
+        throw std::runtime_error("statement snapshot instrument not found");
+    }
+
+    std::set<std::pair<std::string, std::string>> seen;
+    for (const StatementCell& cell : cells)
+    {
+        if (cell.instrument_id != snapshot.instrument_id || cell.statement != snapshot.statement ||
+            cell.timeframe != snapshot.timeframe)
+        {
+            throw std::runtime_error("statement cell does not match snapshot");
+        }
+        if (!isTrimmedNonEmpty(cell.line_item))
+        {
+            throw std::runtime_error("statement cell line_item is empty");
+        }
+        if (!isStatementPeriodEnd(cell.period_end))
+        {
+            throw std::runtime_error("statement cell period_end is invalid");
+        }
+        if (std::holds_alternative<std::monostate>(cell.value))
+        {
+            throw std::runtime_error("statement cell has no value");
+        }
+        if (const auto* real = std::get_if<double>(&cell.value))
+        {
+            if (!std::isfinite(*real))
+            {
+                throw std::runtime_error("statement cell real is not finite");
+            }
+        }
+        if (const auto* text = std::get_if<std::string>(&cell.value))
+        {
+            if (text->empty())
+            {
+                throw std::runtime_error("statement cell text is empty");
+            }
+        }
+        if (!seen.emplace(cell.line_item, cell.period_end).second)
+        {
+            throw std::runtime_error("duplicate statement cell");
+        }
+    }
+
+    SqliteTxn txn(impl_->db.handle());
+    auto& upsert = impl_->upsert_statement_snapshot;
+    upsert.reset();
+    upsert.bindInt64(1, snapshot.instrument_id);
+    upsert.bindText(2, toSql(snapshot.statement));
+    upsert.bindText(3, toSql(snapshot.timeframe));
+    upsert.bindText(4, snapshot.source);
+    upsert.bindInt64(5, snapshot.fetched_at);
+    upsert.stepDone();
+    upsert.reset();
+
+    auto& del = impl_->del_statement_cells;
+    del.reset();
+    del.bindInt64(1, snapshot.instrument_id);
+    del.bindText(2, toSql(snapshot.statement));
+    del.bindText(3, toSql(snapshot.timeframe));
+    del.stepDone();
+    del.reset();
+
+    auto& ins = impl_->ins_statement_cell;
+    for (const StatementCell& cell : cells)
+    {
+        ins.reset();
+        ins.bindInt64(1, cell.instrument_id);
+        ins.bindText(2, toSql(cell.statement));
+        ins.bindText(3, toSql(cell.timeframe));
+        ins.bindText(4, cell.line_item);
+        ins.bindText(5, cell.period_end);
+        bindStatementValue(ins, 6, cell.value);
+        ins.stepDone();
+        ins.reset();
+    }
+    txn.commit();
+}
+
+std::optional<StatementSnapshot> Store::findStatementSnapshot(InstrumentId id,
+                                                             StatementKind statement,
+                                                             StatementTimeframe timeframe) const
+{
+    auto& sel = impl_->sel_statement_snapshot;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindText(2, toSql(statement));
+    sel.bindText(3, toSql(timeframe));
+    std::optional<StatementSnapshot> row;
+    if (sel.stepRow())
+    {
+        row = StatementSnapshot{};
+        row->instrument_id = id;
+        row->statement = statement;
+        row->timeframe = timeframe;
+        row->source = sel.columnText(0);
+        row->fetched_at = sel.columnInt64(1);
+    }
+    sel.reset();
+    return row;
+}
+
+std::vector<StatementCell> Store::queryStatementCells(InstrumentId id,
+                                                      StatementKind statement,
+                                                      StatementTimeframe timeframe) const
+{
+    auto& sel = impl_->sel_statement_cells;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindText(2, toSql(statement));
+    sel.bindText(3, toSql(timeframe));
+    return collectStatementCells(sel);
+}
+
+std::vector<StatementCell> Store::queryStatementLine(InstrumentId id,
+                                                     StatementKind statement,
+                                                     StatementTimeframe timeframe,
+                                                     std::string_view line_item) const
+{
+    auto& sel = impl_->sel_statement_line;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindText(2, toSql(statement));
+    sel.bindText(3, toSql(timeframe));
+    sel.bindText(4, line_item);
+    return collectStatementCells(sel);
+}
+
+std::vector<StatementCell> Store::queryStatementPeriod(InstrumentId id,
+                                                       StatementKind statement,
+                                                       StatementTimeframe timeframe,
+                                                       std::string_view period_end) const
+{
+    auto& sel = impl_->sel_statement_period;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindText(2, toSql(statement));
+    sel.bindText(3, toSql(timeframe));
+    sel.bindText(4, period_end);
+    return collectStatementCells(sel);
 }
 
 }  // namespace terminal
