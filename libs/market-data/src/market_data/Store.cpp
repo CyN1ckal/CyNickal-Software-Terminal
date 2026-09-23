@@ -9,6 +9,7 @@
 #include "market_data/Time.h"
 #include "market_data/Types.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <optional>
@@ -69,6 +70,32 @@ void bindOptionalDouble(SqliteStmt& stmt, int idx, const std::optional<double>& 
         return;
     }
     stmt.bindDouble(idx, *value);
+}
+
+template <typename T>
+void bindOptionalInt(SqliteStmt& stmt, int idx, const std::optional<T>& value)
+{
+    if (!value.has_value())
+    {
+        stmt.bindNull(idx);
+        return;
+    }
+    stmt.bindInt(idx, static_cast<int>(*value));
+}
+
+[[nodiscard]] bool isSessionDate(SessionDate date)
+{
+    using namespace std::chrono;
+    if (date < 19000101 || date > 21001231)
+    {
+        return false;
+    }
+    const int year_n = date / 10000;
+    const int month_n = (date / 100) % 100;
+    const int day_n = date % 100;
+    const year_month_day ymd{year{year_n}, month{static_cast<unsigned>(month_n)},
+                             day{static_cast<unsigned>(day_n)}};
+    return ymd.ok();
 }
 
 [[nodiscard]] bool isTrimmedNonEmpty(std::string_view text)
@@ -280,6 +307,94 @@ void requireTables(const std::vector<std::string>& have,
     return CoverageStatus::Partial;
 }
 
+void requireFinite(double value, const char* what)
+{
+    if (!std::isfinite(value))
+    {
+        throw std::runtime_error(std::string(what) + " is not finite");
+    }
+}
+
+void validateOptionQuote(const OptionQuote& quote, const OptionQuoteBatch& batch, InstrumentId instrument_id)
+{
+    if (quote.instrument_id != instrument_id || quote.expiration != batch.expiration ||
+        quote.expiration_type != batch.expiration_type)
+    {
+        throw std::runtime_error("option quote does not match its expiration");
+    }
+    if (!isSessionDate(quote.expiration) || !isTrimmedNonEmpty(quote.vendor_symbol))
+    {
+        throw std::runtime_error("option quote identity is invalid");
+    }
+    requireFinite(quote.strike, "option strike");
+    requireFinite(quote.bid, "option bid");
+    requireFinite(quote.ask, "option ask");
+    requireFinite(quote.mid, "option mid");
+    requireFinite(quote.last, "option last");
+    requireFinite(quote.price_change, "option price change");
+    requireFinite(quote.percent_change, "option percent change");
+    requireFinite(quote.implied_vol, "option implied vol");
+    requireFinite(quote.delta, "option delta");
+    requireFinite(quote.rho, "option rho");
+    requireFinite(quote.vega, "option vega");
+    requireFinite(quote.theta, "option theta");
+    requireFinite(quote.moneyness, "option moneyness");
+    if (quote.strike <= 0.0 || quote.bid < 0.0 || quote.ask < 0.0 || quote.mid < 0.0 || quote.last < 0.0 ||
+        quote.implied_vol < 0.0 || quote.volume < 0 || quote.open_interest < 0 || quote.days_to_expiration < 0)
+    {
+        throw std::runtime_error("option quote is out of range");
+    }
+    if (quote.trade_date.has_value() && quote.trade_minute.has_value())
+    {
+        throw std::runtime_error("option quote has both a trade date and a trade clock");
+    }
+    if (quote.trade_date.has_value() && !isSessionDate(*quote.trade_date))
+    {
+        throw std::runtime_error("option quote trade date is invalid");
+    }
+    if (quote.trade_minute.has_value() && (*quote.trade_minute < 0 || *quote.trade_minute >= 1440))
+    {
+        throw std::runtime_error("option quote trade clock is invalid");
+    }
+}
+
+[[nodiscard]] OptionQuote optionQuoteFromStmt(SqliteStmt const& stmt)
+{
+    OptionQuote row;
+    row.instrument_id = stmt.columnInt64(0);
+    row.expiration = static_cast<SessionDate>(stmt.columnInt64(1));
+    row.expiration_type = optionExpirationTypeFromSql(stmt.columnText(2));
+    row.vendor_symbol = stmt.columnText(3);
+    row.strike = stmt.columnDouble(4);
+    row.right = optionRightFromSql(stmt.columnText(5));
+    row.bid = stmt.columnDouble(6);
+    row.ask = stmt.columnDouble(7);
+    row.mid = stmt.columnDouble(8);
+    row.last = stmt.columnDouble(9);
+    row.price_change = stmt.columnDouble(10);
+    row.percent_change = stmt.columnDouble(11);
+    row.volume = stmt.columnInt64(12);
+    row.open_interest = stmt.columnInt64(13);
+    row.open_interest_change = stmt.columnInt64(14);
+    row.implied_vol = stmt.columnDouble(15);
+    row.delta = stmt.columnDouble(16);
+    row.rho = stmt.columnDouble(17);
+    row.vega = stmt.columnDouble(18);
+    row.theta = stmt.columnDouble(19);
+    row.moneyness = stmt.columnDouble(20);
+    row.days_to_expiration = static_cast<int>(stmt.columnInt64(21));
+    if (!stmt.columnIsNull(22))
+    {
+        row.trade_date = static_cast<SessionDate>(stmt.columnInt64(22));
+    }
+    if (!stmt.columnIsNull(23))
+    {
+        row.trade_minute = static_cast<int>(stmt.columnInt64(23));
+    }
+    row.fetched_at = stmt.columnInt64(24);
+    return row;
+}
+
 }  // namespace
 
 struct Store::Impl
@@ -312,6 +427,15 @@ struct Store::Impl
     mutable SqliteStmt sel_statement_cells;
     mutable SqliteStmt sel_statement_line;
     mutable SqliteStmt sel_statement_period;
+    SqliteStmt upsert_option_underlying;
+    SqliteStmt upsert_option_expiry;
+    SqliteStmt insert_option_expiry;
+    SqliteStmt del_option_quotes;
+    SqliteStmt del_option_expiry;
+    SqliteStmt ins_option_quote;
+    mutable SqliteStmt sel_option_expiries;
+    mutable SqliteStmt sel_option_underlying;
+    mutable SqliteStmt sel_option_quotes;
 
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
         : path(std::move(db_path)), mode(store_mode), db(path)
@@ -454,6 +578,63 @@ struct Store::Impl
             "SELECT " + std::string(kCellColumns) + " FROM statement_cell "
             "WHERE instrument_id = ? AND statement = ? AND timeframe = ? AND period_end = ? "
             "ORDER BY line_item");
+        upsert_option_underlying.prepare(
+            h,
+            "INSERT INTO option_underlying "
+            "(instrument_id, source, fetched_at, historic_vol_30d, iv_rank_1y, "
+            "next_earnings, dividend_ex, earnings_time) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (instrument_id) DO UPDATE SET "
+            "source = excluded.source, fetched_at = excluded.fetched_at, "
+            "historic_vol_30d = excluded.historic_vol_30d, iv_rank_1y = excluded.iv_rank_1y, "
+            "next_earnings = excluded.next_earnings, dividend_ex = excluded.dividend_ex, "
+            "earnings_time = excluded.earnings_time");
+        upsert_option_expiry.prepare(
+            h,
+            "INSERT INTO option_expiry "
+            "(instrument_id, expiration, expiration_type, average_iv, fetched_at, source) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (instrument_id, expiration, expiration_type) DO UPDATE SET "
+            "average_iv = excluded.average_iv, fetched_at = excluded.fetched_at, "
+            "source = excluded.source");
+        insert_option_expiry.prepare(
+            h,
+            "INSERT INTO option_expiry "
+            "(instrument_id, expiration, expiration_type, average_iv, fetched_at, source) "
+            "VALUES (?, ?, ?, NULL, NULL, ?) "
+            "ON CONFLICT (instrument_id, expiration, expiration_type) DO NOTHING");
+        del_option_quotes.prepare(
+            h,
+            "DELETE FROM option_quote "
+            "WHERE instrument_id = ? AND expiration = ? AND expiration_type = ?");
+        del_option_expiry.prepare(
+            h,
+            "DELETE FROM option_expiry "
+            "WHERE instrument_id = ? AND expiration = ? AND expiration_type = ?");
+        ins_option_quote.prepare(
+            h,
+            "INSERT INTO option_quote ("
+            "instrument_id, expiration, expiration_type, vendor_symbol, strike, right, "
+            "bid, ask, mid, last, price_change, percent_change, volume, open_interest, "
+            "open_interest_change, implied_vol, delta, rho, vega, theta, moneyness, "
+            "days_to_expiration, trade_date, trade_minute, fetched_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sel_option_expiries.prepare(
+            h,
+            "SELECT expiration, expiration_type, average_iv, fetched_at, source "
+            "FROM option_expiry WHERE instrument_id = ? ORDER BY expiration, expiration_type");
+        sel_option_underlying.prepare(
+            h,
+            "SELECT source, fetched_at, historic_vol_30d, iv_rank_1y, next_earnings, "
+            "dividend_ex, earnings_time FROM option_underlying WHERE instrument_id = ?");
+        sel_option_quotes.prepare(
+            h,
+            "SELECT instrument_id, expiration, expiration_type, vendor_symbol, strike, right, "
+            "bid, ask, mid, last, price_change, percent_change, volume, open_interest, "
+            "open_interest_change, implied_vol, delta, rho, vega, theta, moneyness, "
+            "days_to_expiration, trade_date, trade_minute, fetched_at "
+            "FROM option_quote WHERE instrument_id = ? AND expiration = ? AND expiration_type = ? "
+            "ORDER BY strike, CASE right WHEN 'call' THEN 0 ELSE 1 END, vendor_symbol");
     }
 };
 
@@ -473,6 +654,11 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
     {
         requireTables(tableNames(), version, kV1Tables);
     }
+    constexpr std::string_view kV2Tables[] = {"statement_cell", "statement_snapshot"};
+    if (version >= 2)
+    {
+        requireTables(tableNames(), version, kV2Tables);
+    }
     if (version < kSchemaUserVersion)
     {
         SqliteTxn txn(impl_->db.handle());
@@ -484,6 +670,10 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
         {
             impl_->db.exec(schemaV2());
         }
+        if (version < 3)
+        {
+            impl_->db.exec(schemaV3());
+        }
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
     }
@@ -491,6 +681,9 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                 "corporate_action",
                                                 "coverage_day",
                                                 "instrument",
+                                                "option_expiry",
+                                                "option_quote",
+                                                "option_underlying",
                                                 "statement_cell",
                                                 "statement_snapshot",};
     requireTables(tableNames(), userVersion(), kAllTables);
@@ -550,6 +743,18 @@ void Store::testingCreateSchemaV1(const std::filesystem::path& path)
     }
     db.exec(schemaV1());
     db.setUserVersion(1);
+}
+
+void Store::testingCreateSchemaV2(const std::filesystem::path& path)
+{
+    SqliteDb db(path);
+    if (db.userVersion() != 0)
+    {
+        throw std::runtime_error("testingCreateSchemaV2 requires user_version 0");
+    }
+    db.exec(schemaV1());
+    db.exec(schemaV2());
+    db.setUserVersion(2);
 }
 
 InstrumentId Store::upsertInstrument(const Instrument& instrument)
@@ -1288,6 +1493,306 @@ std::vector<StatementCell> Store::queryStatementPeriod(InstrumentId id,
     sel.bindText(3, toSql(timeframe));
     sel.bindText(4, period_end);
     return collectStatementCells(sel);
+}
+
+void Store::replaceOptionChain(const OptionChainWrite& write)
+{
+    if (write.instrument_id <= 0)
+    {
+        throw std::runtime_error("option chain instrument is missing");
+    }
+    if (write.fetched_at < 0 || !isTrimmedNonEmpty(write.source))
+    {
+        throw std::runtime_error("option chain fetch identity is invalid");
+    }
+    if (!findInstrumentById(write.instrument_id).has_value())
+    {
+        throw std::runtime_error("option chain instrument not found");
+    }
+    if (write.has_underlying)
+    {
+        if (write.underlying.instrument_id != write.instrument_id || write.underlying.fetched_at != write.fetched_at ||
+            write.underlying.source != write.source)
+        {
+            throw std::runtime_error("option underlying does not match the chain");
+        }
+        if (write.underlying.historic_vol_30d.has_value())
+        {
+            requireFinite(*write.underlying.historic_vol_30d, "historic vol");
+            if (*write.underlying.historic_vol_30d < 0.0)
+            {
+                throw std::runtime_error("historic vol is out of range");
+            }
+        }
+        if (write.underlying.iv_rank_1y.has_value())
+        {
+            requireFinite(*write.underlying.iv_rank_1y, "iv rank");
+            if (*write.underlying.iv_rank_1y < 0.0)
+            {
+                throw std::runtime_error("iv rank is out of range");
+            }
+        }
+        if (write.underlying.next_earnings.has_value() && !isSessionDate(*write.underlying.next_earnings))
+        {
+            throw std::runtime_error("option earnings date is invalid");
+        }
+        if (write.underlying.dividend_ex.has_value() && !isSessionDate(*write.underlying.dividend_ex))
+        {
+            throw std::runtime_error("option dividend date is invalid");
+        }
+        if (write.underlying.earnings_time.has_value() && !isTrimmedNonEmpty(*write.underlying.earnings_time))
+        {
+            throw std::runtime_error("option earnings time is empty");
+        }
+    }
+
+    std::set<std::pair<SessionDate, OptionExpirationType>> slices;
+    for (const OptionExpiry& row : write.calendar)
+    {
+        if (!isSessionDate(row.expiration))
+        {
+            throw std::runtime_error("option expiration is invalid");
+        }
+        if (!slices.emplace(row.expiration, row.expiration_type).second)
+        {
+            throw std::runtime_error("option expiration is repeated");
+        }
+    }
+    std::set<std::string> symbols;
+    for (const OptionQuoteBatch& batch : write.batches)
+    {
+        if (!isSessionDate(batch.expiration))
+        {
+            throw std::runtime_error("option expiration is invalid");
+        }
+        if (!slices.emplace(batch.expiration, batch.expiration_type).second &&
+            std::ranges::count_if(write.batches, [&](const OptionQuoteBatch& other) {
+                return other.expiration == batch.expiration && other.expiration_type == batch.expiration_type;
+            }) > 1)
+        {
+            throw std::runtime_error("option expiration is repeated");
+        }
+        if (batch.average_iv.has_value())
+        {
+            requireFinite(*batch.average_iv, "average iv");
+            if (*batch.average_iv < 0.0)
+            {
+                throw std::runtime_error("average iv is out of range");
+            }
+        }
+        for (const OptionQuote& quote : batch.quotes)
+        {
+            validateOptionQuote(quote, batch, write.instrument_id);
+            if (!symbols.emplace(quote.vendor_symbol).second)
+            {
+                throw std::runtime_error("option contract symbol is repeated");
+            }
+        }
+    }
+    std::set<std::pair<SessionDate, OptionExpirationType>> keep;
+    if (write.replace_calendar)
+    {
+        for (const OptionExpiry& row : write.calendar)
+        {
+            keep.emplace(row.expiration, row.expiration_type);
+        }
+    }
+    for (const OptionQuoteBatch& batch : write.batches)
+    {
+        keep.emplace(batch.expiration, batch.expiration_type);
+    }
+
+    SqliteTxn txn(impl_->db.handle());
+    if (write.has_underlying)
+    {
+        auto& upsert = impl_->upsert_option_underlying;
+        upsert.reset();
+        upsert.bindInt64(1, write.instrument_id);
+        upsert.bindText(2, write.source);
+        upsert.bindInt64(3, write.fetched_at);
+        bindOptionalDouble(upsert, 4, write.underlying.historic_vol_30d);
+        bindOptionalDouble(upsert, 5, write.underlying.iv_rank_1y);
+        bindOptionalInt(upsert, 6, write.underlying.next_earnings);
+        bindOptionalInt(upsert, 7, write.underlying.dividend_ex);
+        bindOptionalText(upsert, 8, write.underlying.earnings_time);
+        upsert.stepDone();
+        upsert.reset();
+    }
+    for (const OptionQuoteBatch& batch : write.batches)
+    {
+        auto& expiry = impl_->upsert_option_expiry;
+        expiry.reset();
+        expiry.bindInt64(1, write.instrument_id);
+        expiry.bindInt(2, batch.expiration);
+        expiry.bindText(3, toSql(batch.expiration_type));
+        bindOptionalDouble(expiry, 4, batch.average_iv);
+        expiry.bindInt64(5, write.fetched_at);
+        expiry.bindText(6, write.source);
+        expiry.stepDone();
+        expiry.reset();
+
+        auto& del = impl_->del_option_quotes;
+        del.reset();
+        del.bindInt64(1, write.instrument_id);
+        del.bindInt(2, batch.expiration);
+        del.bindText(3, toSql(batch.expiration_type));
+        del.stepDone();
+        del.reset();
+
+        auto& ins = impl_->ins_option_quote;
+        for (const OptionQuote& quote : batch.quotes)
+        {
+            ins.reset();
+            ins.bindInt64(1, quote.instrument_id);
+            ins.bindInt(2, quote.expiration);
+            ins.bindText(3, toSql(quote.expiration_type));
+            ins.bindText(4, quote.vendor_symbol);
+            ins.bindDouble(5, quote.strike);
+            ins.bindText(6, toSql(quote.right));
+            ins.bindDouble(7, quote.bid);
+            ins.bindDouble(8, quote.ask);
+            ins.bindDouble(9, quote.mid);
+            ins.bindDouble(10, quote.last);
+            ins.bindDouble(11, quote.price_change);
+            ins.bindDouble(12, quote.percent_change);
+            ins.bindInt64(13, quote.volume);
+            ins.bindInt64(14, quote.open_interest);
+            ins.bindInt64(15, quote.open_interest_change);
+            ins.bindDouble(16, quote.implied_vol);
+            ins.bindDouble(17, quote.delta);
+            ins.bindDouble(18, quote.rho);
+            ins.bindDouble(19, quote.vega);
+            ins.bindDouble(20, quote.theta);
+            ins.bindDouble(21, quote.moneyness);
+            ins.bindInt(22, quote.days_to_expiration);
+            bindOptionalInt(ins, 23, quote.trade_date);
+            bindOptionalInt(ins, 24, quote.trade_minute);
+            ins.bindInt64(25, write.fetched_at);
+            ins.stepDone();
+            ins.reset();
+        }
+    }
+    if (write.replace_calendar)
+    {
+        auto& insert = impl_->insert_option_expiry;
+        for (const OptionExpiry& row : write.calendar)
+        {
+            insert.reset();
+            insert.bindInt64(1, write.instrument_id);
+            insert.bindInt(2, row.expiration);
+            insert.bindText(3, toSql(row.expiration_type));
+            insert.bindText(4, write.source);
+            insert.stepDone();
+            insert.reset();
+        }
+        std::vector<std::pair<SessionDate, OptionExpirationType>> drop;
+        auto& listed = impl_->sel_option_expiries;
+        listed.reset();
+        listed.bindInt64(1, write.instrument_id);
+        while (listed.stepRow())
+        {
+            const auto expiration = static_cast<SessionDate>(listed.columnInt64(0));
+            const auto type = optionExpirationTypeFromSql(listed.columnText(1));
+            if (!keep.contains(std::pair{expiration, type}))
+            {
+                drop.emplace_back(expiration, type);
+            }
+        }
+        listed.reset();
+        auto& del = impl_->del_option_expiry;
+        for (const auto& [expiration, type] : drop)
+        {
+            del.reset();
+            del.bindInt64(1, write.instrument_id);
+            del.bindInt(2, expiration);
+            del.bindText(3, toSql(type));
+            del.stepDone();
+            del.reset();
+        }
+    }
+    txn.commit();
+}
+
+std::optional<OptionUnderlying> Store::findOptionUnderlying(InstrumentId id) const
+{
+    auto& sel = impl_->sel_option_underlying;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::optional<OptionUnderlying> row;
+    if (sel.stepRow())
+    {
+        row = OptionUnderlying{};
+        row->instrument_id = id;
+        row->source = sel.columnText(0);
+        row->fetched_at = sel.columnInt64(1);
+        if (!sel.columnIsNull(2))
+        {
+            row->historic_vol_30d = sel.columnDouble(2);
+        }
+        if (!sel.columnIsNull(3))
+        {
+            row->iv_rank_1y = sel.columnDouble(3);
+        }
+        if (!sel.columnIsNull(4))
+        {
+            row->next_earnings = static_cast<SessionDate>(sel.columnInt64(4));
+        }
+        if (!sel.columnIsNull(5))
+        {
+            row->dividend_ex = static_cast<SessionDate>(sel.columnInt64(5));
+        }
+        if (!sel.columnIsNull(6))
+        {
+            row->earnings_time = sel.columnText(6);
+        }
+    }
+    sel.reset();
+    return row;
+}
+
+std::vector<OptionExpiry> Store::queryOptionExpiries(InstrumentId id) const
+{
+    auto& sel = impl_->sel_option_expiries;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::vector<OptionExpiry> rows;
+    while (sel.stepRow())
+    {
+        OptionExpiry row;
+        row.instrument_id = id;
+        row.expiration = static_cast<SessionDate>(sel.columnInt64(0));
+        row.expiration_type = optionExpirationTypeFromSql(sel.columnText(1));
+        if (!sel.columnIsNull(2))
+        {
+            row.average_iv = sel.columnDouble(2);
+        }
+        if (!sel.columnIsNull(3))
+        {
+            row.fetched_at = sel.columnInt64(3);
+        }
+        row.source = sel.columnText(4);
+        rows.push_back(std::move(row));
+    }
+    sel.reset();
+    return rows;
+}
+
+std::vector<OptionQuote> Store::queryOptionQuotes(InstrumentId id,
+                                                  SessionDate expiration,
+                                                  OptionExpirationType expiration_type) const
+{
+    auto& sel = impl_->sel_option_quotes;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, expiration);
+    sel.bindText(3, toSql(expiration_type));
+    std::vector<OptionQuote> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(optionQuoteFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
 }
 
 }  // namespace terminal

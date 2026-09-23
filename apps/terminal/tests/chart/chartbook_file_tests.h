@@ -480,6 +480,9 @@ TEST_CASE("financials panels dock with the charts and round trip as a collection
     CHECK(loaded.document.financials[1].statement == "balance");
     CHECK(terminal::chartbookFinancialsIsOpen(loaded.document, 1));
     CHECK(terminal::chartbookFinancialsIsOpen(loaded.document, 2));
+    CHECK(loaded.document.options.empty());
+    CHECK(loaded.document.next_options_id == 1);
+    CHECK(loaded.document.focused_options == 0);
 
     const char* legacy = R"({
         "format": 1,
@@ -547,6 +550,44 @@ TEST_CASE("financials panels dock with the charts and round trip as a collection
         "panes": []
     })";
     CHECK_FALSE(terminal::chartbookFromJson(missing_panel).ok);
+}
+
+TEST_CASE("options chains dock and round trip beside the charts")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertOptions(document.layout, 1);
+    CHECK(terminal::chartbookOptionsIsOpen(document, 1));
+    terminal::ChartbookOptions chain;
+    chain.id = 1;
+    chain.symbol = "$SPX";
+    chain.expiration = 20261016;
+    chain.expiration_type = "monthly";
+    document.options.push_back(std::move(chain));
+    document.focused_options = 1;
+    document.next_options_id = 2;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.options.size() == 1);
+    CHECK(loaded.document.options[0].symbol == "$SPX");
+    CHECK(loaded.document.options[0].expiration == 20261016);
+    CHECK(loaded.document.options[0].expiration_type == "monthly");
+    CHECK(loaded.document.focused_options == 1);
+    CHECK(loaded.document.next_options_id == 2);
+    CHECK(terminal::chartbookOptionsIsOpen(loaded.document, 1));
+
+    const char* missing = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_options_id": 2,
+        "data": {},
+        "options": [{"id": 1, "symbol": "AAPL", "expiration": 20260925, "expiration_type": "weekly"}],
+        "layout": {"windows": ["options:9"], "selected": "options:9"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
 }
 
 TEST_CASE("saved data column order must name every live column once")

@@ -9,5 +9,6 @@ namespace terminal {
 
 [[nodiscard]] std::string_view schemaV1();
 [[nodiscard]] std::string_view schemaV2();
+[[nodiscard]] std::string_view schemaV3();
 
 }  // namespace terminal

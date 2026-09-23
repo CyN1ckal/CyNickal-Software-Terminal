@@ -66,4 +66,70 @@ struct MboumV2Statement
                                               StatementKind statement,
                                               StatementTimeframe timeframe);
 
+// One contract from GET /v3/markets/options. Percents are fractions.
+// trade_date and trade_minute are mutually exclusive.
+struct MboumV3OptionContract
+{
+    std::string vendor_symbol;
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+    double strike{};
+    OptionRight right{OptionRight::Call};
+    double bid{};
+    double ask{};
+    double mid{};
+    double last{};
+    double price_change{};
+    double percent_change{};
+    std::int64_t volume{};
+    std::int64_t open_interest{};
+    std::int64_t open_interest_change{};
+    double implied_vol{};
+    double delta{};
+    double rho{};
+    double vega{};
+    double theta{};
+    double moneyness{};
+    int days_to_expiration{};
+    std::optional<SessionDate> trade_date;
+    std::optional<int> trade_minute;
+};
+
+// Contracts that share an expiration date and type. average_iv is that slice's ATM vol.
+struct MboumV3OptionGroup
+{
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+    std::optional<double> average_iv;
+    std::vector<MboumV3OptionContract> contracts;
+};
+
+struct MboumV3OptionExpiry
+{
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+};
+
+// has_calendar is false when meta.expirations is an empty array (unknown ticker).
+// no_data is that case with an empty body. A known underlying with an unlisted
+// date has a calendar and no groups.
+struct MboumV3Options
+{
+    bool no_data{false};
+    bool has_calendar{false};
+    std::vector<MboumV3OptionExpiry> calendar;
+    std::string base_symbol;
+    std::optional<double> historic_vol_30d;
+    std::optional<double> iv_rank_1y;
+    std::optional<SessionDate> next_earnings;
+    std::optional<SessionDate> dividend_ex;
+    std::optional<std::string> earnings_time;
+    std::vector<MboumV3OptionGroup> groups;
+};
+
+[[nodiscard]] MboumV3Options parseMboumV3Options(std::string_view json);
+
+// expiration 0 omits the parameter. The ticker is percent-encoded ($SPX).
+[[nodiscard]] std::string mboumV3OptionsUrl(std::string_view ticker, SessionDate expiration = 0);
+
 }  // namespace terminal

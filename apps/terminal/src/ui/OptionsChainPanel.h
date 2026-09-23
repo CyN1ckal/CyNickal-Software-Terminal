@@ -1,0 +1,86 @@
+// Copyright 2026 CyNickal Software LLC
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+#pragma once
+
+#include "chart/CChartbookDocument.h"
+
+#include "market_data/Types.h"
+
+#include "imgui.h"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace terminal {
+
+class IngestWorker;
+class Store;
+
+// One underlying's option chain. Calls sit left of the strike and puts sit right.
+class OptionsChainPanel
+{
+public:
+    explicit OptionsChainPanel(int id);
+    ~OptionsChainPanel() = default;
+
+    OptionsChainPanel(const OptionsChainPanel&) = delete;
+    OptionsChainPanel& operator=(const OptionsChainPanel&) = delete;
+    OptionsChainPanel(OptionsChainPanel&&) = delete;
+    OptionsChainPanel& operator=(OptionsChainPanel&&) = delete;
+
+    [[nodiscard]] int id() const noexcept;
+    [[nodiscard]] bool windowOpen() const noexcept;
+    void closeWindow();
+    void requestFocus();
+    void importState(const ChartbookOptions& state);
+    [[nodiscard]] ChartbookOptions exportState() const;
+    void setWindowScope(int runtime_id) noexcept;
+    void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+
+    // True when this window is focused.
+    bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
+
+private:
+    void drawToolbar(IngestWorker* ingest);
+    void refresh(Store* store, IngestWorker* ingest);
+    void requestFetch(IngestWorker* ingest, bool force);
+    void drawChain() const;
+    [[nodiscard]] std::string viewKey() const;
+    [[nodiscard]] const OptionExpiry* selectedExpiry() const;
+
+    char symbol_[32]{};
+    std::string active_symbol_;
+    SessionDate expiration_{0};
+    OptionExpirationType expiration_type_{OptionExpirationType::Weekly};
+    bool has_expiration_{false};
+    std::vector<OptionExpiry> expiries_;
+    std::vector<OptionQuote> quotes_;
+    std::optional<OptionUnderlying> underlying_;
+    std::string loaded_key_;
+    std::string failed_key_;
+    std::string inflight_key_;
+    std::string status_{"enter a symbol"};
+    std::string error_;
+    std::uint64_t inflight_serial_{0};
+    bool inflight_{false};
+    bool have_slice_{false};
+    bool busy_{false};
+    bool blocked_{false};
+    bool fetch_now_{false};
+    bool needs_reload_{true};
+    int id_{0};
+    bool window_open_{true};
+    bool focus_on_appear_{false};
+    int runtime_id_{0};
+    bool place_force_{false};
+    bool place_floating_{false};
+    ImGuiID place_dock_{0};
+    ImVec2 place_pos_;
+    ImVec2 place_size_;
+};
+
+}  // namespace terminal

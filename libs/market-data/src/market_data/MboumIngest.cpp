@@ -606,4 +606,162 @@ IngestStatementResult ingestStatement(Store& store,
     return result;
 }
 
+namespace {
+
+[[nodiscard]] bool sameOptionUnderlying(std::string_view requested, std::string_view base)
+{
+    if (requested == base)
+    {
+        return true;
+    }
+    return !base.empty() && base.front() == '$' && base.substr(1) == requested;
+}
+
+[[nodiscard]] InstrumentId ensureOptionInstrument(Store& store, std::string_view symbol)
+{
+    const auto found = store.findInstrumentsBySymbol(symbol);
+    if (found.size() > 1)
+    {
+        throw std::runtime_error("multiple instruments named " + std::string(symbol));
+    }
+    if (found.size() == 1)
+    {
+        return found.front().id;
+    }
+    Instrument inst;
+    inst.symbol = std::string(symbol);
+    inst.asset_class = !symbol.empty() && symbol.front() == '$' ? AssetClass::Index : AssetClass::Equity;
+    inst.currency = "USD";
+    inst.timezone = "America/New_York";
+    return store.upsertInstrument(inst);
+}
+
+}  // namespace
+
+IngestOptionsResult ingestOptions(Store& store,
+                                  const HttpGet& get,
+                                  std::string_view symbol,
+                                  SessionDate expiration)
+{
+    if (symbol.empty() || symbol.find_first_not_of(" \t\r\n") != 0 ||
+        symbol.find_last_not_of(" \t\r\n") != symbol.size() - 1)
+    {
+        throw std::runtime_error("ingest symbol is empty");
+    }
+    HttpResponse http;
+    try
+    {
+        http = get(mboumV3OptionsUrl(symbol, expiration));
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum options request failed: ") + ex.what());
+    }
+    if (http.status == 401 || http.status == 403)
+    {
+        throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) + ")");
+    }
+    if (http.status != 200)
+    {
+        throw std::runtime_error("MBoum options request failed (HTTP " + std::to_string(http.status) + ")");
+    }
+
+    MboumV3Options page;
+    try
+    {
+        page = parseMboumV3Options(http.body);
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum options parse failed: ") + ex.what());
+    }
+
+    IngestOptionsResult result;
+    result.no_data = page.no_data;
+    if (page.no_data)
+    {
+        return result;
+    }
+    const std::string canonical = page.base_symbol.empty() ? std::string(symbol) : page.base_symbol;
+    if (!page.base_symbol.empty() && !sameOptionUnderlying(symbol, page.base_symbol))
+    {
+        throw std::runtime_error("MBoum options underlying does not match " + std::string(symbol));
+    }
+    result.symbol = canonical;
+    result.instrument_id = ensureOptionInstrument(store, canonical);
+
+    const UnixSeconds fetched_at = nowUtc();
+    OptionChainWrite write;
+    write.instrument_id = result.instrument_id;
+    write.source = "mboum";
+    write.fetched_at = fetched_at;
+    write.replace_calendar = page.has_calendar;
+    write.calendar.reserve(page.calendar.size());
+    for (const MboumV3OptionExpiry& row : page.calendar)
+    {
+        OptionExpiry expiry;
+        expiry.instrument_id = result.instrument_id;
+        expiry.expiration = row.expiration;
+        expiry.expiration_type = row.expiration_type;
+        expiry.source = "mboum";
+        write.calendar.push_back(std::move(expiry));
+    }
+    if (!page.groups.empty())
+    {
+        write.has_underlying = true;
+        write.underlying.instrument_id = result.instrument_id;
+        write.underlying.source = "mboum";
+        write.underlying.fetched_at = fetched_at;
+        write.underlying.historic_vol_30d = page.historic_vol_30d;
+        write.underlying.iv_rank_1y = page.iv_rank_1y;
+        write.underlying.next_earnings = page.next_earnings;
+        write.underlying.dividend_ex = page.dividend_ex;
+        write.underlying.earnings_time = page.earnings_time;
+    }
+    write.batches.reserve(page.groups.size());
+    for (const MboumV3OptionGroup& group : page.groups)
+    {
+        OptionQuoteBatch batch;
+        batch.expiration = group.expiration;
+        batch.expiration_type = group.expiration_type;
+        batch.average_iv = group.average_iv;
+        batch.quotes.reserve(group.contracts.size());
+        for (const MboumV3OptionContract& raw : group.contracts)
+        {
+            OptionQuote quote;
+            quote.instrument_id = result.instrument_id;
+            quote.expiration = raw.expiration;
+            quote.expiration_type = raw.expiration_type;
+            quote.vendor_symbol = raw.vendor_symbol;
+            quote.strike = raw.strike;
+            quote.right = raw.right;
+            quote.bid = raw.bid;
+            quote.ask = raw.ask;
+            quote.mid = raw.mid;
+            quote.last = raw.last;
+            quote.price_change = raw.price_change;
+            quote.percent_change = raw.percent_change;
+            quote.volume = raw.volume;
+            quote.open_interest = raw.open_interest;
+            quote.open_interest_change = raw.open_interest_change;
+            quote.implied_vol = raw.implied_vol;
+            quote.delta = raw.delta;
+            quote.rho = raw.rho;
+            quote.vega = raw.vega;
+            quote.theta = raw.theta;
+            quote.moneyness = raw.moneyness;
+            quote.days_to_expiration = raw.days_to_expiration;
+            quote.trade_date = raw.trade_date;
+            quote.trade_minute = raw.trade_minute;
+            quote.fetched_at = fetched_at;
+            batch.quotes.push_back(std::move(quote));
+        }
+        result.quote_count += static_cast<int>(batch.quotes.size());
+        write.batches.push_back(std::move(batch));
+    }
+    store.replaceOptionChain(write);
+    result.expiration_count = static_cast<int>(page.calendar.size());
+    return result;
+}
+
 }  // namespace terminal

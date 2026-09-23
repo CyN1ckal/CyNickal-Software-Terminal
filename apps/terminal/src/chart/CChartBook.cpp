@@ -64,6 +64,20 @@ void dropClosedPanes(CChartbookDocument& document)
             stale.push_back(window);
         }
     };
+    const auto considerOptions = [&](const std::string& window) {
+        int options_id = 0;
+        if (!optionsIdFromWindow(window, options_id))
+        {
+            return;
+        }
+        const bool present = std::ranges::any_of(document.options, [&](const ChartbookOptions& panel) {
+            return panel.id == options_id;
+        });
+        if (!present)
+        {
+            stale.push_back(window);
+        }
+    };
     std::vector<int> pending;
     if (document.layout.root >= 0)
     {
@@ -88,12 +102,14 @@ void dropClosedPanes(CChartbookDocument& document)
         {
             consider(window);
             considerFinancials(window);
+            considerOptions(window);
         }
     }
     for (const ChartbookFloating& floating : document.floating)
     {
         consider(floating.window);
         considerFinancials(floating.window);
+        considerOptions(floating.window);
     }
     for (const std::string& window : stale)
     {
@@ -235,6 +251,18 @@ void CChartBook::addFinancials()
     layout_request_ = true;
 }
 
+void CChartBook::addOptions()
+{
+    auto panel = std::make_unique<OptionsChainPanel>(next_options_id_);
+    panel->setWindowScope(runtime_id_);
+    focused_options_id_ = next_options_id_;
+    panel->requestFocus();
+    chartbookInsertOptions(layout_, next_options_id_);
+    ++next_options_id_;
+    options_.push_back(std::move(panel));
+    layout_request_ = true;
+}
+
 void CChartBook::closeFocused()
 {
     if (CChartPane* pane = focused())
@@ -246,6 +274,14 @@ void CChartBook::closeFocused()
 void CChartBook::closeFocusedFinancials()
 {
     if (FinancialsPanel* panel = focusedFinancialsPanel())
+    {
+        panel->closeWindow();
+    }
+}
+
+void CChartBook::closeFocusedOptions()
+{
+    if (OptionsChainPanel* panel = focusedOptionsPanel())
     {
         panel->closeWindow();
     }
@@ -273,6 +309,7 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
 {
     panes_.clear();
     financials_.clear();
+    options_.clear();
     name_ = document.name;
     data_ = document.data;
     layout_ = document.layout;
@@ -281,6 +318,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     focused_id_ = document.focused_pane;
     next_financials_id_ = std::max(document.next_financials_id, 1);
     focused_financials_id_ = document.focused_financials;
+    next_options_id_ = std::max(document.next_options_id, 1);
+    focused_options_id_ = document.focused_options;
     for (const ChartbookFinancials& record : document.financials)
     {
         if (!chartbookFinancialsIsOpen(document, record.id))
@@ -299,6 +338,25 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     if (findFinancials(focused_financials_id_) == nullptr)
     {
         focused_financials_id_ = financials_.empty() ? 0 : financials_.front()->id();
+    }
+    for (const ChartbookOptions& record : document.options)
+    {
+        if (!chartbookOptionsIsOpen(document, record.id))
+        {
+            continue;
+        }
+        auto panel = std::make_unique<OptionsChainPanel>(record.id);
+        panel->setWindowScope(runtime_id_);
+        panel->importState(record);
+        if (record.id == focused_options_id_)
+        {
+            panel->requestFocus();
+        }
+        options_.push_back(std::move(panel));
+    }
+    if (findOptions(focused_options_id_) == nullptr)
+    {
+        focused_options_id_ = options_.empty() ? 0 : options_.front()->id();
     }
     for (const ChartbookPane& record : document.panes)
     {
@@ -329,6 +387,8 @@ CChartbookDocument CChartBook::exportDocument() const
     document.next_pane_id = next_id_;
     document.focused_financials = focused_financials_id_;
     document.next_financials_id = next_financials_id_;
+    document.focused_options = focused_options_id_;
+    document.next_options_id = next_options_id_;
     document.data = data_;
     document.layout = layout_;
     document.floating = floating_;
@@ -344,6 +404,13 @@ CChartbookDocument CChartBook::exportDocument() const
         if (panel->windowOpen())
         {
             document.financials.push_back(panel->exportState());
+        }
+    }
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        if (panel->windowOpen())
+        {
+            document.options.push_back(panel->exportState());
         }
     }
     dropClosedPanes(document);
@@ -409,6 +476,10 @@ void CChartBook::setWindowScope(int runtime_id)
     {
         panel->setWindowScope(runtime_id_);
     }
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        panel->setWindowScope(runtime_id_);
+    }
     for (const std::unique_ptr<CChartPane>& pane : panes_)
     {
         pane->setWindowScope(runtime_id_);
@@ -436,6 +507,11 @@ bool CChartBook::containsFinancials(int financials_id) const
     return findFinancials(financials_id) != nullptr;
 }
 
+bool CChartBook::containsOptions(int options_id) const
+{
+    return findOptions(options_id) != nullptr;
+}
+
 void CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
@@ -455,6 +531,79 @@ void CChartBook::placeFinancials(int financials_id, bool force, bool floating, I
     for (const std::unique_ptr<FinancialsPanel>& panel : financials_)
     {
         if (panel->id() == financials_id)
+        {
+            panel->setPlacement(force, floating, dock, pos, size);
+        }
+    }
+}
+
+void CChartBook::eraseClosedOptions()
+{
+    const auto removed = std::ranges::remove_if(options_, [](const std::unique_ptr<OptionsChainPanel>& panel) {
+        return !panel->windowOpen();
+    });
+    options_.erase(removed.begin(), removed.end());
+    if (focusedOptionsPanel() == nullptr)
+    {
+        focused_options_id_ = 0;
+    }
+}
+
+OptionsChainPanel* CChartBook::focusedOptionsPanel()
+{
+    if (focused_options_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        if (panel->id() == focused_options_id_ && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+const OptionsChainPanel* CChartBook::focusedOptions() const
+{
+    return findOptions(focused_options_id_);
+}
+
+const OptionsChainPanel* CChartBook::findOptions(int options_id) const
+{
+    if (options_id == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        if (panel->id() == options_id && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+void CChartBook::drawOptions(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        panel->setWindowScope(runtime_id_);
+        if (panel->draw(store, store_error, ingest))
+        {
+            focused_options_id_ = panel->id();
+        }
+    }
+    eraseClosedOptions();
+}
+
+void CChartBook::placeOptions(int options_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    for (const std::unique_ptr<OptionsChainPanel>& panel : options_)
+    {
+        if (panel->id() == options_id)
         {
             panel->setPlacement(force, floating, dock, pos, size);
         }

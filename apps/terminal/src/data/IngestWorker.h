@@ -29,6 +29,8 @@ public:
         bool statements{false};
         StatementKind statement{StatementKind::Income};
         StatementTimeframe statement_timeframe{StatementTimeframe::Annually};
+        bool options{false};
+        SessionDate option_expiration{0};
     };
 
     // `accepted` is false when an identical job is already queued or running.

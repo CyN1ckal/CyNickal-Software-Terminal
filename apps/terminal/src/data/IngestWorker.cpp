@@ -27,7 +27,8 @@ constexpr std::size_t kIngestFailureHistory = 64;
     return a.symbol == b.symbol && a.from == b.from && a.to == b.to &&
            a.timeframe_s == b.timeframe_s && a.splits_only == b.splits_only &&
            a.statements == b.statements && a.statement == b.statement &&
-           a.statement_timeframe == b.statement_timeframe;
+           a.statement_timeframe == b.statement_timeframe && a.options == b.options &&
+           a.option_expiration == b.option_expiration;
 }
 
 }  // namespace
@@ -211,6 +212,17 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
         snap_.message = job.symbol + " " + formatSessionDate(day.session_date) + " " +
                         std::string(toSql(day.status)) + " bars=" + std::to_string(day.bar_count);
     };
+    if (job.options)
+    {
+        const std::string when =
+            job.option_expiration == 0 ? std::string("chain") : formatSessionDate(job.option_expiration);
+        {
+            const std::scoped_lock<std::mutex> lock(mu_);
+            snap_.message = job.symbol + " options " + when;
+        }
+        (void)ingestOptions(store, get, job.symbol, job.option_expiration);
+        return;
+    }
     if (job.statements)
     {
         {

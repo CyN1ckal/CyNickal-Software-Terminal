@@ -88,4 +88,22 @@ struct IngestStatementResult
                                                     StatementKind statement,
                                                     StatementTimeframe timeframe);
 
+struct IngestOptionsResult
+{
+    InstrumentId instrument_id{};
+    std::string symbol;
+    int quote_count{};
+    int expiration_count{};
+    bool no_data{false};
+};
+
+// GET /v3/markets/options. expiration 0 lets the server choose the date.
+// An unknown ticker writes nothing. A known name with an unlisted date
+// refreshes the calendar and leaves stored quotes for dates still listed.
+// The stored symbol is the vendor base ($SPX when the request was SPX).
+[[nodiscard]] IngestOptionsResult ingestOptions(Store& store,
+                                                const HttpGet& get,
+                                                std::string_view symbol,
+                                                SessionDate expiration = 0);
+
 }  // namespace terminal

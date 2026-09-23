@@ -24,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 2;
+inline constexpr int kSchemaUserVersion = 3;
 
 enum class AssetClass : std::uint8_t
 {
@@ -158,6 +158,97 @@ struct StatementCell
     StatementValue value;
 };
 
+// MBoum expirationType. A date can be both: $SPX third Fridays.
+enum class OptionExpirationType : std::uint8_t
+{
+    Weekly,
+    Monthly
+};
+
+enum class OptionRight : std::uint8_t
+{
+    Call,
+    Put
+};
+
+// Underlying fields that were constant across every contract in a response.
+// Percents are fractions. next_earnings and dividend_ex are YYYYMMDD.
+struct OptionUnderlying
+{
+    InstrumentId instrument_id{};
+    std::string source{"mboum"};
+    UnixSeconds fetched_at{};
+    std::optional<double> historic_vol_30d;
+    std::optional<double> iv_rank_1y;
+    std::optional<SessionDate> next_earnings;
+    std::optional<SessionDate> dividend_ex;
+    std::optional<std::string> earnings_time;
+};
+
+// One calendar slice. average_iv and fetched_at stay empty until quotes land.
+struct OptionExpiry
+{
+    InstrumentId instrument_id{};
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+    std::optional<double> average_iv;
+    std::optional<UnixSeconds> fetched_at;
+    std::string source{"mboum"};
+};
+
+// One contract. Percents (percent_change, implied_vol, moneyness) are fractions.
+// trade_date and trade_minute are mutually exclusive. The vendor sends one or neither.
+struct OptionQuote
+{
+    InstrumentId instrument_id{};
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+    std::string vendor_symbol;
+    double strike{};
+    OptionRight right{OptionRight::Call};
+    double bid{};
+    double ask{};
+    double mid{};
+    double last{};
+    double price_change{};
+    double percent_change{};
+    std::int64_t volume{};
+    std::int64_t open_interest{};
+    std::int64_t open_interest_change{};
+    double implied_vol{};
+    double delta{};
+    double rho{};
+    double vega{};
+    double theta{};
+    double moneyness{};
+    int days_to_expiration{};
+    std::optional<SessionDate> trade_date;
+    std::optional<int> trade_minute;
+    UnixSeconds fetched_at{};
+};
+
+struct OptionQuoteBatch
+{
+    SessionDate expiration{};
+    OptionExpirationType expiration_type{OptionExpirationType::Weekly};
+    std::optional<double> average_iv;
+    std::vector<OptionQuote> quotes;
+};
+
+// replace_calendar replaces membership. Batches replace quotes for those slices.
+// Slices written in batches are kept even if the calendar omits them.
+struct OptionChainWrite
+{
+    InstrumentId instrument_id{};
+    std::string source{"mboum"};
+    UnixSeconds fetched_at{};
+    bool replace_calendar{false};
+    std::vector<OptionExpiry> calendar;
+    bool has_underlying{false};
+    OptionUnderlying underlying{};
+    std::vector<OptionQuoteBatch> batches;
+};
+
 struct UpsertBarsResult
 {
     int written{};
@@ -240,6 +331,30 @@ inline std::string_view toSql(StatementKind value)
         return "cashflow";
     }
     throw std::runtime_error("unknown StatementKind");
+}
+
+inline std::string_view toSql(OptionExpirationType value)
+{
+    switch (value)
+    {
+    case OptionExpirationType::Weekly:
+        return "weekly";
+    case OptionExpirationType::Monthly:
+        return "monthly";
+    }
+    throw std::runtime_error("unknown OptionExpirationType");
+}
+
+inline std::string_view toSql(OptionRight value)
+{
+    switch (value)
+    {
+    case OptionRight::Call:
+        return "call";
+    case OptionRight::Put:
+        return "put";
+    }
+    throw std::runtime_error("unknown OptionRight");
 }
 
 inline std::string_view toSql(StatementTimeframe value)
@@ -338,6 +453,32 @@ inline StatementTimeframe statementTimeframeFromSql(std::string_view text)
         return StatementTimeframe::Trailing;
     }
     throw std::runtime_error("unknown statement timeframe");
+}
+
+inline OptionExpirationType optionExpirationTypeFromSql(std::string_view text)
+{
+    if (text == "weekly")
+    {
+        return OptionExpirationType::Weekly;
+    }
+    if (text == "monthly")
+    {
+        return OptionExpirationType::Monthly;
+    }
+    throw std::runtime_error("unknown expiration type");
+}
+
+inline OptionRight optionRightFromSql(std::string_view text)
+{
+    if (text == "call")
+    {
+        return OptionRight::Call;
+    }
+    if (text == "put")
+    {
+        return OptionRight::Put;
+    }
+    throw std::runtime_error("unknown option right");
 }
 
 inline CorporateActionType corporateActionTypeFromSql(std::string_view text)

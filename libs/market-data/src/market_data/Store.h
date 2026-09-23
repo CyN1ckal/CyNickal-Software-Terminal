@@ -41,6 +41,8 @@ public:
     static void testingSetUserVersion(const std::filesystem::path& path, int version);
     // Empty file at user_version 1 with the v1 tables only. For migration tests.
     static void testingCreateSchemaV1(const std::filesystem::path& path);
+    // Empty file at user_version 2 with v1 and v2 tables. For migration tests.
+    static void testingCreateSchemaV2(const std::filesystem::path& path);
 
     InstrumentId upsertInstrument(const Instrument& instrument);
     [[nodiscard]] std::optional<Instrument> findInstrument(
@@ -106,6 +108,15 @@ public:
                                                                   StatementKind statement,
                                                                   StatementTimeframe timeframe,
                                                                   std::string_view period_end) const;
+
+    // Replaces the slices in batches and, when replace_calendar is set, the
+    // expiration calendar. Slices omitted from a new calendar are deleted.
+    void replaceOptionChain(const OptionChainWrite& write);
+    [[nodiscard]] std::optional<OptionUnderlying> findOptionUnderlying(InstrumentId id) const;
+    [[nodiscard]] std::vector<OptionExpiry> queryOptionExpiries(InstrumentId id) const;
+    [[nodiscard]] std::vector<OptionQuote> queryOptionQuotes(InstrumentId id,
+                                                             SessionDate expiration,
+                                                             OptionExpirationType expiration_type) const;
 
 private:
     UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,

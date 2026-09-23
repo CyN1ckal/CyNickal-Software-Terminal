@@ -3,11 +3,17 @@
 
 #include "market_data/MboumJson.h"
 
+#include "market_data/Time.h"
+
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <charconv>
 #include <cstdint>
 #include <cstdio>
 #include <cmath>
+#include <ctime>
 #include <limits>
 #include <optional>
 #include <set>
@@ -512,6 +518,565 @@ std::string mboumV2StatementUrl(std::string_view ticker,
     url.append(statementModule(statement));
     url += "&timeframe=";
     url.append(toSql(timeframe));
+    return url;
+}
+
+namespace {
+
+[[nodiscard]] const std::string& optionString(const nlohmann::json& object, const char* key)
+{
+    const auto found = object.find(key);
+    if (found == object.end() || !found->is_string())
+    {
+        throw std::runtime_error(std::string("option contract ") + key + " is missing");
+    }
+    return found->get_ref<const std::string&>();
+}
+
+[[nodiscard]] std::optional<double> parseOptionNumber(std::string_view text)
+{
+    if (text == "unch")
+    {
+        return 0.0;
+    }
+    // from_chars rejects a leading plus. Display strings use one for gains.
+    if (!text.empty() && text.front() == '+')
+    {
+        text.remove_prefix(1);
+    }
+    const auto amount = parseMoneyAmount(text);
+    if (!amount.has_value() || !std::isfinite(*amount))
+    {
+        return std::nullopt;
+    }
+    return *amount;
+}
+
+[[nodiscard]] std::optional<double> parseOptionPercent(std::string_view text)
+{
+    if (text == "unch")
+    {
+        return 0.0;
+    }
+    std::string_view body = text;
+    if (!body.empty() && body.back() == '%')
+    {
+        body.remove_suffix(1);
+    }
+    const auto amount = parseOptionNumber(body);
+    if (!amount.has_value())
+    {
+        return std::nullopt;
+    }
+    return *amount / 100.0;
+}
+
+[[nodiscard]] std::optional<std::int64_t> parseOptionWhole(std::string_view text)
+{
+    const auto amount = parseOptionNumber(text);
+    if (!amount.has_value())
+    {
+        return std::nullopt;
+    }
+    const double truncated = std::trunc(*amount);
+    if (truncated != *amount || truncated > static_cast<double>(std::numeric_limits<std::int64_t>::max()) ||
+        truncated < static_cast<double>(std::numeric_limits<std::int64_t>::min()))
+    {
+        return std::nullopt;
+    }
+    return static_cast<std::int64_t>(truncated);
+}
+
+[[nodiscard]] double requireOptionNumber(std::string_view text, const char* key)
+{
+    const auto value = parseOptionNumber(text);
+    if (!value.has_value())
+    {
+        throw std::runtime_error(std::string("option contract ") + key + " is not a number");
+    }
+    return *value;
+}
+
+[[nodiscard]] double requireOptionPercent(std::string_view text, const char* key)
+{
+    const auto value = parseOptionPercent(text);
+    if (!value.has_value())
+    {
+        throw std::runtime_error(std::string("option contract ") + key + " is not a percent");
+    }
+    return *value;
+}
+
+[[nodiscard]] std::int64_t requireOptionWhole(std::string_view text, const char* key)
+{
+    const auto value = parseOptionWhole(text);
+    if (!value.has_value())
+    {
+        throw std::runtime_error(std::string("option contract ") + key + " is not a whole number");
+    }
+    return *value;
+}
+
+[[nodiscard]] std::optional<SessionDate> usTextToSessionDate(std::string_view text)
+{
+    const auto utc = parseUsDateToUtcMidnight(text);
+    if (!utc.has_value())
+    {
+        return std::nullopt;
+    }
+    std::tm parts{};
+    if (!tryUtcTm(static_cast<std::time_t>(*utc), parts))
+    {
+        return std::nullopt;
+    }
+    return ((parts.tm_year + 1900) * 10000) + ((parts.tm_mon + 1) * 100) + parts.tm_mday;
+}
+
+[[nodiscard]] std::optional<SessionDate> optionalUsDate(std::string_view text, const char* key)
+{
+    if (text == "N/A" || text == "--" || text.empty())
+    {
+        return std::nullopt;
+    }
+    const auto date = usTextToSessionDate(text);
+    if (!date.has_value())
+    {
+        throw std::runtime_error(std::string("option contract ") + key + " is not a date");
+    }
+    return date;
+}
+
+[[nodiscard]] std::optional<std::string> optionalToken(std::string_view text)
+{
+    if (text == "N/A" || text == "--" || text.empty())
+    {
+        return std::nullopt;
+    }
+    return std::string(text);
+}
+
+struct VendorSymbol
+{
+    std::string base;
+    SessionDate expiration{};
+    double strike{};
+    OptionRight right{OptionRight::Call};
+};
+
+[[nodiscard]] std::optional<VendorSymbol> parseVendorSymbol(std::string_view symbol)
+{
+    const auto first = symbol.find('|');
+    const auto second = first == std::string_view::npos ? std::string_view::npos : symbol.find('|', first + 1);
+    if (first == std::string_view::npos || first == 0 || second == std::string_view::npos ||
+        symbol.find('|', second + 1) != std::string_view::npos)
+    {
+        return std::nullopt;
+    }
+    const auto date_text = symbol.substr(first + 1, second - first - 1);
+    if (date_text.size() != 8)
+    {
+        return std::nullopt;
+    }
+    std::string iso;
+    iso.reserve(10);
+    iso.append(date_text.substr(0, 4));
+    iso.push_back('-');
+    iso.append(date_text.substr(4, 2));
+    iso.push_back('-');
+    iso.append(date_text.substr(6, 2));
+    const auto expiration = tryParseIsoDate(iso);
+    if (!expiration.has_value())
+    {
+        return std::nullopt;
+    }
+    std::string_view rest = symbol.substr(second + 1);
+    if (rest.size() < 2)
+    {
+        return std::nullopt;
+    }
+    const char side = rest.back();
+    if (side != 'C' && side != 'P')
+    {
+        return std::nullopt;
+    }
+    rest.remove_suffix(1);
+    if (!rest.empty() && rest.back() == 'W')
+    {
+        rest.remove_suffix(1);
+    }
+    const auto strike = parseOptionNumber(rest);
+    if (!strike.has_value() || *strike <= 0.0)
+    {
+        return std::nullopt;
+    }
+    VendorSymbol parsed;
+    parsed.base = std::string(symbol.substr(0, first));
+    parsed.expiration = *expiration;
+    parsed.strike = *strike;
+    parsed.right = side == 'C' ? OptionRight::Call : OptionRight::Put;
+    return parsed;
+}
+
+[[nodiscard]] std::optional<int> parseTradeClock(std::string_view text)
+{
+    if (text.size() < 6 || !text.ends_with(" ET"))
+    {
+        return std::nullopt;
+    }
+    const auto clock = text.substr(0, text.size() - 3);
+    const auto colon = clock.find(':');
+    if (colon == std::string_view::npos || colon == 0 || colon + 1 >= clock.size())
+    {
+        return std::nullopt;
+    }
+    int hour = 0;
+    int minute = 0;
+    const auto hour_text = clock.substr(0, colon);
+    const auto minute_text = clock.substr(colon + 1);
+    const auto hour_parsed = std::from_chars(hour_text.data(), hour_text.data() + hour_text.size(), hour);
+    const auto minute_parsed = std::from_chars(minute_text.data(), minute_text.data() + minute_text.size(), minute);
+    if (hour_parsed.ec != std::errc{} || hour_parsed.ptr != hour_text.data() + hour_text.size() ||
+        minute_parsed.ec != std::errc{} || minute_parsed.ptr != minute_text.data() + minute_text.size())
+    {
+        return std::nullopt;
+    }
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+    {
+        return std::nullopt;
+    }
+    return (hour * 60) + minute;
+}
+
+struct ParsedOption
+{
+    MboumV3OptionContract contract;
+    std::string base_symbol;
+    std::optional<double> average_iv;
+    std::optional<double> historic_vol_30d;
+    std::optional<double> iv_rank_1y;
+    std::optional<SessionDate> next_earnings;
+    std::optional<SessionDate> dividend_ex;
+    std::optional<std::string> earnings_time;
+};
+
+[[nodiscard]] ParsedOption parseOptionContract(const nlohmann::json& item)
+{
+    if (!item.is_object())
+    {
+        throw std::runtime_error("option contract is not an object");
+    }
+    const std::string& symbol = optionString(item, "symbol");
+    const auto vendor = parseVendorSymbol(symbol);
+    if (!vendor.has_value())
+    {
+        throw std::runtime_error("option contract symbol is invalid");
+    }
+    const std::string& base = optionString(item, "baseSymbol");
+    if (base != vendor->base)
+    {
+        throw std::runtime_error("option contract baseSymbol does not match the symbol");
+    }
+    const auto display_expiration = usTextToSessionDate(optionString(item, "expirationDate"));
+    if (!display_expiration.has_value() || *display_expiration != vendor->expiration)
+    {
+        throw std::runtime_error("option contract expirationDate does not match the symbol");
+    }
+    const double display_strike = requireOptionNumber(optionString(item, "strikePrice"), "strikePrice");
+    if (std::fabs(display_strike - vendor->strike) > 0.0001)
+    {
+        throw std::runtime_error("option contract strikePrice does not match the symbol");
+    }
+    const std::string& option_type = optionString(item, "optionType");
+    OptionRight right = OptionRight::Call;
+    if (option_type == "Put")
+    {
+        right = OptionRight::Put;
+    }
+    else if (option_type != "Call")
+    {
+        throw std::runtime_error("option contract optionType does not match the symbol");
+    }
+    if (right != vendor->right)
+    {
+        throw std::runtime_error("option contract optionType does not match the symbol");
+    }
+    const std::string& expiration_type = optionString(item, "expirationType");
+    if (expiration_type != "weekly" && expiration_type != "monthly")
+    {
+        throw std::runtime_error("option contract expirationType is unknown");
+    }
+
+    const std::string& trade_time = optionString(item, "tradeTime");
+    std::optional<SessionDate> trade_date;
+    std::optional<int> trade_minute;
+    if (trade_time != "N/A")
+    {
+        if (const auto clock = parseTradeClock(trade_time))
+        {
+            trade_minute = clock;
+        }
+        else if (const auto date = usTextToSessionDate(trade_time))
+        {
+            trade_date = date;
+        }
+        else
+        {
+            throw std::runtime_error("option contract tradeTime is invalid");
+        }
+    }
+
+    const std::int64_t days = requireOptionWhole(optionString(item, "daysToExpiration"), "daysToExpiration");
+    if (days > std::numeric_limits<int>::max())
+    {
+        throw std::runtime_error("option contract daysToExpiration is too large");
+    }
+
+    ParsedOption parsed;
+    parsed.base_symbol = base;
+    parsed.average_iv = requireOptionPercent(optionString(item, "averageVolatility"), "averageVolatility");
+    parsed.historic_vol_30d =
+        requireOptionPercent(optionString(item, "historicVolatility30d"), "historicVolatility30d");
+    parsed.iv_rank_1y = requireOptionPercent(optionString(item, "impliedVolatilityRank1y"), "impliedVolatilityRank1y");
+    parsed.next_earnings = optionalUsDate(optionString(item, "baseNextEarningsDate"), "baseNextEarningsDate");
+    parsed.dividend_ex = optionalUsDate(optionString(item, "dividendExDate"), "dividendExDate");
+    parsed.earnings_time = optionalToken(optionString(item, "baseTimeCode"));
+    parsed.contract.vendor_symbol = symbol;
+    parsed.contract.expiration = vendor->expiration;
+    parsed.contract.expiration_type = optionExpirationTypeFromSql(expiration_type);
+    parsed.contract.strike = display_strike;
+    parsed.contract.right = right;
+    parsed.contract.bid = requireOptionNumber(optionString(item, "bidPrice"), "bidPrice");
+    parsed.contract.ask = requireOptionNumber(optionString(item, "askPrice"), "askPrice");
+    parsed.contract.mid = requireOptionNumber(optionString(item, "midpoint"), "midpoint");
+    parsed.contract.last = requireOptionNumber(optionString(item, "lastPrice"), "lastPrice");
+    parsed.contract.price_change = requireOptionNumber(optionString(item, "priceChange"), "priceChange");
+    parsed.contract.percent_change = requireOptionPercent(optionString(item, "percentChange"), "percentChange");
+    parsed.contract.volume = requireOptionWhole(optionString(item, "volume"), "volume");
+    parsed.contract.open_interest = requireOptionWhole(optionString(item, "openInterest"), "openInterest");
+    parsed.contract.open_interest_change =
+        requireOptionWhole(optionString(item, "openInterestChange"), "openInterestChange");
+    parsed.contract.implied_vol = requireOptionPercent(optionString(item, "volatility"), "volatility");
+    parsed.contract.delta = requireOptionNumber(optionString(item, "delta"), "delta");
+    parsed.contract.rho = requireOptionNumber(optionString(item, "rho"), "rho");
+    parsed.contract.vega = requireOptionNumber(optionString(item, "vega"), "vega");
+    parsed.contract.theta = requireOptionNumber(optionString(item, "theta"), "theta");
+    parsed.contract.moneyness = requireOptionPercent(optionString(item, "moneyness"), "moneyness");
+    parsed.contract.days_to_expiration = static_cast<int>(days);
+    parsed.contract.trade_date = trade_date;
+    parsed.contract.trade_minute = trade_minute;
+    if (parsed.contract.bid < 0.0 || parsed.contract.ask < 0.0 || parsed.contract.mid < 0.0 ||
+        parsed.contract.last < 0.0 || parsed.contract.volume < 0 || parsed.contract.open_interest < 0 ||
+        parsed.contract.implied_vol < 0.0 || parsed.contract.days_to_expiration < 0 ||
+        (parsed.historic_vol_30d.has_value() && *parsed.historic_vol_30d < 0.0) ||
+        (parsed.iv_rank_1y.has_value() && *parsed.iv_rank_1y < 0.0) ||
+        (parsed.average_iv.has_value() && *parsed.average_iv < 0.0))
+    {
+        throw std::runtime_error("option contract has a negative quote");
+    }
+    return parsed;
+}
+
+void appendCalendar(const nlohmann::json& list,
+                    OptionExpirationType type,
+                    std::vector<MboumV3OptionExpiry>& calendar)
+{
+    if (!list.is_array())
+    {
+        throw std::runtime_error("option expirations are not an array");
+    }
+    for (const auto& item : list)
+    {
+        if (!item.is_string())
+        {
+            throw std::runtime_error("option expiration is not a date");
+        }
+        const auto date = tryParseIsoDate(item.get_ref<const std::string&>());
+        if (!date.has_value())
+        {
+            throw std::runtime_error("option expiration is not a date");
+        }
+        const bool duplicate = std::ranges::any_of(calendar, [&](const MboumV3OptionExpiry& row) {
+            return row.expiration == *date && row.expiration_type == type;
+        });
+        if (duplicate)
+        {
+            throw std::runtime_error("option expiration is repeated");
+        }
+        MboumV3OptionExpiry row;
+        row.expiration = *date;
+        row.expiration_type = type;
+        calendar.push_back(row);
+    }
+}
+
+[[nodiscard]] MboumV3OptionGroup& groupFor(std::vector<MboumV3OptionGroup>& groups,
+                                           SessionDate expiration,
+                                           OptionExpirationType type)
+{
+    for (MboumV3OptionGroup& group : groups)
+    {
+        if (group.expiration == expiration && group.expiration_type == type)
+        {
+            return group;
+        }
+    }
+    MboumV3OptionGroup created;
+    created.expiration = expiration;
+    created.expiration_type = type;
+    groups.push_back(std::move(created));
+    return groups.back();
+}
+
+void appendEncodedQuery(std::string& url, std::string_view value)
+{
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (const char raw : value)
+    {
+        const auto ch = static_cast<unsigned char>(raw);
+        if (std::isalnum(ch) != 0 || ch == '-' || ch == '_' || ch == '.' || ch == '~')
+        {
+            url.push_back(static_cast<char>(ch));
+            continue;
+        }
+        url.push_back('%');
+        url.push_back(hex[ch >> 4]);
+        url.push_back(hex[ch & 0x0F]);
+    }
+}
+
+}  // namespace
+
+MboumV3Options parseMboumV3Options(std::string_view json)
+{
+    try
+    {
+        const auto root = nlohmann::json::parse(json);
+        if (!root.is_object())
+        {
+            throw std::runtime_error("expected JSON object");
+        }
+        MboumV3Options page;
+        if (const auto meta = root.find("meta"); meta != root.end() && meta->is_object())
+        {
+            if (const auto expirations = meta->find("expirations"); expirations != meta->end())
+            {
+                if (expirations->is_object())
+                {
+                    page.has_calendar = true;
+                    const auto weekly = expirations->find("weekly");
+                    const auto monthly = expirations->find("monthly");
+                    if (weekly != expirations->end())
+                    {
+                        appendCalendar(*weekly, OptionExpirationType::Weekly, page.calendar);
+                    }
+                    if (monthly != expirations->end())
+                    {
+                        appendCalendar(*monthly, OptionExpirationType::Monthly, page.calendar);
+                    }
+                }
+                else if (expirations->is_array())
+                {
+                    if (!expirations->empty())
+                    {
+                        throw std::runtime_error("option expirations are not a calendar");
+                    }
+                }
+                else if (!expirations->is_null())
+                {
+                    throw std::runtime_error("option expirations are not a calendar");
+                }
+            }
+        }
+
+        std::vector<ParsedOption> parsed;
+        if (const auto body = root.find("body"); body != root.end() && !body->is_null())
+        {
+            if (body->is_array())
+            {
+                if (!body->empty())
+                {
+                    throw std::runtime_error("option body is not a chain");
+                }
+            }
+            else if (body->is_object())
+            {
+                constexpr const char* kSides[] = {"Call", "Put"};
+                for (const char* side : kSides)
+                {
+                    const auto list = body->find(side);
+                    if (list == body->end() || list->is_null())
+                    {
+                        continue;
+                    }
+                    if (!list->is_array())
+                    {
+                        throw std::runtime_error("option body is not a chain");
+                    }
+                    for (const auto& item : *list)
+                    {
+                        parsed.push_back(parseOptionContract(item));
+                    }
+                }
+            }
+            else
+            {
+                throw std::runtime_error("option body is not a chain");
+            }
+        }
+
+        if (!parsed.empty())
+        {
+            const ParsedOption& first = parsed.front();
+            page.base_symbol = first.base_symbol;
+            page.historic_vol_30d = first.historic_vol_30d;
+            page.iv_rank_1y = first.iv_rank_1y;
+            page.next_earnings = first.next_earnings;
+            page.dividend_ex = first.dividend_ex;
+            page.earnings_time = first.earnings_time;
+            std::set<std::string> symbols;
+            for (const ParsedOption& row : parsed)
+            {
+                if (row.base_symbol != page.base_symbol || row.historic_vol_30d != page.historic_vol_30d ||
+                    row.iv_rank_1y != page.iv_rank_1y || row.next_earnings != page.next_earnings ||
+                    row.dividend_ex != page.dividend_ex || row.earnings_time != page.earnings_time)
+                {
+                    throw std::runtime_error("option chain underlying fields disagree");
+                }
+                if (!symbols.insert(row.contract.vendor_symbol).second)
+                {
+                    throw std::runtime_error("option contract symbol is repeated");
+                }
+                MboumV3OptionGroup& group =
+                    groupFor(page.groups, row.contract.expiration, row.contract.expiration_type);
+                if (!group.average_iv.has_value())
+                {
+                    group.average_iv = row.average_iv;
+                }
+                else if (group.average_iv != row.average_iv)
+                {
+                    throw std::runtime_error("option chain average volatility disagrees");
+                }
+                group.contracts.push_back(row.contract);
+            }
+        }
+        page.no_data = !page.has_calendar && page.groups.empty();
+        return page;
+    }
+    catch (const nlohmann::json::exception& ex)
+    {
+        throw std::runtime_error(std::string("invalid MBoum JSON: ") + ex.what());
+    }
+}
+
+std::string mboumV3OptionsUrl(std::string_view ticker, SessionDate expiration)
+{
+    std::string url = "https://api.mboum.com/v3/markets/options?ticker=";
+    appendEncodedQuery(url, ticker);
+    if (expiration != 0)
+    {
+        url += "&expiration=";
+        url += formatSessionDate(expiration);
+    }
     return url;
 }
 
