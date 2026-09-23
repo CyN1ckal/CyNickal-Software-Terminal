@@ -18,7 +18,7 @@ from pathlib import Path
 import cairo
 
 OUT_DIR = Path(__file__).resolve().parent
-W, H = 1800, 4440
+W, H = 1800, 6720
 SCALE = 2
 
 
@@ -320,7 +320,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     )
     draw_text(ctx, 28, 80, "Figure 1.  Components and assembly", 13.5, True)
 
-    package(ctx, 16, 94, 1104, 1248, "terminal", "«system»", mark=ACCENT)
+    package(ctx, 16, 94, 1104, 1332, "terminal", "«system»", mark=ACCENT)
     draw_text(
         ctx,
         32,
@@ -331,8 +331,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
     )
 
     # --- terminal ---
-    component(ctx, 32, 148, 684, 572, "terminal", "«executable»  apps/terminal", EXEC_FILL, EXEC_HEAD)
-    inner(ctx, 46, 196, 656, 508, "Application", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
+    component(ctx, 32, 148, 684, 668, "terminal", "«executable»  apps/terminal", EXEC_FILL, EXEC_HEAD)
+    inner(ctx, 46, 196, 656, 604, "Application", "«composition»", CLASS_FILL, CLASS_HEAD, head_h=20)
 
     specs = [
         ("Window", "GlfwContext  ·  VkSurface"),
@@ -345,7 +345,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     for i, (name, detail) in enumerate(specs):
         inner(ctx, px + i * (pw + gap), py, pw, ph, name, None, PANEL_FILL, PANEL_HEAD, [detail], head_h=20)
 
-    inner(ctx, 58, 284, 632, 404, "Workspace", "«composition»", PANEL_FILL, PANEL_HEAD, head_h=20)
+    inner(ctx, 58, 284, 632, 500, "Workspace", "«composition»", PANEL_FILL, PANEL_HEAD, head_h=20)
     draw_text(
         ctx,
         374,
@@ -366,7 +366,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         "«object»",
         PANEL_FILL,
         PANEL_HEAD,
-        ["busy_timeout = 0  ·  1m + 1d coverage", "ctor: one-shot Writer migrate v2"],
+        ["busy_timeout = 0  ·  1m + 1d coverage", "ctor: one-shot Writer migrate to v3"],
         head_h=20,
     )
     inner(
@@ -379,7 +379,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         "«active»",
         PANEL_FILL,
         PANEL_HEAD,
-        ["Writer + CurlClient  ·  1m / 1d / splits", "80 ms pace  ·  per-serial failures"],
+        ["Writer + CurlClient on the worker thread", "bars, splits, statements, or one chain slice"],
         head_h=20,
     )
     inner(
@@ -387,7 +387,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         72,
         450,
         604,
-        222,
+        318,
         "ChartbookHost",
         "«composition»",
         CHART_FILL,
@@ -398,45 +398,76 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ctx,
         86,
         478,
-        186,
-        178,
+        176,
+        108,
         "Store  Reader",
         "«object»",
         PANEL_FILL,
         PANEL_HEAD,
-        ["own GUI Reader", "busy_timeout = 0", "after DATA migrate", "CChartBook ×N in memory"],
+        ["own GUI Reader", "busy_timeout = 0", "after DATA migrates"],
         head_h=20,
     )
     inner(
         ctx,
-        284,
+        86,
+        594,
+        176,
+        158,
+        "CChartBook",
+        "«composition»",
+        PANEL_FILL,
+        PANEL_HEAD,
+        ["panes_", "financials_", "options_", "closed ones drop on export"],
+        head_h=20,
+    )
+    inner(
+        ctx,
+        270,
         478,
-        376,
-        178,
+        390,
+        86,
         "CChartPane  ×N",
         "«composition»",
         PANEL_FILL,
         ACCENT,
         [
-            "CChartSettings  ·  Chart Settings modal",
-            "1d from Store  ·  5m/15m/1h composite  ·  split-adjust 1d",
-            "drawCandlesticks + volume  ·  .chartbook.json",
+            "1d stored · 5m/15m/1h composite · split-adjust 1d",
+            "StudyRegistry: moving_average, bollinger, volume",
+            "settings and studies persist in the chartbook",
         ],
         head_h=20,
     )
     inner(
         ctx,
-        296,
-        568,
-        352,
-        76,
-        "studies_  /  computed_",
-        "«pane state»  cap 16",
-        WELL_FILL,
+        270,
+        572,
+        390,
+        86,
+        "FinancialsPanel  ×N",
+        "«composition»",
+        PANEL_FILL,
         ACCENT,
         [
-            "CStudyInstance  ·  SMA v1  ·  not CChartSettings",
-            "computeStudies  ·  CStudySettings  ·  drawStudyOverlays",
+            "View > New Financials · dock id financials:<id>",
+            "Income, Balance, Cash Flow · Yearly or Quarterly",
+            "reads statement_* · enqueues ingestStatement",
+        ],
+        head_h=20,
+    )
+    inner(
+        ctx,
+        270,
+        666,
+        390,
+        86,
+        "OptionsChainPanel  ×N",
+        "«composition»",
+        PANEL_FILL,
+        ACCENT,
+        [
+            "View > New Options Chain · dock id options:<id>",
+            "calls left of the strike · puts right",
+            "reads option_* · enqueues ingestOptions",
         ],
         head_h=20,
     )
@@ -476,12 +507,12 @@ def draw_figure1(ctx: cairo.Context) -> None:
         372,
         124,
         [
-            "Charting is GUI-only",
-            "Charts enqueue IngestWorker; no HTTP.",
+            "GUI panes do not call HTTP",
+            "Charts, financials, and chains enqueue.",
             "1d bars are stored; 5m/15m/1h are not.",
             "Daily plot uses adjustBarsForSplits.",
-            "Studies and chartbooks are not SQLite.",
-            "Files: data/chartbooks/*.chartbook.json",
+            "Books: data/chartbooks/*.chartbook.json",
+            "Panes, studies, financials, chains persist.",
         ],
     )
 
@@ -489,7 +520,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     component(
         ctx,
         32,
-        736,
+        832,
         1072,
         114,
         "apps/common",
@@ -500,7 +531,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         48,
-        782,
+        878,
         520,
         52,
         "CurlClient",
@@ -513,7 +544,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     inner(
         ctx,
         584,
-        782,
+        878,
         504,
         52,
         "RepoRoot",
@@ -528,7 +559,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
     component(
         ctx,
         32,
-        866,
+        962,
         1072,
         448,
         "market-data",
@@ -536,25 +567,29 @@ def draw_figure1(ctx: cairo.Context) -> None:
         LIB_FILL,
         LIB_HEAD,
     )
-    draw_text(ctx, 48, 922, "public API", 10.5, True, color=MUTED)
+    draw_text(ctx, 48, 1018, "public API", 10.5, True, color=MUTED)
 
     cells = [
         ("ingestSymbol()", "1m RTH sessions  ·  skip complete"),
         ("ingestDailySymbol()", "daily bars + coverage  ·  ingestSplits"),
-        ("Store", "1m+1d bars  ·  statements v2  ·  WAL"),
-        ("Schema", "schemaV1 + schemaV2  ·  user_version 2"),
+        ("ingestStatement()", "GET /v1 modules  ·  replaceStatement"),
+        ("ingestOptions()", "GET /v3/markets/options"),
+        ("Store", "WAL · migrates to user_version 3"),
+        ("replaceStatement()", "one grid  ·  omitted cells are deleted"),
+        ("replaceOptionChain()", "one slice  ·  calendar may drop dates"),
+        ("Schema", "schemaV1 + V2 + V3  ·  user_version 3"),
         ("Adjust", "adjustBarsForSplits  ·  daily charts only"),
         ("Secrets", "loadMboumApiKey(secrets.json  \"mboum\")"),
-        ("MboumJson / Map", "v3 1m + daily + history splits  ·  nlohmann"),
+        ("MboumJson / Map", "historical, modules, options  ·  nlohmann"),
         ("Time / NYSE", "RTH UTC windows  ·  holidays"),
     ]
-    cw, ch = 256, 68
+    cw, ch = 256, 62
     for i, (name, detail) in enumerate(cells):
         col, row = i % 4, i // 4
         inner(
             ctx,
             48 + col * (cw + 8),
-            930 + row * (ch + 8),
+            1026 + row * (ch + 6),
             cw,
             ch,
             name,
@@ -562,81 +597,52 @@ def draw_figure1(ctx: cairo.Context) -> None:
             CLASS_FILL,
             CLASS_HEAD,
             [detail],
-            head_h=22,
+            head_h=20,
         )
 
-    draw_text(ctx, 48, 1094, "private  (PRIVATE include dir — apps never see sqlite3.h)", 10.5, True, color=MUTED)
-    inner(
-        ctx,
-        48,
-        1104,
-        254,
-        64,
-        "SqliteDb / Stmt / Txn",
-        "«internal»",
-        PRIV_FILL,
-        PRIV_HEAD,
-        ["private/  ·  no sqlite3.h to apps"],
-        head_h=22,
-    )
-    inner(
-        ctx,
-        310,
-        1104,
-        254,
-        64,
-        "terminal_sqlite3",
-        "«library» PRIVATE",
-        PRIV_FILL,
-        PRIV_HEAD,
-        ["deps/sqlite  ·  THREADSAFE=1"],
-        head_h=22,
-    )
-    inner(
-        ctx,
-        572,
-        1104,
-        254,
-        64,
-        "schema/v1.sql",
-        "«artifact» embedded",
-        ART_FILL,
-        PRIV_HEAD,
-        ["instrument  bar  coverage_day  CA"],
-        head_h=22,
-    )
-    inner(
-        ctx,
-        834,
-        1104,
-        254,
-        64,
-        "schema/v2.sql",
-        "«artifact» embedded",
-        ART_FILL,
-        PRIV_HEAD,
-        ["statement_snapshot  ·  statement_cell"],
-        head_h=22,
-    )
+    draw_text(ctx, 48, 1236, "private  (PRIVATE include dir — apps never see sqlite3.h)", 10.5, True, color=MUTED)
+    private = [
+        ("SqliteDb / Stmt / Txn", "no sqlite3.h in apps"),
+        ("terminal_sqlite3", "deps/sqlite · THREADSAFE=1"),
+        ("schema/v1.sql", "instrument, bar, coverage, CA"),
+        ("schema/v2.sql", "snapshot and statement_cell"),
+        ("schema/v3.sql", "underlying, expiry, quote"),
+    ]
+    pw = 200
+    for i, (name, detail) in enumerate(private):
+        inner(
+            ctx,
+            48 + i * (pw + 10),
+            1246,
+            pw,
+            58,
+            name,
+            None,
+            PRIV_FILL if i < 2 else ART_FILL,
+            PRIV_HEAD,
+            [detail],
+            head_h=20,
+            name_size=10,
+        )
     draw_text(
         ctx,
         48,
-        1186,
-        "Open: apply v1 if user_version < 1, then v2 if < 2, then set user_version = 2.  Newer databases are refused.  v1 SQL is not altered in place.",
+        1324,
+        "Open applies v1, then v2, then v3 while user_version is behind, then sets user_version = 3.  A newer database is refused.  v1 SQL is not altered.",
         10,
         color=MUTED,
     )
     draw_text(
         ctx,
         48,
-        1202,
-        "replaceStatement replaces one grid and deletes omitted cells.  Missing vendor keys are not stored as zero.  No statement HTTP ingest yet.  Studies are not Store rows.",
+        1340,
+        "replaceStatement replaces one grid.  replaceOptionChain replaces one expiration slice.  A missing vendor key is not stored as zero.  Studies are not Store rows.",
         10,
         color=MUTED,
     )
 
     # --- environment ---
-    package(ctx, 1248, 94, 532, 1248, "Environment", "«external»")
+    package(ctx, 1248, 94, 532, 1332, "Environment", "«external»")
 
     inner(ctx, 1266, 132, 496, 70, "Operator", "«actor»", PANEL_FILL, PANEL_HEAD, ["GO in DATA  ·  File/Chart menus  ·  ingest CLI"], head_h=22)
 
@@ -646,10 +652,10 @@ def draw_figure1(ctx: cairo.Context) -> None:
         (342, "Dear ImGui", "«library»  deps/imgui  ·  docking", EXT_FILL, EXT_HEAD),
         (404, "ImPlot v1.0", "«library»  deps/implot  ·  no PlotCandlestick", EXT_FILL, EXT_HEAD),
         (466, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
-        (542, "api.mboum.com", "«service»  GET /v3/markets/historical", EXT_FILL, EXT_HEAD),
+        (542, "api.mboum.com", "«service»  historical, modules, options", EXT_FILL, EXT_HEAD),
         (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", PANEL_FILL, PANEL_HEAD),
-        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 2", PANEL_FILL, PANEL_HEAD),
-        (786, "Catch2 tests", "statement_tests  ·  chart_*  ·  market_data", PANEL_FILL, PANEL_HEAD),
+        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 3", PANEL_FILL, PANEL_HEAD),
+        (786, "Catch2 tests", "option_tests · statement_tests · chart_*", PANEL_FILL, PANEL_HEAD),
         (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PANEL_FILL, PANEL_HEAD),
     ]
     for ey, name, detail, fill, head in ext:
@@ -678,28 +684,35 @@ def draw_figure1(ctx: cairo.Context) -> None:
         1266,
         916,
         496,
-        400,
+        490,
         [
-            "Concurrency (K19) + charts (D4, D10)",
-            "One Writer connection, N Readers.",
-            "Never share sqlite3* across threads.",
-            "GUI Readers: InventoryPanel + ChartbookHost.",
-            "busy_timeout=0: keep last snapshot unless",
-            "the error is not busy/locked.",
-            "Worker / CLI Writer busy_timeout=5000.",
-            "Chart load is GUI-thread, sync, ~2 s poll.",
-            "Keep last bars on Busy only if settings match.",
+            "Connections",
+            "GUI Readers: InventoryPanel, ChartbookHost.",
+            "Separate connections. busy_timeout = 0.",
+            "InventoryPanel's ctor opens a Writer, which",
+            "migrates to user_version 3, then closes it.",
+            "IngestWorker opens its own Writer (5000 ms).",
+            "ChartbookHost's Reader serves chart panes,",
+            "financials, and option chains.",
+            "A busy coverage read leaves the DATA rows in place.",
             "",
-            "Charts never talk to MBoum.",
-            "DATA row select does not set chart symbol.",
-            "HTTP is in-process libcurl, not a fork.",
-            "Candles and study overlays are custom",
-            "GetPlotDrawList() draws.  Index X.",
-            "computeStudies is GUI-thread, never throws.",
-            "Busy keep-candles does not recompute studies.",
-            "Apply/OK recomputes without loadChartBars.",
-            "Statements: Store only (no GUI/HTTP yet).",
-            "Chartbooks: data/chartbooks/*.chartbook.json.",
+            "Who calls MBoum",
+            "No pane calls HTTP. Each GO enqueues a job.",
+            "Bars call ingestSymbol or ingestDailySymbol.",
+            "Statements call ingestStatement.",
+            "Option chains call ingestOptions.",
+            "A splits-only job calls ingestSplits.",
+            "80 ms between HTTP calls inside one job.",
+            "runJob checks options, then statements,",
+            "then splits, then 1d, then 1m.",
+            "",
+            "Where rows live",
+            "SQLite holds 1m and 1d bars, coverage,",
+            "splits, statement grids, and chain snapshots.",
+            "5m, 15m, and 1h are built at chart load.",
+            "Studies are not Store rows. A chartbook file",
+            "stores panes, studies, financials, and chains.",
+            "DATA row select does not set the chart symbol.",
         ],
     )
 
@@ -709,7 +722,7 @@ def draw_lifeline_head(ctx: cairo.Context, x: float, y: float, w: float, name: s
 
 
 def draw_figure2(ctx: cairo.Context) -> None:
-    y0 = 1370
+    y0 = 1454
     draw_text(ctx, 28, y0, "Figure 2.  Ingest interaction  (sequence)", 13.5, True)
     draw_text(
         ctx,
@@ -837,8 +850,8 @@ def draw_figure2(ctx: cairo.Context) -> None:
         [
             "Store modes",
             "Writer: ingest CLI and IngestWorker thread.",
-            "Readers: InventoryPanel + ChartbookHost (GUI thread).",
-            "Writer migrate applies schema v1 then v2 (user_version 2).",
+            "Readers: DATA, plus charts, financials, and chains.",
+            "Writer migrate applies v1, then v2, then v3 (user_version 3).",
         ],
     )
     note_box(
@@ -857,7 +870,7 @@ def draw_figure2(ctx: cairo.Context) -> None:
 
 
 def draw_figure3(ctx: cairo.Context) -> None:
-    y = 2280
+    y = 2364
     draw_text(ctx, 28, y, "Figure 3.  GUI frame  (sequence)  —  Application::run", 13.5, True)
 
     names = [
@@ -910,7 +923,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
     call(0, 3, m[2], "3  draw(window)")
     call(3, 4, m[3], "4  drawTitleBar  File / Chart / View + tabs")
     call(3, 5, m[4], "5  drawStatusRail  ingest · focused chart · NY clock")
-    call(3, 5, m[5], "6  books.drawSpace  DATA + CChartBook panes")
+    call(3, 5, m[5], "6  drawSpace  DATA, financials, options, panes")
     call(0, 2, m[6], "7  render(clear = Theme::kCanvas)")
     call(2, 6, m[7], "8  render + present")
 
@@ -926,7 +939,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 408,
-        "CMake: terminal compiles ChartbookHost, TitleBar, StatusRail, CChart*, CStudy*.  terminal_tests compile load/transform/axis/command/study/chartbook file helpers (no ImGui).",
+        "terminal_gui compiles FinancialsPanel, OptionsChainPanel, ChartbookHost, and the chart TUs.  terminal_core compiles StatementSheet and IngestWorker.",
         10.5,
         color=MUTED,
     )
@@ -934,20 +947,20 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 426,
-        "IngestDefaults: 14 calendar days intraday, 5 years daily.  Stored grain is 1m and 1d as-traded OHLCV.  5m/15m/1h are load-time composites.",
+        "View menu: DATA, New Financials, Close Financials, New Options Chain, Close Options Chain.  Stored grain is 1m and 1d.  5m/15m/1h are load-time composites.",
         10.5,
         color=MUTED,
     )
 
 
 def draw_figure4(ctx: cairo.Context) -> None:
-    y0 = 2730
+    y0 = 2814
     draw_text(ctx, 28, y0, "Figure 4.  Chart load and draw  (sequence)", 13.5, True)
     draw_text(
         ctx,
         28,
         y0 + 18,
-        "Day1 queryBars(id, 86400) when daily coverage exists; else 1m + transformChartBars.  Studies Apply/OK recomputes without assigning loaded_.  No MBoum.  Studies are not stored.",
+        "1d calls queryBars(id, 86400) and adjustBarsForSplits.  5m/15m/1h call queryBars(id, 60) then transformChartBars.  Apply/OK recomputes studies without assigning loaded_.  No MBoum.",
         11,
         color=MUTED,
     )
@@ -1002,7 +1015,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
     call(1, 2, y[1], "2  addPane()  unique_ptr<CChartPane>")
     call(0, 2, y[2], "3  Chart Settings  OK / Apply  (draft → settings)", asyn=True)
     call(2, 3, y[3], "4  loadChartBars(store, settings)  GUI thread")
-    call(3, 4, y[4], "5  findInstrumentsBySymbol  ·  queryCoverageDays  ·  queryBars 1m")
+    call(3, 4, y[4], "5  queryCoverageDays  ·  queryBars 1m or 1d")
     call(3, 2, y[5], "6  ChartLoadResult", ret=True)
     self_call(2, y[6] - 8, 16, "7  studiesForLoad (not keep-candles)")
     call(2, 5, y[7], "8  drawCandlesticks + overlays")
@@ -1016,9 +1029,9 @@ def draw_figure4(ctx: cairo.Context) -> None:
         86,
         [
             "Window identity",
-            "ImGui id chart_N so dock layout survives symbol changes.",
-            "CChartSettings are not persisted.  imgui.ini is gitignored.",
-            "Studies are pane state.  They are not persisted.",
+            "Dock ids are pane:<id>, financials:<id>, options:<id>.",
+            "The chartbook file stores settings, studies, sheets, and chains.",
+            "A closed window is omitted on export.  imgui.ini is gitignored.",
         ],
     )
     note_box(
@@ -1051,7 +1064,7 @@ def draw_figure4(ctx: cairo.Context) -> None:
 
 
 def draw_figure5(ctx: cairo.Context) -> None:
-    y0 = 3340
+    y0 = 3424
     draw_text(ctx, 28, y0, "Figure 5.  Study compute and overlay  (sequence)", 13.5, True)
     draw_text(
         ctx,
@@ -1132,10 +1145,10 @@ def draw_figure5(ctx: cairo.Context) -> None:
         560,
         86,
         [
-            "v1 moving average",
-            "Kind = Moving Average.  Method locked to Simple.",
-            "Source Open/High/Low/Close.  Length 1..10000, default 20 C.",
-            "EMA/WMA and Subgraph are reserved on the same types.",
+            "Registered studies",
+            "moving_average is always simple. Length 1..10000.",
+            "Method tokens stay in the file and are not shown.",
+            "bollinger draws upper, middle, lower. volume is a histogram.",
         ],
     )
     note_box(
@@ -1147,8 +1160,8 @@ def draw_figure5(ctx: cairo.Context) -> None:
         [
             "Ownership",
             "CChartPane owns studies_, study_draft_, computed_.  Cap 16.",
-            "CStudy.h is free of Bar and ImGui.  Colors: kAccent/kWarn/kOk/kDanger.",
-            "Close Chart destroys the list.  A new pane starts empty.",
+            "Each saved study has kind, options, and outputs.",
+            "Close Chart drops that pane on the next export.",
         ],
     )
     note_box(
@@ -1167,13 +1180,13 @@ def draw_figure5(ctx: cairo.Context) -> None:
 
 
 def draw_figure6(ctx: cairo.Context) -> None:
-    y0 = 3900
-    draw_text(ctx, 28, y0, "Figure 6.  Financial data store  (schema v2 + Store APIs)", 13.5, True)
+    y0 = 3984
+    draw_text(ctx, 28, y0, "Figure 6.  Market-data store  (schema v3)", 13.5, True)
     draw_text(
         ctx,
         28,
         y0 + 18,
-        "SQLite WAL at data/market-data.sqlite.  kSchemaUserVersion = 2.  Bars stay as-traded.  Statements are a second product in the same Store.",
+        "SQLite WAL at data/market-data.sqlite.  kSchemaUserVersion = 3.  Bars stay as-traded.  Statements and option chains are further tables in the same Store.",
         11,
         color=MUTED,
     )
@@ -1260,11 +1273,71 @@ def draw_figure6(ctx: cairo.Context) -> None:
     line_arrow(ctx, 1182, y0 + 138, 1182, y0 + 126, SYNC, dashed=False, lw=1.1)
     draw_text(ctx, 1194, y0 + 134, "FK CASCADE", 8.5, italic=True, color=SYNC)
 
+    inner(
+        ctx,
+        28,
+        y0 + 252,
+        570,
+        112,
+        "option_underlying",
+        "«table» v3",
+        PANEL_FILL,
+        PANEL_HEAD,
+        [
+            "PK instrument_id · FK instrument RESTRICT",
+            "HV30, 1y IV rank, next earnings, ex-dividend",
+            "one row per instrument · source mboum",
+        ],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        614,
+        y0 + 252,
+        570,
+        112,
+        "option_expiry",
+        "«table» v3",
+        PANEL_FILL,
+        PANEL_HEAD,
+        [
+            "PK (instrument, expiration, weekly|monthly)",
+            "average_iv and fetched_at empty until quotes",
+            "a calendar refresh drops dates no longer listed",
+        ],
+        head_h=22,
+    )
+    inner(
+        ctx,
+        1200,
+        y0 + 252,
+        570,
+        112,
+        "option_quote",
+        "«table» v3  CASCADE from expiry",
+        PANEL_FILL,
+        PANEL_HEAD,
+        [
+            "PK (instrument_id, vendor_symbol)",
+            "trade_date and trade_minute are exclusive",
+            "percents stored as fractions · not a time series",
+        ],
+        head_h=22,
+    )
+    draw_text(
+        ctx,
+        28,
+        y0 + 382,
+        "option_quote references option_expiry ON DELETE CASCADE.  option_underlying and option_expiry reference instrument ON DELETE RESTRICT.",
+        10,
+        color=MUTED,
+    )
+
     names = ["Caller", "Store", "statement_snapshot", "statement_cell", "SQLite WAL"]
     xs = [120, 420, 780, 1140, 1500]
-    top = y0 + 256
+    top = y0 + 408
     life_top = top + 34
-    bottom = y0 + 470
+    bottom = y0 + 660
 
     for name, x in zip(names, xs):
         draw_lifeline_head(ctx, x, top, 176, name)
@@ -1298,45 +1371,333 @@ def draw_figure6(ctx: cairo.Context) -> None:
     call(1, 3, y[2], "3  DELETE cells for that grid")
     call(1, 3, y[3], "4  INSERT each cell  (int XOR real XOR text)")
     call(1, 4, y[4], "5  COMMIT")
-    call(1, 0, y[5], "6  queryStatementCells / Line / Period  ·  findStatementSnapshot", ret=True)
+    call(1, 0, y[5], "6  findStatementSnapshot · queryStatementCells", ret=True)
+
+    draw_text(ctx, 28, y0 + 684, "replaceOptionChain  —  one BEGIN IMMEDIATE transaction", 12, True)
+    names = ["Caller", "Store", "option_underlying", "option_expiry", "option_quote"]
+    xs = [140, 500, 900, 1280, 1620]
+    top = y0 + 704
+    life_top = top + 34
+    bottom = y0 + 980
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 176, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    y = [top + 48 + 36 * i for i in range(6)]
+    activation(1, y[0] - 8, y[5] + 10)
+    activation(2, y[1] - 8, y[1] + 12)
+    activation(3, y[2] - 8, y[4] + 12)
+    activation(4, y[3] - 8, y[3] + 12)
+
+    call(0, 1, y[0], "1  replaceOptionChain(write)")
+    call(1, 2, y[1], "2  UPSERT when has_underlying")
+    call(1, 3, y[2], "3  UPSERT each quote slice")
+    call(1, 4, y[3], "4  DELETE that slice, INSERT quotes")
+    call(1, 3, y[4], "5  replace_calendar drops dates not kept")
+    call(1, 0, y[5], "6  COMMIT", ret=True)
 
     note_box(
         ctx,
         28,
-        y0 + 486,
+        y0 + 1000,
         560,
-        86,
+        108,
         [
             "Migrate",
-            "Empty file: v1 SQL then v2 SQL, user_version = 2.",
-            "Existing v1 DB: apply v2.sql only, then set 2.",
-            "user_version > 2 is refused.  v1 tables are not ALTERed.",
+            "An empty file, a v1 file, or a v2 file migrates forward.",
+            "v3.sql runs when user_version < 3, then the version is set to 3.",
+            "user_version > 3 is refused.  v1 tables are not ALTERed.",
+            "Studies are not rows in this database.",
         ],
     )
     note_box(
         ctx,
         608,
-        y0 + 486,
+        y0 + 1000,
         560,
-        86,
+        108,
         [
-            "Facts",
-            "Three timeframes are separate series, not views.",
-            "TTM is a period_end token, not a date.  Income has no TTM column.",
-            "Dollars are absolute.  No currency column on these payloads.",
+            "Statements",
+            "income, balance, cashflow × annually, quarterly, trailing.",
+            "The three timeframes are separate series, not views of each other.",
+            "The pane offers Yearly and Quarterly.  Trailing remains stored.",
+            "HTTP 200 with no grid still writes a snapshot and no cells.",
         ],
     )
     note_box(
         ctx,
         1188,
-        y0 + 486,
+        y0 + 1000,
         584,
-        86,
+        108,
         [
-            "Not in this slice",
-            "No statement HTTP ingest and no statements GUI yet.",
-            "Store + schema + Catch2 (statement_tests.h) only.",
-            "Module map: income-statement-v2 / balance-sheet-v2 / cashflow-statement-v2.",
+            "Option chain",
+            "One quote row is one contract.  The slice is not a time series.",
+            "Replacing one date and type leaves every other slice.",
+            "An unknown ticker writes nothing.",
+            "Contract id is BASE|YYYYMMDD|STRIKE[W]C/P.",
+        ],
+    )
+
+
+def draw_figure7(ctx: cairo.Context) -> None:
+    y0 = 5120
+    draw_text(ctx, 28, y0, "Figure 7.  Financials pane  (sequence)", 13.5, True)
+    draw_text(
+        ctx,
+        28,
+        y0 + 18,
+        "View > New Financials docks a FinancialsPanel.  The panel reads the ChartbookHost Reader.  GO enqueues ingestStatement.  The pane does not call HTTP.",
+        11,
+        color=MUTED,
+    )
+
+    names = [
+        "Operator",
+        "ChartbookHost",
+        "FinancialsPanel",
+        "IngestWorker",
+        "ingestStatement",
+        "Store",
+        "MBoum API",
+    ]
+    xs = [100, 340, 600, 880, 1160, 1420, 1680]
+    top = y0 + 42
+    life_top = top + 34
+    bottom = y0 + 620
+
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 168, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    def activation(i: int, y1: float, y2: float) -> None:
+        x = xs[i]
+        rect(ctx, x - 5, y1, 10, max(12.0, y2 - y1), SEQ_ACT, SYNC, 0.9)
+
+    def call(i: int, j: int, y: float, label: str, *, ret: bool = False, asyn: bool = False) -> None:
+        x1, x2 = xs[i], xs[j]
+        color = RETURN if ret else (ASYNC if asyn else SYNC)
+        dx = 6 if x2 > x1 else -6
+        line_arrow(ctx, x1 + dx, y, x2 - dx, y, color, dashed=ret or asyn, open_head=ret or asyn)
+        draw_text(ctx, (x1 + x2) / 2, y - 5, label, 9.5, color=color, align="center")
+
+    def self_call(i: int, y: float, h: float, label: str) -> None:
+        x = xs[i]
+        set_color(ctx, SYNC)
+        ctx.set_line_width(1.15)
+        ctx.move_to(x + 6, y)
+        ctx.line_to(x + 46, y)
+        ctx.line_to(x + 46, y + h)
+        ctx.line_to(x + 6, y + h)
+        ctx.stroke()
+        arrow_head(ctx, x + 6, y + h, math.pi, 7)
+        draw_text(ctx, x + 52, y + h - 2, label, 9.5, color=SYNC)
+
+    y = [top + 48 + 32 * i for i in range(15)]
+    activation(1, y[0] - 8, y[1] + 10)
+    activation(2, y[1] - 8, y[14] + 10)
+    activation(5, y[3] - 8, y[4] + 10)
+    activation(3, y[5] - 8, y[11] + 10)
+    activation(4, y[6] - 8, y[10] + 10)
+    activation(6, y[7] - 8, y[8] + 10)
+    activation(5, y[9] - 8, y[13] + 10)
+
+    call(0, 1, y[0], "1  View > New Financials")
+    call(1, 2, y[1], "2  addFinancials()  dock financials:<id>")
+    call(0, 2, y[2], "3  SYMBOL, statement, period, GO", asyn=True)
+    call(2, 5, y[3], "4  findStatementSnapshot · queryStatementCells")
+    call(5, 2, y[4], "5  cells, or no snapshot", ret=True)
+    call(2, 3, y[5], "6  enqueue(statements=true)  «async»", asyn=True)
+    call(3, 4, y[6], "7  ingestStatement(store, get, symbol, kind, tf)")
+    call(4, 6, y[7], "8  GET /v1/markets/stock/modules")
+    call(6, 4, y[8], "9  HTTP 200 body", ret=True)
+    call(4, 5, y[9], "10  replaceStatement  BEGIN IMMEDIATE")
+    call(5, 4, y[10], "11  COMMIT", ret=True)
+    call(3, 2, y[11], "12  snapshot().finished_serial polled", ret=True)
+    call(2, 5, y[12], "13  queryStatementCells")
+    call(5, 2, y[13], "14  StatementCell[]", ret=True)
+    self_call(2, y[14] - 8, 16, "15  buildStatementSheet")
+
+    note_box(
+        ctx,
+        28,
+        y0 + 640,
+        560,
+        112,
+        [
+            "When it fetches",
+            "GO sets fetch_now_ and enqueues with force.",
+            "No snapshot also enqueues, unless that key failed or is in flight.",
+            "The period combo is Yearly or Quarterly.  Trailing stays in the store.",
+            "HTTP 200 with no grid writes an empty snapshot, so it is not fetched again.",
+        ],
+    )
+    note_box(
+        ctx,
+        608,
+        y0 + 640,
+        560,
+        112,
+        [
+            "The sheet",
+            "buildStatementSheet keeps the four newest period ends.",
+            "TTM, fiscalYear, and fiscalQuarter rows are omitted.",
+            "Modules: income-statement-v2, balance-sheet-v2, cashflow-statement-v2.",
+            "A closed panel is omitted on export.  Format stays 1.",
+        ],
+    )
+    note_box(
+        ctx,
+        1188,
+        y0 + 640,
+        584,
+        112,
+        [
+            "Guards",
+            "More than one instrument with that symbol blocks the fetch.",
+            "A busy or locked read sets needs_reload_ and keeps a same-key sheet.",
+            "ChartbookHost passes its Reader and InventoryPanel's worker.",
+            "The saved sheet is symbol, statement, and timeframe.",
+        ],
+    )
+
+
+def draw_figure8(ctx: cairo.Context) -> None:
+    y0 = 5920
+    draw_text(ctx, 28, y0, "Figure 8.  Option chain  (sequence)", 13.5, True)
+    draw_text(
+        ctx,
+        28,
+        y0 + 18,
+        "View > New Options Chain docks an OptionsChainPanel.  GO enqueues ingestOptions for one expiration.  expiration 0 lets the server choose the date.  The pane does not call HTTP.",
+        11,
+        color=MUTED,
+    )
+
+    names = [
+        "Operator",
+        "ChartbookHost",
+        "OptionsChainPanel",
+        "IngestWorker",
+        "ingestOptions",
+        "Store",
+        "MBoum API",
+    ]
+    xs = [100, 340, 610, 890, 1160, 1420, 1680]
+    top = y0 + 42
+    life_top = top + 34
+    bottom = y0 + 620
+
+    for name, x in zip(names, xs):
+        draw_lifeline_head(ctx, x, top, 176, name)
+        set_color(ctx, MUTED)
+        ctx.set_line_width(1.0)
+        ctx.set_dash([3, 3.5])
+        ctx.move_to(x, life_top)
+        ctx.line_to(x, bottom)
+        ctx.stroke()
+        ctx.set_dash([])
+
+    def activation(i: int, y1: float, y2: float) -> None:
+        x = xs[i]
+        rect(ctx, x - 5, y1, 10, max(12.0, y2 - y1), SEQ_ACT, SYNC, 0.9)
+
+    def call(i: int, j: int, y: float, label: str, *, ret: bool = False, asyn: bool = False) -> None:
+        x1, x2 = xs[i], xs[j]
+        color = RETURN if ret else (ASYNC if asyn else SYNC)
+        dx = 6 if x2 > x1 else -6
+        line_arrow(ctx, x1 + dx, y, x2 - dx, y, color, dashed=ret or asyn, open_head=ret or asyn)
+        draw_text(ctx, (x1 + x2) / 2, y - 5, label, 9.5, color=color, align="center")
+
+    def self_call(i: int, y: float, h: float, label: str) -> None:
+        x = xs[i]
+        set_color(ctx, SYNC)
+        ctx.set_line_width(1.15)
+        ctx.move_to(x + 6, y)
+        ctx.line_to(x + 46, y)
+        ctx.line_to(x + 46, y + h)
+        ctx.line_to(x + 6, y + h)
+        ctx.stroke()
+        arrow_head(ctx, x + 6, y + h, math.pi, 7)
+        draw_text(ctx, x + 52, y + h - 2, label, 9.5, color=SYNC)
+
+    y = [top + 48 + 32 * i for i in range(15)]
+    activation(1, y[0] - 8, y[1] + 10)
+    activation(2, y[1] - 8, y[14] + 10)
+    activation(5, y[3] - 8, y[4] + 10)
+    activation(3, y[5] - 8, y[11] + 10)
+    activation(4, y[6] - 8, y[10] + 10)
+    activation(6, y[7] - 8, y[8] + 10)
+    activation(5, y[9] - 8, y[13] + 10)
+
+    call(0, 1, y[0], "1  View > New Options Chain")
+    call(1, 2, y[1], "2  addOptions()  dock options:<id>")
+    call(0, 2, y[2], "3  SYMBOL, expiration, GO", asyn=True)
+    call(2, 5, y[3], "4  queryOptionExpiries · Underlying · Quotes")
+    call(5, 2, y[4], "5  slice, or not fetched", ret=True)
+    call(2, 3, y[5], "6  enqueue(options=true)  «async»", asyn=True)
+    call(3, 4, y[6], "7  ingestOptions(store, get, symbol, expiration)")
+    call(4, 6, y[7], "8  GET /v3/markets/options")
+    call(6, 4, y[8], "9  HTTP 200 body", ret=True)
+    call(4, 5, y[9], "10  replaceOptionChain  BEGIN IMMEDIATE")
+    call(5, 4, y[10], "11  COMMIT", ret=True)
+    call(3, 2, y[11], "12  snapshot().finished_serial polled", ret=True)
+    call(2, 5, y[12], "13  queryOptionQuotes for the slice")
+    call(5, 2, y[13], "14  OptionQuote[]", ret=True)
+    self_call(2, y[14] - 8, 16, "15  drawChain")
+
+    note_box(
+        ctx,
+        28,
+        y0 + 640,
+        560,
+        112,
+        [
+            "When it fetches",
+            "expiration 0 omits the date, and the server chooses one.",
+            "An unknown ticker returns before replaceOptionChain.",
+            "A finished fetch with no slice sets failed_key_.",
+            "That key is not enqueued again until GO.",
+        ],
+    )
+    note_box(
+        ctx,
+        608,
+        y0 + 640,
+        560,
+        112,
+        [
+            "How the slice is chosen",
+            "A missing symbol is looked up again as $SYMBOL.",
+            "One match replaces the active symbol.",
+            "No chosen date uses the newest fetched_at.  Monthly wins a tie.",
+            "Calls sit left of the strike and puts sit right.",
+        ],
+    )
+    note_box(
+        ctx,
+        1188,
+        y0 + 640,
+        584,
+        112,
+        [
+            "What is saved and drawn",
+            "The file stores symbol, expiration, and weekly or monthly.",
+            "A closed chain is omitted on export.  Format stays 1.",
+            "Call moneyness > 0 is in the money.  Put moneyness < 0 is in the money.",
+            "Hover on last shows mid, theta, vega, rho, open-interest change, and trade time.",
         ],
     )
 
@@ -1350,6 +1711,8 @@ def paint(ctx: cairo.Context) -> None:
     draw_figure4(ctx)
     draw_figure5(ctx)
     draw_figure6(ctx)
+    draw_figure7(ctx)
+    draw_figure8(ctx)
 
 
 def main() -> None:
