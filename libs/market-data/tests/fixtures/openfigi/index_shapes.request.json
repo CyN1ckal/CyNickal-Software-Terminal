@@ -1,0 +1,8 @@
+[{"idType":"TICKER","idValue":"SPX"},
+{"idType":"TICKER","idValue":"SPX","securityType":"Index"},
+{"idType":"BASE_TICKER","idValue":"SPX","marketSecDes":"Index"},
+{"idType":"TICKER","idValue":"SPX Index"},
+{"idType":"TICKER","idValue":"VIX","marketSecDes":"Index"},
+{"idType":"TICKER","idValue":"NDX","marketSecDes":"Index"},
+{"idType":"VENDOR_INDEX_CODE","idValue":"SPX"},
+{"idType":"TICKER","idValue":"INDU","marketSecDes":"Index"}]

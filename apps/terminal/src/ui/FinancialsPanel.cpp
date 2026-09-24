@@ -100,6 +100,7 @@ void FinancialsPanel::requestFocus()
 void FinancialsPanel::importState(const ChartbookFinancials& state)
 {
     active_symbol_ = normalizeChartSymbol(state.symbol);
+    active_figi_ = state.figi;
     std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
     try
     {
@@ -141,6 +142,7 @@ ChartbookFinancials FinancialsPanel::exportState() const
     ChartbookFinancials state;
     state.id = id_;
     state.symbol = active_symbol_;
+    state.figi = active_figi_;
     state.statement = std::string(toSql(statement_));
     state.timeframe = std::string(toSql(timeframe_));
     return state;
@@ -258,19 +260,20 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
 
     try
     {
-        const std::vector<Instrument> found = store->findInstrumentsBySymbol(active_symbol_);
-        if (found.size() > 1)
+        const std::optional<Instrument> found = resolveChartInstrument(*store, active_figi_, active_symbol_);
+        if (found.has_value() && found->figi.has_value())
         {
-            sheet_ = {};
-            have_snapshot_ = false;
-            blocked_ = true;
-            loaded_key_ = key;
-            error_ = "multiple instruments named " + active_symbol_;
-            status_ = error_;
-            fetch_now_ = false;
-            return;
+            active_figi_ = *found->figi;
+            if (found->listing_open && found->symbol != active_symbol_)
+            {
+                // Renamed since the book was saved: follow the security to its current ticker.
+                active_symbol_ = found->symbol;
+                std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
+                needs_reload_ = true;
+                return;
+            }
         }
-        if (found.empty())
+        if (!found.has_value())
         {
             sheet_ = {};
             have_snapshot_ = false;
@@ -279,7 +282,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
         else
         {
             const std::optional<StatementSnapshot> snapshot =
-                store->findStatementSnapshot(found.front().id, statement_, timeframe_);
+                store->findStatementSnapshot(found->id, statement_, timeframe_);
             if (!snapshot.has_value())
             {
                 sheet_ = {};
@@ -289,7 +292,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
             else
             {
                 const std::vector<StatementCell> cells =
-                    store->queryStatementCells(found.front().id, statement_, timeframe_);
+                    store->queryStatementCells(found->id, statement_, timeframe_);
                 sheet_ = buildStatementSheet(cells);
                 have_snapshot_ = true;
                 loaded_key_ = key;
@@ -408,7 +411,12 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
 
     if (symbol_go || clicked)
     {
-        active_symbol_ = normalizeChartSymbol(symbol_);
+        const std::string typed = normalizeChartSymbol(symbol_);
+        if (typed != active_symbol_)
+        {
+            active_figi_.clear();
+        }
+        active_symbol_ = typed;
         std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
         failed_key_.clear();
         error_.clear();

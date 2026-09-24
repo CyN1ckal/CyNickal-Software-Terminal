@@ -1,0 +1,7 @@
+[{"idType":"ID_ISIN","idValue":"US90184L1026"},
+{"idType":"ID_ISIN","idValue":"US00507V1098"},
+{"idType":"TICKER","idValue":"TWTR","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"ATVI","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"TWTR","exchCode":"US","marketSecDes":"Equity","includeUnlistedEquities":true},
+{"idType":"ID_CUSIP","idValue":"90184L102"},
+{"idType":"ID_CUSIP","idValue":"00507V109"}]

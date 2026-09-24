@@ -26,7 +26,7 @@ namespace terminal {
 namespace {
 
 constexpr int kColSymbol = 0;
-constexpr int kColExchange = 1;
+constexpr int kColFigi = 1;
 constexpr int kColTimeframe = 2;
 constexpr int kColBars = 3;
 constexpr int kColSessions = 4;
@@ -257,6 +257,17 @@ void InventoryPanel::refreshDays()
     try
     {
         days_ = store_->queryCoverageDays(selected_id_.value_or(0), selected_timeframe_s_);
+        selected_history_.clear();
+        for (const InstrumentListing& listing : store_->listingHistory(selected_id_.value_or(0)))
+        {
+            if (!listing.closed_at.has_value())
+            {
+                continue;
+            }
+            const SessionDate until = utcToSessionDate("America/New_York", *listing.closed_at);
+            selected_history_ += selected_history_.empty() ? "formerly " : ", ";
+            selected_history_ += listing.symbol + " until " + formatSessionDate(until);
+        }
     }
     catch (const std::exception& ex)
     {
@@ -649,8 +660,8 @@ void InventoryPanel::applySortSpecs()
         case kColSymbol:
             delta = a.instrument.symbol.compare(b.instrument.symbol);
             break;
-        case kColExchange:
-            delta = a.instrument.exchange.value_or("").compare(b.instrument.exchange.value_or(""));
+        case kColFigi:
+            delta = a.instrument.figi.value_or("").compare(b.instrument.figi.value_or(""));
             break;
         case kColTimeframe:
             delta = a.timeframe_s - b.timeframe_s;
@@ -709,7 +720,7 @@ void InventoryPanel::drawSummaryTable()
     }
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("SYMBOL", ImGuiTableColumnFlags_DefaultSort);
-    ImGui::TableSetupColumn("EXCH", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+    ImGui::TableSetupColumn("FIGI", ImGuiTableColumnFlags_WidthFixed, 96.0f);
     ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed, 36.0f);
     ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 64.0f);
     ImGui::TableSetupColumn("SESS", ImGuiTableColumnFlags_WidthFixed, 48.0f);
@@ -766,8 +777,8 @@ void InventoryPanel::drawSummaryTable()
                 refreshDays();
             }
             ImGui::TableNextColumn();
-            const std::string exchange = row.instrument.exchange.value_or("");
-            ImGui::TextUnformatted(exchange.c_str());
+            const std::string figi = row.instrument.figi.value_or("");
+            ImGui::TextUnformatted(figi.c_str());
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(timeframeLabel(row.timeframe_s));
             ImGui::TableNextColumn();
@@ -821,7 +832,20 @@ void InventoryPanel::drawDayTable()
     {
         if (row.instrument.id == selected)
         {
-            heading = row.instrument.symbol + "  " + std::to_string(days_.size()) + " sessions";
+            heading = row.instrument.symbol;
+            if (row.instrument.figi.has_value())
+            {
+                heading += "  " + *row.instrument.figi;
+            }
+            if (!row.instrument.listing_open)
+            {
+                heading += "  (no open listing)";
+            }
+            heading += "  " + std::to_string(days_.size()) + " sessions";
+            if (!selected_history_.empty())
+            {
+                heading += "  " + selected_history_;
+            }
             break;
         }
     }

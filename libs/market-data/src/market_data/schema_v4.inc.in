@@ -1,4 +1,4 @@
 // Copyright 2026 CyNickal Software LLC
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-static constexpr char kSchemaV1[] = R"SQL(@MARKET_DATA_SCHEMA_V1@)SQL";
+static constexpr char kSchemaV4[] = R"SQL(@MARKET_DATA_SCHEMA_V4@)SQL";

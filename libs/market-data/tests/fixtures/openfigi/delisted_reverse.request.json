@@ -1,0 +1,6 @@
+[{"idType":"ID_BB_GLOBAL","idValue":"BBG000H6HNW3"},
+{"idType":"ID_BB_GLOBAL","idValue":"BBG000H6HNW3","includeUnlistedEquities":true},
+{"idType":"TICKER","idValue":"ATVI","exchCode":"US","marketSecDes":"Equity","includeUnlistedEquities":true},
+{"idType":"TICKER","idValue":"FB","exchCode":"US","marketSecDes":"Equity","includeUnlistedEquities":true},
+{"idType":"TICKER","idValue":"SPX Index","marketSecDes":"Index","includeUnlistedEquities":true},
+{"idType":"ID_BB_GLOBAL","idValue":"BBG01VRMNFB1"}]

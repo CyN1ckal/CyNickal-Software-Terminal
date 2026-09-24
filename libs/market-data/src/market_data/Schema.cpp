@@ -3,25 +3,13 @@
 
 #include "market_data/Schema.h"
 
-#include "schema_v1.inc"
-#include "schema_v2.inc"
-#include "schema_v3.inc"
+#include "schema_v4.inc"
 
 namespace terminal {
 
-std::string_view schemaV1()
+std::string_view schemaV4()
 {
-    return kSchemaV1;
-}
-
-std::string_view schemaV2()
-{
-    return kSchemaV2;
-}
-
-std::string_view schemaV3()
-{
-    return kSchemaV3;
+    return kSchemaV4;
 }
 
 }  // namespace terminal

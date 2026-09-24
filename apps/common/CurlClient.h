@@ -3,16 +3,19 @@
 
 #pragma once
 
-#include "market_data/MboumIngest.h"
+#include "market_data/Http.h"
 
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace terminal {
 
 class CurlClient
 {
 public:
+    // An empty bearer sends no Authorization header (the OpenFIGI client).
     explicit CurlClient(std::string_view bearer);
     ~CurlClient();
 
@@ -23,6 +26,11 @@ public:
 
     [[nodiscard]] HttpResponse get(std::string_view url);
     [[nodiscard]] HttpResponse getWithRetry(std::string_view url);
+    // POST with Content-Type: application/json plus extra_headers ("Name: value").
+    // Never sends the bearer. Response headers are captured with lowercase names.
+    [[nodiscard]] HttpResponse post(std::string_view url,
+                                    std::string_view body,
+                                    const std::vector<std::string>& extra_headers = {});
 
 private:
     void appendHeader(const char* line);

@@ -4,12 +4,14 @@
 #include "market_data/Store.h"
 
 #include "Sqlite.h"
+#include "market_data/Figi.h"
 #include "market_data/NyseCalendar.h"
 #include "market_data/Schema.h"
 #include "market_data/Time.h"
 #include "market_data/Types.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <optional>
@@ -26,21 +28,6 @@ namespace {
 
 constexpr int kWriterBusyTimeoutMs = 5000;
 constexpr int kReaderBusyTimeoutMs = 0;
-
-[[nodiscard]] std::optional<std::string> coerceExchange(std::optional<std::string_view> exchange)
-{
-    if (!exchange.has_value())
-    {
-        return std::nullopt;
-    }
-    const auto first = exchange->find_first_not_of(" \t\r\n");
-    if (first == std::string_view::npos)
-    {
-        return std::nullopt;
-    }
-    const auto last = exchange->find_last_not_of(" \t\r\n");
-    return std::string(exchange->substr(first, last - first + 1));
-}
 
 void bindOptionalText(SqliteStmt& stmt, int idx, const std::optional<std::string>& value)
 {
@@ -231,32 +218,86 @@ void requireTables(const std::vector<std::string>& have,
     }
 }
 
+// Columns of instrument_current, in the order instrumentFromStmt reads them.
+constexpr std::string_view kInstrumentColumns =
+    "id, figi, asset_class, currency, timezone, name, listed_at, delisted_at, created_at, "
+    "verified_at, symbol, listing_closed_at";
+
+[[nodiscard]] std::string instrumentColumns(std::string_view alias)
+{
+    std::string out;
+    std::string_view rest = kInstrumentColumns;
+    while (!rest.empty())
+    {
+        const auto comma = rest.find(", ");
+        const std::string_view column = rest.substr(0, comma);
+        if (!out.empty())
+        {
+            out += ", ";
+        }
+        out += alias;
+        out += '.';
+        out += column;
+        rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 2);
+    }
+    return out;
+}
+
 [[nodiscard]] Instrument instrumentFromStmt(SqliteStmt const& stmt)
 {
     Instrument row;
     row.id = stmt.columnInt64(0);
-    row.symbol = stmt.columnText(1);
-    if (!stmt.columnIsNull(2))
+    if (!stmt.columnIsNull(1))
     {
-        row.exchange = stmt.columnText(2);
+        row.figi = stmt.columnText(1);
     }
-    row.asset_class = assetClassFromSql(stmt.columnText(3));
-    row.currency = stmt.columnText(4);
-    row.timezone = stmt.columnText(5);
+    row.asset_class = assetClassFromSql(stmt.columnText(2));
+    row.currency = stmt.columnText(3);
+    row.timezone = stmt.columnText(4);
+    if (!stmt.columnIsNull(5))
+    {
+        row.name = stmt.columnText(5);
+    }
     if (!stmt.columnIsNull(6))
     {
-        row.name = stmt.columnText(6);
+        row.listed_at = stmt.columnInt64(6);
     }
     if (!stmt.columnIsNull(7))
     {
-        row.listed_at = stmt.columnInt64(7);
+        row.delisted_at = stmt.columnInt64(7);
     }
-    if (!stmt.columnIsNull(8))
+    row.created_at = stmt.columnInt64(8);
+    if (!stmt.columnIsNull(9))
     {
-        row.delisted_at = stmt.columnInt64(8);
+        row.verified_at = stmt.columnInt64(9);
     }
-    row.created_at = stmt.columnInt64(9);
+    row.symbol = stmt.columnText(10);
+    row.listing_open = stmt.columnIsNull(11);
     return row;
+}
+
+[[nodiscard]] InstrumentListing listingFromStmt(SqliteStmt const& stmt)
+{
+    InstrumentListing row;
+    row.id = stmt.columnInt64(0);
+    row.instrument_id = stmt.columnInt64(1);
+    row.symbol = stmt.columnText(2);
+    row.opened_at = stmt.columnInt64(3);
+    if (!stmt.columnIsNull(4))
+    {
+        row.closed_at = stmt.columnInt64(4);
+    }
+    if (!stmt.columnIsNull(5))
+    {
+        row.close_reason = listingCloseReasonFromSql(stmt.columnText(5));
+    }
+    return row;
+}
+
+[[nodiscard]] bool figiRequired(AssetClass asset_class) noexcept
+{
+    return asset_class == AssetClass::Equity || asset_class == AssetClass::Etf ||
+           asset_class == AssetClass::Index;
 }
 
 [[nodiscard]] CoverageDay coverageFromStmt(SqliteStmt const& stmt)
@@ -397,16 +438,36 @@ void validateOptionQuote(const OptionQuote& quote, const OptionQuoteBatch& batch
 
 }  // namespace
 
+std::string canonicalListingSymbol(std::string_view symbol)
+{
+    std::string out(symbol);
+    for (char& ch : out)
+    {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+    return out;
+}
+
 struct Store::Impl
 {
     std::filesystem::path path;
     StoreMode mode{StoreMode::Writer};
     SqliteDb db;
-    mutable SqliteStmt sel_instrument_symbol;
-    mutable SqliteStmt sel_instruments_symbol;
     mutable SqliteStmt sel_instrument_id;
+    mutable SqliteStmt sel_instrument_figi;
+    mutable SqliteStmt sel_instruments_all;
+    mutable SqliteStmt sel_open_listing;
+    mutable SqliteStmt sel_resolve_closed;
+    mutable SqliteStmt sel_latest_closed;
+    mutable SqliteStmt sel_listing_history;
+    mutable SqliteStmt sel_open_listing_of;
     SqliteStmt ins_instrument;
-    SqliteStmt upd_instrument;
+    SqliteStmt ins_listing;
+    SqliteStmt close_listing;
+    SqliteStmt set_delisted;
+    SqliteStmt upd_figi;
+    SqliteStmt upd_verified;
+    SqliteStmt upd_descriptive;
     SqliteStmt count_bars;
     SqliteStmt ins_bar;
     mutable SqliteStmt sel_bars;
@@ -437,6 +498,94 @@ struct Store::Impl
     mutable SqliteStmt sel_option_underlying;
     mutable SqliteStmt sel_option_quotes;
 
+    [[nodiscard]] static std::optional<Instrument> oneInstrument(SqliteStmt& sel)
+    {
+        std::optional<Instrument> row;
+        if (sel.stepRow())
+        {
+            row = instrumentFromStmt(sel);
+        }
+        sel.reset();
+        return row;
+    }
+
+    [[nodiscard]] std::optional<InstrumentListing> openListingOf(InstrumentId id) const
+    {
+        sel_open_listing_of.reset();
+        sel_open_listing_of.bindInt64(1, id);
+        std::optional<InstrumentListing> row;
+        if (sel_open_listing_of.stepRow())
+        {
+            row = listingFromStmt(sel_open_listing_of);
+        }
+        sel_open_listing_of.reset();
+        return row;
+    }
+
+    // Caller holds the transaction. The symbol is stored uppercase.
+    void openListingUnlocked(InstrumentId id, std::string_view symbol_in, UnixSeconds now)
+    {
+        const std::string symbol = canonicalListingSymbol(symbol_in);
+        if (!isTrimmedNonEmpty(symbol))
+        {
+            throw std::runtime_error("listing symbol is empty or untrimmed");
+        }
+        if (openListingOf(id).has_value())
+        {
+            throw std::runtime_error("instrument already has an open listing");
+        }
+        sel_open_listing.reset();
+        sel_open_listing.bindText(1, symbol);
+        const bool taken = sel_open_listing.stepRow();
+        sel_open_listing.reset();
+        if (taken)
+        {
+            throw std::runtime_error(std::string(symbol) + " already has an open listing");
+        }
+        ins_listing.reset();
+        ins_listing.bindInt64(1, id);
+        ins_listing.bindText(2, symbol);
+        ins_listing.bindInt64(3, now);
+        if (ins_listing.stepDoneOrConstraint() != SqliteStmt::Constraint::None)
+        {
+            ins_listing.reset();
+            throw std::runtime_error("listing insert violates a constraint (unknown instrument?)");
+        }
+        ins_listing.reset();
+    }
+
+    // Caller holds the transaction. Throws when id has no open listing.
+    void closeListingUnlocked(InstrumentId id, UnixSeconds now, ListingCloseReason reason)
+    {
+        if (!openListingOf(id).has_value())
+        {
+            throw std::runtime_error("instrument has no open listing");
+        }
+        close_listing.reset();
+        close_listing.bindInt64(1, now);
+        close_listing.bindText(2, toSql(reason));
+        close_listing.bindInt64(3, id);
+        close_listing.stepDone();
+        close_listing.reset();
+        if (reason == ListingCloseReason::Delisted)
+        {
+            set_delisted.reset();
+            set_delisted.bindInt64(1, now);
+            set_delisted.bindInt64(2, id);
+            set_delisted.stepDone();
+            set_delisted.reset();
+        }
+    }
+
+    void setVerified(InstrumentId id, std::optional<UnixSeconds> at)
+    {
+        upd_verified.reset();
+        bindOptionalInt64(upd_verified, 1, at);
+        upd_verified.bindInt64(2, id);
+        upd_verified.stepDone();
+        upd_verified.reset();
+    }
+
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
         : path(std::move(db_path)), mode(store_mode), db(path)
     {
@@ -445,28 +594,52 @@ struct Store::Impl
     void prepare()
     {
         sqlite3* h = db.handle();
-        sel_instrument_symbol.prepare(
+        const std::string cols(kInstrumentColumns);
+        const std::string listing_cols = "id, instrument_id, symbol, opened_at, closed_at, close_reason";
+        sel_instrument_id.prepare(h, "SELECT " + cols + " FROM instrument_current WHERE id = ?");
+        sel_instrument_figi.prepare(h, "SELECT " + cols + " FROM instrument_current WHERE figi = ?");
+        sel_instruments_all.prepare(h, "SELECT " + cols + " FROM instrument_current ORDER BY id");
+        sel_open_listing.prepare(
             h,
-            "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
-            "listed_at, delisted_at, created_at FROM instrument "
-            "WHERE symbol = ? COLLATE NOCASE AND ifnull(exchange, '') = ifnull(?, '')");
-        sel_instruments_symbol.prepare(
+            "SELECT " + instrumentColumns("c") + " FROM instrument_listing AS l "
+            "JOIN instrument_current AS c ON c.id = l.instrument_id "
+            "WHERE l.symbol = ? AND l.closed_at IS NULL");
+        sel_resolve_closed.prepare(
             h,
-            "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
-            "listed_at, delisted_at, created_at FROM instrument "
-            "WHERE symbol = ? COLLATE NOCASE ORDER BY id");
-        sel_instrument_id.prepare(
+            "SELECT " + instrumentColumns("c") + " FROM instrument_listing AS l "
+            "JOIN instrument_current AS c ON c.id = l.instrument_id "
+            "WHERE l.symbol = ? AND l.closed_at IS NOT NULL "
+            "ORDER BY l.closed_at DESC, l.id DESC LIMIT 1");
+        sel_latest_closed.prepare(
             h,
-            "SELECT id, symbol, exchange, asset_class, currency, timezone, name, "
-            "listed_at, delisted_at, created_at FROM instrument WHERE id = ?");
+            "SELECT " + listing_cols + " FROM instrument_listing "
+            "WHERE symbol = ? AND closed_at IS NOT NULL ORDER BY closed_at DESC, id DESC LIMIT 1");
+        sel_listing_history.prepare(
+            h,
+            "SELECT " + listing_cols + " FROM instrument_listing "
+            "WHERE instrument_id = ? ORDER BY opened_at, id");
+        sel_open_listing_of.prepare(
+            h,
+            "SELECT " + listing_cols + " FROM instrument_listing "
+            "WHERE instrument_id = ? AND closed_at IS NULL");
         ins_instrument.prepare(
             h,
-            "INSERT INTO instrument (symbol, exchange, asset_class, currency, timezone, name, "
-            "listed_at, delisted_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        upd_instrument.prepare(
+            "INSERT INTO instrument (figi, asset_class, currency, timezone, name, "
+            "listed_at, delisted_at, created_at, verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        ins_listing.prepare(
+            h, "INSERT INTO instrument_listing (instrument_id, symbol, opened_at) VALUES (?, ?, ?)");
+        close_listing.prepare(
             h,
-            "UPDATE instrument SET exchange = ?, asset_class = ?, currency = ?, timezone = ?, "
-            "name = ?, listed_at = ?, delisted_at = ? WHERE id = ?");
+            "UPDATE instrument_listing SET closed_at = max(?, opened_at), close_reason = ? "
+            "WHERE instrument_id = ? AND closed_at IS NULL");
+        set_delisted.prepare(
+            h, "UPDATE instrument SET delisted_at = ? WHERE id = ? AND delisted_at IS NULL");
+        upd_figi.prepare(h, "UPDATE instrument SET figi = ? WHERE id = ?");
+        upd_verified.prepare(h, "UPDATE instrument SET verified_at = ? WHERE id = ?");
+        upd_descriptive.prepare(
+            h,
+            "UPDATE instrument SET asset_class = ?, currency = ?, timezone = ?, name = ? "
+            "WHERE id = ?");
         count_bars.prepare(h, "SELECT COUNT(*) FROM bar WHERE instrument_id = ?");
         ins_bar.prepare(
             h,
@@ -501,8 +674,7 @@ struct Store::Impl
             "WHERE instrument_id = ? AND timeframe_s = ? ORDER BY session_date DESC");
         sel_coverage_summary.prepare(
             h,
-            "SELECT i.id, i.symbol, i.exchange, i.asset_class, i.currency, i.timezone, i.name, "
-            "i.listed_at, i.delisted_at, i.created_at, "
+            "SELECT " + instrumentColumns("i") + ", "
             "MIN(c.session_date), MAX(c.session_date), "
             "COALESCE(SUM(c.bar_count), 0), COUNT(c.session_date), "
             "COALESCE(SUM(CASE WHEN c.status = 'complete' THEN 1 ELSE 0 END), 0), "
@@ -510,7 +682,7 @@ struct Store::Impl
             "COALESCE(SUM(CASE WHEN c.status = 'missing' THEN 1 ELSE 0 END), 0), "
             "COALESCE(SUM(CASE WHEN c.status = 'error' THEN 1 ELSE 0 END), 0), "
             "MAX(c.ingested_at) "
-            "FROM instrument i "
+            "FROM instrument_current i "
             "LEFT JOIN coverage_day c ON c.instrument_id = i.id AND c.timeframe_s = ? "
             "GROUP BY i.id "
             "ORDER BY i.symbol COLLATE NOCASE, i.id");
@@ -648,32 +820,18 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
     {
         throw std::runtime_error("database user_version exceeds this binary");
     }
-    constexpr std::string_view kV1Tables[] = {
-        "bar", "corporate_action", "coverage_day", "instrument",};
-    if (version >= 1)
+    if (version >= 1 && version < kSchemaUserVersion)
     {
-        requireTables(tableNames(), version, kV1Tables);
+        const std::string path = impl_->path.string();
+        throw std::runtime_error("market-data.sqlite is schema v" + std::to_string(version) + ". v" +
+                                 std::to_string(kSchemaUserVersion) +
+                                 " changed instrument identity and does not migrate. Close the terminal, "
+                                 "delete " + path + " and its -wal and -shm files, and re-ingest.");
     }
-    constexpr std::string_view kV2Tables[] = {"statement_cell", "statement_snapshot"};
-    if (version >= 2)
-    {
-        requireTables(tableNames(), version, kV2Tables);
-    }
-    if (version < kSchemaUserVersion)
+    if (version == 0)
     {
         SqliteTxn txn(impl_->db.handle());
-        if (version < 1)
-        {
-            impl_->db.exec(schemaV1());
-        }
-        if (version < 2)
-        {
-            impl_->db.exec(schemaV2());
-        }
-        if (version < 3)
-        {
-            impl_->db.exec(schemaV3());
-        }
+        impl_->db.exec(schemaV4());
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
     }
@@ -681,12 +839,15 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                 "corporate_action",
                                                 "coverage_day",
                                                 "instrument",
+                                                "instrument_listing",
                                                 "option_expiry",
                                                 "option_quote",
                                                 "option_underlying",
                                                 "statement_cell",
                                                 "statement_snapshot",};
     requireTables(tableNames(), userVersion(), kAllTables);
+    constexpr std::string_view kAllViews[] = {"instrument_current"};
+    requireTables(viewNames(), userVersion(), kAllViews);
     impl_->prepare();
 }
 
@@ -716,6 +877,19 @@ std::vector<std::string> Store::tableNames() const
     return names;
 }
 
+std::vector<std::string> Store::viewNames() const
+{
+    SqliteStmt stmt(impl_->db.handle(),
+                    "SELECT name FROM sqlite_master WHERE type = 'view' ORDER BY name");
+    std::vector<std::string> names;
+    while (stmt.stepRow())
+    {
+        names.push_back(stmt.columnText(0));
+    }
+    stmt.reset();
+    return names;
+}
+
 bool Store::foreignKeysEnabled() const
 {
     SqliteStmt stmt(impl_->db.handle(), "PRAGMA foreign_keys");
@@ -734,148 +908,130 @@ void Store::testingSetUserVersion(const std::filesystem::path& path, int version
     db.setUserVersion(version);
 }
 
-void Store::testingCreateSchemaV1(const std::filesystem::path& path)
+InstrumentId Store::testingInsertInstrument(std::string_view symbol, AssetClass asset_class)
 {
-    SqliteDb db(path);
-    if (db.userVersion() != 0)
-    {
-        throw std::runtime_error("testingCreateSchemaV1 requires user_version 0");
-    }
-    db.exec(schemaV1());
-    db.setUserVersion(1);
+    Instrument instrument;
+    instrument.symbol = std::string(symbol);
+    instrument.asset_class = asset_class;
+    instrument.figi = testingFigiFor(symbol);
+    instrument.verified_at = nowUtc();
+    return insertInstrument(instrument);
 }
 
-void Store::testingCreateSchemaV2(const std::filesystem::path& path)
+InstrumentId Store::insertInstrument(const Instrument& instrument, UnixSeconds now)
 {
-    SqliteDb db(path);
-    if (db.userVersion() != 0)
+    if (!isTrimmedNonEmpty(instrument.symbol))
     {
-        throw std::runtime_error("testingCreateSchemaV2 requires user_version 0");
+        throw std::runtime_error("instrument symbol is empty or untrimmed");
     }
-    db.exec(schemaV1());
-    db.exec(schemaV2());
-    db.setUserVersion(2);
-}
-
-InstrumentId Store::upsertInstrument(const Instrument& instrument)
-{
-    const auto exchange = coerceExchange(
-        instrument.exchange.has_value() ? std::optional<std::string_view>(*instrument.exchange)
-                                        : std::nullopt);
+    if (instrument.figi.has_value() && !isValidFigi(*instrument.figi))
+    {
+        throw std::runtime_error("invalid FIGI " + *instrument.figi);
+    }
+    if (!instrument.figi.has_value() && figiRequired(instrument.asset_class))
+    {
+        throw std::runtime_error(instrument.symbol + " needs a FIGI");
+    }
+    const UnixSeconds at = now != 0 ? now : nowUtc();
     SqliteTxn txn(impl_->db.handle());
-    auto& sel = impl_->sel_instrument_symbol;
-    sel.reset();
-    sel.bindText(1, instrument.symbol);
-    if (exchange.has_value())
+    if (instrument.figi.has_value())
     {
-        sel.bindText(2, *exchange);
-    }
-    else
-    {
-        sel.bindNull(2);
-    }
-    std::optional<Instrument> existing;
-    if (sel.stepRow())
-    {
-        existing = instrumentFromStmt(sel);
-    }
-    sel.reset();
-
-    if (existing.has_value())
-    {
-        if (instrument.timezone != existing->timezone)
+        if (const auto existing = findInstrumentByFigi(*instrument.figi))
         {
-            impl_->count_bars.reset();
-            impl_->count_bars.bindInt64(1, existing->id);
-            if (!impl_->count_bars.stepRow())
-            {
-                impl_->count_bars.reset();
-                throw std::runtime_error("COUNT(*) returned no row");
-            }
-            const auto n = impl_->count_bars.columnInt64(0);
-            impl_->count_bars.reset();
-            if (n > 0)
-            {
-                throw std::runtime_error("cannot change timezone after bars exist");
-            }
+            throw std::runtime_error("FIGI " + *instrument.figi + " is already stored as " + existing->symbol);
         }
-        auto& upd = impl_->upd_instrument;
-        upd.reset();
-        if (exchange.has_value())
-        {
-            upd.bindText(1, *exchange);
-        }
-        else
-        {
-            upd.bindNull(1);
-        }
-        upd.bindText(2, toSql(instrument.asset_class));
-        upd.bindText(3, instrument.currency);
-        upd.bindText(4, instrument.timezone);
-        bindOptionalText(upd, 5, instrument.name);
-        bindOptionalInt64(upd, 6, instrument.listed_at);
-        bindOptionalInt64(upd, 7, instrument.delisted_at);
-        upd.bindInt64(8, existing->id);
-        upd.stepDone();
-        upd.reset();
-        txn.commit();
-        return existing->id;
     }
-
+    if (const auto open = findOpenListing(instrument.symbol))
+    {
+        throw std::runtime_error(instrument.symbol + " already has an open listing");
+    }
     auto& ins = impl_->ins_instrument;
     ins.reset();
-    ins.bindText(1, instrument.symbol);
-    if (exchange.has_value())
-    {
-        ins.bindText(2, *exchange);
-    }
-    else
-    {
-        ins.bindNull(2);
-    }
-    ins.bindText(3, toSql(instrument.asset_class));
-    ins.bindText(4, instrument.currency.empty() ? "USD" : instrument.currency);
-    ins.bindText(5, instrument.timezone.empty() ? "America/New_York" : instrument.timezone);
-    bindOptionalText(ins, 6, instrument.name);
-    bindOptionalInt64(ins, 7, instrument.listed_at);
-    bindOptionalInt64(ins, 8, instrument.delisted_at);
-    ins.bindInt64(9, instrument.created_at != 0 ? instrument.created_at : nowUtc());
+    bindOptionalText(ins, 1, instrument.figi);
+    ins.bindText(2, toSql(instrument.asset_class));
+    ins.bindText(3, instrument.currency.empty() ? "USD" : instrument.currency);
+    ins.bindText(4, instrument.timezone.empty() ? "America/New_York" : instrument.timezone);
+    bindOptionalText(ins, 5, instrument.name);
+    bindOptionalInt64(ins, 6, instrument.listed_at);
+    bindOptionalInt64(ins, 7, instrument.delisted_at);
+    ins.bindInt64(8, at);
+    bindOptionalInt64(ins, 9, instrument.verified_at);
     ins.stepDone();
     const auto id = impl_->db.lastInsertRowid();
     ins.reset();
+    impl_->openListingUnlocked(id, instrument.symbol, at);
     txn.commit();
     return id;
 }
 
-std::optional<Instrument> Store::findInstrument(std::string_view symbol,
-                                                std::optional<std::string_view> exchange) const
+std::optional<Instrument> Store::findInstrumentById(InstrumentId id) const
 {
-    const auto coerced = coerceExchange(exchange);
-    auto& sel = impl_->sel_instrument_symbol;
+    auto& sel = impl_->sel_instrument_id;
+    sel.reset();
+    sel.bindInt64(1, id);
+    return Impl::oneInstrument(sel);
+}
+
+std::optional<Instrument> Store::findInstrumentByFigi(std::string_view figi) const
+{
+    auto& sel = impl_->sel_instrument_figi;
+    sel.reset();
+    sel.bindText(1, figi);
+    return Impl::oneInstrument(sel);
+}
+
+std::optional<Instrument> Store::findOpenListing(std::string_view symbol) const
+{
+    auto& sel = impl_->sel_open_listing;
     sel.reset();
     sel.bindText(1, symbol);
-    if (coerced.has_value())
+    return Impl::oneInstrument(sel);
+}
+
+std::optional<Instrument> Store::resolveSymbol(std::string_view symbol) const
+{
+    if (auto open = findOpenListing(symbol))
     {
-        sel.bindText(2, *coerced);
+        return open;
     }
-    else
-    {
-        sel.bindNull(2);
-    }
-    std::optional<Instrument> row;
+    auto& sel = impl_->sel_resolve_closed;
+    sel.reset();
+    sel.bindText(1, symbol);
+    return Impl::oneInstrument(sel);
+}
+
+std::optional<InstrumentListing> Store::latestClosedListing(std::string_view symbol) const
+{
+    auto& sel = impl_->sel_latest_closed;
+    sel.reset();
+    sel.bindText(1, symbol);
+    std::optional<InstrumentListing> row;
     if (sel.stepRow())
     {
-        row = instrumentFromStmt(sel);
+        row = listingFromStmt(sel);
     }
     sel.reset();
     return row;
 }
 
-std::vector<Instrument> Store::findInstrumentsBySymbol(std::string_view symbol) const
+std::vector<InstrumentListing> Store::listingHistory(InstrumentId id) const
 {
-    auto& sel = impl_->sel_instruments_symbol;
+    auto& sel = impl_->sel_listing_history;
     sel.reset();
-    sel.bindText(1, symbol);
+    sel.bindInt64(1, id);
+    std::vector<InstrumentListing> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(listingFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+std::vector<Instrument> Store::listInstruments() const
+{
+    auto& sel = impl_->sel_instruments_all;
+    sel.reset();
     std::vector<Instrument> rows;
     while (sel.stepRow())
     {
@@ -885,18 +1041,142 @@ std::vector<Instrument> Store::findInstrumentsBySymbol(std::string_view symbol) 
     return rows;
 }
 
-std::optional<Instrument> Store::findInstrumentById(InstrumentId id) const
+void Store::openListing(InstrumentId id, std::string_view symbol, UnixSeconds now)
 {
-    auto& sel = impl_->sel_instrument_id;
-    sel.reset();
-    sel.bindInt64(1, id);
-    std::optional<Instrument> row;
-    if (sel.stepRow())
+    SqliteTxn txn(impl_->db.handle());
+    impl_->openListingUnlocked(id, symbol, now);
+    txn.commit();
+}
+
+void Store::closeListing(InstrumentId id, UnixSeconds now, ListingCloseReason reason)
+{
+    SqliteTxn txn(impl_->db.handle());
+    impl_->closeListingUnlocked(id, now, reason);
+    txn.commit();
+}
+
+void Store::relinkSymbol(InstrumentId id, std::string_view symbol, UnixSeconds now)
+{
+    SqliteTxn txn(impl_->db.handle());
+    impl_->closeListingUnlocked(id, now, ListingCloseReason::Renamed);
+    impl_->openListingUnlocked(id, symbol, now);
+    txn.commit();
+}
+
+void Store::attachFigi(InstrumentId id, std::string_view figi)
+{
+    if (!isValidFigi(figi))
     {
-        row = instrumentFromStmt(sel);
+        throw std::runtime_error("invalid FIGI " + std::string(figi));
     }
-    sel.reset();
-    return row;
+    SqliteTxn txn(impl_->db.handle());
+    const auto instrument = findInstrumentById(id);
+    if (!instrument.has_value())
+    {
+        throw std::runtime_error("attachFigi: unknown instrument");
+    }
+    if (instrument->figi.has_value())
+    {
+        if (*instrument->figi == figi)
+        {
+            return;
+        }
+        throw std::runtime_error(instrument->symbol + " already has FIGI " + *instrument->figi);
+    }
+    if (const auto other = findInstrumentByFigi(figi))
+    {
+        throw std::runtime_error("FIGI " + std::string(figi) + " is already stored as " + other->symbol);
+    }
+    auto& upd = impl_->upd_figi;
+    upd.reset();
+    upd.bindText(1, figi);
+    upd.bindInt64(2, id);
+    upd.stepDone();
+    upd.reset();
+    txn.commit();
+}
+
+void Store::markVerified(InstrumentId id, UnixSeconds now)
+{
+    impl_->setVerified(id, now);
+}
+
+void Store::clearVerified(InstrumentId id)
+{
+    impl_->setVerified(id, std::nullopt);
+}
+
+void Store::updateDescriptive(InstrumentId id, const Instrument& fields)
+{
+    SqliteTxn txn(impl_->db.handle());
+    const auto existing = findInstrumentById(id);
+    if (!existing.has_value())
+    {
+        throw std::runtime_error("updateDescriptive: unknown instrument");
+    }
+    const std::string timezone = fields.timezone.empty() ? existing->timezone : fields.timezone;
+    if (timezone != existing->timezone)
+    {
+        impl_->count_bars.reset();
+        impl_->count_bars.bindInt64(1, id);
+        if (!impl_->count_bars.stepRow())
+        {
+            impl_->count_bars.reset();
+            throw std::runtime_error("COUNT(*) returned no row");
+        }
+        const auto n = impl_->count_bars.columnInt64(0);
+        impl_->count_bars.reset();
+        if (n > 0)
+        {
+            throw std::runtime_error("cannot change timezone after bars exist");
+        }
+    }
+    auto& upd = impl_->upd_descriptive;
+    upd.reset();
+    upd.bindText(1, toSql(fields.asset_class));
+    upd.bindText(2, fields.currency.empty() ? existing->currency : fields.currency);
+    upd.bindText(3, timezone);
+    bindOptionalText(upd, 4, fields.name);
+    upd.bindInt64(5, id);
+    upd.stepDone();
+    upd.reset();
+    txn.commit();
+}
+
+std::vector<std::size_t> Store::applyListingChanges(std::span<const ListingChange> changes, UnixSeconds now)
+{
+    std::vector<std::size_t> skipped;
+    SqliteTxn txn(impl_->db.handle());
+    for (std::size_t i = 0; i < changes.size(); ++i)
+    {
+        const ListingChange& change = changes[i];
+        switch (change.kind)
+        {
+        case ListingChange::Kind::Close:
+            impl_->closeListingUnlocked(change.instrument_id, now, change.reason);
+            break;
+        case ListingChange::Kind::Open:
+        {
+            const bool symbol_taken = findOpenListing(change.symbol).has_value();
+            if (symbol_taken || impl_->openListingOf(change.instrument_id).has_value())
+            {
+                impl_->setVerified(change.instrument_id, std::nullopt);
+                skipped.push_back(i);
+                break;
+            }
+            impl_->openListingUnlocked(change.instrument_id, change.symbol, now);
+            break;
+        }
+        case ListingChange::Kind::MarkVerified:
+            impl_->setVerified(change.instrument_id, now);
+            break;
+        case ListingChange::Kind::ClearVerified:
+            impl_->setVerified(change.instrument_id, std::nullopt);
+            break;
+        }
+    }
+    txn.commit();
+    return skipped;
 }
 
 UpsertBarsResult Store::upsertBars(std::span<const Bar> bars)
@@ -1004,23 +1284,23 @@ std::vector<CoverageSummary> Store::queryCoverageSummaries(int timeframe_s) cons
         CoverageSummary row;
         row.instrument = instrumentFromStmt(sel);
         row.timeframe_s = timeframe_s;
-        if (!sel.columnIsNull(10))
+        if (!sel.columnIsNull(12))
         {
-            row.first_session = static_cast<SessionDate>(sel.columnInt64(10));
+            row.first_session = static_cast<SessionDate>(sel.columnInt64(12));
         }
-        if (!sel.columnIsNull(11))
+        if (!sel.columnIsNull(13))
         {
-            row.last_session = static_cast<SessionDate>(sel.columnInt64(11));
+            row.last_session = static_cast<SessionDate>(sel.columnInt64(13));
         }
-        row.bar_count = static_cast<int>(sel.columnInt64(12));
-        row.session_count = static_cast<int>(sel.columnInt64(13));
-        row.complete_count = static_cast<int>(sel.columnInt64(14));
-        row.partial_count = static_cast<int>(sel.columnInt64(15));
-        row.missing_count = static_cast<int>(sel.columnInt64(16));
-        row.error_count = static_cast<int>(sel.columnInt64(17));
-        if (!sel.columnIsNull(18))
+        row.bar_count = static_cast<int>(sel.columnInt64(14));
+        row.session_count = static_cast<int>(sel.columnInt64(15));
+        row.complete_count = static_cast<int>(sel.columnInt64(16));
+        row.partial_count = static_cast<int>(sel.columnInt64(17));
+        row.missing_count = static_cast<int>(sel.columnInt64(18));
+        row.error_count = static_cast<int>(sel.columnInt64(19));
+        if (!sel.columnIsNull(20))
         {
-            row.last_ingested_at = sel.columnInt64(18);
+            row.last_ingested_at = sel.columnInt64(20);
         }
         out.push_back(std::move(row));
     }

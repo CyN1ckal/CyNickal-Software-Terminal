@@ -59,6 +59,8 @@ public:
 private:
     void drawSettingsPopup(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawStudiesPopup();
+    // Pins the resolved FIGI (and a renamed ticker) into the live settings.
+    void adoptResolvedIdentity(const ChartLoadResult& incoming);
     void applyDraft(Store* store, std::string_view store_error, IngestWorker* ingest);
     void applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest);
     void requestMissingData(Store* store, IngestWorker* ingest);

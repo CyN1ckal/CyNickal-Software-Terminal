@@ -19,8 +19,9 @@ inline constexpr float kChartbookDefaultDataRatio = 0.30f;
 inline constexpr const char* kChartbookFileSuffix = ".chartbook.json";
 
 // Summary table column ids, declaration order. Matches InventoryPanel.
+// Books written before the FIGI column name it "exch"; the reader maps that id to "figi".
 inline constexpr const char* kChartbookDataColumns[] = {
-    "symbol", "exch", "tf", "bars", "sess", "ok", "part", "miss", "err", "first", "last",
+    "symbol", "figi", "tf", "bars", "sess", "ok", "part", "miss", "err", "first", "last",
 };
 inline constexpr int kChartbookDataColumnCount = 11;
 
@@ -93,6 +94,7 @@ struct ChartbookFinancials
 {
     int id{0};
     std::string symbol;
+    std::string figi;  // empty until the symbol resolves to an instrument with a FIGI
     std::string statement{"income"};
     std::string timeframe{"annually"};
 };
@@ -103,6 +105,7 @@ struct ChartbookOptions
 {
     int id{0};
     std::string symbol;
+    std::string figi;  // empty until the symbol resolves to an instrument with a FIGI
     int expiration{0};
     std::string expiration_type;
 };

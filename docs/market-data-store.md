@@ -8,6 +8,7 @@
 | Audience | Implementer of `libs/market-data` |
 | Repo | `/home/cynickal/CLionProjects/MyApp` |
 | Related (do not confuse) | `docs/design.md` is the ImGui visual spec. This document is the **on-disk schema and C++ store**. Recommend in-repo copy at `docs/market-data-store.md`. |
+| Superseded in part | Instrument identity follows `docs/composite-figi-identity.md` (2026-09-23). `libs/market-data/schema/v4.sql` is the baseline schema; v1 to v3 were retired and their files refuse to open. K12, the `instrument` DDL below, and Alternative 8 describe v1. |
 
 This is an implementation spec. An engineer should be able to create the database, write the C++ access layer, and ingest 1-minute MBoum bars without inventing remaining design. Product decisions already made (four tables, no `ingest_run`, as-traded bars, `coverage_day` as inventory) are **not reopened**.
 
@@ -97,7 +98,7 @@ There is no durable 1-minute history. Training and charting need years of bars, 
 | K9 | As-traded bars. `corporate_action` at read. MBoum v3 `splits=false`, `dividends=false`. | Mixing adjusted 1-minute data is hard to undo. Vendor default is `splits=true` — must override. |
 | K10 | No `session_date` on `bar`. | Session identity lives on `coverage_day`. Bar key is UTC `ts`. |
 | K11 | `ON DELETE RESTRICT` from children to `instrument`. | Do not silently delete years of bars. No `deleteInstrument` in v1 API. |
-| K12 | Unknown `instrument.exchange` is stored as SQL `NULL`. C++ coerces missing, empty, and whitespace-only `exchange` to `NULL` before bind/lookup. Uniqueness is the expression index `(symbol COLLATE NOCASE, ifnull(exchange, ''))`. Instrument upsert is SELECT-then-INSERT/UPDATE. INSERT returns `sqlite3_last_insert_rowid`. | SQLite `UNIQUE (symbol, exchange)` allows duplicate `(AAPL, NULL)`. Expression unique index is the real constraint. Empty string and NULL must not be two keys for the same symbol. |
+| K12 | *Superseded by schema v4.* The integer `instrument.id` joins every fact row. The OpenFIGI composite FIGI (the index FIGI for an index) is required for equities, ETFs, and indexes and unique when present. The live ticker is the open row in `instrument_listing`; there is no `exchange` column. See `docs/composite-figi-identity.md`. | v1 keyed on `(symbol, exchange)`: a rename split one security into two rows and a recycled ticker merged two securities into one. |
 | K13 | All timestamps except `session_date` are UTC unix **seconds** (`INTEGER`). `session_date` is `YYYYMMDD` in `instrument.timezone`. Bar `ts` is the **open** of the minute, aligned to `timeframe_s`. | Never key on vendor display strings. |
 | K14 | v3 naive `datetime` is interpreted in `instrument.timezone` via IANA tzdb (`std::chrono::locate_zone`). v2 prefers `timestamp_unix`. | DST is real for America/New_York. Host must have `/usr/share/zoneinfo`. |
 | K15 | v1 `expected_count = 390` for US RTH (equity/etf/index, `America/New_York`). Early closes ⇒ `partial`. Holidays are caller-supplied `complete` with `0/0`, never `missing`. | 6.5h × 60 = 390. Half-day calendar is a later refinement. |
@@ -545,6 +546,8 @@ Nested `BEGIN IMMEDIATE` returns `SQLITE_ERROR` (“cannot start a transaction w
 
 ## Complete DDL (`libs/market-data/schema/v1.sql`)
 
+> **Historical.** `v1.sql` was retired with schema v4. The current baseline is `libs/market-data/schema/v4.sql`: the fact tables below are unchanged, and `instrument` is replaced by `instrument` (FIGI, no symbol or exchange) plus `instrument_listing` and the `instrument_current` view.
+
 This is the entire v1 script. Apply inside a single transaction from C++ (`BEGIN IMMEDIATE` … `COMMIT`). Do not rely on `sqlite3` CLI being on PATH.
 
 ```sql
@@ -900,44 +903,22 @@ bool isUsRthLocal(std::chrono::hh_mm_ss<std::chrono::seconds> local_hms) noexcep
 
 ### Instrument
 
-C++ merge (no `ON CONFLICT` on the expression unique index).
+Schema v4 (see `docs/composite-figi-identity.md`). Reads select from the `instrument_current` view, which returns each instrument with its open listing, or its most recently closed one when none is open.
 
-**Exchange coerce (before every bind/lookup):** `std::nullopt`, `""`, and whitespace-only → SQL `NULL`. Non-empty is trimmed. `optional<string>{"NMS"}` and `"NMS"` are the same key; `""` and `nullopt` are the same key.
-
-INSERT `id`: `sqlite3_last_insert_rowid(db)` after a successful INSERT; return that as `InstrumentId`. UPDATE returns the existing `id`.
-
-```sql
-SELECT id, symbol, exchange, asset_class, currency, timezone, name,
-       listed_at, delisted_at, created_at
-  FROM instrument
- WHERE symbol = ? COLLATE NOCASE
-   AND ifnull(exchange, '') = ifnull(?, '');
-```
-
-Insert:
+- `insertInstrument(instrument, now)`: one transaction inserts the row and an open listing on `instrument.symbol`. The FIGI must pass `isValidFigi` (`market_data/Figi.h`) and is required for equity, etf, and index. A FIGI already stored, or a symbol already open, throws.
+- `findOpenListing(symbol)`: the instrument whose listing for `symbol` is open. Ingest uses this.
+- `resolveSymbol(symbol)`: the open listing, otherwise the instrument whose `symbol` listing closed most recently. Charts and panels use this.
+- `findInstrumentById`, `findInstrumentByFigi`, `listingHistory`, `latestClosedListing`, `listInstruments`.
+- `openListing`, `closeListing(reason)`, `relinkSymbol`, `attachFigi`, `markVerified`, `clearVerified`, and `applyListingChanges` (closes before opens, in one transaction) change identity. Ingest reaches them only through `market_data/Identity.h`.
 
 ```sql
-INSERT INTO instrument (
-    symbol, exchange, asset_class, currency, timezone, name,
-    listed_at, delisted_at, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-```
-
-Update (do not change `id` or `created_at`):
-
-```sql
-UPDATE instrument
-   SET exchange    = ?,
-       asset_class = ?,
-       currency    = ?,
-       timezone    = ?,
-       name        = ?,
-       listed_at   = ?,
-       delisted_at = ?
+SELECT id, figi, asset_class, currency, timezone, name, listed_at, delisted_at,
+       created_at, verified_at, symbol, listing_closed_at
+  FROM instrument_current
  WHERE id = ?;
 ```
 
-`timezone` updates are allowed but dangerous if bars already exist (v3 naive datetimes would reinterpret). v1 rule: if bars exist and the new timezone differs, **throw**. Caller must create a new instrument or migrate explicitly (non-goal). Test: insert one bar, `upsertInstrument` with a different `timezone` throws; `id` unchanged.
+`updateDescriptive` changes `name`, `asset_class`, `currency`, and `timezone`. `timezone` updates are allowed but dangerous if bars already exist (v3 naive datetimes would reinterpret). If bars exist and the new timezone differs, **throw**. Test: insert one bar, `updateDescriptive` with a different `timezone` throws; the stored timezone is unchanged.
 
 ### Bar upsert (idempotent)
 
@@ -1742,15 +1723,13 @@ Required cases:
 | `schema_tests` | Open empty path → `user_version == 1`; four tables exist (`sqlite_master`); `PRAGMA foreign_keys` is on; embed == `v1.sql` bytes |
 | `schema_tests` | Second open is a no-op migrate |
 | `schema_tests` | Opening a DB with `user_version = 99` throws |
-| `store_tests` | `upsertInstrument` AAPL/NMS then again updates `name`, same `id` |
-| `store_tests` | `AAPL`/NULL and `AAPL`/`NMS` are two rows; second `AAPL`/NULL is the same row |
+| `store_tests` | `insertInstrument` stores the FIGI and one open listing; a second FIGI or a second open symbol is refused (v4) |
 | `store_tests` | `upsertBars` twice with changed close → last close wins |
 | `store_tests` | `high < low` rejected, `written==0`, `rejected==1`, table empty |
 | `store_tests` | public `upsertBars` of a forming minute (`ts + 60 > now`) → `written==0`, `rejected==0`, table empty |
 | `store_tests` | `queryBars` returns ascending `ts`, exclusive end |
 | `store_tests` | FK: bar with `instrument_id=999` on standalone `upsertBars` throws; **no** bars from that call committed (atomic) |
-| `store_tests` | `upsertInstrument` timezone change after a bar exists throws |
-| `store_tests` | `exchange=""` and `exchange=nullopt` resolve to the same instrument |
+| `store_tests` | `updateDescriptive` timezone change after a bar exists throws |
 | `coverage_tests` | 390 valid RTH bars + expected 390 → `complete` |
 | `coverage_tests` | 390 RTH bars plus a 16:00 extra **filtered by mapper** (not passed in) → still `complete` |
 | `coverage_tests` | 200 bars → `partial`; hole query returns that row |
@@ -1888,7 +1867,7 @@ Terminal is a GUI. The store is reusable for training tools that should not link
 
 ### 8. Expression unique index vs forcing `exchange = ''`
 
-Empty string and NULL would mean the same after C++ coerce-to-NULL. Keeping SQL NULL = unknown matches the agreed nullable column; the expression index closes the SQLite NULL-UNIQUE hole.
+*Superseded by schema v4, which has no `exchange` column; the open listing is unique by symbol alone.* Empty string and NULL would mean the same after C++ coerce-to-NULL. Keeping SQL NULL = unknown matches the agreed nullable column; the expression index closes the SQLite NULL-UNIQUE hole.
 
 ### 9. Vendored amalgamation vs `find_package(SQLite3)`
 

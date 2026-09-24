@@ -88,6 +88,19 @@ std::string normalizeChartSymbol(std::string_view symbol)
     return out;
 }
 
+std::optional<Instrument> resolveChartInstrument(const Store& store, std::string_view figi, std::string_view symbol)
+{
+    if (!figi.empty())
+    {
+        return store.findInstrumentByFigi(figi);
+    }
+    if (symbol.empty())
+    {
+        return std::nullopt;
+    }
+    return store.resolveSymbol(symbol);
+}
+
 bool isStoreBusyError(std::string_view what) noexcept
 {
     return what.find("busy") != std::string_view::npos ||
@@ -115,23 +128,17 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         }
 
         const int session_count = clampSessionCount(chartSessionCount(settings), settings.period);
-        const std::vector<Instrument> found = store.findInstrumentsBySymbol(symbol);
-        if (found.empty())
+        const std::optional<Instrument> found = resolveChartInstrument(store, settings.figi, symbol);
+        if (!found.has_value())
         {
             ChartLoadResult out;
             out.status = ChartLoadStatus::UnknownSymbol;
-            out.message = "unknown symbol " + symbol;
-            return out;
-        }
-        if (found.size() > 1)
-        {
-            ChartLoadResult out;
-            out.status = ChartLoadStatus::AmbiguousSymbol;
-            out.message = "multiple instruments named " + symbol;
+            out.message = settings.figi.empty() ? "unknown symbol " + symbol
+                                                : "unknown symbol " + symbol + " (FIGI " + settings.figi + ")";
             return out;
         }
 
-        const Instrument& instrument = found.front();
+        const Instrument& instrument = *found;
         ChartLoadResult out;
         out.instrument = instrument;
         const InstrumentId id = instrument.id;
@@ -215,14 +222,15 @@ std::optional<ChartDownloadRequest> chartDownloadRequest(const Store& store,
         return std::nullopt;
     }
 
-    const std::vector<Instrument> found = store.findInstrumentsBySymbol(window.symbol);
-    if (found.size() > 1)
+    const std::optional<Instrument> found = resolveChartInstrument(store, settings.figi, window.symbol);
+    if (found.has_value())
     {
-        return std::nullopt;
-    }
-    if (found.size() == 1)
-    {
-        const InstrumentId id = found.front().id;
+        if (!found->listing_open)
+        {
+            return std::nullopt;
+        }
+        window.symbol = found->symbol;
+        const InstrumentId id = found->id;
         const int timeframe_s =
             settings.period == ChartBarPeriod::Day1 ? kTimeframe1d : kTimeframe1m;
         const bool has_bars = coverageHasBars(store, id, timeframe_s);

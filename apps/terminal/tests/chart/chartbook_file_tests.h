@@ -42,7 +42,7 @@ namespace {
     document.data.sort_column = "symbol";
     document.data.sort_descending = false;
     document.data.columns.push_back({"symbol", 80.f, true, 0});
-    document.data.columns.push_back({"exch", 48.f, false, 1});
+    document.data.columns.push_back({"figi", 96.f, false, 1});
 
     document.layout = chartbookSplit(terminal::ChartbookSplitAxis::Horizontal, 0.30f,
                                      chartbookLeaf({"data"}, "data"),
@@ -146,6 +146,50 @@ TEST_CASE("chartbook json round trip keeps panes, studies, and layout")
     CHECK(loaded.document.focused_financials == 0);
     CHECK(loaded.document.next_financials_id == 1);
     CHECK(loaded.document.financials.empty());
+}
+
+TEST_CASE("chartbook figi keys are optional and round trip when set")
+{
+    terminal::CChartbookDocument document = sampleChartbook();
+    const std::string plain = terminal::chartbookToJson(document);
+    CHECK(plain.find("\"figi\":") == std::string::npos);
+    const terminal::ChartbookLoadResult unpinned = terminal::chartbookFromJson(plain);
+    REQUIRE(unpinned.ok);
+    CHECK(unpinned.document.panes[0].settings.figi.empty());
+
+    document.panes[0].settings.figi = "BBG000B9XRY4";
+    terminal::ChartbookFinancials financials;
+    financials.id = 1;
+    financials.symbol = "META";
+    financials.figi = "BBG000MM2P62";
+    document.financials.push_back(financials);
+    document.next_financials_id = 2;
+    terminal::ChartbookOptions options;
+    options.id = 1;
+    options.symbol = "$SPX";
+    options.figi = "BBG000H4FSM0";
+    document.options.push_back(options);
+    document.next_options_id = 2;
+    const terminal::ChartbookLoadResult pinned = terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(pinned.ok);
+    CHECK(pinned.document.panes[0].settings.figi == "BBG000B9XRY4");
+    CHECK(pinned.document.panes[1].settings.figi.empty());
+    REQUIRE(pinned.document.financials.size() == 1);
+    CHECK(pinned.document.financials[0].figi == "BBG000MM2P62");
+    REQUIRE(pinned.document.options.size() == 1);
+    CHECK(pinned.document.options[0].figi == "BBG000H4FSM0");
+}
+
+TEST_CASE("a book saved with the exch column opens with the figi column")
+{
+    terminal::CChartbookDocument document = sampleChartbook();
+    document.data.columns[1].id = "exch";
+    document.data.sort_column = "exch";
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.data.columns.size() == 2);
+    CHECK(loaded.document.data.columns[1].id == "figi");
+    CHECK(loaded.document.data.sort_column == "figi");
 }
 
 TEST_CASE("chartbook file rejects a bad format, an unknown period, and an unknown study")

@@ -99,6 +99,14 @@ constexpr int kChartIntradayDownloadPadDays = 7;
     {
         return false;
     }
+    if (symbol.front() == '$')
+    {
+        symbol.remove_prefix(1);  // an index ($SPX); only one leading $
+        if (symbol.empty())
+        {
+            return false;
+        }
+    }
     if (std::isalpha(static_cast<unsigned char>(symbol.front())) == 0)
     {
         return false;

@@ -50,6 +50,7 @@ private:
 
     char symbol_[32]{};
     std::string active_symbol_;
+    std::string active_figi_;  // pinned once the symbol resolves; cleared when a new symbol is typed
     StatementKind statement_{StatementKind::Income};
     StatementTimeframe timeframe_{StatementTimeframe::Annually};
     StatementSheet sheet_{};

@@ -78,7 +78,8 @@ public:
 
 private:
     void run();
-    void runJob(class Store& store, class CurlClient& http, const Job& job);
+    // Returns the identity notice (a rename, a recycled ticker, or a grace-window warning), or "".
+    std::string runJob(class Store& store, class CurlClient& http, class OpenFigiClient& figi, const Job& job);
 
     struct FailedSerial
     {

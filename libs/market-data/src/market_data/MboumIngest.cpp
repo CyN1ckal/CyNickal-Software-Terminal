@@ -3,6 +3,7 @@
 
 #include "market_data/MboumIngest.h"
 
+#include "market_data/Identity.h"
 #include "market_data/MboumJson.h"
 #include "market_data/MboumMap.h"
 #include "market_data/NyseCalendar.h"
@@ -49,25 +50,6 @@ void writeHttpError(Store& store, InstrumentId id, SessionDate session_date)
     row.source = "mboum";
     row.ingested_at = nowUtc();
     store.upsertCoverage(row);
-}
-
-[[nodiscard]] InstrumentId ensureInstrument(Store& store, std::string_view symbol)
-{
-    const auto found = store.findInstrumentsBySymbol(symbol);
-    if (found.size() > 1)
-    {
-        throw std::runtime_error("multiple instruments named " + std::string(symbol));
-    }
-    if (found.size() == 1)
-    {
-        return found.front().id;
-    }
-    Instrument inst;
-    inst.symbol = std::string(symbol);
-    inst.asset_class = AssetClass::Equity;
-    inst.currency = "USD";
-    inst.timezone = "America/New_York";
-    return store.upsertInstrument(inst);
 }
 
 [[nodiscard]] SessionDate dayBefore(SessionDate date)
@@ -165,6 +147,7 @@ void emitCoverageDays(const std::vector<CoverageDay>& rows,
 
 IngestSymbolResult ingestSymbol(Store& store,
                                 const HttpGet& get,
+                                OpenFigiClient& figi,
                                 std::string_view symbol,
                                 SessionDate from,
                                 SessionDate to,
@@ -175,7 +158,11 @@ IngestSymbolResult ingestSymbol(Store& store,
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestSymbolResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, symbol, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
     const auto inst = store.findInstrumentById(result.instrument_id);
     if (!inst.has_value())
     {
@@ -323,6 +310,7 @@ IngestSymbolResult ingestSymbol(Store& store,
 
 IngestSymbolResult ingestDailySymbol(Store& store,
                                      const HttpGet& get,
+                                     OpenFigiClient& figi,
                                      std::string_view symbol,
                                      SessionDate from,
                                      SessionDate to,
@@ -337,7 +325,11 @@ IngestSymbolResult ingestDailySymbol(Store& store,
         throw std::runtime_error("ingest from is after to");
     }
     IngestSymbolResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, symbol, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
     const auto found = store.findInstrumentById(result.instrument_id);
     if (!found.has_value())
     {
@@ -346,7 +338,7 @@ IngestSymbolResult ingestDailySymbol(Store& store,
     const Instrument& inst = *found;
     const UnixSeconds now = nowUtc();
     // Split events are independent of bar coverage. A complete daily range still needs this fetch.
-    (void)ingestSplits(store, get, symbol);
+    (void)ingestSplits(store, get, figi, symbol);
 
     if (dailyRangeIsComplete(store, result.instrument_id, inst.timezone, from, to, now))
     {
@@ -463,14 +455,18 @@ IngestSymbolResult ingestDailySymbol(Store& store,
     return result;
 }
 
-IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, std::string_view symbol)
+IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, OpenFigiClient& figi, std::string_view symbol)
 {
     if (symbol.empty())
     {
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestSplitsResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, symbol, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
 
     HttpResponse http;
     try
@@ -539,6 +535,7 @@ IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, std::string_vi
 
 IngestStatementResult ingestStatement(Store& store,
                                       const HttpGet& get,
+                                      OpenFigiClient& figi,
                                       std::string_view symbol,
                                       StatementKind statement,
                                       StatementTimeframe timeframe)
@@ -548,7 +545,11 @@ IngestStatementResult ingestStatement(Store& store,
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestStatementResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, symbol, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
 
     HttpResponse http;
     try
@@ -617,29 +618,11 @@ namespace {
     return !base.empty() && base.front() == '$' && base.substr(1) == requested;
 }
 
-[[nodiscard]] InstrumentId ensureOptionInstrument(Store& store, std::string_view symbol)
-{
-    const auto found = store.findInstrumentsBySymbol(symbol);
-    if (found.size() > 1)
-    {
-        throw std::runtime_error("multiple instruments named " + std::string(symbol));
-    }
-    if (found.size() == 1)
-    {
-        return found.front().id;
-    }
-    Instrument inst;
-    inst.symbol = std::string(symbol);
-    inst.asset_class = !symbol.empty() && symbol.front() == '$' ? AssetClass::Index : AssetClass::Equity;
-    inst.currency = "USD";
-    inst.timezone = "America/New_York";
-    return store.upsertInstrument(inst);
-}
-
 }  // namespace
 
 IngestOptionsResult ingestOptions(Store& store,
                                   const HttpGet& get,
+                                  OpenFigiClient& figi,
                                   std::string_view symbol,
                                   SessionDate expiration)
 {
@@ -688,7 +671,11 @@ IngestOptionsResult ingestOptions(Store& store,
         throw std::runtime_error("MBoum options underlying does not match " + std::string(symbol));
     }
     result.symbol = canonical;
-    result.instrument_id = ensureOptionInstrument(store, canonical);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, canonical, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
 
     const UnixSeconds fetched_at = nowUtc();
     OptionChainWrite write;

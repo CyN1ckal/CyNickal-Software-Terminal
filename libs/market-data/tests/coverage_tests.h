@@ -45,9 +45,7 @@ TEST_CASE("390 RTH bars are complete")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
     REQUIRE(open.has_value());
     const auto result = store.ingestSession(
@@ -62,9 +60,7 @@ TEST_CASE("200 bars are partial and listed as a hole")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
     REQUIRE(open.has_value());
     const auto result = store.ingestSession(
@@ -80,9 +76,7 @@ TEST_CASE("zero bars with expected 390 is missing")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto result =
         store.ingestSession({}, id, terminal::kTimeframe1m, 20250115, terminal::kUsRthExpected1m);
     CHECK(result.coverage.status == terminal::CoverageStatus::Missing);
@@ -93,9 +87,7 @@ TEST_CASE("holiday 0/0 is complete")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto result = store.ingestSession({}, id, terminal::kTimeframe1m, 20250101, 0);
     CHECK(result.coverage.status == terminal::CoverageStatus::Complete);
     CHECK(result.coverage.bar_count == 0);
@@ -106,9 +98,7 @@ TEST_CASE("session_still_open forces partial")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
     REQUIRE(open.has_value());
     const auto result = store.ingestSession(
@@ -120,9 +110,7 @@ TEST_CASE("previous session bar is rejected")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto prior = terminal::naiveLocalToUtc("America/New_York", "2025-01-14 09:30");
     const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
     REQUIRE(prior.has_value());
@@ -140,9 +128,7 @@ TEST_CASE("invalid session_date rolls back bars and coverage")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    const auto id = store.upsertInstrument(inst);
+    const auto id = store.testingInsertInstrument("AAPL");
     const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
     REQUIRE(open.has_value());
     CHECK_THROWS_AS(store.ingestSession(rthDay(id, *open, 10),

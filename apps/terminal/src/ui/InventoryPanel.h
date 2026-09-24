@@ -65,6 +65,7 @@ private:
     std::vector<CoverageSummary> summaries_;
     std::vector<CoverageDay> days_;
     std::optional<InstrumentId> selected_id_;
+    std::string selected_history_;  // "formerly FB until 2026-09-23", or empty
     int selected_timeframe_s_{kTimeframe1m};
     int ingest_timeframe_s_{kTimeframe1m};
     char symbol_[32]{};

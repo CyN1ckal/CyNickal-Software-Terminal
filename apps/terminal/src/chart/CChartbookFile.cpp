@@ -267,6 +267,12 @@ using nlohmann::json;
     return true;
 }
 
+// The inventory's exchange column became the FIGI column. Older books still name it "exch".
+[[nodiscard]] std::string canonicalDataColumn(const std::string& id)
+{
+    return id == "exch" ? std::string("figi") : id;
+}
+
 [[nodiscard]] bool readString(const json& object, const char* key, std::string& out, std::string& error)
 {
     if (!object.contains(key) || !object.at(key).is_string())
@@ -301,6 +307,10 @@ using nlohmann::json;
 {
     json object = json::object();
     object["symbol"] = settings.symbol;
+    if (!settings.figi.empty())
+    {
+        object["figi"] = settings.figi;
+    }
     object["period"] = periodName(settings.period);
     object["bar_type"] = barTypeName(settings.bar_type);
     object["limit_mode"] = limitName(settings.limit_mode);
@@ -324,6 +334,10 @@ using nlohmann::json;
         return false;
     }
     if (!readString(*object, "symbol", settings.symbol, error))
+    {
+        return false;
+    }
+    if (object->contains("figi") && !readString(*object, "figi", settings.figi, error))
     {
         return false;
     }
@@ -719,6 +733,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     {
         return false;
     }
+    if (object.contains("figi") && !readString(object, "figi", financials.figi, error))
+    {
+        return false;
+    }
     if (object.contains("statement"))
     {
         if (!readString(object, "statement", financials.statement, error))
@@ -769,6 +787,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         json object = json::object();
         object["id"] = panel.id;
         object["symbol"] = panel.symbol;
+        if (!panel.figi.empty())
+        {
+            object["figi"] = panel.figi;
+        }
         object["statement"] = panel.statement;
         object["timeframe"] = panel.timeframe;
         array.push_back(std::move(object));
@@ -864,6 +886,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     {
         return false;
     }
+    if (object.contains("figi") && !readString(object, "figi", panel.figi, error))
+    {
+        return false;
+    }
     if (object.contains("expiration") && !readInt(object, "expiration", panel.expiration, error))
     {
         return false;
@@ -916,6 +942,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         json object = json::object();
         object["id"] = panel.id;
         object["symbol"] = panel.symbol;
+        if (!panel.figi.empty())
+        {
+            object["figi"] = panel.figi;
+        }
         object["expiration"] = panel.expiration;
         object["expiration_type"] = panel.expiration_type;
         array.push_back(std::move(object));
@@ -1012,6 +1042,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         {
             return false;
         }
+        data.sort_column = canonicalDataColumn(data.sort_column);
         if (!data.sort_column.empty() && !isChartbookDataColumn(data.sort_column))
         {
             data.sort_column.clear();
@@ -1049,6 +1080,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         {
             return false;
         }
+        column.id = canonicalDataColumn(column.id);
         if (!isChartbookDataColumn(column.id))
         {
             continue;

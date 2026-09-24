@@ -102,7 +102,6 @@ void appendQueued(std::string& text, int queued)
     {
     case ChartLoadStatus::Error:
     case ChartLoadStatus::UnknownSymbol:
-    case ChartLoadStatus::AmbiguousSymbol:
     case ChartLoadStatus::Unsupported:
         return Theme::kDown;
     case ChartLoadStatus::Ready:

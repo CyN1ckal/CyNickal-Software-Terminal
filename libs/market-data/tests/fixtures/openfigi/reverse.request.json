@@ -1,0 +1,10 @@
+[{"idType":"TICKER","idValue":"VIX Index","marketSecDes":"Index"},
+{"idType":"TICKER","idValue":"NDX Index","marketSecDes":"Index"},
+{"idType":"TICKER","idValue":"SPX Index","marketSecDes":"Index"},
+{"idType":"COMPOSITE_ID_BB_GLOBAL","idValue":"BBG000MM2P62","exchCode":"US"},
+{"idType":"COMPOSITE_ID_BB_GLOBAL","idValue":"BBG000MM2P62"},
+{"idType":"ID_BB_GLOBAL","idValue":"BBG000MM2P62"},
+{"idType":"ID_BB_GLOBAL","idValue":"BBG000H4FSM0"},
+{"idType":"ID_ISIN","idValue":"US90184L1026","exchCode":"US"},
+{"idType":"ID_ISIN","idValue":"US00507V1098","exchCode":"US"},
+{"idType":"ID_BB_GLOBAL","idValue":"BBG000BLNNHA"}]

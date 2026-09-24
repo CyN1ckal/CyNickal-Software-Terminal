@@ -72,6 +72,7 @@ inline constexpr int kChartRightFillBars = 2;
 struct CChartSettings
 {
     std::string symbol;  // ticker; loadChartBars trims/uppercases a local copy. empty = unconfigured
+    std::string figi;    // composite FIGI once resolved; it wins over symbol. empty = resolve by symbol
     ChartBarPeriod period{ChartBarPeriod::Minute1};
     ChartBarType bar_type{ChartBarType::Candlestick};
     ChartDataLimitMode limit_mode{ChartDataLimitMode::SessionCount};
@@ -191,7 +192,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
 [[nodiscard]] inline bool settingsIdentityEqual(const CChartSettings& a,
                                                 const CChartSettings& b) noexcept
 {
-    return a.symbol == b.symbol && a.period == b.period && a.bar_type == b.bar_type &&
+    return a.symbol == b.symbol && a.figi == b.figi && a.period == b.period && a.bar_type == b.bar_type &&
            a.limit_mode == b.limit_mode && chartSessionCount(a) == chartSessionCount(b);
 }
 
