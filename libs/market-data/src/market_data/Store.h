@@ -39,7 +39,8 @@ struct ListingChange
     std::string symbol;
 };
 
-// Listing symbols are stored uppercase ("meta" -> "META", "$spx" -> "$SPX", "brk.b" -> "BRK.B").
+// Listing symbols are stored uppercase with "." as the share-class separator, the spelling
+// MBoum answers to ("meta" -> "META", "$spx" -> "$SPX", "brk/b" -> "BRK.B").
 [[nodiscard]] std::string canonicalListingSymbol(std::string_view symbol);
 
 class Store
@@ -60,6 +61,9 @@ public:
     [[nodiscard]] bool foreignKeysEnabled() const;
 
     static void testingSetUserVersion(const std::filesystem::path& path, int version);
+    // Reads the file on its own connection, without migrating. For tests.
+    [[nodiscard]] static int testingUserVersion(const std::filesystem::path& path);
+    [[nodiscard]] static std::vector<std::string> testingTableNames(const std::filesystem::path& path);
     // Inserts an equity (or asset_class) row with testingFigiFor(symbol), an open
     // listing, and verified_at = now. For tests that need an instrument and do not
     // care about its FIGI.
@@ -85,7 +89,7 @@ public:
     // Every instrument, ordered by id.
     [[nodiscard]] std::vector<Instrument> listInstruments() const;
 
-    // Requires no open listing on id and none on symbol.
+    // Requires no open listing on id and none on symbol. Clears delisted_at.
     void openListing(InstrumentId id, std::string_view symbol, UnixSeconds now);
     // Closes the open listing on id. Delisted also sets delisted_at when it is NULL.
     void closeListing(InstrumentId id, UnixSeconds now, ListingCloseReason reason);

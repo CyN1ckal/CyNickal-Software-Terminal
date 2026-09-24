@@ -277,14 +277,23 @@ ForwardOutcome reduceForward(const OpenFigiJobResult& result, bool index)
         out.kind = ForwardKind::Unreachable;
         return out;
     }
+    // Equities and ETFs are keyed by the composite only; a venue figi is never a public key.
+    // Indexes have no composite, so an index job falls back to figi.
+    auto keyOf = [index](const OpenFigiHit& hit) -> std::optional<std::string> {
+        if (hit.composite_figi.has_value() && !hit.composite_figi->empty())
+        {
+            return hit.composite_figi;
+        }
+        if (index && !hit.figi.empty())
+        {
+            return hit.figi;
+        }
+        return std::nullopt;
+    };
     std::vector<std::string> keys;
     for (const OpenFigiHit& hit : result.hits)
     {
-        std::optional<std::string> key = hit.composite_figi;
-        if (!key.has_value() && !hit.figi.empty())
-        {
-            key = hit.figi;  // indexes have no composite
-        }
+        const std::optional<std::string> key = keyOf(hit);
         if (key.has_value() && std::ranges::find(keys, *key) == keys.end())
         {
             keys.push_back(*key);
@@ -293,11 +302,20 @@ ForwardOutcome reduceForward(const OpenFigiJobResult& result, bool index)
     if (keys.empty())
     {
         // An empty data array or the warning is an answer. Hits without an identifier are not.
-        out.kind = result.answer == OpenFigiAnswer::NoMatch ? ForwardKind::NoMatch : ForwardKind::Unreachable;
-        if (out.kind == ForwardKind::Unreachable)
+        if (result.answer == OpenFigiAnswer::NoMatch)
         {
-            out.message = "OpenFIGI returned hits without a FIGI";
+            out.kind = ForwardKind::NoMatch;
+            return out;
         }
+        // An equity job that returned only index rows (no composite) did not find an equity.
+        const bool only_indexes =
+            !result.hits.empty() && std::ranges::all_of(result.hits, [](const OpenFigiHit& hit) {
+                return !hit.figi.empty() && classifyOpenFigiHit(hit) == AssetClass::Index;
+            });
+        out.kind = !index && only_indexes ? ForwardKind::Unsupported : ForwardKind::Unreachable;
+        out.message = out.kind == ForwardKind::Unsupported ? result.hits.front().market_sector + " / " +
+                                                                 result.hits.front().security_type
+                                                           : "OpenFIGI returned hits without a FIGI";
         return out;
     }
     if (keys.size() > 1)
@@ -310,8 +328,7 @@ ForwardOutcome reduceForward(const OpenFigiJobResult& result, bool index)
     const OpenFigiHit* chosen = nullptr;
     for (const OpenFigiHit& hit : result.hits)
     {
-        const std::string key = hit.composite_figi.value_or(hit.figi);
-        if (key != figi)
+        if (keyOf(hit) != figi)
         {
             continue;
         }

@@ -11,6 +11,7 @@
 #include "market_data/NyseCalendar.h"
 #include "market_data/Secrets.h"
 #include "market_data/Store.h"
+#include "market_data/Time.h"
 
 #include <filesystem>
 #include <fstream>
@@ -789,4 +790,42 @@ TEST_CASE("ingestStatement HTTP and parse failures leave the stored grid")
                                                terminal::StatementTimeframe::Annually, "revenue");
     REQUIRE(kept.size() == 1);
     CHECK(std::get<std::int64_t>(kept[0].value) == 4);
+}
+
+TEST_CASE("ingestDailySymbol resolves identity once and asks MBoum for the stored ticker")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi;
+    terminal::Instrument brk;
+    brk.symbol = "BRK.B";
+    brk.figi = "BBG000DWG505";
+    brk.verified_at = terminal::nowUtc() - (2 * 24 * 60 * 60);  // stale, inside the grace window
+    const auto id = store.insertInstrument(brk);
+    figi.fake.failWith(0);  // each resolution would be a grace pass, which does not bump verified_at
+    const auto json = dailyPageJson({20250102});
+    std::vector<std::string> urls;
+    auto get = [&](std::string_view url) {
+        urls.emplace_back(url);
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = json;
+        return response;
+    };
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "brk/b", 20250102, 20250102);
+    CHECK(result.instrument_id == id);
+    CHECK(result.identity_notice.starts_with("warning: could not confirm BRK.B"));
+    CHECK(figi.fake.requests == 1);  // the split fetch reuses the first resolution
+    REQUIRE(urls.size() == 2);
+    for (const std::string& url : urls)
+    {
+        INFO(url);
+        CHECK(url.find("ticker=BRK.B") != std::string::npos);
+    }
+    CHECK(store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000).size() == 1);
+    CHECK(store.listInstruments().size() == 1);
 }

@@ -27,7 +27,10 @@ The code follows this document except for these points:
 - **Blocked renames.** A rename whose new ticker is still open on another instrument leaves the old listing closed as `renamed` with no new listing. Ingesting that ticker afterwards throws `… identity conflict …` rather than a "no longer listed" message.
 - **Unresolved outcome.** Reverse and confirmation lookups that fail after a forward mismatch report `Unresolved`, not `Unreachable`. The grace window covers only a forward lookup that learned nothing.
 - **Unreadable hits.** A `data` array whose hits carry no FIGI (forward) or no ticker (reverse) is `Unreachable`, never `NoMatch`. Only an empty array or the warning means "not listed", so one malformed element cannot delist a live security.
-- **Symbol spelling.** Listing symbols are stored uppercase (`canonicalListingSymbol`; a leading `$` is kept) on insert, relink, and reopen. The chart hotkey accepts one leading `$`, so `$SPX` can be typed on a chart.
+- **Symbol spelling.** Listing symbols are stored uppercase with `.` as the share-class separator (`canonicalListingSymbol`: `brk/b` becomes `BRK.B`; a leading `$` is kept) on insert, relink, and reopen. MBoum requests for bars, splits, and statements use the stored ticker, not the caller's text. The chart hotkey accepts one leading `$`, so `$SPX` can be typed on a chart.
+- **One resolution per ingest.** `ingestDailySymbol` hands the instrument it resolved to the split fetch instead of resolving again, so splits and bars always land on the same id.
+- **Composite only.** Equity and ETF lookups key on `compositeFIGI` alone. A hit without one is ignored, so a venue FIGI is never stored. Indexes fall back to `figi`.
+- **Reopen.** Opening a listing again clears `delisted_at`.
 - **Tests.** `tests/FakeOpenFigi.h` answers each job from the recorded fixtures, matching on the job's JSON. Its permissive mode confirms any ticker as `testingFigiFor`, which the existing ingest tests use.
 
 ## What changed from revision 1

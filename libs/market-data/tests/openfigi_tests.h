@@ -231,3 +231,26 @@ TEST_CASE("only an empty data array or the warning is no match")
     CHECK(no_ticker.kind == terminal::ReverseKind::Unreachable);
     CHECK(no_ticker.message == "OpenFIGI returned hits without a ticker");
 }
+
+TEST_CASE("an equity job never keys on a venue FIGI")
+{
+    const auto parsed = terminal::parseOpenFigiMappingResponse(
+        R"([
+          {"data":[{"figi":"BBG000BLNNV0","compositeFIGI":null,"ticker":"IBM","name":"IBM","exchCode":"UN",
+                    "marketSector":"Equity","securityType":"Common Stock"}]},
+          {"data":[{"figi":"BBG000BLNNH6","compositeFIGI":"BBG000BLNNH6","ticker":"IBM","name":"IBM","exchCode":"US",
+                    "marketSector":"Equity","securityType":"Common Stock"},
+                   {"figi":"BBG000BLNNV0","compositeFIGI":null,"ticker":"IBM","name":"IBM","exchCode":"UN",
+                    "marketSector":"Equity","securityType":"Common Stock"}]}
+        ])",
+        2);
+    REQUIRE(parsed.has_value());
+    // A venue row alone is not a composite: unreadable, not a key and not "not listed".
+    const auto venue_only = terminal::reduceForward((*parsed)[0], false);
+    CHECK(venue_only.kind == terminal::ForwardKind::Unreachable);
+    CHECK(venue_only.figi.empty());
+    // A composite row beside a venue row without a composite is one security, not two.
+    const auto mixed = terminal::reduceForward((*parsed)[1], false);
+    CHECK(mixed.kind == terminal::ForwardKind::Confirmed);
+    CHECK(mixed.figi == "BBG000BLNNH6");
+}

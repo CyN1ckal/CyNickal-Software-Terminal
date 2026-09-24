@@ -445,7 +445,21 @@ TEST_CASE("listing symbols are uppercased on insert, relink, and reopen")
     store.relinkSymbol(id, "fb", 100);
     CHECK(store.findInstrumentById(id)->symbol == "FB");
     store.closeListing(id, 200, terminal::ListingCloseReason::Manual);
-    store.openListing(id, "brk.b", 300);
+    store.openListing(id, "brk/b", 300);
     CHECK(store.findInstrumentById(id)->symbol == "BRK.B");
     CHECK(terminal::canonicalListingSymbol("$spx") == "$SPX");
+    CHECK(terminal::canonicalListingSymbol("brk.b") == "BRK.B");
+}
+
+TEST_CASE("reopening a delisted instrument clears delisted_at")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.insertInstrument(makeStoreInstrument("TWTR", "BBG000H6HNW3"), 100);
+    store.closeListing(id, 200, terminal::ListingCloseReason::Delisted);
+    CHECK(store.findInstrumentById(id)->delisted_at == 200);
+    store.openListing(id, "TWTR", 300);
+    const auto row = store.findInstrumentById(id);
+    CHECK(row->listing_open);
+    CHECK_FALSE(row->delisted_at.has_value());
 }

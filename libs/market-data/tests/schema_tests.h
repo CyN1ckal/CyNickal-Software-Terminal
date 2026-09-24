@@ -71,9 +71,8 @@ TEST_CASE("schema v1, v2, and v3 files are refused with the reset message")
             CHECK(what.find(tmp.path().string()) != std::string::npos);
         }
         // Refusing does not stamp or create anything.
-        terminal::Store::testingSetUserVersion(tmp.path(), 0);
-        terminal::Store fresh(tmp.path());
-        CHECK(fresh.userVersion() == 4);
+        CHECK(terminal::Store::testingUserVersion(tmp.path()) == version);
+        CHECK(terminal::Store::testingTableNames(tmp.path()).empty());
     }
 }
 

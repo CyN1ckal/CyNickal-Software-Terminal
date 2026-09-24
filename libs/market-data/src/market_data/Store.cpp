@@ -443,7 +443,7 @@ std::string canonicalListingSymbol(std::string_view symbol)
     std::string out(symbol);
     for (char& ch : out)
     {
-        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        ch = ch == '/' ? '.' : static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
     }
     return out;
 }
@@ -465,6 +465,7 @@ struct Store::Impl
     SqliteStmt ins_listing;
     SqliteStmt close_listing;
     SqliteStmt set_delisted;
+    SqliteStmt clear_delisted;
     SqliteStmt upd_figi;
     SqliteStmt upd_verified;
     SqliteStmt upd_descriptive;
@@ -577,6 +578,15 @@ struct Store::Impl
         }
     }
 
+    // A listing opened again means the security trades again.
+    void clearDelisted(InstrumentId id)
+    {
+        clear_delisted.reset();
+        clear_delisted.bindInt64(1, id);
+        clear_delisted.stepDone();
+        clear_delisted.reset();
+    }
+
     void setVerified(InstrumentId id, std::optional<UnixSeconds> at)
     {
         upd_verified.reset();
@@ -634,6 +644,7 @@ struct Store::Impl
             "WHERE instrument_id = ? AND closed_at IS NULL");
         set_delisted.prepare(
             h, "UPDATE instrument SET delisted_at = ? WHERE id = ? AND delisted_at IS NULL");
+        clear_delisted.prepare(h, "UPDATE instrument SET delisted_at = NULL WHERE id = ?");
         upd_figi.prepare(h, "UPDATE instrument SET figi = ? WHERE id = ?");
         upd_verified.prepare(h, "UPDATE instrument SET verified_at = ? WHERE id = ?");
         upd_descriptive.prepare(
@@ -908,6 +919,27 @@ void Store::testingSetUserVersion(const std::filesystem::path& path, int version
     db.setUserVersion(version);
 }
 
+int Store::testingUserVersion(const std::filesystem::path& path)
+{
+    const SqliteDb db(path);
+    return db.userVersion();
+}
+
+std::vector<std::string> Store::testingTableNames(const std::filesystem::path& path)
+{
+    const SqliteDb db(path);
+    SqliteStmt stmt(db.handle(),
+                    "SELECT name FROM sqlite_master WHERE type IN ('table', 'view') "
+                    "AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    std::vector<std::string> names;
+    while (stmt.stepRow())
+    {
+        names.push_back(stmt.columnText(0));
+    }
+    stmt.reset();
+    return names;
+}
+
 InstrumentId Store::testingInsertInstrument(std::string_view symbol, AssetClass asset_class)
 {
     Instrument instrument;
@@ -1045,6 +1077,7 @@ void Store::openListing(InstrumentId id, std::string_view symbol, UnixSeconds no
 {
     SqliteTxn txn(impl_->db.handle());
     impl_->openListingUnlocked(id, symbol, now);
+    impl_->clearDelisted(id);
     txn.commit();
 }
 
@@ -1165,6 +1198,7 @@ std::vector<std::size_t> Store::applyListingChanges(std::span<const ListingChang
                 break;
             }
             impl_->openListingUnlocked(change.instrument_id, change.symbol, now);
+            impl_->clearDelisted(change.instrument_id);
             break;
         }
         case ListingChange::Kind::MarkVerified:

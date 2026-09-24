@@ -113,9 +113,10 @@ struct ForwardOutcome
     std::string message;
 };
 
-// Reduces on the distinct compositeFIGI values, or figi for a hit without one
-// (indexes). Exactly one is Confirmed when its class fits the job: an index job
-// must return an index, and an equity job an equity or ETF; otherwise Unsupported.
+// Equity and ETF jobs reduce on the distinct compositeFIGI values; a hit without one is
+// ignored, so a venue figi is never stored. Index jobs use figi when compositeFIGI is
+// absent. Exactly one is Confirmed when its class fits the job: an index job must
+// return an index, and an equity job an equity or ETF; otherwise Unsupported.
 // Only an empty data array or the warning is NoMatch. Hits that carry no FIGI are
 // Unreachable, so an unreadable answer never reads as "not listed".
 [[nodiscard]] ForwardOutcome reduceForward(const OpenFigiJobResult& result, bool index);
