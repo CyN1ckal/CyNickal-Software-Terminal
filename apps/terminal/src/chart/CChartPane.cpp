@@ -109,6 +109,23 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
     return Theme::kMuted;
 }
 
+// Drawn on the candles. A one-pixel shadow keeps the glyphs readable on an up bar.
+void drawShadowedText(std::string_view text, const ImVec4& color)
+{
+    if (text.empty())
+    {
+        return;
+    }
+    const char* const begin = text.data();
+    const char* const end = begin + text.size();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImU32 shadow = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.85f));
+    ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow, begin, end);
+    const auto length = static_cast<int>(text.size());
+    ImGui::TextColored(color, "%.*s", length,
+                       begin); // NOLINT(bugprone-suspicious-stringview-data-usage)
+}
+
 }  // namespace
 
 CChartPane::CChartPane(int id) : id_(id) {}
@@ -719,27 +736,69 @@ void CChartPane::drawStudiesPopup()
     }
 }
 
-void CChartPane::drawStatusLine() const
+void CChartPane::drawOverlay()
 {
-    const ImVec4 color = statusColor(loaded_.status);
-    const std::string_view text = statusLine();
-    const auto text_n = static_cast<int>(text.size());
-    // %.*s uses text_n as the length, so the view does not need a terminator.
-    ImGui::TextColored(color, "%.*s", text_n, text.data()); // NOLINT(bugprone-suspicious-stringview-data-usage)
-}
+    // SetCursorPos is from the window origin, and that origin includes the
+    // title bar. Docked panes keep the same band for the tab strip. A small
+    // y is clipped by the content rect and paints through the header.
+    // CursorStartPos is already under that band; add the scroll so the value
+    // is in SetCursorPos space.
+    constexpr float kInset = 6.0f;
+    const ImVec2 content(ImGui::GetCursorStartPos().x + ImGui::GetScrollX(),
+                         ImGui::GetCursorStartPos().y + ImGui::GetScrollY());
+    ImGui::SetCursorPos(ImVec2(content.x + kInset, content.y + kInset));
 
-void CChartPane::drawKeyBuffer() const
-{
+    // Default button fill is one step off the plot well, so the face disappears.
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kLine2);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::Mix(Theme::kLine2, Theme::kText, 0.22f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccent);
+    ImGui::PushStyleColor(ImGuiCol_Border, Theme::kTextDim);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::BeginDisabled(studies_open_);
+    if (ImGui::Button("Settings"))
+    {
+        openSettings();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(settings_open_);
+    if (ImGui::Button("Studies"))
+    {
+        openStudies();
+    }
+    ImGui::EndDisabled();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(4);
+
+    const std::string_view status = statusLine();
+    if (!status.empty())
+    {
+        ImGui::SameLine();
+        drawShadowedText(status, statusColor(loaded_.status));
+    }
     if (!key_buffer_.empty())
     {
         ImGui::SameLine();
-        ImGui::TextColored(Theme::kAccent, "%s", key_buffer_.c_str());
-        return;
+        drawShadowedText(key_buffer_, Theme::kAccent);
     }
-    if (!key_note_.empty())
+    else if (!key_note_.empty())
     {
         ImGui::SameLine();
-        ImGui::TextColored(Theme::kDown, "%s", key_note_.c_str());
+        drawShadowedText(key_note_, Theme::kDown);
+    }
+    for (const CStudyInstance& inst : studies_)
+    {
+        if (!inst.enabled)
+        {
+            continue;
+        }
+        const std::string label = studyShortLabel(inst);
+        if (label.empty())
+        {
+            continue;
+        }
+        ImGui::SameLine();
+        drawShadowedText(label, ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)));
     }
 }
 
@@ -871,33 +930,31 @@ void CChartPane::handleChartKeys(Store* store, std::string_view store_error, Ing
 
 void CChartPane::drawPlotBody()
 {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Theme::kPanel);
-    if (ImGui::BeginChild("plot", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders,
-                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
-                              ImGuiWindowFlags_NoNavInputs))
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const ImVec2 avail = ImGui::GetContentRegionAvail();
+    if (avail.x > 0.0f && avail.y > 0.0f)
     {
-        const bool draw_bars = !loaded_.bars.empty() && (loaded_.status == ChartLoadStatus::Ready ||
-                                                         loaded_.status == ChartLoadStatus::Error);
-        if (draw_bars)
-        {
-            std::string_view tz{"America/New_York"};
-            if (loaded_.instrument.has_value())
-            {
-                const std::string& zone = loaded_.instrument.value().timezone;
-                if (!zone.empty())
-                {
-                    tz = zone;
-                }
-            }
-            drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
-        }
-        else
-        {
-            drawStatusLine();
-        }
+        const ImU32 well = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
+        ImGui::GetWindowDrawList()->AddRectFilled(origin,
+                                                  ImVec2(origin.x + avail.x, origin.y + avail.y), well);
     }
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+
+    const bool draw_bars = !loaded_.bars.empty() && (loaded_.status == ChartLoadStatus::Ready ||
+                                                     loaded_.status == ChartLoadStatus::Error);
+    if (draw_bars)
+    {
+        std::string_view tz{"America/New_York"};
+        if (loaded_.instrument.has_value())
+        {
+            const std::string& zone = loaded_.instrument.value().timezone;
+            if (!zone.empty())
+            {
+                tz = zone;
+            }
+        }
+        drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
+    }
+    drawOverlay();
 }
 
 void CChartPane::setWindowScope(int runtime_id) noexcept
@@ -969,10 +1026,14 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     formatChartTitle(title, sizeof(title), runtime_id_, id_, settings_, key_buffer_);
 
     // Enter and arrows are chart commands, not navigation between Settings and the plot.
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoSavedSettings;
+    // No scrollbar: the series fills the client, and a bar would open a gap on the edge.
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     if (!ImGui::Begin(title, &window_open_, flags))
     {
         ImGui::End();
+        ImGui::PopStyleVar();
         return false;
     }
 
@@ -990,48 +1051,17 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
         }
     }
     overlayDownloadStatus(store, store_error, ingest);
-
-    ImGui::BeginDisabled(studies_open_);
-    if (ImGui::Button("Settings"))
-    {
-        openSettings();
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(settings_open_);
-    if (ImGui::Button("Studies"))
-    {
-        openStudies();
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    drawStatusLine();
-    drawKeyBuffer();
-    for (const CStudyInstance& inst : studies_)
-    {
-        if (!inst.enabled)
-        {
-            continue;
-        }
-        const std::string label = studyShortLabel(inst);
-        if (label.empty())
-        {
-            continue;
-        }
-        ImGui::SameLine();
-        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)), "%s",
-                           label.c_str());
-    }
-
-    drawSettingsPopup(store, store_error, ingest);
-    drawStudiesPopup();
     requestSplitSync(store, store_error, ingest);
     overlayDownloadStatus(store, store_error, ingest);
 
     drawPlotBody();
+    // After the overlay buttons, so a click opens the modal on this frame.
+    drawSettingsPopup(store, store_error, ingest);
+    drawStudiesPopup();
 
     const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
     ImGui::End();
+    ImGui::PopStyleVar();
     return focused;
 }
 

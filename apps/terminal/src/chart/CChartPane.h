@@ -37,7 +37,7 @@ public:
     [[nodiscard]] bool windowOpen() const noexcept;
     [[nodiscard]] const CChartSettings& settings() const noexcept;
     [[nodiscard]] ChartLoadStatus status() const noexcept;
-    // Toolbar sentence: load message, or the unconfigured / busy prompt when that message is empty.
+    // Load message, or the unconfigured / busy prompt when that message is empty.
     [[nodiscard]] std::string_view statusLine() const noexcept;
     [[nodiscard]] std::string_view keyNote() const noexcept;
     [[nodiscard]] int barCount() const noexcept;
@@ -70,8 +70,7 @@ private:
     void cancelDraft();
     void cancelStudyDraft();
     void reload(Store* store, std::string_view store_error);
-    void drawStatusLine() const;
-    void drawKeyBuffer() const;
+    void drawOverlay();
     void drawPlotBody();
     void handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest);
     void commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest);

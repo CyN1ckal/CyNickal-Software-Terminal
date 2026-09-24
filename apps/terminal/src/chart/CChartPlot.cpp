@@ -623,37 +623,45 @@ void drawCandlesticks(std::span<const Bar> bars,
                              kChartRightFillBars);
     view.scroll_from_end = win.scroll;
 
+    // Subplot cells split PlotPadding in half and insert it between regions.
+    // Zero closes that gap and the frame inset. One pixel keeps price text off the border.
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.0f, 0.0f));
+    ImPlot::PushStyleVar(ImPlotStyleVar_LabelPadding, ImVec2(1.0f, 0.0f));
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotMinSize, ImVec2(0.0f, 0.0f));
+
     if (region_count <= 1)
     {
         drawChartRegion(bars, settings, view, timezone, studies, win, kStudyMainChartRegion, 1, nullptr,
                         nullptr, true);
-        return;
+    }
+    else
+    {
+        ensureRegionRatios(view, region_count);
+        const ImPlotSubplotFlags subplot_flags = ImPlotSubplotFlags_NoTitle | ImPlotSubplotFlags_NoMenus;
+        if (ImPlot::BeginSubplots("##chart_regions", region_count, 1, ImVec2(-1.0f, -1.0f), subplot_flags,
+                                  view.region_ratios.data(), nullptr))
+        {
+            bool x_handled = false;
+            for (int region = kStudyMainChartRegion; region <= region_count; ++region)
+            {
+                StudyRegionScale* scale = nullptr;
+                if (region != kStudyMainChartRegion)
+                {
+                    scale = &studyRegionScale(view, region);
+                }
+                drawChartRegion(bars, settings, view, timezone, studies, win, region, region_count,
+                                &x_handled, scale, false);
+            }
+            const ChartVisibleWindow clamped =
+                computeVisibleWindow(bar_count, view.last_plot_w, settings.bar_spacing_px,
+                                     view.scroll_from_end, kChartRightFillBars);
+            view.scroll_from_end = clamped.scroll;
+            clampV1Limits(settings);
+            ImPlot::EndSubplots();
+        }
     }
 
-    ensureRegionRatios(view, region_count);
-    const ImPlotSubplotFlags subplot_flags = ImPlotSubplotFlags_NoTitle | ImPlotSubplotFlags_NoMenus;
-    if (!ImPlot::BeginSubplots("##chart_regions", region_count, 1, ImVec2(-1.0f, -1.0f), subplot_flags,
-                               view.region_ratios.data(), nullptr))
-    {
-        return;
-    }
-    bool x_handled = false;
-    for (int region = kStudyMainChartRegion; region <= region_count; ++region)
-    {
-        StudyRegionScale* scale = nullptr;
-        if (region != kStudyMainChartRegion)
-        {
-            scale = &studyRegionScale(view, region);
-        }
-        drawChartRegion(bars, settings, view, timezone, studies, win, region, region_count, &x_handled,
-                        scale, false);
-    }
-    const ChartVisibleWindow clamped =
-        computeVisibleWindow(bar_count, view.last_plot_w, settings.bar_spacing_px, view.scroll_from_end,
-                             kChartRightFillBars);
-    view.scroll_from_end = clamped.scroll;
-    clampV1Limits(settings);
-    ImPlot::EndSubplots();
+    ImPlot::PopStyleVar(3);
 }
 
 }  // namespace terminal
