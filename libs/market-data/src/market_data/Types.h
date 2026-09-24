@@ -24,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 4;
+inline constexpr int kSchemaUserVersion = 5;
 
 enum class AssetClass : std::uint8_t
 {
@@ -275,6 +275,43 @@ struct OptionChainWrite
     std::vector<OptionQuoteBatch> batches;
 };
 
+using PortfolioId = std::int64_t;
+
+enum class PortfolioAssetKind : std::uint8_t
+{
+    Equity,
+    Etf,
+    Option,
+    Cash
+};
+
+struct Portfolio
+{
+    PortfolioId id{};
+    std::string name;
+    UnixSeconds created_at{};
+    UnixSeconds updated_at{};
+};
+
+// Write path reads figi (required unless cash) and the option fields.
+// instrument_id, symbol, and listing_open are filled on read and ignored on write.
+// symbol is instrument_current.symbol. listing_open is listing_closed_at IS NULL.
+// There is no figi column in portfolio_holding.
+struct PortfolioHolding
+{
+    PortfolioAssetKind kind{PortfolioAssetKind::Equity};
+    std::optional<std::string> figi;
+    std::optional<InstrumentId> instrument_id;
+    std::optional<std::string> symbol;
+    bool listing_open{false};
+    std::optional<SessionDate> expiration;
+    std::optional<OptionExpirationType> expiration_type;
+    std::optional<double> strike;
+    std::optional<OptionRight> right;
+    std::optional<std::string> vendor_symbol;
+    double quantity{};
+};
+
 struct UpsertBarsResult
 {
     int written{};
@@ -409,6 +446,22 @@ inline std::string_view toSql(StatementTimeframe value)
         return "trailing";
     }
     throw std::runtime_error("unknown StatementTimeframe");
+}
+
+inline std::string_view toSql(PortfolioAssetKind value)
+{
+    switch (value)
+    {
+    case PortfolioAssetKind::Equity:
+        return "equity";
+    case PortfolioAssetKind::Etf:
+        return "etf";
+    case PortfolioAssetKind::Option:
+        return "option";
+    case PortfolioAssetKind::Cash:
+        return "cash";
+    }
+    throw std::runtime_error("unknown PortfolioAssetKind");
 }
 
 inline AssetClass assetClassFromSql(std::string_view text)
@@ -557,6 +610,27 @@ inline CorporateActionType corporateActionTypeFromSql(std::string_view text)
         return CorporateActionType::Other;
     }
     throw std::runtime_error("unknown corporate_action type");
+}
+
+inline PortfolioAssetKind portfolioAssetKindFromSql(std::string_view text)
+{
+    if (text == "equity")
+    {
+        return PortfolioAssetKind::Equity;
+    }
+    if (text == "etf")
+    {
+        return PortfolioAssetKind::Etf;
+    }
+    if (text == "option")
+    {
+        return PortfolioAssetKind::Option;
+    }
+    if (text == "cash")
+    {
+        return PortfolioAssetKind::Cash;
+    }
+    throw std::runtime_error("unknown portfolio asset_kind");
 }
 
 inline bool isValidBar(const Bar& b) noexcept

@@ -64,11 +64,19 @@ public:
     // Reads the file on its own connection, without migrating. For tests.
     [[nodiscard]] static int testingUserVersion(const std::filesystem::path& path);
     [[nodiscard]] static std::vector<std::string> testingTableNames(const std::filesystem::path& path);
+    // Applies schemaV4() to a user_version 0 file and stamps 4. Does not run schemaV5().
+    static void testingCreateSchemaV4(const std::filesystem::path& path);
+    // One equity (testingFigiFor(symbol)) and an open listing on a version-4 file
+    // that has no portfolio table. Leaves user_version at 4.
+    static void testingSeedV4Instrument(const std::filesystem::path& path, std::string_view symbol);
     // Inserts an equity (or asset_class) row with testingFigiFor(symbol), an open
     // listing, and verified_at = now. For tests that need an instrument and do not
     // care about its FIGI.
     InstrumentId testingInsertInstrument(std::string_view symbol,
                                          AssetClass asset_class = AssetClass::Equity);
+    // foreign_keys is not persistent on a fresh connection. Not a product delete:
+    // a row that still references id makes the DELETE throw.
+    static void testingDeleteInstrument(const std::filesystem::path& path, InstrumentId id);
 
     // Inserts the row and an open listing on instrument.symbol (uppercased) in one transaction.
     // figi must pass isValidFigi when set and is required for equity, etf, and index.
@@ -173,6 +181,15 @@ public:
     [[nodiscard]] std::vector<OptionQuote> queryOptionQuotes(InstrumentId id,
                                                              SessionDate expiration,
                                                              OptionExpirationType expiration_type) const;
+
+    PortfolioId createPortfolio(std::string_view name);
+    void renamePortfolio(PortfolioId id, std::string_view name);
+    [[nodiscard]] std::vector<Portfolio> listPortfolios() const;
+    [[nodiscard]] std::optional<Portfolio> findPortfolio(PortfolioId id) const;
+    // Replaces one book's holdings. An empty span still bumps updated_at.
+    void replaceHoldings(PortfolioId id, std::span<const PortfolioHolding> holdings);
+    [[nodiscard]] std::vector<PortfolioHolding> queryHoldings(PortfolioId id) const;
+    void deletePortfolio(PortfolioId id);
 
 private:
     UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,

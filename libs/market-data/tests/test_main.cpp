@@ -10,6 +10,7 @@
 #include "mboum_map_tests.h"
 #include "openfigi_tests.h"
 #include "option_tests.h"
+#include "portfolio_tests.h"
 #include "schema_tests.h"
 #include "sqlite_version_tests.h"
 #include "statement_tests.h"

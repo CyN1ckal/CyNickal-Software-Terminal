@@ -14,6 +14,28 @@ This is an implementation spec. An engineer should be able to create the databas
 
 ---
 
+## Schema version 5
+
+`user_version` is 5 (`kSchemaUserVersion`). `libs/market-data/schema/v4.sql` is the frozen FIGI baseline. `libs/market-data/schema/v5.sql` adds `portfolio` and `portfolio_holding` and does not change the v4 tables. How FIGI and listings work is in `docs/composite-figi-identity.md`.
+
+`Store` reads `PRAGMA user_version` on open.
+
+- An empty database (`user_version` 0) applies `v4.sql`, then `v5.sql`, and is stamped 5.
+- A healthy version-4 file (the v4 tables and the `instrument_current` view are present) applies `v5.sql` only and is stamped 5. A version-4 file missing one of those throws and is not stamped.
+- Versions 1–3 still get the existing reset message and are not migrated: `market-data.sqlite is schema v<N>. v4 changed instrument identity and does not migrate. Close the terminal, delete <path> and its -wal and -shm files, and re-ingest.`
+- A newer `user_version` is refused (`database user_version exceeds this binary`).
+- A complete file already stamped 5 (the v4 tables, `instrument_current`, `portfolio`, and `portfolio_holding`) is opened without running `v5.sql` again. A stamped-5 file missing one of those throws and does not finish.
+
+The instrument on a non-cash holding is resolved from its FIGI. `replaceHoldings` calls `findInstrumentByFigi` and stores `instrument_id` (`REFERENCES instrument(id) ON DELETE RESTRICT`). Equity and ETF rows are unique on portfolio and instrument. An option row is further keyed by expiration, expiration type, strike, and right. Cash has no FIGI and is the only null `instrument_id`. `queryHoldings` returns the FIGI (`instrument.figi`) and the current symbol (`instrument_current.symbol`).
+
+Re-ingest of bars, statements, and option chains does not change a holding's quantity. It must not delete an instrument a book still holds. `portfolio_holding.instrument_id` is `ON DELETE RESTRICT`, so that delete fails while the row remains.
+
+Before upgrading, quit the terminal and ingest, then copy `data/market-data.sqlite` plus the `-wal` and `-shm` sidecars. Restore those copies to undo. Do not hand-edit `user_version` backward.
+
+`portfolioFetchJobs` (`apps/terminal/src/data/PortfolioFetch.h`) plans an existing `IngestWorker::Job` by holding kind. An open equity or ETF listing is planned only when daily coverage has no `bar_count > 0`. An open option listing is planned only when no quote for that expiration and expiration type matches the holding's strike and right. One options job is shared per symbol and expiration, not emitted per holding. Cash and a closed listing plan nothing. There is no portfolio panel.
+
+---
+
 ## Overview
 
 The terminal needs a local, reusable, persistent market-data store for charting and strategy training. The GUI (`apps/terminal`) already links the `market-data` library but does not read SQLite; CHART is hardcoded quote chips. The empty file `data/market-data.sqlite` (0 bytes, not a SQLite database yet) is the intended runtime DB. `libs/market-data/` already exists as a CMake target and is the home for the store.
