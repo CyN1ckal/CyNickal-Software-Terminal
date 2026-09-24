@@ -24,15 +24,15 @@ This is an implementation spec. An engineer should be able to create the databas
 - A healthy version-4 file (the v4 tables and the `instrument_current` view are present) applies `v5.sql` only and is stamped 5. A version-4 file missing one of those throws and is not stamped.
 - Versions 1–3 still get the existing reset message and are not migrated: `market-data.sqlite is schema v<N>. v4 changed instrument identity and does not migrate. Close the terminal, delete <path> and its -wal and -shm files, and re-ingest.`
 - A newer `user_version` is refused (`database user_version exceeds this binary`).
-- A file already stamped 5 is opened as-is.
+- A complete file already stamped 5 (the v4 tables, `instrument_current`, `portfolio`, and `portfolio_holding`) is opened without running `v5.sql` again. A stamped-5 file missing one of those throws and does not finish.
 
-A holding is identified by the instrument's FIGI. `replaceHoldings` resolves `findInstrumentByFigi` and stores `instrument_id` (`REFERENCES instrument(id) ON DELETE RESTRICT`). Cash is the only null `instrument_id`. `queryHoldings` returns that FIGI (`instrument.figi`) and the current symbol (`instrument_current.symbol`).
+The instrument on a non-cash holding is resolved from its FIGI. `replaceHoldings` calls `findInstrumentByFigi` and stores `instrument_id` (`REFERENCES instrument(id) ON DELETE RESTRICT`). Equity and ETF rows are unique on portfolio and instrument. An option row is further keyed by expiration, expiration type, strike, and right. Cash has no FIGI and is the only null `instrument_id`. `queryHoldings` returns the FIGI (`instrument.figi`) and the current symbol (`instrument_current.symbol`).
 
 Re-ingest of bars, statements, and option chains does not change a holding's quantity. It must not delete an instrument a book still holds. `portfolio_holding.instrument_id` is `ON DELETE RESTRICT`, so that delete fails while the row remains.
 
 Before upgrading, quit the terminal and ingest, then copy `data/market-data.sqlite` plus the `-wal` and `-shm` sidecars. Restore those copies to undo. Do not hand-edit `user_version` backward.
 
-`portfolioFetchJobs` (`apps/terminal/src/data/PortfolioFetch.h`) plans an existing `IngestWorker::Job` for an open listing that has no daily bars (no daily `coverage_day` with `bar_count > 0`) or no option quote matching that holding's strike and right. A closed listing is not fetched. There is no portfolio panel.
+`portfolioFetchJobs` (`apps/terminal/src/data/PortfolioFetch.h`) plans an existing `IngestWorker::Job` by holding kind. An open equity or ETF listing is planned only when daily coverage has no `bar_count > 0`. An open option listing is planned only when no quote for that expiration and expiration type matches the holding's strike and right. One options job is shared per symbol and expiration, not emitted per holding. Cash and a closed listing plan nothing. There is no portfolio panel.
 
 ---
 
