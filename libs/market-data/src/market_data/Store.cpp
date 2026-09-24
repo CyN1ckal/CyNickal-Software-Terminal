@@ -14,11 +14,13 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <variant>
 
@@ -436,6 +438,94 @@ void validateOptionQuote(const OptionQuote& quote, const OptionQuoteBatch& batch
     return row;
 }
 
+[[nodiscard]] Portfolio portfolioFromStmt(SqliteStmt const& stmt)
+{
+    Portfolio row;
+    row.id = stmt.columnInt64(0);
+    row.name = stmt.columnText(1);
+    row.created_at = stmt.columnInt64(2);
+    row.updated_at = stmt.columnInt64(3);
+    return row;
+}
+
+// Columns: asset_kind, figi, instrument_id, symbol, listing_closed_at, expiration,
+// expiration_type, strike, right, vendor_symbol, quantity.
+[[nodiscard]] PortfolioHolding portfolioHoldingFromStmt(SqliteStmt const& stmt)
+{
+    PortfolioHolding row;
+    row.kind = portfolioAssetKindFromSql(stmt.columnText(0));
+    if (!stmt.columnIsNull(1))
+    {
+        row.figi = stmt.columnText(1);
+    }
+    if (!stmt.columnIsNull(2))
+    {
+        row.instrument_id = stmt.columnInt64(2);
+        row.listing_open = stmt.columnIsNull(4);
+    }
+    if (!stmt.columnIsNull(3))
+    {
+        row.symbol = stmt.columnText(3);
+    }
+    if (!stmt.columnIsNull(5))
+    {
+        row.expiration = static_cast<SessionDate>(stmt.columnInt64(5));
+    }
+    if (!stmt.columnIsNull(6))
+    {
+        row.expiration_type = optionExpirationTypeFromSql(stmt.columnText(6));
+    }
+    if (!stmt.columnIsNull(7))
+    {
+        row.strike = stmt.columnDouble(7);
+    }
+    if (!stmt.columnIsNull(8))
+    {
+        row.right = optionRightFromSql(stmt.columnText(8));
+    }
+    if (!stmt.columnIsNull(9))
+    {
+        row.vendor_symbol = stmt.columnText(9);
+    }
+    row.quantity = stmt.columnDouble(10);
+    return row;
+}
+
+[[nodiscard]] bool holdingKindMatches(PortfolioAssetKind kind, AssetClass asset_class)
+{
+    switch (kind)
+    {
+    case PortfolioAssetKind::Equity:
+        return asset_class == AssetClass::Equity;
+    case PortfolioAssetKind::Etf:
+        return asset_class == AssetClass::Etf;
+    case PortfolioAssetKind::Option:
+        return asset_class == AssetClass::Equity || asset_class == AssetClass::Etf ||
+               asset_class == AssetClass::Index;
+    case PortfolioAssetKind::Cash:
+        return false;
+    }
+    throw std::runtime_error("unknown PortfolioAssetKind");
+}
+
+[[nodiscard]] bool holdingHasOptionFields(const PortfolioHolding& holding)
+{
+    return holding.expiration.has_value() || holding.expiration_type.has_value() || holding.strike.has_value() ||
+           holding.right.has_value() || holding.vendor_symbol.has_value();
+}
+
+void requireHoldingQuantity(double quantity)
+{
+    if (!std::isfinite(quantity))
+    {
+        throw std::runtime_error("portfolio holding quantity is not finite");
+    }
+    if (quantity == 0.0)
+    {
+        throw std::runtime_error("portfolio holding quantity is zero");
+    }
+}
+
 }  // namespace
 
 std::string canonicalListingSymbol(std::string_view symbol)
@@ -498,6 +588,16 @@ struct Store::Impl
     mutable SqliteStmt sel_option_expiries;
     mutable SqliteStmt sel_option_underlying;
     mutable SqliteStmt sel_option_quotes;
+    mutable SqliteStmt sel_portfolio_id;
+    SqliteStmt sel_portfolio_name;
+    mutable SqliteStmt sel_portfolios;
+    SqliteStmt ins_portfolio;
+    SqliteStmt upd_portfolio_name;
+    SqliteStmt upd_portfolio_updated;
+    SqliteStmt del_portfolio;
+    SqliteStmt del_portfolio_holdings;
+    SqliteStmt ins_portfolio_holding;
+    mutable SqliteStmt sel_portfolio_holdings;
 
     [[nodiscard]] static std::optional<Instrument> oneInstrument(SqliteStmt& sel)
     {
@@ -818,6 +918,35 @@ struct Store::Impl
             "days_to_expiration, trade_date, trade_minute, fetched_at "
             "FROM option_quote WHERE instrument_id = ? AND expiration = ? AND expiration_type = ? "
             "ORDER BY strike, CASE right WHEN 'call' THEN 0 ELSE 1 END, vendor_symbol");
+        sel_portfolio_id.prepare(
+            h, "SELECT id, name, created_at, updated_at FROM portfolio WHERE id = ?");
+        sel_portfolio_name.prepare(h, "SELECT id FROM portfolio WHERE name = ?");
+        sel_portfolios.prepare(
+            h,
+            "SELECT id, name, created_at, updated_at FROM portfolio "
+            "ORDER BY name COLLATE NOCASE, id");
+        ins_portfolio.prepare(
+            h, "INSERT INTO portfolio (name, created_at, updated_at) VALUES (?, ?, ?)");
+        upd_portfolio_name.prepare(h, "UPDATE portfolio SET name = ?, updated_at = ? WHERE id = ?");
+        upd_portfolio_updated.prepare(h, "UPDATE portfolio SET updated_at = ? WHERE id = ?");
+        del_portfolio.prepare(h, "DELETE FROM portfolio WHERE id = ?");
+        del_portfolio_holdings.prepare(h, "DELETE FROM portfolio_holding WHERE portfolio_id = ?");
+        ins_portfolio_holding.prepare(
+            h,
+            "INSERT INTO portfolio_holding ("
+            "portfolio_id, instrument_id, asset_kind, expiration, expiration_type, "
+            "strike, right, vendor_symbol, quantity) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sel_portfolio_holdings.prepare(
+            h,
+            "SELECT h.asset_kind, i.figi, h.instrument_id, c.symbol, c.listing_closed_at, "
+            "h.expiration, h.expiration_type, h.strike, h.right, h.vendor_symbol, h.quantity "
+            "FROM portfolio_holding AS h "
+            "LEFT JOIN instrument AS i ON i.id = h.instrument_id "
+            "LEFT JOIN instrument_current AS c ON c.id = h.instrument_id "
+            "WHERE h.portfolio_id = ? "
+            "ORDER BY h.asset_kind, h.instrument_id, h.expiration, h.expiration_type, "
+            "h.strike, h.right");
     }
 };
 
@@ -1030,6 +1159,16 @@ InstrumentId Store::testingInsertInstrument(std::string_view symbol, AssetClass 
     instrument.figi = testingFigiFor(symbol);
     instrument.verified_at = nowUtc();
     return insertInstrument(instrument);
+}
+
+void Store::testingDeleteInstrument(const std::filesystem::path& path, InstrumentId id)
+{
+    SqliteDb db(path);
+    db.exec("PRAGMA foreign_keys = ON");
+    SqliteStmt stmt(db.handle(), "DELETE FROM instrument WHERE id = ?");
+    stmt.bindInt64(1, id);
+    stmt.stepDone();
+    stmt.reset();
 }
 
 InstrumentId Store::insertInstrument(const Instrument& instrument, UnixSeconds now)
@@ -2189,6 +2328,317 @@ std::vector<OptionQuote> Store::queryOptionQuotes(InstrumentId id,
     }
     sel.reset();
     return rows;
+}
+
+PortfolioId Store::createPortfolio(std::string_view name)
+{
+    if (!isTrimmedNonEmpty(name))
+    {
+        throw std::runtime_error("portfolio name is empty");
+    }
+    SqliteTxn txn(impl_->db.handle());
+    auto& sel = impl_->sel_portfolio_name;
+    sel.reset();
+    sel.bindText(1, name);
+    const bool taken = sel.stepRow();
+    sel.reset();
+    if (taken)
+    {
+        throw std::runtime_error("portfolio name already exists");
+    }
+    const UnixSeconds now = nowUtc();
+    auto& ins = impl_->ins_portfolio;
+    ins.reset();
+    ins.bindText(1, name);
+    ins.bindInt64(2, now);
+    ins.bindInt64(3, now);
+    ins.stepDone();
+    const auto id = impl_->db.lastInsertRowid();
+    ins.reset();
+    txn.commit();
+    return id;
+}
+
+void Store::renamePortfolio(PortfolioId id, std::string_view name)
+{
+    if (!isTrimmedNonEmpty(name))
+    {
+        throw std::runtime_error("portfolio name is empty");
+    }
+    SqliteTxn txn(impl_->db.handle());
+    if (!findPortfolio(id).has_value())
+    {
+        throw std::runtime_error("portfolio not found");
+    }
+    auto& sel = impl_->sel_portfolio_name;
+    sel.reset();
+    sel.bindText(1, name);
+    std::optional<PortfolioId> owner;
+    if (sel.stepRow())
+    {
+        owner = sel.columnInt64(0);
+    }
+    sel.reset();
+    if (owner.has_value())
+    {
+        if (*owner != id)
+        {
+            throw std::runtime_error("portfolio name already exists");
+        }
+    }
+    const UnixSeconds now = nowUtc();
+    auto& upd = impl_->upd_portfolio_name;
+    upd.reset();
+    upd.bindText(1, name);
+    upd.bindInt64(2, now);
+    upd.bindInt64(3, id);
+    upd.stepDone();
+    upd.reset();
+    txn.commit();
+}
+
+std::vector<Portfolio> Store::listPortfolios() const
+{
+    auto& sel = impl_->sel_portfolios;
+    sel.reset();
+    std::vector<Portfolio> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(portfolioFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+std::optional<Portfolio> Store::findPortfolio(PortfolioId id) const
+{
+    auto& sel = impl_->sel_portfolio_id;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::optional<Portfolio> row;
+    if (sel.stepRow())
+    {
+        row = portfolioFromStmt(sel);
+    }
+    sel.reset();
+    return row;
+}
+
+void Store::replaceHoldings(PortfolioId id, std::span<const PortfolioHolding> holdings)
+{
+    if (!findPortfolio(id).has_value())
+    {
+        throw std::runtime_error("portfolio not found");
+    }
+
+    std::vector<std::string> figis(holdings.size());
+    std::vector<InstrumentId> instrument_ids(holdings.size());
+    std::set<InstrumentId> share_ids;
+    using OptionKey = std::tuple<InstrumentId, SessionDate, int, double, int>;
+    std::set<OptionKey> option_keys;
+    std::set<std::string> vendor_symbols;
+    bool saw_cash = false;
+
+    for (std::size_t i = 0; i < holdings.size(); ++i)
+    {
+        const PortfolioHolding& holding = holdings[i];
+        if (holding.kind == PortfolioAssetKind::Cash)
+        {
+            if (holding.figi.has_value() || holdingHasOptionFields(holding))
+            {
+                throw std::runtime_error("portfolio holding kind does not match its fields");
+            }
+            requireHoldingQuantity(holding.quantity);
+            if (saw_cash)
+            {
+                throw std::runtime_error("duplicate portfolio holding");
+            }
+            saw_cash = true;
+            continue;
+        }
+
+        if (!holding.figi.has_value())
+        {
+            throw std::runtime_error("portfolio holding figi is missing");
+        }
+        const std::string figi = *holding.figi;
+        if (!isValidFigi(figi))
+        {
+            throw std::runtime_error("portfolio holding figi is invalid");
+        }
+        const auto instrument = findInstrumentByFigi(figi);
+        if (!instrument.has_value())
+        {
+            throw std::runtime_error("portfolio holding figi was not found");
+        }
+        if (!holdingKindMatches(holding.kind, instrument->asset_class))
+        {
+            throw std::runtime_error("portfolio holding kind does not match its instrument");
+        }
+
+        if (holding.kind == PortfolioAssetKind::Option)
+        {
+            if (!holding.expiration.has_value() || !holding.expiration_type.has_value() ||
+                !holding.strike.has_value() || !holding.right.has_value())
+            {
+                throw std::runtime_error("portfolio holding kind does not match its fields");
+            }
+            const SessionDate expiration = *holding.expiration;
+            const OptionExpirationType expiration_type = *holding.expiration_type;
+            const double strike = *holding.strike;
+            const OptionRight right = *holding.right;
+            if (!isSessionDate(expiration) || !std::isfinite(strike) || strike <= 0.0)
+            {
+                throw std::runtime_error("portfolio option identity is invalid");
+            }
+            if (holding.vendor_symbol.has_value())
+            {
+                if (!isTrimmedNonEmpty(*holding.vendor_symbol))
+                {
+                    throw std::runtime_error("portfolio option identity is invalid");
+                }
+            }
+            requireHoldingQuantity(holding.quantity);
+            const OptionKey key{instrument->id, expiration, static_cast<int>(expiration_type), strike,
+                                static_cast<int>(right)};
+            if (!option_keys.insert(key).second)
+            {
+                throw std::runtime_error("duplicate portfolio holding");
+            }
+            if (holding.vendor_symbol.has_value())
+            {
+                if (!vendor_symbols.insert(*holding.vendor_symbol).second)
+                {
+                    throw std::runtime_error("duplicate portfolio holding");
+                }
+            }
+        }
+        else
+        {
+            if (holdingHasOptionFields(holding))
+            {
+                throw std::runtime_error("portfolio holding kind does not match its fields");
+            }
+            requireHoldingQuantity(holding.quantity);
+            if (!share_ids.insert(instrument->id).second)
+            {
+                throw std::runtime_error("duplicate portfolio holding");
+            }
+        }
+
+        figis[i] = figi;
+        instrument_ids[i] = instrument->id;
+    }
+
+    SqliteTxn txn(impl_->db.handle());
+    if (!findPortfolio(id).has_value())
+    {
+        throw std::runtime_error("portfolio not found");
+    }
+    for (std::size_t i = 0; i < holdings.size(); ++i)
+    {
+        if (holdings[i].kind == PortfolioAssetKind::Cash)
+        {
+            continue;
+        }
+        const auto instrument = findInstrumentByFigi(figis[i]);
+        if (!instrument.has_value())
+        {
+            throw std::runtime_error("portfolio holding figi was not found");
+        }
+        if (!holdingKindMatches(holdings[i].kind, instrument->asset_class))
+        {
+            throw std::runtime_error("portfolio holding kind does not match its instrument");
+        }
+        instrument_ids[i] = instrument->id;
+    }
+
+    auto& del = impl_->del_portfolio_holdings;
+    del.reset();
+    del.bindInt64(1, id);
+    del.stepDone();
+    del.reset();
+
+    auto& ins = impl_->ins_portfolio_holding;
+    for (std::size_t i = 0; i < holdings.size(); ++i)
+    {
+        const PortfolioHolding& holding = holdings[i];
+        ins.reset();
+        ins.bindInt64(1, id);
+        if (holding.kind == PortfolioAssetKind::Cash)
+        {
+            ins.bindNull(2);
+        }
+        else
+        {
+            ins.bindInt64(2, instrument_ids[i]);
+        }
+        ins.bindText(3, toSql(holding.kind));
+        bindOptionalInt(ins, 4, holding.expiration);
+        if (holding.expiration_type.has_value())
+        {
+            ins.bindText(5, toSql(*holding.expiration_type));
+        }
+        else
+        {
+            ins.bindNull(5);
+        }
+        bindOptionalDouble(ins, 6, holding.strike);
+        if (holding.right.has_value())
+        {
+            ins.bindText(7, toSql(*holding.right));
+        }
+        else
+        {
+            ins.bindNull(7);
+        }
+        bindOptionalText(ins, 8, holding.vendor_symbol);
+        ins.bindDouble(9, holding.quantity);
+        ins.stepDone();
+        ins.reset();
+    }
+
+    const UnixSeconds now = nowUtc();
+    auto& upd = impl_->upd_portfolio_updated;
+    upd.reset();
+    upd.bindInt64(1, now);
+    upd.bindInt64(2, id);
+    upd.stepDone();
+    upd.reset();
+    txn.commit();
+}
+
+std::vector<PortfolioHolding> Store::queryHoldings(PortfolioId id) const
+{
+    if (!findPortfolio(id).has_value())
+    {
+        throw std::runtime_error("portfolio not found");
+    }
+    auto& sel = impl_->sel_portfolio_holdings;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::vector<PortfolioHolding> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(portfolioHoldingFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+void Store::deletePortfolio(PortfolioId id)
+{
+    SqliteTxn txn(impl_->db.handle());
+    if (!findPortfolio(id).has_value())
+    {
+        throw std::runtime_error("portfolio not found");
+    }
+    auto& del = impl_->del_portfolio;
+    del.reset();
+    del.bindInt64(1, id);
+    del.stepDone();
+    del.reset();
+    txn.commit();
 }
 
 }  // namespace terminal
