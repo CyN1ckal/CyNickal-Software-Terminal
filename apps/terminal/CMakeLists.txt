@@ -35,6 +35,7 @@ add_library(terminal_core OBJECT
     src/platform/window/Window.cpp
     src/data/IngestWorker.cpp
     src/data/StatementSheet.cpp
+    src/data/PortfolioFetch.cpp
     src/chart/CChartAxis.cpp
     src/chart/CChartCommand.cpp
     src/chart/CChartLoad.cpp
@@ -178,6 +179,7 @@ if(CYN_TESTING)
         src/chart/studies/CBollinger.cpp
         src/chart/studies/StudyRegistry.cpp
         src/data/StatementSheet.cpp
+        src/data/PortfolioFetch.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h
