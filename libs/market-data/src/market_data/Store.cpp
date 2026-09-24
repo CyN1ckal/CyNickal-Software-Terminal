@@ -831,18 +831,43 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
     {
         throw std::runtime_error("database user_version exceeds this binary");
     }
-    if (version >= 1 && version < kSchemaUserVersion)
+    // Version 4 is the FIGI baseline this binary migrates. Not kSchemaUserVersion.
+    if (version >= 1 && version < 4)
     {
         const std::string path = impl_->path.string();
-        throw std::runtime_error("market-data.sqlite is schema v" + std::to_string(version) + ". v" +
-                                 std::to_string(kSchemaUserVersion) +
-                                 " changed instrument identity and does not migrate. Close the terminal, "
+        throw std::runtime_error("market-data.sqlite is schema v" + std::to_string(version) +
+                                 ". v4 changed instrument identity and does not migrate. Close the terminal, "
                                  "delete " + path + " and its -wal and -shm files, and re-ingest.");
+    }
+    constexpr std::string_view kV4Tables[] = {"bar",
+                                               "corporate_action",
+                                               "coverage_day",
+                                               "instrument",
+                                               "instrument_listing",
+                                               "option_expiry",
+                                               "option_quote",
+                                               "option_underlying",
+                                               "statement_cell",
+                                               "statement_snapshot",};
+    constexpr std::string_view kAllViews[] = {"instrument_current"};
+    // A damaged version-4 (or newer) file must fail before user_version moves.
+    if (version >= 4)
+    {
+        requireTables(tableNames(), version, kV4Tables);
+        requireTables(viewNames(), version, kAllViews);
     }
     if (version == 0)
     {
         SqliteTxn txn(impl_->db.handle());
         impl_->db.exec(schemaV4());
+        impl_->db.exec(schemaV5());
+        impl_->db.setUserVersion(kSchemaUserVersion);
+        txn.commit();
+    }
+    else if (version == 4)
+    {
+        SqliteTxn txn(impl_->db.handle());
+        impl_->db.exec(schemaV5());
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
     }
@@ -854,10 +879,11 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                 "option_expiry",
                                                 "option_quote",
                                                 "option_underlying",
+                                                "portfolio",
+                                                "portfolio_holding",
                                                 "statement_cell",
                                                 "statement_snapshot",};
     requireTables(tableNames(), userVersion(), kAllTables);
-    constexpr std::string_view kAllViews[] = {"instrument_current"};
     requireTables(viewNames(), userVersion(), kAllViews);
     impl_->prepare();
 }
@@ -938,6 +964,62 @@ std::vector<std::string> Store::testingTableNames(const std::filesystem::path& p
     }
     stmt.reset();
     return names;
+}
+
+void Store::testingCreateSchemaV4(const std::filesystem::path& path)
+{
+    SqliteDb db(path);
+    if (db.userVersion() != 0)
+    {
+        throw std::runtime_error("testingCreateSchemaV4 requires user_version 0");
+    }
+    SqliteTxn txn(db.handle());
+    db.exec(schemaV4());
+    db.setUserVersion(4);
+    txn.commit();
+}
+
+void Store::testingSeedV4Instrument(const std::filesystem::path& path, std::string_view symbol)
+{
+    SqliteDb db(path);
+    db.exec("PRAGMA foreign_keys = ON");
+    if (db.userVersion() != 4)
+    {
+        throw std::runtime_error("testingSeedV4Instrument requires user_version 4");
+    }
+    {
+        SqliteStmt portfolio(db.handle(),
+                             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'portfolio'");
+        if (portfolio.stepRow())
+        {
+            throw std::runtime_error("testingSeedV4Instrument requires no portfolio table");
+        }
+    }
+    const std::string listing_symbol = canonicalListingSymbol(symbol);
+    if (!isTrimmedNonEmpty(listing_symbol))
+    {
+        throw std::runtime_error("listing symbol is empty or untrimmed");
+    }
+    const std::string figi = testingFigiFor(symbol);
+    const UnixSeconds at = nowUtc();
+    SqliteTxn txn(db.handle());
+    SqliteStmt ins_instrument(db.handle(),
+                              "INSERT INTO instrument (figi, asset_class, currency, timezone, created_at) "
+                              "VALUES (?, 'equity', 'USD', 'America/New_York', ?)");
+    ins_instrument.bindText(1, figi);
+    ins_instrument.bindInt64(2, at);
+    ins_instrument.stepDone();
+    const auto id = db.lastInsertRowid();
+    SqliteStmt ins_listing(db.handle(),
+                           "INSERT INTO instrument_listing (instrument_id, symbol, opened_at) "
+                           "VALUES (?, ?, ?)");
+    ins_listing.bindInt64(1, id);
+    ins_listing.bindText(2, listing_symbol);
+    ins_listing.bindInt64(3, at);
+    ins_listing.stepDone();
+    ins_instrument.reset();
+    ins_listing.reset();
+    txn.commit();
 }
 
 InstrumentId Store::testingInsertInstrument(std::string_view symbol, AssetClass asset_class)

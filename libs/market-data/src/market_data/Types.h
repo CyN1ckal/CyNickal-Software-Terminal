@@ -24,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 4;
+inline constexpr int kSchemaUserVersion = 5;
 
 enum class AssetClass : std::uint8_t
 {

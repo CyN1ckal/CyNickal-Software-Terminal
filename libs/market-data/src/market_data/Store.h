@@ -64,6 +64,11 @@ public:
     // Reads the file on its own connection, without migrating. For tests.
     [[nodiscard]] static int testingUserVersion(const std::filesystem::path& path);
     [[nodiscard]] static std::vector<std::string> testingTableNames(const std::filesystem::path& path);
+    // Applies schemaV4() to a user_version 0 file and stamps 4. Does not run schemaV5().
+    static void testingCreateSchemaV4(const std::filesystem::path& path);
+    // One equity (testingFigiFor(symbol)) and an open listing on a version-4 file
+    // that has no portfolio table. Leaves user_version at 4.
+    static void testingSeedV4Instrument(const std::filesystem::path& path, std::string_view symbol);
     // Inserts an equity (or asset_class) row with testingFigiFor(symbol), an open
     // listing, and verified_at = now. For tests that need an instrument and do not
     // care about its FIGI.
