@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "FakeOpenFigi.h"
 #include "TempDb.h"
 #include "catch_amalgamated.hpp"
 #include "market_data/MboumIngest.h"
@@ -10,6 +11,7 @@
 #include "market_data/NyseCalendar.h"
 #include "market_data/Secrets.h"
 #include "market_data/Store.h"
+#include "market_data/Time.h"
 
 #include <filesystem>
 #include <fstream>
@@ -24,6 +26,28 @@ TEST_CASE("loadMboumApiKey reads mboum from secrets.json")
         out << R"({"mboum":"test-key-123"})";
     }
     CHECK(terminal::loadMboumApiKey(path) == "test-key-123");
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("loadOptionalSecret reads openfigi and tolerates its absence")
+{
+    const auto path = std::filesystem::temp_directory_path() / "terminal-secrets-openfigi.json";
+    {
+        std::ofstream out(path);
+        out << R"({"mboum":"m","openfigi":"figi-key"})";
+    }
+    CHECK(terminal::loadOptionalSecret(path, "openfigi") == "figi-key");
+    CHECK_FALSE(terminal::loadOptionalSecret(path, "other").has_value());
+    {
+        std::ofstream out(path);
+        out << R"({"mboum":"m","openfigi":""})";
+    }
+    CHECK_FALSE(terminal::loadOptionalSecret(path, "openfigi").has_value());
+    {
+        std::ofstream out(path);
+        out << R"({"openfigi":5})";
+    }
+    CHECK_THROWS_AS(terminal::loadOptionalSecret(path, "openfigi"), std::runtime_error);
     std::filesystem::remove(path);
 }
 
@@ -157,6 +181,7 @@ TEST_CASE("ingestSymbol maps a v3 page and skips holidays")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     const std::string json = R"({
       "meta": {"splits":"0","status":200},
       "body": [
@@ -172,7 +197,7 @@ TEST_CASE("ingestSymbol maps a v3 page and skips holidays")
         response.body = json;
         return response;
     };
-    const auto result = terminal::ingestSymbol(store, get, "AAPL", 20250101, 20250115);
+    const auto result = terminal::ingestSymbol(store, get, figi.client, "AAPL", 20250101, 20250115);
     CHECK(result.instrument_id > 0);
     bool saw_new_year = false;
     bool saw_session = false;
@@ -195,13 +220,17 @@ TEST_CASE("ingestSymbol maps a v3 page and skips holidays")
     }
     CHECK(saw_new_year);
     CHECK(saw_session);
-    CHECK(store.findInstrument("AAPL", std::nullopt).has_value());
+    const auto aapl = store.findOpenListing("AAPL");
+    REQUIRE(aapl.has_value());
+    CHECK(aapl->figi == terminal::testingFigiFor("AAPL"));
+    CHECK(aapl->verified_at.has_value());
 }
 
 TEST_CASE("ingestSymbol on_day fires once per session row")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 200;
@@ -210,30 +239,28 @@ TEST_CASE("ingestSymbol on_day fires once per session row")
     };
     int calls = 0;
     const auto result = terminal::ingestSymbol(
-        store, get, "MSFT", 20250120, 20250121,
+        store, get, figi.client, "MSFT", 20250120, 20250121,
         [&](const terminal::IngestDayResult&) { ++calls; });
     CHECK(calls == static_cast<int>(result.days.size()));
     CHECK(calls >= 1);
 }
 
-TEST_CASE("ingestSymbol reuses an existing exchange-qualified instrument")
+TEST_CASE("ingestSymbol reuses a verified open listing without calling OpenFIGI")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument inst;
-    inst.symbol = "AAPL";
-    inst.exchange = "NMS";
-    const auto id = store.upsertInstrument(inst);
+    FakeOpenFigiClient figi(true);
+    const auto id = store.testingInsertInstrument("AAPL");
     auto get = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 200;
         response.body = R"({"meta":{"splits":"0","status":200},"body":[]})";
         return response;
     };
-    const auto result = terminal::ingestSymbol(store, get, "AAPL", 20250120, 20250120);
+    const auto result = terminal::ingestSymbol(store, get, figi.client, "AAPL", 20250120, 20250120);
     CHECK(result.instrument_id == id);
-    CHECK(store.findInstrumentsBySymbol("AAPL").size() == 1);
-    CHECK_FALSE(store.findInstrument("AAPL", std::nullopt).has_value());
+    CHECK(store.listInstruments().size() == 1);
+    CHECK(figi.fake.requests == 0);
 }
 
 namespace {
@@ -276,6 +303,7 @@ TEST_CASE("ingestDailySymbol maps a page and writes holiday coverage")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     const auto json = dailyPageJson({20241231, 20250102});
     std::string last_url;
     int gets = 0;
@@ -291,7 +319,7 @@ TEST_CASE("ingestDailySymbol maps a page and writes holiday coverage")
         response.body = json;
         return response;
     };
-    const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 20241231, 20250102);
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 20241231, 20250102);
     CHECK(gets == 2);
     CHECK(last_url.find("interval=daily") != std::string::npos);
     CHECK(last_url.find("startDate=20241231") != std::string::npos);
@@ -323,6 +351,7 @@ TEST_CASE("ingestDailySymbol skips bar HTTP when daily coverage is complete")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [&](std::string_view url) {
         if (isV1SplitsUrl(url))
         {
@@ -333,7 +362,7 @@ TEST_CASE("ingestDailySymbol skips bar HTTP when daily coverage is complete")
         response.body = dailyPageJson({20250115});
         return response;
     };
-    (void)terminal::ingestDailySymbol(store, get, "AAPL", 20250115, 20250115);
+    (void)terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 20250115, 20250115);
     int gets = 0;
     std::string splits_url;
     auto blocked = [&](std::string_view url) {
@@ -341,7 +370,7 @@ TEST_CASE("ingestDailySymbol skips bar HTTP when daily coverage is complete")
         splits_url = std::string(url);
         return emptySplitsHttp();
     };
-    const auto again = terminal::ingestDailySymbol(store, blocked, "AAPL", 20250115, 20250115);
+    const auto again = terminal::ingestDailySymbol(store, blocked, figi.client, "AAPL", 20250115, 20250115);
     CHECK(gets == 1);
     CHECK(splits_url.find("diffandsplits=true") != std::string::npos);
     CHECK(splits_url.find("interval=daily") == std::string::npos);
@@ -352,6 +381,7 @@ TEST_CASE("ingestDailySymbol 404 stops without missing flood")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [](std::string_view url) {
         if (isV1SplitsUrl(url))
         {
@@ -362,7 +392,7 @@ TEST_CASE("ingestDailySymbol 404 stops without missing flood")
         response.body = R"({"message":"No historical data found for the specified criteria"})";
         return response;
     };
-    const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 19800101, 19810115);
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 19800101, 19810115);
     CHECK(result.days.empty());
     CHECK(store.queryCoverageDays(result.instrument_id, terminal::kTimeframe1d).empty());
 }
@@ -371,6 +401,7 @@ TEST_CASE("ingestDailySymbol splits page is error and writes no bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [](std::string_view url) {
         if (isV1SplitsUrl(url))
         {
@@ -381,7 +412,7 @@ TEST_CASE("ingestDailySymbol splits page is error and writes no bars")
         response.body = dailyPageJson({20250115}, true);
         return response;
     };
-    const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 20250115, 20250115);
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 20250115, 20250115);
     CHECK(store.queryBars(result.instrument_id, terminal::kTimeframe1d, 0, 4000000000).empty());
     REQUIRE_FALSE(result.days.empty());
     CHECK(result.days.front().status == terminal::CoverageStatus::Error);
@@ -391,6 +422,7 @@ TEST_CASE("ingestDailySymbol pages oldest-ward when the first page is full")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     const auto sessions = terminal::nyseSessions(20080101, 20250115);
     REQUIRE(sessions.size() > terminal::kMboumDailyPageLimit + 5);
     const std::vector<terminal::SessionDate> page1(
@@ -416,7 +448,7 @@ TEST_CASE("ingestDailySymbol pages oldest-ward when the first page is full")
         }
         return response;
     };
-    const auto result = terminal::ingestDailySymbol(store, get, "AAPL", 20080101, 20250115);
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 20080101, 20250115);
     REQUIRE(urls.size() == 3);
     CHECK(urls.front().find("diffandsplits=true") != std::string::npos);
     CHECK(urls[1].find("endDate=20250115") != std::string::npos);
@@ -426,19 +458,27 @@ TEST_CASE("ingestDailySymbol pages oldest-ward when the first page is full")
     CHECK(bars.size() == static_cast<std::size_t>(terminal::kMboumDailyPageLimit + 5));
 }
 
-TEST_CASE("ingestSymbol fails closed when a symbol has two instruments")
+TEST_CASE("ingestSymbol writes nothing and skips MBoum when OpenFIGI refuses the symbol")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument aapl;
-    aapl.symbol = "AAPL";
-    store.upsertInstrument(aapl);
-    aapl.exchange = "NMS";
-    store.upsertInstrument(aapl);
-    auto get = [](std::string_view) {
+    FakeOpenFigiClient strict;
+    int gets = 0;
+    auto get = [&gets](std::string_view) {
+        ++gets;
         return terminal::HttpResponse{};
     };
-    CHECK_THROWS_AS(terminal::ingestSymbol(store, get, "AAPL", 20250120, 20250120), std::runtime_error);
+    try
+    {
+        (void)terminal::ingestSymbol(store, get, strict.client, "APPL", 20250120, 20250120);
+        FAIL("expected APPL to be refused");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        CHECK(std::string(ex.what()) == "APPL has no US listing in OpenFIGI");
+    }
+    CHECK(gets == 0);
+    CHECK(store.listInstruments().empty());
 }
 
 TEST_CASE("parseMboumV1SplitEvents reads NVDA 10-for-1 and skips bad rows")
@@ -472,12 +512,8 @@ TEST_CASE("ingestSplits writes one split and does not change bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument([] {
-        terminal::Instrument inst;
-        inst.symbol = "NVDA";
-        inst.timezone = "America/New_York";
-        return inst;
-    }());
+    FakeOpenFigiClient figi(true);
+    const auto id = store.testingInsertInstrument("NVDA");
     terminal::Bar bar;
     bar.instrument_id = id;
     bar.timeframe_s = terminal::kTimeframe1d;
@@ -502,14 +538,14 @@ TEST_CASE("ingestSplits writes one split and does not change bars")
         response.body = json;
         return response;
     };
-    const auto first = terminal::ingestSplits(store, get, "NVDA");
+    const auto first = terminal::ingestSplits(store, get, figi.client, "NVDA");
     CHECK(first.upserted == 1);
     CHECK(gets == 1);
     const auto stored = store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000);
     REQUIRE(stored.size() == 1);
     CHECK(stored[0].close == 1208.88);
 
-    const auto again = terminal::ingestSplits(store, get, "NVDA");
+    const auto again = terminal::ingestSplits(store, get, figi.client, "NVDA");
     CHECK(again.upserted == 1);
     const auto rows = store.queryCorporateActions(id, 0, 2000000000);
     REQUIRE(rows.size() == 1);
@@ -528,7 +564,7 @@ TEST_CASE("ingestSplits writes one split and does not change bars")
         response.body = other_ratio;
         return response;
     };
-    const auto blocked = terminal::ingestSplits(store, replace, "NVDA");
+    const auto blocked = terminal::ingestSplits(store, replace, figi.client, "NVDA");
     CHECK(blocked.upserted == 0);
     const auto kept = store.queryCorporateActions(id, 0, 2000000000);
     REQUIRE(kept.size() == 1);
@@ -539,32 +575,34 @@ TEST_CASE("ingestSplits authentication failure throws and writes nothing")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 401;
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestSplits(store, get, "NVDA"), std::runtime_error);
-    const auto found = store.findInstrumentsBySymbol("NVDA");
-    REQUIRE(found.size() == 1);
-    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
+    CHECK_THROWS_AS(terminal::ingestSplits(store, get, figi.client, "NVDA"), std::runtime_error);
+    const auto found = store.findOpenListing("NVDA");
+    REQUIRE(found.has_value());
+    CHECK(store.queryCorporateActions(found->id, 0, 2000000000).empty());
 }
 
 TEST_CASE("ingestSplits transport, HTTP, and parse failures throw and write nothing")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto transport = [](std::string_view) -> terminal::HttpResponse {
         throw std::runtime_error("connection reset");
     };
-    CHECK_THROWS_AS(terminal::ingestSplits(store, transport, "NVDA"), std::runtime_error);
+    CHECK_THROWS_AS(terminal::ingestSplits(store, transport, figi.client, "NVDA"), std::runtime_error);
 
     auto http = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 500;
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestSplits(store, http, "NVDA"), std::runtime_error);
+    CHECK_THROWS_AS(terminal::ingestSplits(store, http, figi.client, "NVDA"), std::runtime_error);
 
     auto parse = [](std::string_view) {
         terminal::HttpResponse response;
@@ -572,29 +610,30 @@ TEST_CASE("ingestSplits transport, HTTP, and parse failures throw and write noth
         response.body = "not-json";
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestSplits(store, parse, "NVDA"), std::runtime_error);
+    CHECK_THROWS_AS(terminal::ingestSplits(store, parse, figi.client, "NVDA"), std::runtime_error);
 
-    const auto found = store.findInstrumentsBySymbol("NVDA");
-    REQUIRE(found.size() == 1);
-    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
-    CHECK(store.queryBars(found.front().id, terminal::kTimeframe1d, 0, 4000000000).empty());
+    const auto found = store.findOpenListing("NVDA");
+    REQUIRE(found.has_value());
+    CHECK(store.queryCorporateActions(found->id, 0, 2000000000).empty());
+    CHECK(store.queryBars(found->id, terminal::kTimeframe1d, 0, 4000000000).empty());
 }
 
 TEST_CASE("ingestDailySymbol propagates a splits fetch failure and writes no bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto get = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 502;
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestDailySymbol(store, get, "AAPL", 20250115, 20250115),
+    CHECK_THROWS_AS(terminal::ingestDailySymbol(store, get, figi.client, "AAPL", 20250115, 20250115),
                     std::runtime_error);
-    const auto found = store.findInstrumentsBySymbol("AAPL");
-    REQUIRE(found.size() == 1);
-    CHECK(store.queryBars(found.front().id, terminal::kTimeframe1d, 0, 4000000000).empty());
-    CHECK(store.queryCorporateActions(found.front().id, 0, 2000000000).empty());
+    const auto found = store.findOpenListing("AAPL");
+    REQUIRE(found.has_value());
+    CHECK(store.queryBars(found->id, terminal::kTimeframe1d, 0, 4000000000).empty());
+    CHECK(store.queryCorporateActions(found->id, 0, 2000000000).empty());
 }
 
 TEST_CASE("parse v2 statement keeps vendor order, typed values, and TTM")
@@ -654,6 +693,7 @@ TEST_CASE("ingestStatement stores yearly and quarterly grids and an empty no-dat
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     const char* annual = R"({
       "body": {"revenue": {"2025-09-27": 10, "2024-09-28": 9}}
     })";
@@ -668,7 +708,7 @@ TEST_CASE("ingestStatement stores yearly and quarterly grids and an empty no-dat
         response.body = annual;
         return response;
     };
-    const auto yearly = terminal::ingestStatement(store, annual_get, "AAPL",
+    const auto yearly = terminal::ingestStatement(store, annual_get, figi.client, "AAPL",
                                                   terminal::StatementKind::Income,
                                                   terminal::StatementTimeframe::Annually);
     CHECK(yearly.cell_count == 2);
@@ -680,7 +720,7 @@ TEST_CASE("ingestStatement stores yearly and quarterly grids and an empty no-dat
         response.body = quarter;
         return response;
     };
-    const auto quarterly = terminal::ingestStatement(store, quarter_get, "AAPL",
+    const auto quarterly = terminal::ingestStatement(store, quarter_get, figi.client, "AAPL",
                                                      terminal::StatementKind::Income,
                                                      terminal::StatementTimeframe::Quarterly);
     CHECK(quarterly.instrument_id == yearly.instrument_id);
@@ -701,7 +741,7 @@ TEST_CASE("ingestStatement stores yearly and quarterly grids and an empty no-dat
         response.body = R"({"success":false,"message":"No data returned"})";
         return response;
     };
-    const auto cleared = terminal::ingestStatement(store, none, "AAPL", terminal::StatementKind::Income,
+    const auto cleared = terminal::ingestStatement(store, none, figi.client, "AAPL", terminal::StatementKind::Income,
                                                    terminal::StatementTimeframe::Quarterly);
     CHECK(cleared.no_data);
     CHECK(cleared.cell_count == 0);
@@ -720,20 +760,21 @@ TEST_CASE("ingestStatement HTTP and parse failures leave the stored grid")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     auto ok = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 200;
         response.body = R"({"body":{"revenue":{"2025-09-27":4}}})";
         return response;
     };
-    const auto first = terminal::ingestStatement(store, ok, "AAPL", terminal::StatementKind::Income,
+    const auto first = terminal::ingestStatement(store, ok, figi.client, "AAPL", terminal::StatementKind::Income,
                                                  terminal::StatementTimeframe::Annually);
     auto http = [](std::string_view) {
         terminal::HttpResponse response;
         response.status = 500;
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestStatement(store, http, "AAPL", terminal::StatementKind::Income,
+    CHECK_THROWS_AS(terminal::ingestStatement(store, http, figi.client, "AAPL", terminal::StatementKind::Income,
                                               terminal::StatementTimeframe::Annually),
                     std::runtime_error);
     auto parse = [](std::string_view) {
@@ -742,11 +783,49 @@ TEST_CASE("ingestStatement HTTP and parse failures leave the stored grid")
         response.body = "not-json";
         return response;
     };
-    CHECK_THROWS_AS(terminal::ingestStatement(store, parse, "AAPL", terminal::StatementKind::Income,
+    CHECK_THROWS_AS(terminal::ingestStatement(store, parse, figi.client, "AAPL", terminal::StatementKind::Income,
                                               terminal::StatementTimeframe::Annually),
                     std::runtime_error);
     const auto kept = store.queryStatementLine(first.instrument_id, terminal::StatementKind::Income,
                                                terminal::StatementTimeframe::Annually, "revenue");
     REQUIRE(kept.size() == 1);
     CHECK(std::get<std::int64_t>(kept[0].value) == 4);
+}
+
+TEST_CASE("ingestDailySymbol resolves identity once and asks MBoum for the stored ticker")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi;
+    terminal::Instrument brk;
+    brk.symbol = "BRK.B";
+    brk.figi = "BBG000DWG505";
+    brk.verified_at = terminal::nowUtc() - (2 * 24 * 60 * 60);  // stale, inside the grace window
+    const auto id = store.insertInstrument(brk);
+    figi.fake.failWith(0);  // each resolution would be a grace pass, which does not bump verified_at
+    const auto json = dailyPageJson({20250102});
+    std::vector<std::string> urls;
+    auto get = [&](std::string_view url) {
+        urls.emplace_back(url);
+        if (isV1SplitsUrl(url))
+        {
+            return emptySplitsHttp();
+        }
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = json;
+        return response;
+    };
+    const auto result = terminal::ingestDailySymbol(store, get, figi.client, "brk/b", 20250102, 20250102);
+    CHECK(result.instrument_id == id);
+    CHECK(result.identity_notice.starts_with("warning: could not confirm BRK.B"));
+    CHECK(figi.fake.requests == 1);  // the split fetch reuses the first resolution
+    REQUIRE(urls.size() == 2);
+    for (const std::string& url : urls)
+    {
+        INFO(url);
+        CHECK(url.find("ticker=BRK.B") != std::string::npos);
+    }
+    CHECK(store.queryBars(id, terminal::kTimeframe1d, 0, 4000000000).size() == 1);
+    CHECK(store.listInstruments().size() == 1);
 }

@@ -217,6 +217,7 @@ void OptionsChainPanel::requestFocus()
 void OptionsChainPanel::importState(const ChartbookOptions& state)
 {
     active_symbol_ = normalizeChartSymbol(state.symbol);
+    active_figi_ = state.figi;
     std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
     expiration_ = 0;
     has_expiration_ = false;
@@ -249,6 +250,7 @@ ChartbookOptions OptionsChainPanel::exportState() const
     ChartbookOptions state;
     state.id = id_;
     state.symbol = active_symbol_;
+    state.figi = active_figi_;
     state.expiration = has_expiration_ ? expiration_ : 0;
     state.expiration_type = has_expiration_ ? std::string(toSql(expiration_type_)) : std::string{};
     return state;
@@ -395,30 +397,23 @@ void OptionsChainPanel::refresh(Store* store, IngestWorker* ingest)
 
     try
     {
-        std::vector<Instrument> found = store->findInstrumentsBySymbol(active_symbol_);
-        if (found.empty() && active_symbol_.front() != '$')
+        std::optional<Instrument> found = resolveChartInstrument(*store, active_figi_, active_symbol_);
+        if (!found.has_value() && active_figi_.empty() && active_symbol_.front() != '$')
         {
-            found = store->findInstrumentsBySymbol("$" + active_symbol_);
-            if (found.size() == 1)
-            {
-                active_symbol_ = found.front().symbol;
-                std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
-            }
+            // The chain endpoint answers SPX with the $SPX index.
+            found = store->resolveSymbol("$" + active_symbol_);
         }
-        if (found.size() > 1)
+        if (found.has_value() && found->figi.has_value())
         {
-            quotes_.clear();
-            expiries_.clear();
-            underlying_.reset();
-            have_slice_ = false;
-            blocked_ = true;
-            loaded_key_ = viewKey();
-            error_ = "multiple instruments named " + active_symbol_;
-            status_ = error_;
-            fetch_now_ = false;
-            return;
+            active_figi_ = *found->figi;
         }
-        if (found.empty())
+        if (found.has_value() && found->listing_open && found->symbol != active_symbol_)
+        {
+            // Renamed since the book was saved, or SPX found as $SPX: show the stored ticker.
+            active_symbol_ = found->symbol;
+            std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
+        }
+        if (!found.has_value())
         {
             quotes_.clear();
             expiries_.clear();
@@ -428,7 +423,7 @@ void OptionsChainPanel::refresh(Store* store, IngestWorker* ingest)
         }
         else
         {
-            const InstrumentId id = found.front().id;
+            const InstrumentId id = found->id;
             expiries_ = store->queryOptionExpiries(id);
             underlying_ = store->findOptionUnderlying(id);
             if (!has_expiration_)
@@ -596,6 +591,7 @@ void OptionsChainPanel::drawToolbar(IngestWorker* ingest)
         const std::string next = normalizeChartSymbol(symbol_);
         if (next != active_symbol_)
         {
+            active_figi_.clear();
             has_expiration_ = false;
             expiration_ = 0;
             expiries_.clear();

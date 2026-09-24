@@ -3,8 +3,10 @@
 
 #include "CurlClient.h"
 #include "IngestDefaults.h"
+#include "OpenFigiSession.h"
 #include "RepoRoot.h"
 
+#include "market_data/Identity.h"
 #include "market_data/MboumIngest.h"
 #include "market_data/NyseCalendar.h"
 #include "market_data/Secrets.h"
@@ -27,7 +29,13 @@ void usage()
 {
     std::cerr << "Usage: ingest [--timeframe 1m|1d] [--from YYYYMMDD] [--to YYYYMMDD] "
                  "[--db PATH] [--secrets PATH] SYMBOL [SYMBOL...]\n"
-                 "Reads the MBoum API key from secrets.json key \"mboum\". Never pass the key on the CLI.\n";
+                 "       ingest [--db PATH] [--secrets PATH] --verify [--all]\n"
+                 "       ingest [--db PATH] --delist SYMBOL\n"
+                 "Reads the MBoum API key from secrets.json key \"mboum\" and the optional OpenFIGI key\n"
+                 "from key \"openfigi\". Never pass a key on the CLI.\n"
+                 "Every symbol is confirmed with OpenFIGI before it is written. --verify re-checks\n"
+                 "stored tickers that are 24 h old or older (--all: every one) and applies renames\n"
+                 "and delistings. --delist closes an open listing by hand.\n";
 }
 
 }  // namespace
@@ -42,6 +50,9 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
         std::optional<terminal::SessionDate> to;
         int timeframe = terminal::kTimeframe1m;
         std::vector<std::string> symbols;
+        bool verify = false;
+        bool verify_all = false;
+        std::optional<std::string> delist;
 
         for (int i = 1; i < argc; ++i)
         {
@@ -85,6 +96,18 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
             {
                 secrets = need("--secrets");
             }
+            else if (arg == "--verify")
+            {
+                verify = true;
+            }
+            else if (arg == "--all")
+            {
+                verify_all = true;
+            }
+            else if (arg == "--delist")
+            {
+                delist = std::string(need("--delist"));
+            }
             else if (arg == "-h" || arg == "--help")
             {
                 usage();
@@ -98,6 +121,52 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
             {
                 symbols.emplace_back(arg);
             }
+        }
+        if (verify_all && !verify)
+        {
+            throw std::runtime_error("--all needs --verify");
+        }
+        if (delist.has_value())
+        {
+            if (verify || !symbols.empty())
+            {
+                throw std::runtime_error("--delist takes one symbol and nothing else");
+            }
+            terminal::Store store(db);
+            const auto open = store.findOpenListing(*delist);
+            if (!open.has_value())
+            {
+                throw std::runtime_error(*delist + " has no open listing");
+            }
+            store.closeListing(open->id, terminal::nowUtc(), terminal::ListingCloseReason::Manual);
+            std::clog << "delisted " << open->symbol << " (" << open->figi.value_or("no FIGI") << ")\n";
+            return 0;
+        }
+        if (verify)
+        {
+            if (!symbols.empty())
+            {
+                throw std::runtime_error("--verify takes no symbols");
+            }
+            std::filesystem::create_directories(db.parent_path());
+            terminal::Store store(db);
+            terminal::OpenFigiSession figi(secrets);
+            const terminal::UnixSeconds now = terminal::nowUtc();
+            const auto ids = terminal::instrumentsDueForVerification(store, now, verify_all);
+            const auto reports = terminal::verifyIdentities(store, figi.client(), now, ids);
+            int failures = 0;
+            for (const terminal::VerifyReport& report : reports)
+            {
+                std::clog << report.symbol << " " << terminal::describe(report) << '\n';
+                if (report.outcome == terminal::VerifyOutcome::Conflict ||
+                    report.outcome == terminal::VerifyOutcome::Unreachable ||
+                    report.outcome == terminal::VerifyOutcome::Unresolved)
+                {
+                    ++failures;
+                }
+            }
+            std::clog << reports.size() << " checked\n";
+            return failures == 0 ? 0 : 1;
         }
         if (symbols.empty())
         {
@@ -127,6 +196,7 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
         terminal::CurlClient http(key);
         std::filesystem::create_directories(db.parent_path());
         terminal::Store store(db);
+        terminal::OpenFigiSession figi(secrets);
 
         for (const auto& symbol : symbols)
         {
@@ -143,8 +213,12 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
                 return http.getWithRetry(url);
             };
             const auto result = timeframe == terminal::kTimeframe1d
-                                    ? terminal::ingestDailySymbol(store, get, symbol, from_date, to_date)
-                                    : terminal::ingestSymbol(store, get, symbol, from_date, to_date);
+                                    ? terminal::ingestDailySymbol(store, get, figi.client(), symbol, from_date, to_date)
+                                    : terminal::ingestSymbol(store, get, figi.client(), symbol, from_date, to_date);
+            if (!result.identity_notice.empty())
+            {
+                std::clog << "  " << result.identity_notice << '\n';
+            }
             for (const auto& day : result.days)
             {
                 std::clog << "  " << day.session_date << " " << terminal::toSql(day.status)

@@ -574,14 +574,14 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ("ingestDailySymbol()", "daily bars + coverage  ·  ingestSplits"),
         ("ingestStatement()", "GET /v1 modules  ·  replaceStatement"),
         ("ingestOptions()", "GET /v3/markets/options"),
-        ("Store", "WAL · migrates to user_version 3"),
+        ("Store", "WAL · FIGI identity · user_version 4"),
         ("replaceStatement()", "one grid  ·  omitted cells are deleted"),
         ("replaceOptionChain()", "one slice  ·  calendar may drop dates"),
-        ("Schema", "schemaV1 + V2 + V3  ·  user_version 3"),
-        ("Adjust", "adjustBarsForSplits  ·  daily charts only"),
-        ("Secrets", "loadMboumApiKey(secrets.json  \"mboum\")"),
+        ("Schema", "schemaV4 baseline  ·  v1–v3 refused"),
+        ("Identity / OpenFigi", "ensureInstrument  ·  verifyIdentities"),
+        ("Secrets", "\"mboum\"  ·  optional \"openfigi\""),
         ("MboumJson / Map", "historical, modules, options  ·  nlohmann"),
-        ("Time / NYSE", "RTH UTC windows  ·  holidays"),
+        ("Adjust / Time / NYSE", "split adjust  ·  RTH windows  ·  holidays"),
     ]
     cw, ch = 256, 62
     for i, (name, detail) in enumerate(cells):
@@ -604,9 +604,8 @@ def draw_figure1(ctx: cairo.Context) -> None:
     private = [
         ("SqliteDb / Stmt / Txn", "no sqlite3.h in apps"),
         ("terminal_sqlite3", "deps/sqlite · THREADSAFE=1"),
-        ("schema/v1.sql", "instrument, bar, coverage, CA"),
-        ("schema/v2.sql", "snapshot and statement_cell"),
-        ("schema/v3.sql", "underlying, expiry, quote"),
+        ("schema/v4.sql", "baseline  ·  instrument_listing"),
+        ("fixtures/openfigi", "recorded OpenFIGI answers"),
     ]
     pw = 200
     for i, (name, detail) in enumerate(private):
@@ -628,7 +627,7 @@ def draw_figure1(ctx: cairo.Context) -> None:
         ctx,
         48,
         1324,
-        "Open applies v1, then v2, then v3 while user_version is behind, then sets user_version = 3.  A newer database is refused.  v1 SQL is not altered.",
+        "An empty file runs v4.sql and is stamped 4.  Files stamped 1 to 3 are refused with the reset message.  A newer database is refused.",
         10,
         color=MUTED,
     )
@@ -652,9 +651,10 @@ def draw_figure1(ctx: cairo.Context) -> None:
         (342, "Dear ImGui", "«library»  deps/imgui  ·  docking", EXT_FILL, EXT_HEAD),
         (404, "ImPlot v1.0", "«library»  deps/implot  ·  no PlotCandlestick", EXT_FILL, EXT_HEAD),
         (466, "libcurl", "«library»  CURL::libcurl", EXT_FILL, EXT_HEAD),
-        (542, "api.mboum.com", "«service»  historical, modules, options", EXT_FILL, EXT_HEAD),
-        (618, "secrets.json", "«artifact»  gitignored  ·  key mboum", PANEL_FILL, PANEL_HEAD),
-        (694, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 3", PANEL_FILL, PANEL_HEAD),
+        (528, "api.mboum.com", "«service»  historical, modules, options", EXT_FILL, EXT_HEAD),
+        (590, "api.openfigi.com", "«service»  POST /v3/mapping  ·  ticker ↔ FIGI", EXT_FILL, EXT_HEAD),
+        (652, "secrets.json", "«artifact»  gitignored  ·  mboum, openfigi", PANEL_FILL, PANEL_HEAD),
+        (714, "data/market-data.sqlite", "«artifact»  WAL  ·  schema user_version 4", PANEL_FILL, PANEL_HEAD),
         (786, "Catch2 tests", "option_tests · statement_tests · chart_*", PANEL_FILL, PANEL_HEAD),
         (848, "clang-tidy", "first-party TUs  ·  warnings as errors", PANEL_FILL, PANEL_HEAD),
     ]
@@ -669,13 +669,14 @@ def draw_figure1(ctx: cairo.Context) -> None:
         (369, "ImGuiLayer"),
         (431, "CChartPlot"),
         (493, "CurlClient"),
-        (569, "HTTPS"),
-        (645, "Secrets"),
-        (721, "Store"),
+        (555, "HTTPS"),
+        (617, "HTTPS POST"),
+        (679, "Secrets"),
+        (741, "Store"),
     ]
     for ay, label in arrows:
-        dashed = label != "HTTPS"
-        color = ASYNC if label == "HTTPS" else SYNC
+        dashed = not label.startswith("HTTPS")
+        color = ASYNC if label.startswith("HTTPS") else SYNC
         line_arrow(ctx, gutter_x1, ay, gutter_x2, ay, color, dashed=dashed)
         draw_text(ctx, (gutter_x1 + gutter_x2) / 2, ay - 5, label, 8.5, italic=True, color=color, align="center")
 
@@ -690,14 +691,17 @@ def draw_figure1(ctx: cairo.Context) -> None:
             "GUI Readers: InventoryPanel, ChartbookHost.",
             "Separate connections. busy_timeout = 0.",
             "InventoryPanel's ctor opens a Writer, which",
-            "migrates to user_version 3, then closes it.",
+            "creates schema v4, then closes it.",
             "IngestWorker opens its own Writer (5000 ms).",
             "ChartbookHost's Reader serves chart panes,",
             "financials, and option chains.",
             "A busy coverage read leaves the DATA rows in place.",
             "",
-            "Who calls MBoum",
+            "Who calls MBoum and OpenFIGI",
             "No pane calls HTTP. Each GO enqueues a job.",
+            "Bars, splits, and statements confirm the ticker",
+            "with OpenFIGI before calling MBoum. Options",
+            "confirm after the chain GET, before any write.",
             "Bars call ingestSymbol or ingestDailySymbol.",
             "Statements call ingestStatement.",
             "Option chains call ingestOptions.",
@@ -812,7 +816,7 @@ def draw_figure2(ctx: cairo.Context) -> None:
     call(0, 1, y[0], "1  GO(symbol, from, to)", asyn=True)
     call(1, 2, y[1], "2  enqueue(Job)  «async»", asyn=True)
     call(2, 3, y[2], "3  ingestSymbol(store, get, range, on_day)")
-    call(3, 5, y[3], "4  ensureInstrument  (fail if symbol matches >1)")
+    call(3, 5, y[3], "4  ensureInstrument  (OpenFIGI when new or 24 h stale)")
     self_call(3, y[4] - 10, 18, "5  NYSE walk: holiday → complete 0/0; skip complete")
     call(3, 4, y[5], "6  get(v3 historical URL)")
     call(4, 7, y[6], "7  HTTPS GET + Bearer  ·  retry 0/429/5xx  ·  80 ms")
@@ -851,7 +855,7 @@ def draw_figure2(ctx: cairo.Context) -> None:
             "Store modes",
             "Writer: ingest CLI and IngestWorker thread.",
             "Readers: DATA, plus charts, financials, and chains.",
-            "Writer migrate applies v1, then v2, then v3 (user_version 3).",
+            "Writer creates schema v4; v1 to v3 files are refused.",
         ],
     )
     note_box(
@@ -1181,12 +1185,12 @@ def draw_figure5(ctx: cairo.Context) -> None:
 
 def draw_figure6(ctx: cairo.Context) -> None:
     y0 = 3984
-    draw_text(ctx, 28, y0, "Figure 6.  Market-data store  (schema v3)", 13.5, True)
+    draw_text(ctx, 28, y0, "Figure 6.  Market-data store  (schema v4)", 13.5, True)
     draw_text(
         ctx,
         28,
         y0 + 18,
-        "SQLite WAL at data/market-data.sqlite.  kSchemaUserVersion = 3.  Bars stay as-traded.  Statements and option chains are further tables in the same Store.",
+        "SQLite WAL at data/market-data.sqlite.  kSchemaUserVersion = 4.  Bars stay as-traded.  Statements and option chains are further tables in the same Store.",
         11,
         color=MUTED,
     )
@@ -1198,10 +1202,10 @@ def draw_figure6(ctx: cairo.Context) -> None:
         220,
         86,
         "instrument",
-        "«table» v1",
+        "«table» v4",
         PANEL_FILL,
         PANEL_HEAD,
-        ["PK id  ·  symbol + exchange", "ON DELETE RESTRICT to children"],
+        ["PK id  ·  composite FIGI when present", "open symbol in instrument_listing"],
         head_h=22,
     )
     inner(
@@ -1409,10 +1413,10 @@ def draw_figure6(ctx: cairo.Context) -> None:
         560,
         108,
         [
-            "Migrate",
-            "An empty file, a v1 file, or a v2 file migrates forward.",
-            "v3.sql runs when user_version < 3, then the version is set to 3.",
-            "user_version > 3 is refused.  v1 tables are not ALTERed.",
+            "Open",
+            "An empty file runs v4.sql, the baseline, and is stamped 4.",
+            "Files stamped 1 to 3 predate the FIGI identity and are refused.",
+            "user_version > 4 is refused.  v4.sql is frozen; v5 migrates.",
             "Studies are not rows in this database.",
         ],
     )
@@ -1566,7 +1570,7 @@ def draw_figure7(ctx: cairo.Context) -> None:
         112,
         [
             "Guards",
-            "More than one instrument with that symbol blocks the fetch.",
+            "A stored FIGI wins over the symbol; a renamed ticker follows.",
             "A busy or locked read sets needs_reload_ and keeps a same-key sheet.",
             "ChartbookHost passes its Reader and InventoryPanel's worker.",
             "The saved sheet is symbol, statement, and timeframe.",

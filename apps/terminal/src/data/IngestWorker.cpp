@@ -4,6 +4,7 @@
 #include "data/IngestWorker.h"
 
 #include "CurlClient.h"
+#include "OpenFigiSession.h"
 
 #include "market_data/MboumIngest.h"
 #include "market_data/Secrets.h"
@@ -119,6 +120,7 @@ void IngestWorker::run()
     {
         Store store(db_path_, StoreMode::Writer);
         std::unique_ptr<CurlClient> http;
+        std::unique_ptr<OpenFigiSession> figi;
         for (;;)
         {
             Job job;
@@ -151,7 +153,11 @@ void IngestWorker::run()
                 {
                     http = std::make_unique<CurlClient>(loadMboumApiKey(secrets_path_));
                 }
-                runJob(store, *http, job);
+                if (!figi)
+                {
+                    figi = std::make_unique<OpenFigiSession>(secrets_path_);
+                }
+                std::string notice = runJob(store, *http, figi->client(), job);
                 const std::scoped_lock<std::mutex> lock(mu_);
                 running_valid_ = false;
                 snap_.finished_serial = job.serial;
@@ -159,7 +165,11 @@ void IngestWorker::run()
                 snap_.queued = static_cast<int>(jobs_.size());
                 snap_.dirty = true;
                 snap_.error.clear();
-                if (!snap_.running)
+                if (!notice.empty())
+                {
+                    snap_.message = std::move(notice);
+                }
+                else if (!snap_.running)
                 {
                     snap_.message = "idle";
                 }
@@ -193,7 +203,7 @@ void IngestWorker::run()
     }
 }
 
-void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
+std::string IngestWorker::runJob(Store& store, CurlClient& http, OpenFigiClient& figi, const Job& job)
 {
     bool first = true;
     auto get = [&](std::string_view url) {
@@ -220,8 +230,7 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
             const std::scoped_lock<std::mutex> lock(mu_);
             snap_.message = job.symbol + " options " + when;
         }
-        (void)ingestOptions(store, get, job.symbol, job.option_expiration);
-        return;
+        return ingestOptions(store, get, figi, job.symbol, job.option_expiration).identity_notice;
     }
     if (job.statements)
     {
@@ -230,22 +239,17 @@ void IngestWorker::runJob(Store& store, CurlClient& http, const Job& job)
             snap_.message = job.symbol + " " + std::string(toSql(job.statement)) + " " +
                             std::string(toSql(job.statement_timeframe));
         }
-        (void)ingestStatement(store, get, job.symbol, job.statement, job.statement_timeframe);
-        return;
+        return ingestStatement(store, get, figi, job.symbol, job.statement, job.statement_timeframe).identity_notice;
     }
     if (job.splits_only)
     {
-        (void)ingestSplits(store, get, job.symbol);
-        return;
+        return ingestSplits(store, get, figi, job.symbol).identity_notice;
     }
     if (job.timeframe_s == kTimeframe1d)
     {
-        (void)ingestDailySymbol(store, get, job.symbol, job.from, job.to, on_day);
+        return ingestDailySymbol(store, get, figi, job.symbol, job.from, job.to, on_day).identity_notice;
     }
-    else
-    {
-        (void)ingestSymbol(store, get, job.symbol, job.from, job.to, on_day);
-    }
+    return ingestSymbol(store, get, figi, job.symbol, job.from, job.to, on_day).identity_notice;
 }
 
 }  // namespace terminal

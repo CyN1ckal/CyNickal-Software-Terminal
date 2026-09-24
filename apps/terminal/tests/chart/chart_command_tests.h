@@ -165,3 +165,21 @@ TEST_CASE("chartDownloadWindow is 1m for intraday and 1d for a daily chart")
         terminal::toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{daily_lookback});
     CHECK(daily.from == daily_from);
 }
+
+TEST_CASE("parseChartCommand accepts one leading $ for an index")
+{
+    using terminal::ChartBarPeriod;
+    using terminal::ChartCommandKind;
+
+    const auto spx = terminal::parseChartCommand("$spx", ChartBarPeriod::Day1);
+    CHECK(spx.kind == ChartCommandKind::Symbol);
+    CHECK(spx.symbol == "$SPX");
+    const auto slashed = terminal::parseChartCommand("/$VIX", ChartBarPeriod::Day1);
+    CHECK(slashed.kind == ChartCommandKind::Symbol);
+    CHECK(slashed.symbol == "$VIX");
+    for (const char* bad : {"$", "$$SPX", "S$PX", "$1SPX", "$SPX$"})
+    {
+        INFO(bad);
+        CHECK(terminal::parseChartCommand(bad, ChartBarPeriod::Day1).kind == ChartCommandKind::Rejected);
+    }
+}

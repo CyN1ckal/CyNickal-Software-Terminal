@@ -1,0 +1,9 @@
+[{"idType":"TICKER","idValue":"AAPL","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"QQQ","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"BRK/B","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"META","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"FB","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"APPL","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"SPX","marketSecDes":"Index"},
+{"idType":"TICKER","idValue":"BRK.B","exchCode":"US","marketSecDes":"Equity"},
+{"idType":"TICKER","idValue":"BRK-B","exchCode":"US","marketSecDes":"Equity"}]

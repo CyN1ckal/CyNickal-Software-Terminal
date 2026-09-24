@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "FakeOpenFigi.h"
 #include "TempDb.h"
 #include "catch_amalgamated.hpp"
 #include "market_data/MboumIngest.h"
@@ -399,9 +400,7 @@ TEST_CASE("option chain replace keeps the other slice and drops a date the calen
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    terminal::Instrument instrument;
-    instrument.symbol = "AAPL";
-    const auto id = store.upsertInstrument(instrument);
+    const auto id = store.testingInsertInstrument("AAPL");
 
     terminal::OptionQuote call;
     call.instrument_id = id;
@@ -487,6 +486,7 @@ TEST_CASE("ingestOptions stores the vendor symbol and leaves an unknown ticker u
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
     constexpr std::string_view chain = R"({
       "meta": {"expirations": {"weekly": ["2026-09-25"], "monthly": ["2026-10-16", "2026-09-25"]}},
       "body": {
@@ -562,14 +562,14 @@ TEST_CASE("ingestOptions stores the vendor symbol and leaves an unknown ticker u
         response.body = chain;
         return response;
     };
-    const auto stored = terminal::ingestOptions(store, get, "SPX", 20260925);
+    const auto stored = terminal::ingestOptions(store, get, figi.client, "SPX", 20260925);
     CHECK(stored.symbol == "$SPX");
     CHECK(stored.quote_count == 2);
     CHECK_FALSE(stored.no_data);
-    const auto instrument = store.findInstrument("$SPX");
+    const auto instrument = store.findOpenListing("$SPX");
     REQUIRE(instrument.has_value());
     CHECK(instrument->asset_class == terminal::AssetClass::Index);
-    CHECK(store.findInstrument("SPX") == std::nullopt);
+    CHECK(store.findOpenListing("SPX") == std::nullopt);
     const auto weekly = store.queryOptionQuotes(instrument->id, 20260925, terminal::OptionExpirationType::Weekly);
     const auto monthly = store.queryOptionQuotes(instrument->id, 20260925, terminal::OptionExpirationType::Monthly);
     REQUIRE(weekly.size() == 1);
@@ -588,9 +588,9 @@ TEST_CASE("ingestOptions stores the vendor symbol and leaves an unknown ticker u
         response.body = R"({"meta":{"expirations":[]},"body":[]})";
         return response;
     };
-    const auto none = terminal::ingestOptions(store, missing, "ZZZZ");
+    const auto none = terminal::ingestOptions(store, missing, figi.client, "ZZZZ");
     CHECK(none.no_data);
-    CHECK(store.findInstrument("ZZZZ") == std::nullopt);
+    CHECK(store.findOpenListing("ZZZZ") == std::nullopt);
     CHECK(store.queryOptionQuotes(instrument->id, 20260925, terminal::OptionExpirationType::Weekly).size() == 1);
 }
 

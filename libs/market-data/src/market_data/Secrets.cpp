@@ -11,24 +11,30 @@
 
 namespace terminal {
 
-std::string loadMboumApiKey(const std::filesystem::path& secrets_path)
+namespace {
+
+[[nodiscard]] nlohmann::json readSecrets(const std::filesystem::path& secrets_path)
 {
     std::ifstream in(secrets_path);
     if (!in)
     {
         throw std::runtime_error("cannot open secrets file: " + secrets_path.string());
     }
-
-    nlohmann::json root;
     try
     {
-        root = nlohmann::json::parse(in);
+        return nlohmann::json::parse(in);
     }
     catch (const nlohmann::json::parse_error& ex)
     {
         throw std::runtime_error(std::string("invalid secrets.json: ") + ex.what());
     }
+}
 
+}  // namespace
+
+std::string loadMboumApiKey(const std::filesystem::path& secrets_path)
+{
+    const nlohmann::json root = readSecrets(secrets_path);
     if (!root.is_object() || !root.contains("mboum"))
     {
         throw std::runtime_error("JSON object missing \"mboum\"");
@@ -44,6 +50,30 @@ std::string loadMboumApiKey(const std::filesystem::path& secrets_path)
         throw std::runtime_error("secrets.json \"mboum\" is empty");
     }
     return key;
+}
+
+std::optional<std::string> loadOptionalSecret(const std::filesystem::path& secrets_path, std::string_view key)
+{
+    const nlohmann::json root = readSecrets(secrets_path);
+    if (!root.is_object())
+    {
+        throw std::runtime_error("secrets.json is not a JSON object");
+    }
+    const auto it = root.find(std::string(key));
+    if (it == root.end() || it->is_null())
+    {
+        return std::nullopt;
+    }
+    if (!it->is_string())
+    {
+        throw std::runtime_error("JSON key \"" + std::string(key) + "\" is not a string");
+    }
+    std::string value = it->get<std::string>();
+    if (value.empty())
+    {
+        return std::nullopt;
+    }
+    return value;
 }
 
 }  // namespace terminal

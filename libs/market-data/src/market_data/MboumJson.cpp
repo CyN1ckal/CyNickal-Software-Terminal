@@ -321,6 +321,28 @@ MboumV3Page parseMboumV3Historical(std::string_view json)
     }
 }
 
+namespace {
+
+// Tickers go into query strings: $SPX becomes %24SPX. MBoum accepts either form.
+void appendEncodedQuery(std::string& url, std::string_view value)
+{
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (const char raw : value)
+    {
+        const auto ch = static_cast<unsigned char>(raw);
+        if (std::isalnum(ch) != 0 || ch == '-' || ch == '_' || ch == '.' || ch == '~')
+        {
+            url.push_back(static_cast<char>(ch));
+            continue;
+        }
+        url.push_back('%');
+        url.push_back(hex[ch >> 4]);
+        url.push_back(hex[ch & 0x0F]);
+    }
+}
+
+}  // namespace
+
 std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_date)
 {
     const int y = session_date / 10000;
@@ -331,7 +353,7 @@ std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_da
     std::snprintf(start, sizeof(start), "%04d%02d%02d093000", y, m, d);
     std::snprintf(end, sizeof(end), "%04d%02d%02d160000", y, m, d);
     std::string url = "https://api.mboum.com/v3/markets/historical?ticker=";
-    url.append(ticker);
+    appendEncodedQuery(url, ticker);
     url += "&interval=1min&limit=400&startDate=";
     url += start;
     url += "&endDate=";
@@ -405,7 +427,7 @@ std::string mboumV3DailyUrl(std::string_view ticker, SessionDate from, SessionDa
     std::snprintf(start, sizeof(start), "%04d%02d%02d", fy, fm, fd);
     std::snprintf(end, sizeof(end), "%04d%02d%02d", ty, tm, td);
     std::string url = "https://api.mboum.com/v3/markets/historical?ticker=";
-    url.append(ticker);
+    appendEncodedQuery(url, ticker);
     url += "&interval=daily&limit=";
     url += std::to_string(limit);
     url += "&startDate=";
@@ -490,7 +512,7 @@ std::vector<MboumV1SplitEvent> parseMboumV1SplitEvents(std::string_view json)
 std::string mboumV1SplitsUrl(std::string_view ticker)
 {
     std::string url = "https://api.mboum.com/v1/markets/stock/history?ticker=";
-    url.append(ticker);
+    appendEncodedQuery(url, ticker);
     url += "&interval=1mo&diffandsplits=true";
     return url;
 }
@@ -513,7 +535,7 @@ std::string mboumV2StatementUrl(std::string_view ticker,
                                 StatementTimeframe timeframe)
 {
     std::string url = "https://api.mboum.com/v1/markets/stock/modules?ticker=";
-    url.append(ticker);
+    appendEncodedQuery(url, ticker);
     url += "&module=";
     url.append(statementModule(statement));
     url += "&timeframe=";
@@ -925,23 +947,6 @@ void appendCalendar(const nlohmann::json& list,
     created.expiration_type = type;
     groups.push_back(std::move(created));
     return groups.back();
-}
-
-void appendEncodedQuery(std::string& url, std::string_view value)
-{
-    constexpr char hex[] = "0123456789ABCDEF";
-    for (const char raw : value)
-    {
-        const auto ch = static_cast<unsigned char>(raw);
-        if (std::isalnum(ch) != 0 || ch == '-' || ch == '_' || ch == '.' || ch == '~')
-        {
-            url.push_back(static_cast<char>(ch));
-            continue;
-        }
-        url.push_back('%');
-        url.push_back(hex[ch >> 4]);
-        url.push_back(hex[ch & 0x0F]);
-    }
 }
 
 }  // namespace

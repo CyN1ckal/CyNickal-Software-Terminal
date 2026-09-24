@@ -3,6 +3,7 @@
 
 #include "market_data/MboumIngest.h"
 
+#include "market_data/Identity.h"
 #include "market_data/MboumJson.h"
 #include "market_data/MboumMap.h"
 #include "market_data/NyseCalendar.h"
@@ -49,25 +50,6 @@ void writeHttpError(Store& store, InstrumentId id, SessionDate session_date)
     row.source = "mboum";
     row.ingested_at = nowUtc();
     store.upsertCoverage(row);
-}
-
-[[nodiscard]] InstrumentId ensureInstrument(Store& store, std::string_view symbol)
-{
-    const auto found = store.findInstrumentsBySymbol(symbol);
-    if (found.size() > 1)
-    {
-        throw std::runtime_error("multiple instruments named " + std::string(symbol));
-    }
-    if (found.size() == 1)
-    {
-        return found.front().id;
-    }
-    Instrument inst;
-    inst.symbol = std::string(symbol);
-    inst.asset_class = AssetClass::Equity;
-    inst.currency = "USD";
-    inst.timezone = "America/New_York";
-    return store.upsertInstrument(inst);
 }
 
 [[nodiscard]] SessionDate dayBefore(SessionDate date)
@@ -161,10 +143,98 @@ void emitCoverageDays(const std::vector<CoverageDay>& rows,
     }
 }
 
+// Split events for an instrument ensureInstrument already resolved. The request uses the
+// stored ticker, so a caller's lowercase or slash spelling never reaches MBoum.
+[[nodiscard]] int ingestSplitsFor(Store& store, const HttpGet& get, const Instrument& instrument)
+{
+    int upserted = 0;
+    HttpResponse http;
+    try
+    {
+        http = get(mboumV1SplitsUrl(instrument.symbol));
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum splits request failed: ") + ex.what());
+    }
+    if (http.status == 401 || http.status == 403)
+    {
+        throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+    if (http.status != 200)
+    {
+        throw std::runtime_error("MBoum splits request failed (HTTP " + std::to_string(http.status) +
+                                 ")");
+    }
+
+    std::vector<MboumV1SplitEvent> events;
+    try
+    {
+        events = parseMboumV1SplitEvents(http.body);
+    }
+    catch (const std::exception& ex)
+    {
+        throw std::runtime_error(std::string("MBoum splits parse failed: ") + ex.what());
+    }
+
+    for (const MboumV1SplitEvent& event : events)
+    {
+        const UnixSeconds from_ex = event.ex_ts > 0 ? event.ex_ts - 1 : event.ex_ts;
+        const std::vector<CorporateAction> existing =
+            store.queryCorporateActions(instrument.id, from_ex, event.ex_ts);
+        bool blocked = false;
+        for (const CorporateAction& row : existing)
+        {
+            if (row.type != CorporateActionType::Split || row.ex_ts != event.ex_ts)
+            {
+                continue;
+            }
+            const double stored = row.split_ratio.value_or(0.0);
+            if (stored != event.split_ratio)
+            {
+                blocked = true;
+            }
+            break;
+        }
+        if (blocked)
+        {
+            continue;
+        }
+        CorporateAction action;
+        action.instrument_id = instrument.id;
+        action.ex_ts = event.ex_ts;
+        action.type = CorporateActionType::Split;
+        action.split_ratio = event.split_ratio;
+        action.source = "mboum";
+        store.upsertCorporateAction(action);
+        ++upserted;
+    }
+    return upserted;
+}
+
+// ensureInstrument, then the stored row. MBoum requests use instrument.symbol, which is
+// the canonical spelling of the ticker that was just confirmed.
+[[nodiscard]] Instrument resolveForIngest(Store& store,
+                                          OpenFigiClient& figi,
+                                          std::string_view symbol,
+                                          std::string& notice)
+{
+    ResolvedInstrument resolved = ensureInstrument(store, figi, symbol, nowUtc());
+    notice = std::move(resolved.notice);
+    auto instrument = store.findInstrumentById(resolved.id);
+    if (!instrument.has_value())
+    {
+        throw std::runtime_error("instrument missing after upsert");
+    }
+    return *std::move(instrument);
+}
+
 }  // namespace
 
 IngestSymbolResult ingestSymbol(Store& store,
                                 const HttpGet& get,
+                                OpenFigiClient& figi,
                                 std::string_view symbol,
                                 SessionDate from,
                                 SessionDate to,
@@ -175,12 +245,9 @@ IngestSymbolResult ingestSymbol(Store& store,
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestSymbolResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
-    const auto inst = store.findInstrumentById(result.instrument_id);
-    if (!inst.has_value())
-    {
-        throw std::runtime_error("instrument missing after upsert");
-    }
+    const Instrument resolved = resolveForIngest(store, figi, symbol, result.identity_notice);
+    const Instrument* const inst = &resolved;
+    result.instrument_id = resolved.id;
 
     auto emit = [&](const IngestDayResult& day) {
         result.days.push_back(day);
@@ -225,7 +292,7 @@ IngestSymbolResult ingestSymbol(Store& store,
         }
 
         const bool still_open = sessionStillOpen(inst->timezone, session_date, nowUtc());
-        const std::string url = mboumV3HistoricalUrl(symbol, session_date);
+        const std::string url = mboumV3HistoricalUrl(inst->symbol, session_date);
         HttpResponse http;
         try
         {
@@ -323,6 +390,7 @@ IngestSymbolResult ingestSymbol(Store& store,
 
 IngestSymbolResult ingestDailySymbol(Store& store,
                                      const HttpGet& get,
+                                     OpenFigiClient& figi,
                                      std::string_view symbol,
                                      SessionDate from,
                                      SessionDate to,
@@ -337,16 +405,12 @@ IngestSymbolResult ingestDailySymbol(Store& store,
         throw std::runtime_error("ingest from is after to");
     }
     IngestSymbolResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
-    const auto found = store.findInstrumentById(result.instrument_id);
-    if (!found.has_value())
-    {
-        throw std::runtime_error("instrument missing after upsert");
-    }
-    const Instrument& inst = *found;
+    const Instrument inst = resolveForIngest(store, figi, symbol, result.identity_notice);
+    result.instrument_id = inst.id;
     const UnixSeconds now = nowUtc();
     // Split events are independent of bar coverage. A complete daily range still needs this fetch.
-    (void)ingestSplits(store, get, symbol);
+    // They use the instrument resolved above; resolving again could pick a different id.
+    (void)ingestSplitsFor(store, get, inst);
 
     if (dailyRangeIsComplete(store, result.instrument_id, inst.timezone, from, to, now))
     {
@@ -372,7 +436,7 @@ IngestSymbolResult ingestDailySymbol(Store& store,
     SessionDate end = to;
     while (end >= from)
     {
-        const std::string url = mboumV3DailyUrl(symbol, from, end);
+        const std::string url = mboumV3DailyUrl(inst.symbol, from, end);
         HttpResponse http;
         try
         {
@@ -463,82 +527,22 @@ IngestSymbolResult ingestDailySymbol(Store& store,
     return result;
 }
 
-IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, std::string_view symbol)
+IngestSplitsResult ingestSplits(Store& store, const HttpGet& get, OpenFigiClient& figi, std::string_view symbol)
 {
     if (symbol.empty())
     {
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestSplitsResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
-
-    HttpResponse http;
-    try
-    {
-        http = get(mboumV1SplitsUrl(symbol));
-    }
-    catch (const std::exception& ex)
-    {
-        throw std::runtime_error(std::string("MBoum splits request failed: ") + ex.what());
-    }
-    if (http.status == 401 || http.status == 403)
-    {
-        throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) +
-                                 ")");
-    }
-    if (http.status != 200)
-    {
-        throw std::runtime_error("MBoum splits request failed (HTTP " + std::to_string(http.status) +
-                                 ")");
-    }
-
-    std::vector<MboumV1SplitEvent> events;
-    try
-    {
-        events = parseMboumV1SplitEvents(http.body);
-    }
-    catch (const std::exception& ex)
-    {
-        throw std::runtime_error(std::string("MBoum splits parse failed: ") + ex.what());
-    }
-
-    for (const MboumV1SplitEvent& event : events)
-    {
-        const UnixSeconds from_ex = event.ex_ts > 0 ? event.ex_ts - 1 : event.ex_ts;
-        const std::vector<CorporateAction> existing =
-            store.queryCorporateActions(result.instrument_id, from_ex, event.ex_ts);
-        bool blocked = false;
-        for (const CorporateAction& row : existing)
-        {
-            if (row.type != CorporateActionType::Split || row.ex_ts != event.ex_ts)
-            {
-                continue;
-            }
-            const double stored = row.split_ratio.value_or(0.0);
-            if (stored != event.split_ratio)
-            {
-                blocked = true;
-            }
-            break;
-        }
-        if (blocked)
-        {
-            continue;
-        }
-        CorporateAction action;
-        action.instrument_id = result.instrument_id;
-        action.ex_ts = event.ex_ts;
-        action.type = CorporateActionType::Split;
-        action.split_ratio = event.split_ratio;
-        action.source = "mboum";
-        store.upsertCorporateAction(action);
-        ++result.upserted;
-    }
+    const Instrument instrument = resolveForIngest(store, figi, symbol, result.identity_notice);
+    result.instrument_id = instrument.id;
+    result.upserted = ingestSplitsFor(store, get, instrument);
     return result;
 }
 
 IngestStatementResult ingestStatement(Store& store,
                                       const HttpGet& get,
+                                      OpenFigiClient& figi,
                                       std::string_view symbol,
                                       StatementKind statement,
                                       StatementTimeframe timeframe)
@@ -548,12 +552,13 @@ IngestStatementResult ingestStatement(Store& store,
         throw std::runtime_error("ingest symbol is empty");
     }
     IngestStatementResult result;
-    result.instrument_id = ensureInstrument(store, symbol);
+    const Instrument instrument = resolveForIngest(store, figi, symbol, result.identity_notice);
+    result.instrument_id = instrument.id;
 
     HttpResponse http;
     try
     {
-        http = get(mboumV2StatementUrl(symbol, statement, timeframe));
+        http = get(mboumV2StatementUrl(instrument.symbol, statement, timeframe));
     }
     catch (const std::exception& ex)
     {
@@ -617,29 +622,11 @@ namespace {
     return !base.empty() && base.front() == '$' && base.substr(1) == requested;
 }
 
-[[nodiscard]] InstrumentId ensureOptionInstrument(Store& store, std::string_view symbol)
-{
-    const auto found = store.findInstrumentsBySymbol(symbol);
-    if (found.size() > 1)
-    {
-        throw std::runtime_error("multiple instruments named " + std::string(symbol));
-    }
-    if (found.size() == 1)
-    {
-        return found.front().id;
-    }
-    Instrument inst;
-    inst.symbol = std::string(symbol);
-    inst.asset_class = !symbol.empty() && symbol.front() == '$' ? AssetClass::Index : AssetClass::Equity;
-    inst.currency = "USD";
-    inst.timezone = "America/New_York";
-    return store.upsertInstrument(inst);
-}
-
 }  // namespace
 
 IngestOptionsResult ingestOptions(Store& store,
                                   const HttpGet& get,
+                                  OpenFigiClient& figi,
                                   std::string_view symbol,
                                   SessionDate expiration)
 {
@@ -688,7 +675,11 @@ IngestOptionsResult ingestOptions(Store& store,
         throw std::runtime_error("MBoum options underlying does not match " + std::string(symbol));
     }
     result.symbol = canonical;
-    result.instrument_id = ensureOptionInstrument(store, canonical);
+    {
+        ResolvedInstrument resolved = ensureInstrument(store, figi, canonical, nowUtc());
+        result.instrument_id = resolved.id;
+        result.identity_notice = std::move(resolved.notice);
+    }
 
     const UnixSeconds fetched_at = nowUtc();
     OptionChainWrite write;

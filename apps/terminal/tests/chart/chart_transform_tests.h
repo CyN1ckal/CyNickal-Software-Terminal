@@ -72,7 +72,7 @@ terminal::Instrument aaplInstrument()
 {
     terminal::Instrument inst;
     inst.symbol = "AAPL";
-    inst.exchange = std::string{"NMS"};
+    inst.figi = "BBG000B9XRY4";
     inst.timezone = "America/New_York";
     return inst;
 }
@@ -376,7 +376,7 @@ TEST_CASE("transform does not persist higher-timeframe rows")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(aaplInstrument());
+    const auto id = store.insertInstrument(aaplInstrument());
     ingestMinutes(store, id, 20250115, 5);
 
     const auto loaded = store.queryBars(id, terminal::kTimeframe1m, 0, 4'000'000'000);
@@ -391,7 +391,7 @@ TEST_CASE("loadChartBars Minute5 composites the 1-minute snapshot")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(aaplInstrument());
+    const auto id = store.insertInstrument(aaplInstrument());
     ingestMinutes(store, id, 20250115, 5);
 
     terminal::CChartSettings settings;
@@ -410,7 +410,7 @@ TEST_CASE("loadChartBars Minute5 still skips 0-bar holidays")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(aaplInstrument());
+    const auto id = store.insertInstrument(aaplInstrument());
     ingestMinutes(store, id, 20250113, 5);
     ingestMinutes(store, id, 20250114, 5);
     const auto holiday = store.ingestSession({}, id, terminal::kTimeframe1m, 20250115, 0);
@@ -434,7 +434,7 @@ TEST_CASE("loadChartBars Day1 ignores 1m rows until daily bars exist")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(aaplInstrument());
+    const auto id = store.insertInstrument(aaplInstrument());
     ingestMinutes(store, id, 20250115, 5);
     ingestMinutes(store, id, 20250116, 5);
 
@@ -451,7 +451,7 @@ TEST_CASE("loadChartBars still rejects non-candlestick and non-session limiters"
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    store.upsertInstrument(aaplInstrument());
+    store.insertInstrument(aaplInstrument());
 
     terminal::CChartSettings ohlc;
     ohlc.symbol = "AAPL";

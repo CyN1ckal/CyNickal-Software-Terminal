@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "market_data/Http.h"
+#include "market_data/OpenFigi.h"
 #include "market_data/Store.h"
 #include "market_data/Types.h"
 
@@ -13,14 +15,9 @@
 
 namespace terminal {
 
-struct HttpResponse
-{
-    int status{};
-    std::string body;
-    std::string error;
-};
-
-using HttpGet = std::function<HttpResponse(std::string_view url)>;
+// Every ingest resolves the symbol through ensureInstrument (market_data/Identity.h)
+// before it writes. A refused symbol throws and writes nothing. identity_notice is
+// that call's notice: a grace-window warning, a rename, or a recycled ticker.
 
 struct IngestDayResult
 {
@@ -36,6 +33,7 @@ struct IngestSymbolResult
 {
     InstrumentId instrument_id{};
     std::vector<IngestDayResult> days;
+    std::string identity_notice;
 };
 
 // Walks NYSE sessions in [from, to]. Holidays are written complete 0/0.
@@ -43,6 +41,7 @@ struct IngestSymbolResult
 // 401/403 throw. Inject get(); the CLI uses libcurl and retries 0/429/5xx.
 [[nodiscard]] IngestSymbolResult ingestSymbol(Store& store,
                                               const HttpGet& get,
+                                              OpenFigiClient& figi,
                                               std::string_view symbol,
                                               SessionDate from,
                                               SessionDate to,
@@ -53,6 +52,7 @@ struct IngestSymbolResult
 // Also fetches split events, including when daily coverage is already complete.
 [[nodiscard]] IngestSymbolResult ingestDailySymbol(Store& store,
                                                    const HttpGet& get,
+                                                   OpenFigiClient& figi,
                                                    std::string_view symbol,
                                                    SessionDate from,
                                                    SessionDate to,
@@ -62,6 +62,7 @@ struct IngestSplitsResult
 {
     InstrumentId instrument_id{};
     int upserted{};
+    std::string identity_notice;
 };
 
 // GET /v1/markets/stock/history events.splits only. Does not write bars.
@@ -70,6 +71,7 @@ struct IngestSplitsResult
 // A second split at the same ex_ts with a different ratio is not inserted.
 [[nodiscard]] IngestSplitsResult ingestSplits(Store& store,
                                               const HttpGet& get,
+                                              OpenFigiClient& figi,
                                               std::string_view symbol);
 
 struct IngestStatementResult
@@ -77,6 +79,7 @@ struct IngestStatementResult
     InstrumentId instrument_id{};
     int cell_count{};
     bool no_data{false};
+    std::string identity_notice;
 };
 
 // GET /v1/markets/stock/modules for one v2 statement and timeframe.
@@ -84,6 +87,7 @@ struct IngestStatementResult
 // Transport errors, non-200 responses, and parse failures throw and leave the grid unchanged.
 [[nodiscard]] IngestStatementResult ingestStatement(Store& store,
                                                     const HttpGet& get,
+                                                    OpenFigiClient& figi,
                                                     std::string_view symbol,
                                                     StatementKind statement,
                                                     StatementTimeframe timeframe);
@@ -95,6 +99,7 @@ struct IngestOptionsResult
     int quote_count{};
     int expiration_count{};
     bool no_data{false};
+    std::string identity_notice;
 };
 
 // GET /v3/markets/options. expiration 0 lets the server choose the date.
@@ -103,6 +108,7 @@ struct IngestOptionsResult
 // The stored symbol is the vendor base ($SPX when the request was SPX).
 [[nodiscard]] IngestOptionsResult ingestOptions(Store& store,
                                                 const HttpGet& get,
+                                                OpenFigiClient& figi,
                                                 std::string_view symbol,
                                                 SessionDate expiration = 0);
 

@@ -23,22 +23,10 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(terminal_sqlite3 PUBLIC Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
 
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v1.sql" MARKET_DATA_SCHEMA_V1)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v4.sql" MARKET_DATA_SCHEMA_V4)
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v1.inc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/schema_v1.inc"
-    @ONLY
-)
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v2.sql" MARKET_DATA_SCHEMA_V2)
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v2.inc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/schema_v2.inc"
-    @ONLY
-)
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v3.sql" MARKET_DATA_SCHEMA_V3)
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v3.inc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/schema_v3.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v4.inc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/schema_v4.inc"
     @ONLY
 )
 
@@ -54,6 +42,9 @@ add_library(market-data STATIC
     src/market_data/MboumJson.cpp
     src/market_data/MboumIngest.cpp
     src/market_data/Adjust.cpp
+    src/market_data/Figi.cpp
+    src/market_data/OpenFigi.cpp
+    src/market_data/Identity.cpp
 )
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE ${CMAKE_SOURCE_DIR}/deps)
@@ -85,7 +76,7 @@ if(CYN_TESTING)
         tests/test_main.cpp
         ${CMAKE_SOURCE_DIR}/deps/catch/catch_amalgamated.cpp
     )
-    target_link_libraries(market_data_tests PRIVATE market-data)
+    target_link_libraries(market_data_tests PRIVATE market-data nlohmann_json)
     target_include_directories(market_data_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
@@ -93,6 +84,7 @@ if(CYN_TESTING)
     )
     target_compile_definitions(market_data_tests PRIVATE
         TERMINAL_MARKET_DATA_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/schema"
+        TERMINAL_MARKET_DATA_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
     )
     target_compile_options(market_data_tests PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>

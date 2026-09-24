@@ -24,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 3;
+inline constexpr int kSchemaUserVersion = 4;
 
 enum class AssetClass : std::uint8_t
 {
@@ -72,11 +72,23 @@ enum class StatementTimeframe : std::uint8_t
 // one int, real, or text alternative. An omitted vendor key is no row.
 using StatementValue = std::variant<std::monostate, std::int64_t, double, std::string>;
 
+// Why a listing closed. Renamed: the instrument moved to another ticker.
+// Delisted: it no longer trades under any ticker. Manual: ingest --delist.
+enum class ListingCloseReason : std::uint8_t
+{
+    Renamed,
+    Delisted,
+    Manual
+};
+
+// One row of instrument_current. symbol is the open listing, or the most recently
+// closed one when listing_open is false. figi is the composite FIGI (the index FIGI
+// for an index); it is required for equity, etf, and index rows.
 struct Instrument
 {
     InstrumentId id{};
     std::string symbol;
-    std::optional<std::string> exchange;
+    std::optional<std::string> figi;
     AssetClass asset_class{AssetClass::Equity};
     std::string currency{"USD"};
     std::string timezone{"America/New_York"};
@@ -84,6 +96,20 @@ struct Instrument
     std::optional<UnixSeconds> listed_at;
     std::optional<UnixSeconds> delisted_at;
     UnixSeconds created_at{};
+    std::optional<UnixSeconds> verified_at;
+    bool listing_open{true};
+};
+
+// One instrument_listing row. opened_at and closed_at are when this store bound or
+// unbound the ticker, not market dates.
+struct InstrumentListing
+{
+    std::int64_t id{};
+    InstrumentId instrument_id{};
+    std::string symbol;
+    UnixSeconds opened_at{};
+    std::optional<UnixSeconds> closed_at;
+    std::optional<ListingCloseReason> close_reason;
 };
 
 struct Bar
@@ -287,6 +313,20 @@ inline std::string_view toSql(AssetClass value)
     throw std::runtime_error("unknown AssetClass");
 }
 
+inline std::string_view toSql(ListingCloseReason value)
+{
+    switch (value)
+    {
+    case ListingCloseReason::Renamed:
+        return "renamed";
+    case ListingCloseReason::Delisted:
+        return "delisted";
+    case ListingCloseReason::Manual:
+        return "manual";
+    }
+    throw std::runtime_error("unknown ListingCloseReason");
+}
+
 inline std::string_view toSql(CoverageStatus value)
 {
     switch (value)
@@ -398,6 +438,23 @@ inline AssetClass assetClassFromSql(std::string_view text)
         return AssetClass::Other;
     }
     throw std::runtime_error("unknown asset_class");
+}
+
+inline ListingCloseReason listingCloseReasonFromSql(std::string_view text)
+{
+    if (text == "renamed")
+    {
+        return ListingCloseReason::Renamed;
+    }
+    if (text == "delisted")
+    {
+        return ListingCloseReason::Delisted;
+    }
+    if (text == "manual")
+    {
+        return ListingCloseReason::Manual;
+    }
+    throw std::runtime_error("unknown listing close_reason");
 }
 
 inline CoverageStatus coverageStatusFromSql(std::string_view text)

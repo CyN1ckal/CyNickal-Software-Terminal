@@ -7,8 +7,7 @@
 
 namespace terminal {
 
-[[nodiscard]] std::string_view schemaV1();
-[[nodiscard]] std::string_view schemaV2();
-[[nodiscard]] std::string_view schemaV3();
+// schema/v4.sql, the baseline. v1..v3 were retired by the FIGI identity change.
+[[nodiscard]] std::string_view schemaV4();
 
 }  // namespace terminal

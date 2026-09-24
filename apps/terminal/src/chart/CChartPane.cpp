@@ -98,7 +98,6 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
     {
     case ChartLoadStatus::Error:
     case ChartLoadStatus::UnknownSymbol:
-    case ChartLoadStatus::AmbiguousSymbol:
     case ChartLoadStatus::Unsupported:
         return Theme::kDown;
     case ChartLoadStatus::Ready:
@@ -149,7 +148,6 @@ std::string_view CChartPane::statusLine() const noexcept
     case ChartLoadStatus::Ready:
     case ChartLoadStatus::Empty:
     case ChartLoadStatus::UnknownSymbol:
-    case ChartLoadStatus::AmbiguousSymbol:
     case ChartLoadStatus::Unsupported:
     case ChartLoadStatus::Error:
         return {};
@@ -259,6 +257,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
     }
 
     const ChartLoadResult incoming = loadChartBars(*store, settings_);
+    adoptResolvedIdentity(incoming);
     const bool same = settingsIdentityEqual(loaded_settings_, settings_) && !loaded_.bars.empty();
     if ((incoming.status == ChartLoadStatus::Busy || incoming.status == ChartLoadStatus::Error) &&
         same)
@@ -283,10 +282,35 @@ void CChartPane::reload(Store* store, std::string_view store_error)
     computed_ = studiesForLoad(loaded_, studies_);
 }
 
+void CChartPane::adoptResolvedIdentity(const ChartLoadResult& incoming)
+{
+    if (!incoming.instrument.has_value() || !incoming.instrument->figi.has_value())
+    {
+        return;
+    }
+    // The in-memory settings take the FIGI and the current ticker; the book picks both up on save.
+    const Instrument& instrument = *incoming.instrument;
+    settings_.figi = *instrument.figi;
+    if (instrument.listing_open && normalizeChartSymbol(settings_.symbol) != instrument.symbol)
+    {
+        settings_.symbol = instrument.symbol;
+        if (!settings_open_)
+        {
+            draft_.symbol = settings_.symbol;
+            std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
+        }
+    }
+    draft_.figi = settings_.figi;
+}
+
 void CChartPane::applyDraft(Store* store, std::string_view store_error, IngestWorker* ingest)
 {
     draft_.symbol = normalizeChartSymbol(draft_symbol_);
     std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
+    if (draft_.symbol != normalizeChartSymbol(settings_.symbol))
+    {
+        draft_.figi.clear();
+    }
     if (!isChartSettingsSupported(draft_))
     {
         return;
@@ -737,6 +761,7 @@ void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, Ing
     if (command.kind == ChartCommandKind::Symbol)
     {
         settings_.symbol = command.symbol;
+        settings_.figi.clear();
     }
     else
     {

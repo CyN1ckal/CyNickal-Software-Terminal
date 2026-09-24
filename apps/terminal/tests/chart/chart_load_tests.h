@@ -16,12 +16,20 @@
 
 namespace {
 
-terminal::Instrument makeAapl(std::optional<std::string> exchange = std::string{"NMS"})
+terminal::Instrument makeAapl()
 {
     terminal::Instrument inst;
     inst.symbol = "AAPL";
-    inst.exchange = std::move(exchange);
+    inst.figi = "BBG000B9XRY4";
     inst.timezone = "America/New_York";
+    return inst;
+}
+
+terminal::Instrument makeChartInstrument(std::string symbol, std::string figi)
+{
+    terminal::Instrument inst;
+    inst.symbol = std::move(symbol);
+    inst.figi = std::move(figi);
     return inst;
 }
 
@@ -91,7 +99,7 @@ TEST_CASE("loadChartBars trims symbol without mutating settings")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250115, 2);
 
     terminal::CChartSettings settings;
@@ -113,24 +121,45 @@ TEST_CASE("loadChartBars unknown symbol")
     CHECK(result.message == "unknown symbol ZZZZ");
 }
 
-TEST_CASE("loadChartBars ambiguous symbol fails closed")
+TEST_CASE("loadChartBars follows a rename and a pinned FIGI ignores a reused ticker")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    store.upsertInstrument(makeAapl("NMS"));
-    store.upsertInstrument(makeAapl("XNAS"));
+    const auto meta = store.insertInstrument(makeChartInstrument("FB", "BBG000MM2P62"));
+    const auto open = terminal::naiveLocalToUtc("America/New_York", "2025-01-15 09:30");
+    REQUIRE(open.has_value());
+    const std::vector<terminal::Bar> bars{rthBar(meta, open.value_or(0))};
+    (void)store.ingestSession(bars, meta, terminal::kTimeframe1m, 20250115, terminal::kUsRthExpected1m);
+    store.relinkSymbol(meta, "META", 1000);
+
     terminal::CChartSettings settings;
-    settings.symbol = "AAPL";
-    const auto result = terminal::loadChartBars(store, settings);
-    CHECK(result.status == terminal::ChartLoadStatus::AmbiguousSymbol);
-    CHECK(result.message == "multiple instruments named AAPL");
+    settings.symbol = "FB";
+    auto result = terminal::loadChartBars(store, settings);
+    CHECK(result.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(result.instrument.has_value());
+    CHECK(result.instrument->symbol == "META");
+    CHECK(result.instrument->figi == "BBG000MM2P62");
+
+    // The ProShares ETF takes FB. An unpinned book follows the ticker; a pinned one does not.
+    (void)store.insertInstrument(makeChartInstrument("FB", "BBG01VRMNFB1"));
+    result = terminal::loadChartBars(store, settings);
+    CHECK(result.status == terminal::ChartLoadStatus::Empty);
+    settings.figi = "BBG000MM2P62";
+    result = terminal::loadChartBars(store, settings);
+    CHECK(result.status == terminal::ChartLoadStatus::Ready);
+    CHECK(result.instrument->id == meta);
+
+    settings.figi = "BBG000BLNNH6";
+    result = terminal::loadChartBars(store, settings);
+    CHECK(result.status == terminal::ChartLoadStatus::UnknownSymbol);
+    CHECK(result.message == "unknown symbol FB (FIGI BBG000BLNNH6)");
 }
 
 TEST_CASE("loadChartBars instrument with no coverage is empty")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    store.upsertInstrument(makeAapl());
+    store.insertInstrument(makeAapl());
     terminal::CChartSettings settings;
     settings.symbol = "AAPL";
     const auto result = terminal::loadChartBars(store, settings);
@@ -142,7 +171,7 @@ TEST_CASE("loadChartBars skips 0-bar holiday and ranges traded sessions")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250113, 2);
     ingestRth(store, id, 20250114, 2);
     const auto holiday = store.ingestSession({}, id, terminal::kTimeframe1m, 20250115, 0);
@@ -170,7 +199,7 @@ TEST_CASE("loadChartBars collects error coverage rows with leftover bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250117, 2);
     terminal::CoverageDay error;
     error.instrument_id = id;
@@ -195,7 +224,7 @@ TEST_CASE("loadChartBars unsupported bar type does not throw")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    store.upsertInstrument(makeAapl());
+    store.insertInstrument(makeAapl());
     terminal::CChartSettings settings;
     settings.symbol = "AAPL";
     settings.bar_type = terminal::ChartBarType::Ohlc;
@@ -208,7 +237,7 @@ TEST_CASE("loadChartBars clamps session_count locally")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250115, 2);
 
     terminal::CChartSettings zero;
@@ -231,7 +260,7 @@ TEST_CASE("loadChartBars Day1 reads stored daily bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestDaily(store, id, 20250113);
     ingestDaily(store, id, 20250114);
     ingestDaily(store, id, 20250116);
@@ -253,7 +282,7 @@ TEST_CASE("loadChartBars Day1 prefers stored daily over 1m composite")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250115, 10);
     ingestDaily(store, id, 20250115);
 
@@ -272,7 +301,7 @@ TEST_CASE("loadChartBars Day1 does not composite 1m bars")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250115, 5);
 
     terminal::CChartSettings settings;
@@ -306,7 +335,7 @@ TEST_CASE("loadChartBars Day1 uses historical_session_count not intraday")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestDaily(store, id, 20250113);
     ingestDaily(store, id, 20250114);
     ingestDaily(store, id, 20250116);
@@ -360,7 +389,7 @@ TEST_CASE("chartDownloadRequest asks for a symbol that has no bars")
     CHECK(request.timeframe_s == terminal::kTimeframe1m);
     CHECK(request.to == kToday);
 
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     settings.symbol = "AAPL";
     const auto no_bars = terminal::chartDownloadRequest(store, settings, kToday);
     REQUIRE(no_bars.has_value());
@@ -383,7 +412,7 @@ TEST_CASE("chartDownloadRequest uses daily bars for a daily chart and 1m for int
     constexpr terminal::SessionDate kToday = 20260921;
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestDaily(store, id, 20250116);
 
     terminal::CChartSettings settings;
@@ -399,14 +428,20 @@ TEST_CASE("chartDownloadRequest uses daily bars for a daily chart and 1m for int
     CHECK(intraday_request.timeframe_s == terminal::kTimeframe1m);
 }
 
-TEST_CASE("chartDownloadRequest does not download an ambiguous symbol")
+TEST_CASE("chartDownloadRequest asks for the current ticker and skips a closed listing")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    store.upsertInstrument(makeAapl("NMS"));
-    store.upsertInstrument(makeAapl("XNAS"));
+    const auto meta = store.insertInstrument(makeChartInstrument("FB", "BBG000MM2P62"));
+    store.relinkSymbol(meta, "META", 1000);
     terminal::CChartSettings settings;
-    settings.symbol = "AAPL";
+    settings.symbol = "FB";
+    const auto renamed = terminal::chartDownloadRequest(store, settings, 20260921);
+    REQUIRE(renamed.has_value());
+    CHECK(renamed.value_or(terminal::ChartDownloadRequest{}).symbol == "META");
+
+    store.closeListing(meta, 2000, terminal::ListingCloseReason::Delisted);
+    settings.symbol = "META";
     CHECK_FALSE(terminal::chartDownloadRequest(store, settings, 20260921).has_value());
 
     settings.symbol.clear();
@@ -417,7 +452,7 @@ TEST_CASE("loadChartBars Day1 applies a stored split and leaves the archive raw"
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     const auto write_day = [&](terminal::SessionDate session, double close, double volume) {
         terminal::Bar bar;
         bar.instrument_id = id;
@@ -463,7 +498,7 @@ TEST_CASE("loadChartBars Day1 without corporate actions keeps as-traded closes")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestDaily(store, id, 20240607);
 
     terminal::CChartSettings settings;
@@ -480,7 +515,7 @@ TEST_CASE("loadChartBars Minute5 ignores a stored split")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeAapl());
+    const auto id = store.insertInstrument(makeAapl());
     ingestRth(store, id, 20250115, 5);
 
     terminal::CorporateAction split;

@@ -21,7 +21,7 @@ terminal::Instrument makeStatementAapl()
 {
     terminal::Instrument inst;
     inst.symbol = "AAPL";
-    inst.exchange = "NMS";
+    inst.figi = "BBG000B9XRY4";
     inst.name = "Apple";
     return inst;
 }
@@ -62,7 +62,7 @@ TEST_CASE("statement cells keep integer, real, text, and TTM")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeStatementAapl());
+    const auto id = store.insertInstrument(makeStatementAapl());
     const auto snapshot =
         makeIncomeSnapshot(id, terminal::StatementTimeframe::Annually, 1'700'000'000);
     const std::vector<terminal::StatementCell> cells = {
@@ -131,7 +131,7 @@ TEST_CASE("annual and quarterly values stay distinct on the same period end")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeStatementAapl());
+    const auto id = store.insertInstrument(makeStatementAapl());
 
     const auto annual = makeIncomeSnapshot(id, terminal::StatementTimeframe::Annually, 10);
     const auto quarter = makeIncomeSnapshot(id, terminal::StatementTimeframe::Quarterly, 11);
@@ -166,7 +166,7 @@ TEST_CASE("replacing a statement drops omitted cells and orders periods")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeStatementAapl());
+    const auto id = store.insertInstrument(makeStatementAapl());
     auto snapshot = makeIncomeSnapshot(id, terminal::StatementTimeframe::Annually, 10);
     const std::vector<terminal::StatementCell> first = {
         makeStatementCell(id,
@@ -225,7 +225,7 @@ TEST_CASE("a failed statement replace leaves the previous grid")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    const auto id = store.upsertInstrument(makeStatementAapl());
+    const auto id = store.insertInstrument(makeStatementAapl());
     const auto snapshot = makeIncomeSnapshot(id, terminal::StatementTimeframe::Annually, 10);
     const terminal::StatementCell good =
         makeStatementCell(id,
@@ -276,7 +276,7 @@ TEST_CASE("statement replace rejects an unknown instrument and accepts an empty 
     const auto missing = makeIncomeSnapshot(99, terminal::StatementTimeframe::Quarterly, 1);
     CHECK_THROWS_AS(store.replaceStatement(missing, {}), std::runtime_error);
 
-    const auto id = store.upsertInstrument(makeStatementAapl());
+    const auto id = store.insertInstrument(makeStatementAapl());
     const auto snapshot = makeIncomeSnapshot(id, terminal::StatementTimeframe::Trailing, 7);
     store.replaceStatement(snapshot, {});
     const auto fetched = store.findStatementSnapshot(
