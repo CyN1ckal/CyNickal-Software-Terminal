@@ -47,7 +47,8 @@ public:
     [[nodiscard]] bool studiesOpen() const noexcept;
 
     void openSettings();
-    void openStudies();
+    // `index` selects that study in the draft. Out of range selects the first.
+    void openStudies(int index = 0);
     void closeWindow();
     void requestFocus();
     void setWindowScope(int runtime_id) noexcept;
@@ -73,7 +74,10 @@ private:
     void cancelDraft();
     void cancelStudyDraft();
     void reload(Store* store, std::string_view store_error);
-    void drawOverlay();
+    void drawStrip(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void drawStripScalePopup();
+    void drawStudyLegend(ImVec2 cursor, float width);
+    void showEnabledStudyTooltip() const;
     void drawPlotBody();
     void handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest);
     void commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest);

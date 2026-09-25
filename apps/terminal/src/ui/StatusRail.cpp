@@ -147,6 +147,10 @@ void appendQueued(std::string& text, int queued)
 
     if (pane->status() == ChartLoadStatus::Ready)
     {
+        if (!line.empty())
+        {
+            return {.text=std::string(line), .color=Theme::kText};
+        }
         if (pane->barCount() > 0)
         {
             text += "  ";
@@ -201,7 +205,7 @@ void appendQueued(std::string& text, int queued)
     }
 }
 
-void drawField(const std::string& text, const ImVec4& color, float width, float y)
+void drawField(const std::string& text, const ImVec4& color, float width, float y, bool tip_when_clipped)
 {
     const float x = ImGui::GetCursorPosX();
     ImGui::SetCursorPosY(y);
@@ -211,6 +215,12 @@ void drawField(const std::string& text, const ImVec4& color, float width, float 
     const auto text_n = static_cast<int>(text.size());
     ImGui::TextColored(color, "%.*s", text_n, text.data());
     ImGui::PopClipRect();
+    const float natural = ImGui::CalcTextSize(text.c_str()).x;
+    if (tip_when_clipped && natural > width + 0.5f && GImGui->HoveredWindow == nullptr &&
+        ImGui::IsMouseHoveringRect(screen, ImVec2(screen.x + width, screen.y + text_h)))
+    {
+        ImGui::SetTooltip("%s", text.c_str());
+    }
     ImGui::SetCursorPos(ImVec2(x + width, y));
 }
 
@@ -278,15 +288,15 @@ void drawStatusRail(const InventoryPanel& inventory, const CChartBook& charts)
     const float text_h = ImGui::GetTextLineHeight();
     const float y = std::max(0.0f, (ImGui::GetWindowHeight() - text_h) * 0.5f);
     ImGui::SetCursorPos(ImVec2(kRailPadX, y));
-    drawField(action.text, action.color, action_w, y);
+    drawField(action.text, action.color, action_w, y, false);
     drawGap();
-    drawField(chart.text, chart.color, chart_w, y);
+    drawField(chart.text, chart.color, chart_w, y, true);
     drawGap();
     if (mono != nullptr)
     {
         ImGui::PushFont(mono);
     }
-    drawField(clock, Theme::kTextDim, clock_w, y);
+    drawField(clock, Theme::kTextDim, clock_w, y, false);
     if (mono != nullptr)
     {
         ImGui::PopFont();

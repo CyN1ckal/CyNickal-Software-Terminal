@@ -7,6 +7,7 @@
 #include "chart/CChartView.h"
 #include "market_data/Types.h"
 
+#include <string>
 #include <vector>
 
 TEST_CASE("visible window right-aligns the last bar")
@@ -210,4 +211,11 @@ TEST_CASE("user defined fallback uses candle high low and ignores overlay")
     const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
     CHECK(y.min == Catch::Approx(10.0 - 0.4));
     CHECK(y.max == Catch::Approx(20.0 + 0.4));
+}
+
+TEST_CASE("chart strip scale label")
+{
+    CHECK(std::string(terminal::chartScaleStripLabel(terminal::ChartScaleRange::Automatic)) == "auto");
+    CHECK(std::string(terminal::chartScaleStripLabel(terminal::ChartScaleRange::ConstantRange)) == "range");
+    CHECK(std::string(terminal::chartScaleStripLabel(terminal::ChartScaleRange::UserDefined)) == "user");
 }

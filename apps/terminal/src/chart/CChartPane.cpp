@@ -15,6 +15,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdio>
 #include <exception>
@@ -112,21 +113,139 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
     return Theme::kMuted;
 }
 
-// Drawn on the candles. A one-pixel shadow keeps the glyphs readable on an up bar.
-void drawShadowedText(std::string_view text, const ImVec4& color)
+[[nodiscard]] float buttonWidth(const char* label)
+{
+    return ImGui::CalcTextSize(label).x + (ImGui::GetStyle().FramePadding.x * 2.0f);
+}
+
+[[nodiscard]] bool quietButton(const char* label)
+{
+    const ImVec4 clear(0.0f, 0.0f, 0.0f, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, clear);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBg3);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    const bool pressed = ImGui::Button(label);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(3);
+    return pressed;
+}
+
+[[nodiscard]] const char* scaleRangeName(ChartScaleRange range) noexcept
+{
+    switch (range)
+    {
+    case ChartScaleRange::Automatic:
+        return "Automatic";
+    case ChartScaleRange::ConstantRange:
+        return "Constant Range";
+    case ChartScaleRange::UserDefined:
+        return "User Defined";
+    }
+    return "Automatic";
+}
+
+[[nodiscard]] const char* verticalGridLabel(ChartVerticalGrid grid) noexcept
+{
+    switch (grid)
+    {
+    case ChartVerticalGrid::Daily:
+        return "Daily";
+    case ChartVerticalGrid::Weekly:
+        return "Weekly";
+    case ChartVerticalGrid::Monthly:
+        return "Monthly";
+    }
+    return "Daily";
+}
+
+[[nodiscard]] const char* horizontalGridLabel(ChartHorizontalGrid grid) noexcept
+{
+    switch (grid)
+    {
+    case ChartHorizontalGrid::Automatic:
+        return "Automatic";
+    case ChartHorizontalGrid::Manual:
+        return "Manual";
+    case ChartHorizontalGrid::Off:
+        return "Off";
+    }
+    return "Automatic";
+}
+
+[[nodiscard]] const char* dragModeName(ChartInteractiveScale mode) noexcept
+{
+    switch (mode)
+    {
+    case ChartInteractiveScale::Range:
+        return "Range";
+    case ChartInteractiveScale::Move:
+        return "Move";
+    case ChartInteractiveScale::Locked:
+        return "Locked";
+    }
+    return "Move";
+}
+
+void drawEmptyStatus(std::string_view text, ChartLoadStatus status)
 {
     if (text.empty())
     {
         return;
     }
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const ImVec2 avail = ImGui::GetContentRegionAvail();
+    if (avail.x <= 1.0f || avail.y <= 1.0f)
+    {
+        return;
+    }
+    const bool downloading = text.find("downloading") != std::string_view::npos;
+    const ImVec4 color = downloading ? Theme::kAccent : statusColor(status);
+    constexpr float kPad = 12.0f;
     const char* const begin = text.data();
     const char* const end = begin + text.size();
-    const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const ImU32 shadow = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.85f));
-    ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow, begin, end);
-    const auto length = static_cast<int>(text.size());
-    ImGui::TextColored(color, "%.*s", length,
-                       begin); // NOLINT(bugprone-suspicious-stringview-data-usage)
+    const float wrap_edge = origin.x + avail.x - kPad;
+    float x = origin.x + kPad;
+    float wrap_w = std::max(1.0f, wrap_edge - x);
+    ImVec2 size = ImGui::CalcTextSize(begin, end, false, wrap_w);
+    const float centered = origin.x + std::max(kPad, (avail.x - size.x) * 0.5f);
+    if (centered > x)
+    {
+        // Centering moves the start, so the measured width is the gap to the same edge.
+        x = centered;
+        wrap_w = std::max(1.0f, wrap_edge - x);
+        size = ImGui::CalcTextSize(begin, end, false, wrap_w);
+    }
+    const float y = origin.y + std::max(kPad, (avail.y - size.y) * 0.5f);
+    const ImVec2 saved = ImGui::GetCursorPos();
+    ImGui::SetCursorScreenPos(ImVec2(x, y));
+    // CalcWrapWidthForPos adds the window origin to a positive wrap position.
+    const float wrap_local = wrap_edge - ImGui::GetWindowPos().x + ImGui::GetScrollX();
+    ImGui::PushTextWrapPos(wrap_local);
+    ImGui::PushStyleColor(ImGuiCol_Text, color);
+    ImGui::TextUnformatted(begin, end);
+    ImGui::PopStyleColor();
+    ImGui::PopTextWrapPos();
+    ImGui::SetCursorPos(saved);
+}
+
+void drawSeriesStatusLine(std::string_view text, ChartLoadStatus status, ImVec2 origin, ImVec2 avail)
+{
+    if (text.empty() || avail.x <= 1.0f || avail.y <= 1.0f)
+    {
+        return;
+    }
+    const bool downloading = text.find("downloading") != std::string_view::npos;
+    const ImVec4 color = downloading ? Theme::kAccent : statusColor(status);
+    constexpr float kInset = 8.0f;
+    const char* const begin = text.data();
+    const char* const end = begin + text.size();
+    ImDrawList* list = ImGui::GetWindowDrawList();
+    // The plot already filled the client. A text item would grow it.
+    list->PushClipRect(origin, ImVec2(origin.x + avail.x, origin.y + avail.y), true);
+    list->AddText(ImVec2(origin.x + kInset, origin.y + kInset), ImGui::GetColorU32(color), begin,
+                  end);
+    list->PopClipRect();
 }
 
 }  // namespace
@@ -212,7 +331,7 @@ void CChartPane::openSettings()
     settings_open_ = true;
 }
 
-void CChartPane::openStudies()
+void CChartPane::openStudies(int index)
 {
     // Flag only. OpenPopup from the menu bar is a different ID stack than the pane.
     if (settings_open_)
@@ -220,13 +339,18 @@ void CChartPane::openStudies()
         return;
     }
     study_draft_ = studies_;
-    if (study_draft_.empty())
+    const int count = static_cast<int>(study_draft_.size());
+    if (count == 0)
     {
         study_draft_selected_ = -1;
     }
     else
     {
-        study_draft_selected_ = 0;
+        if (index < 0 || index >= count)
+        {
+            index = 0;
+        }
+        study_draft_selected_ = index;
     }
     studies_open_ = true;
 }
@@ -673,6 +797,48 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
         ImGui::SetNextItemWidth(80.0f);
         ImGui::InputFloat("##pad", &draft_.scale_padding_pct, 1.0f, 4.0f, "%.1f");
 
+        ImGui::Separator();
+        ImGui::TextUnformatted("Vertical Grid");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(160.0f);
+        if (ImGui::BeginCombo("##vertical_grid", verticalGridLabel(draft_.vertical_grid)))
+        {
+            for (const ChartVerticalGrid grid : {ChartVerticalGrid::Daily, ChartVerticalGrid::Weekly,
+                                                 ChartVerticalGrid::Monthly,})
+            {
+                if (ImGui::Selectable(verticalGridLabel(grid), draft_.vertical_grid == grid))
+                {
+                    draft_.vertical_grid = grid;
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::TextUnformatted("Horizontal Grid");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(160.0f);
+        if (ImGui::BeginCombo("##horizontal_grid", horizontalGridLabel(draft_.horizontal_grid)))
+        {
+            for (const ChartHorizontalGrid grid : {ChartHorizontalGrid::Automatic, ChartHorizontalGrid::Manual,
+                                                   ChartHorizontalGrid::Off,})
+            {
+                if (ImGui::Selectable(horizontalGridLabel(grid), draft_.horizontal_grid == grid))
+                {
+                    draft_.horizontal_grid = grid;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if (draft_.horizontal_grid == ChartHorizontalGrid::Manual)
+        {
+            ImGui::TextUnformatted("Grid Spacing");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::InputDouble("##h_grid", &draft_.horizontal_grid_spacing, 0.0, 0.0, "%.4f");
+        }
+        ImGui::TextColored(Theme::kMuted,
+                           "Vertical labels are the day, week, or month. Spacing is a price increment.");
+
         if (!isChartSettingsSupported(draft_))
         {
             ImGui::TextColored(Theme::kDown, "candlestick bars and Days to Load only.");
@@ -770,58 +936,13 @@ void CChartPane::drawStudiesPopup()
     }
 }
 
-void CChartPane::drawOverlay()
+void CChartPane::showEnabledStudyTooltip() const
 {
-    // SetCursorPos is from the window origin, and that origin includes the
-    // title bar. Docked panes keep the same band for the tab strip. A small
-    // y is clipped by the content rect and paints through the header.
-    // CursorStartPos is already under that band; add the scroll so the value
-    // is in SetCursorPos space.
-    constexpr float kInset = 6.0f;
-    const ImVec2 content(ImGui::GetCursorStartPos().x + ImGui::GetScrollX(),
-                         ImGui::GetCursorStartPos().y + ImGui::GetScrollY());
-    ImGui::SetCursorPos(ImVec2(content.x + kInset, content.y + kInset));
-
-    // Default button fill is one step off the plot well, so the face disappears.
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kLine2);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::Mix(Theme::kLine2, Theme::kText, 0.22f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccent);
-    ImGui::PushStyleColor(ImGuiCol_Border, Theme::kTextDim);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-    ImGui::BeginDisabled(studies_open_);
-    if (ImGui::Button("Settings"))
+    bool open = false;
+    const auto study_count = static_cast<int>(studies_.size());
+    for (int index = 0; index < study_count; ++index)
     {
-        openSettings();
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(settings_open_);
-    if (ImGui::Button("Studies"))
-    {
-        openStudies();
-    }
-    ImGui::EndDisabled();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(4);
-
-    const std::string_view status = statusLine();
-    if (!status.empty())
-    {
-        ImGui::SameLine();
-        drawShadowedText(status, statusColor(loaded_.status));
-    }
-    if (!key_buffer_.empty())
-    {
-        ImGui::SameLine();
-        drawShadowedText(key_buffer_, Theme::kAccent);
-    }
-    else if (!key_note_.empty())
-    {
-        ImGui::SameLine();
-        drawShadowedText(key_note_, Theme::kDown);
-    }
-    for (const CStudyInstance& inst : studies_)
-    {
+        const CStudyInstance& inst = studies_[static_cast<std::size_t>(index)];
         if (!inst.enabled)
         {
             continue;
@@ -831,9 +952,226 @@ void CChartPane::drawOverlay()
         {
             continue;
         }
-        ImGui::SameLine();
-        drawShadowedText(label, ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)));
+        if (!open)
+        {
+            ImGui::BeginTooltip();
+            open = true;
+        }
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst)), "%s",
+                           label.c_str());
     }
+    if (open)
+    {
+        ImGui::EndTooltip();
+    }
+}
+
+void CChartPane::drawStudyLegend(ImVec2 cursor, float width)
+{
+    if (!(width > 0.0f))
+    {
+        return;
+    }
+    struct Name
+    {
+        int index{0};
+        std::string label;
+        ImVec4 color;
+        float width{0.0f};
+    };
+    std::array<Name, kStudyMaxPerPane> names{};
+    int count = 0;
+    const float gap = ImGui::GetStyle().ItemSpacing.x;
+    const float row_h = ImGui::GetFrameHeight();
+    const auto study_count = static_cast<int>(studies_.size());
+    for (int index = 0; index < study_count && count < kStudyMaxPerPane; ++index)
+    {
+        const CStudyInstance& inst = studies_[static_cast<std::size_t>(index)];
+        if (!inst.enabled)
+        {
+            continue;
+        }
+        std::string label = studyShortLabel(inst);
+        if (label.empty())
+        {
+            continue;
+        }
+        Name& name = names[static_cast<std::size_t>(count)];
+        name.index = index;
+        name.width = ImGui::CalcTextSize(label.c_str()).x;
+        name.color = ImGui::ColorConvertU32ToFloat4(studyPrimaryColor(inst));
+        name.label = std::move(label);
+        ++count;
+    }
+    if (count == 0)
+    {
+        return;
+    }
+
+    const float ellipsis_w = ImGui::CalcTextSize("...").x;
+    int fit = 0;
+    float used = 0.0f;
+    for (int i = 0; i < count; ++i)
+    {
+        const float gap_before = fit == 0 ? 0.0f : gap;
+        const bool last = i + 1 == count;
+        const float need = used + gap_before + names[static_cast<std::size_t>(i)].width;
+        const float reserved = last ? need : (need + gap + ellipsis_w);
+        const bool fits = reserved <= width;
+        if (!fits)
+        {
+            break;
+        }
+        used = need;
+        ++fit;
+    }
+
+    ImGui::SetCursorPos(cursor);
+    const ImVec2 screen = ImGui::GetCursorScreenPos();
+    ImGui::PushClipRect(screen, ImVec2(screen.x + width, screen.y + row_h), true);
+    float x = cursor.x;
+    for (int i = 0; i < fit; ++i)
+    {
+        if (i > 0)
+        {
+            x += gap;
+        }
+        const Name& name = names[static_cast<std::size_t>(i)];
+        ImGui::SetCursorPos(ImVec2(x, cursor.y));
+        ImGui::PushID(name.index);
+        ImGui::InvisibleButton("##study_name", ImVec2(std::max(1.0f, name.width), row_h));
+        const ImVec2 min = ImGui::GetItemRectMin();
+        const ImVec2 max = ImGui::GetItemRectMax();
+        ImDrawList* list = ImGui::GetWindowDrawList();
+        if (ImGui::IsItemHovered())
+        {
+            list->AddRectFilled(min, max, ImGui::GetColorU32(Theme::kBg3));
+        }
+        const float text_y = min.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
+        list->AddText(ImVec2(min.x, text_y), ImGui::GetColorU32(name.color), name.label.c_str());
+        if (ImGui::IsItemClicked())
+        {
+            openStudies(name.index);
+        }
+        ImGui::PopID();
+        x += name.width;
+    }
+    if (fit < count)
+    {
+        const float mark_x = x + (fit > 0 ? gap : 0.0f);
+        if (mark_x + ellipsis_w <= cursor.x + width)
+        {
+            ImGui::SetCursorPos(ImVec2(mark_x, cursor.y));
+            const ImVec2 mark = ImGui::GetCursorScreenPos();
+            const float text_y = mark.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(mark.x, text_y),
+                                                ImGui::GetColorU32(Theme::kTextDim), "...");
+        }
+    }
+    ImGui::PopClipRect();
+
+    // Under 8 px the strip itself owns the hover, so the two tips do not stack.
+    constexpr float kLegendHoverMin = 8.0f;
+    const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+    if (width >= kLegendHoverMin && !popup && ImGui::IsWindowHovered() &&
+        ImGui::IsMouseHoveringRect(screen, ImVec2(screen.x + width, screen.y + row_h)))
+    {
+        showEnabledStudyTooltip();
+    }
+}
+
+void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    // The dock tab bar belongs to the node, not this pane, and content in that
+    // band is clipped. This row is the first line of the client, under the tab.
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float gap = style.ItemSpacing.x;
+    const float row_h = ImGui::GetFrameHeight();
+    const float width = std::max(0.0f, ImGui::GetContentRegionAvail().x);
+    const float row_x = ImGui::GetCursorPosX();
+    const float row_y = ImGui::GetCursorPosY();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImU32 chrome = ImGui::GetColorU32(Theme::kBg1);
+    draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + row_h), chrome);
+    draw->AddLine(ImVec2(origin.x, origin.y + row_h), ImVec2(origin.x + width, origin.y + row_h),
+                  ImGui::GetColorU32(Theme::kLine));
+
+    const char* period_label = chartPeriodCode(settings_.period);
+    const char* scale_label = chartScaleStripLabel(settings_.scale_range);
+    const float right_w = buttonWidth(period_label) + gap + buttonWidth(scale_label);
+    float period_x = row_x + width - right_w;
+    float legend_w = period_x - gap - row_x;
+    if (legend_w < 0.0f)
+    {
+        legend_w = 0.0f;
+        period_x = row_x;
+    }
+    constexpr float kLegendHoverMin = 8.0f;
+    if (legend_w > 0.0f)
+    {
+        drawStudyLegend(ImVec2(row_x, row_y), legend_w);
+    }
+
+    ImGui::SetCursorPos(ImVec2(period_x, row_y));
+    ImGui::BeginDisabled(settings_open_);
+    if (quietButton(period_label))
+    {
+        ImGui::OpenPopup("##strip_period");
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    {
+        ImGui::SetTooltip("%s", periodDisplayName(settings_.period));
+    }
+    if (ImGui::BeginPopup("##strip_period"))
+    {
+        for (const ChartBarPeriod period :
+             {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
+              ChartBarPeriod::Hour1, ChartBarPeriod::Day1,})
+        {
+            if (ImGui::MenuItem(periodDisplayName(period), nullptr, settings_.period == period) &&
+                period != settings_.period)
+            {
+                settings_.period = period;
+                applyLiveSettings(store, store_error, ingest);
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(settings_open_ || loaded_.bars.empty());
+    if (quietButton(scale_label))
+    {
+        ImGui::OpenPopup("##strip_scale");
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    {
+        ImGui::SetTooltip("Scale Range: %s / %s", scaleRangeName(settings_.scale_range),
+                          dragModeName(view_.interactive));
+    }
+
+    const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+    if (legend_w < kLegendHoverMin && !popup && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() &&
+        ImGui::IsMouseHoveringRect(origin, ImVec2(origin.x + width, origin.y + row_h)))
+    {
+        showEnabledStudyTooltip();
+    }
+
+    ImGui::SetCursorPos(ImVec2(row_x, row_y + row_h + 1.0f));
+}
+
+void CChartPane::drawStripScalePopup()
+{
+    if (!ImGui::BeginPopup("##strip_scale"))
+    {
+        return;
+    }
+    drawChartScaleMenuItems(settings_, view_, view_.price_ylim, view_.price_ylim_valid);
+    ImGui::EndPopup();
 }
 
 void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -886,6 +1224,18 @@ void CChartPane::handleChartKeys(Store* store, std::string_view store_error, Ing
     // The scale menu and other popups own the keys while they are open.
     if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
     {
+        return;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_F5))
+    {
+        key_buffer_.clear();
+        openSettings();
+        return;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_F6))
+    {
+        key_buffer_.clear();
+        openStudies();
         return;
     }
     const auto now = std::chrono::steady_clock::now();
@@ -993,8 +1343,16 @@ void CChartPane::drawPlotBody()
             }
         }
         drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
+        // A failed reload keeps these bars. The rail only shows the focused chart.
+        if (loaded_.status != ChartLoadStatus::Ready)
+        {
+            drawSeriesStatusLine(statusLine(), loaded_.status, origin, avail);
+        }
     }
-    drawOverlay();
+    else
+    {
+        drawEmptyStatus(statusLine(), loaded_.status);
+    }
 }
 
 void CChartPane::setWindowScope(int runtime_id) noexcept
@@ -1152,8 +1510,10 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     requestSplitSync(store, store_error, ingest);
     overlayDownloadStatus(store, store_error, ingest);
 
+    view_.price_ylim_valid = false;
+    drawStrip(store, store_error, ingest);
     drawPlotBody();
-    // After the overlay buttons, so a click opens the modal on this frame.
+    drawStripScalePopup();
     drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();
     flushSymbolLink();

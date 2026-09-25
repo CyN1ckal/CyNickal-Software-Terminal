@@ -43,7 +43,8 @@ inline void drawSymbolLinkSwatch(SymbolLinkGroup group)
 }
 
 // None, 1, 2, 3, 4. Choosing the current row calls setGroup with the same value, which does not publish.
-inline void drawSymbolLinkCombo(CSymbolLink::Binding& binding)
+// `combo_width` is the combo frame. Callers that share a tight row pass a smaller width.
+inline void drawSymbolLinkCombo(CSymbolLink::Binding& binding, float combo_width = 72.0f)
 {
     if (!binding.attached())
     {
@@ -52,7 +53,7 @@ inline void drawSymbolLinkCombo(CSymbolLink::Binding& binding)
     ImGui::SameLine();
     const SymbolLinkGroup current = binding.group();
     drawSymbolLinkSwatch(current);
-    ImGui::SetNextItemWidth(72.0f);
+    ImGui::SetNextItemWidth(combo_width > 1.0f ? combo_width : 72.0f);
     if (!ImGui::BeginCombo("##symbol_link", symbolLinkGroupLabel(current)))
     {
         return;

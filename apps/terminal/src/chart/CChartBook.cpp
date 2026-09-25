@@ -929,11 +929,11 @@ void CChartBook::drawMenu()
         const bool has_focus = pane != nullptr;
         const bool settings_enabled = has_focus && !pane->studiesOpen();
         const bool studies_enabled = has_focus && !pane->settingsOpen();
-        if (ImGui::MenuItem("Chart Settings", nullptr, false, settings_enabled))
+        if (ImGui::MenuItem("Chart Settings", "F5", false, settings_enabled))
         {
             openFocusedSettings();
         }
-        if (ImGui::MenuItem("Studies", nullptr, false, studies_enabled))
+        if (ImGui::MenuItem("Studies", "F6", false, studies_enabled))
         {
             openFocusedStudies();
         }
