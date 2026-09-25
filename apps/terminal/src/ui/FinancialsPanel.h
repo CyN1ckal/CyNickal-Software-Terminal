@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartbookDocument.h"
+#include "chart/CSymbolLink.h"
 #include "data/StatementSheet.h"
 
 #include "imgui.h"
@@ -36,6 +37,8 @@ public:
     void importState(const ChartbookFinancials& state);
     [[nodiscard]] ChartbookFinancials exportState() const;
     void setWindowScope(int runtime_id) noexcept;
+    void attachSymbolLink(CSymbolLink& link);
+    void setSymbolLinkGroup(int group) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
 
     // True when this window is focused.
@@ -43,11 +46,14 @@ public:
 
 private:
     void drawToolbar(IngestWorker* ingest);
+    void applyLinkedSymbol(std::string_view symbol);
+    static void applyLinkedThunk(void* self, std::string_view symbol);
     void refresh(Store* store, IngestWorker* ingest);
     void requestFetch(IngestWorker* ingest, bool force);
     void drawSheet() const;
     [[nodiscard]] std::string viewKey() const;
 
+    CSymbolLink::Binding symbol_link_;
     char symbol_[32]{};
     std::string active_symbol_;
     std::string active_figi_;  // pinned once the symbol resolves; cleared when a new symbol is typed

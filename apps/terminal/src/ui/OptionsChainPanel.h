@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartbookDocument.h"
+#include "chart/CSymbolLink.h"
 #include "ui/OptionChainSource.h"
 
 #include "market_data/Types.h"
@@ -39,6 +40,8 @@ public:
     void importState(const ChartbookOptions& state);
     [[nodiscard]] ChartbookOptions exportState() const;
     void setWindowScope(int runtime_id) noexcept;
+    void attachSymbolLink(CSymbolLink& link);
+    void setSymbolLinkGroup(int group) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
 
     // True when this window is focused.
@@ -47,7 +50,9 @@ public:
 private:
     void drawColumnMenu();
     void drawChain() const;
+    static void applyLinkedThunk(void* self, std::string_view symbol);
 
+    CSymbolLink::Binding symbol_link_;
     OptionChainSource source_;
     std::vector<std::string> columns_{defaultOptionChainColumns()};
     int id_{0};

@@ -3,6 +3,7 @@
 
 #include "ui/OptionsChainPanel.h"
 
+#include "chart/SymbolLinkCombo.h"
 #include "ui/Theme.h"
 
 #include "market_data/Time.h"
@@ -267,6 +268,7 @@ ChartbookOptions OptionsChainPanel::exportState() const
 {
     ChartbookOptions state;
     state.id = id_;
+    state.link_group = static_cast<int>(symbol_link_.group());
     state.symbol = source_.symbol();
     state.figi = source_.figi();
     state.expiration = source_.hasExpiration() ? source_.expiration() : 0;
@@ -278,6 +280,21 @@ ChartbookOptions OptionsChainPanel::exportState() const
 void OptionsChainPanel::setWindowScope(int runtime_id) noexcept
 {
     runtime_id_ = runtime_id;
+}
+
+void OptionsChainPanel::attachSymbolLink(CSymbolLink& link)
+{
+    symbol_link_.attach(link, optionsWindowId(id_), &OptionsChainPanel::applyLinkedThunk, this);
+}
+
+void OptionsChainPanel::setSymbolLinkGroup(int group) noexcept
+{
+    symbol_link_.setGroup(symbolLinkGroupFromInt(group));
+}
+
+void OptionsChainPanel::applyLinkedThunk(void* self, std::string_view symbol)
+{
+    static_cast<OptionsChainPanel*>(self)->source_.applyLinkedSymbol(symbol);
 }
 
 void OptionsChainPanel::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
@@ -470,19 +487,22 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
     }
 
     char title[160];
+    char mark[8] = {};
+    writeSymbolLinkMark(mark, sizeof(mark), symbol_link_.group());
     if (source_.symbol().empty())
     {
-        std::snprintf(title, sizeof(title), "OPTIONS %d###cb%d_options%d", id_, runtime_id_, id_);
+        std::snprintf(title, sizeof(title), "OPTIONS %d%s###cb%d_options%d", id_, mark, runtime_id_, id_);
     }
     else if (!source_.hasExpiration())
     {
-        std::snprintf(title, sizeof(title), "%s###cb%d_options%d", source_.symbol().c_str(), runtime_id_, id_);
+        std::snprintf(title, sizeof(title), "%s%s###cb%d_options%d", source_.symbol().c_str(), mark, runtime_id_,
+                      id_);
     }
     else
     {
         const std::string when = source_.expirationLabel();
-        std::snprintf(title, sizeof(title), "%s  %s###cb%d_options%d", source_.symbol().c_str(), when.c_str(),
-                      runtime_id_, id_);
+        std::snprintf(title, sizeof(title), "%s  %s%s###cb%d_options%d", source_.symbol().c_str(), when.c_str(),
+                      mark, runtime_id_, id_);
     }
 
     if (!ImGui::Begin(title, &window_open_, ImGuiWindowFlags_NoSavedSettings))
@@ -495,7 +515,11 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
         ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
     }
 
-    source_.drawPicker(ingest);
+    if (source_.drawPicker(ingest))
+    {
+        symbol_link_.publish(source_.symbol());
+    }
+    drawSymbolLinkCombo(symbol_link_);
     ImGui::SameLine();
     drawColumnMenu();
     source_.refresh(store, ingest);

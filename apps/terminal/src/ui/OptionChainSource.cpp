@@ -393,6 +393,28 @@ void OptionChainSource::refresh(Store* store, IngestWorker* ingest)
     }
 }
 
+void OptionChainSource::applyLinkedSymbol(std::string_view symbol)
+{
+    const std::string normalized = normalizeChartSymbol(symbol);
+    if (normalized == active_symbol_)
+    {
+        return;
+    }
+    active_figi_.clear();
+    has_expiration_ = false;
+    expiration_ = 0;
+    expiries_.clear();
+    quotes_.clear();
+    underlying_.reset();
+    have_slice_ = false;
+    active_symbol_ = normalized;
+    std::snprintf(symbol_input_, sizeof(symbol_input_), "%s", active_symbol_.c_str());
+    failed_key_.clear();
+    error_.clear();
+    fetch_now_ = true;
+    needs_reload_ = true;
+}
+
 bool OptionChainSource::drawPicker(IngestWorker* ingest)
 {
     ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);

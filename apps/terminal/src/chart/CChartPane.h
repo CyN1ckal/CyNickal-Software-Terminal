@@ -8,6 +8,7 @@
 #include "chart/CChartView.h"
 #include "chart/CChartbookDocument.h"
 #include "chart/CStudy.h"
+#include "chart/CSymbolLink.h"
 #include "market_data/Store.h"
 
 #include "imgui.h"
@@ -50,6 +51,8 @@ public:
     void closeWindow();
     void requestFocus();
     void setWindowScope(int runtime_id) noexcept;
+    void attachSymbolLink(CSymbolLink& link);
+    void setSymbolLinkGroup(int group) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] ChartbookPane exportRecord() const;
     void importRecord(const ChartbookPane& record);
@@ -74,6 +77,10 @@ private:
     void drawPlotBody();
     void handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest);
     void commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest);
+    // Assigns a normalized symbol and clears FIGI. False when the text already matches.
+    [[nodiscard]] bool commitSymbol(std::string_view raw);
+    void flushSymbolLink();
+    static void applyLinkedThunk(void* self, std::string_view symbol);
 
     int id_{};
     int runtime_id_{0};
@@ -108,6 +115,11 @@ private:
     int next_study_id_{1};
     int study_draft_selected_{-1};
     bool studies_open_{false};
+    CSymbolLink::Binding symbol_link_;
+    SymbolLinkGroup draft_link_{SymbolLinkGroup::None};
+    bool linked_reload_{false};
+    bool link_publish_pending_{false};
+    std::string link_publish_symbol_;
     std::chrono::steady_clock::time_point last_reload_;
 };
 

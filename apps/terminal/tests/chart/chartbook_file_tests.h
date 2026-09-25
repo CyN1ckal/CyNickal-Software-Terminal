@@ -856,3 +856,62 @@ TEST_CASE("a failed chartbook write leaves the previous file and its bak")
 
     std::filesystem::remove_all(directory);
 }
+
+TEST_CASE("symbol link groups persist on chartbook pane records")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("groups");
+    CHECK(terminal::chartbookToJson(document).find("link_group") == std::string::npos);
+
+    document.panes[0].link_group = 1;
+    terminal::chartbookInsertFinancials(document.layout, 1);
+    terminal::ChartbookFinancials sheet;
+    sheet.id = 1;
+    sheet.symbol = "AAPL";
+    sheet.link_group = 1;
+    document.financials.push_back(sheet);
+    document.next_financials_id = 2;
+    terminal::chartbookInsertOptions(document.layout, 1);
+    terminal::ChartbookOptions chain;
+    chain.id = 1;
+    chain.symbol = "MSFT";
+    chain.link_group = 2;
+    document.options.push_back(chain);
+    document.next_options_id = 2;
+
+    const std::string text = terminal::chartbookToJson(document);
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(text);
+    REQUIRE(loaded.ok);
+    CHECK(loaded.document.format == 1);
+    CHECK(loaded.document.panes[0].link_group == 1);
+    CHECK(loaded.document.financials[0].link_group == 1);
+    CHECK(loaded.document.options[0].link_group == 2);
+    CHECK(terminal::chartbookToJson(loaded.document) == text);
+
+    document.panes[0].link_group = 0;
+    document.financials[0].link_group = 0;
+    document.options[0].link_group = 0;
+    const std::string bare = terminal::chartbookToJson(document);
+    CHECK(bare.find("link_group") == std::string::npos);
+    const terminal::ChartbookLoadResult ungrouped = terminal::chartbookFromJson(bare);
+    REQUIRE(ungrouped.ok);
+    CHECK(ungrouped.document.panes[0].link_group == 0);
+    CHECK(ungrouped.document.financials[0].link_group == 0);
+    CHECK(ungrouped.document.options[0].link_group == 0);
+
+    nlohmann::json root = nlohmann::json::parse(text);
+    root["panes"][0]["link_group"] = "nope";
+    const terminal::ChartbookLoadResult bad_type = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(bad_type.ok);
+    CHECK(bad_type.error == "link_group is not an integer");
+    CHECK(bad_type.document.panes.empty());
+
+    for (const int group : {0, 5, -1})
+    {
+        root = nlohmann::json::parse(text);
+        root["financials"][0]["link_group"] = group;
+        const terminal::ChartbookLoadResult bad_group = terminal::chartbookFromJson(root.dump());
+        CHECK_FALSE(bad_group.ok);
+        CHECK(bad_group.error == "unknown symbol link group");
+        CHECK(bad_group.document.panes.empty());
+    }
+}

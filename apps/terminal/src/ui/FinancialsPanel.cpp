@@ -4,6 +4,7 @@
 #include "ui/FinancialsPanel.h"
 
 #include "chart/CChartLoad.h"
+#include "chart/SymbolLinkCombo.h"
 #include "data/IngestWorker.h"
 #include "ui/Theme.h"
 
@@ -141,6 +142,7 @@ ChartbookFinancials FinancialsPanel::exportState() const
 {
     ChartbookFinancials state;
     state.id = id_;
+    state.link_group = static_cast<int>(symbol_link_.group());
     state.symbol = active_symbol_;
     state.figi = active_figi_;
     state.statement = std::string(toSql(statement_));
@@ -151,6 +153,37 @@ ChartbookFinancials FinancialsPanel::exportState() const
 void FinancialsPanel::setWindowScope(int runtime_id) noexcept
 {
     runtime_id_ = runtime_id;
+}
+
+void FinancialsPanel::attachSymbolLink(CSymbolLink& link)
+{
+    symbol_link_.attach(link, financialsWindowId(id_), &FinancialsPanel::applyLinkedThunk, this);
+}
+
+void FinancialsPanel::setSymbolLinkGroup(int group) noexcept
+{
+    symbol_link_.setGroup(symbolLinkGroupFromInt(group));
+}
+
+void FinancialsPanel::applyLinkedSymbol(std::string_view symbol)
+{
+    const std::string normalized = normalizeChartSymbol(symbol);
+    if (normalized == active_symbol_)
+    {
+        return;
+    }
+    active_figi_.clear();
+    active_symbol_ = normalized;
+    std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
+    failed_key_.clear();
+    error_.clear();
+    fetch_now_ = true;
+    needs_reload_ = true;
+}
+
+void FinancialsPanel::applyLinkedThunk(void* self, std::string_view symbol)
+{
+    static_cast<FinancialsPanel*>(self)->applyLinkedSymbol(symbol);
 }
 
 void FinancialsPanel::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
@@ -408,11 +441,13 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
     const bool clicked = ImGui::Button("GO");
     ImGui::EndDisabled();
     ImGui::PopStyleColor(4);
+    drawSymbolLinkCombo(symbol_link_);
 
     if (symbol_go || clicked)
     {
         const std::string typed = normalizeChartSymbol(symbol_);
-        if (typed != active_symbol_)
+        const bool changed = typed != active_symbol_;
+        if (changed)
         {
             active_figi_.clear();
         }
@@ -422,6 +457,10 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
         error_.clear();
         fetch_now_ = true;
         needs_reload_ = true;
+        if (changed)
+        {
+            symbol_link_.publish(active_symbol_);
+        }
     }
 }
 
@@ -537,14 +576,16 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
     }
 
     char title[160];
+    char mark[8] = {};
+    writeSymbolLinkMark(mark, sizeof(mark), symbol_link_.group());
     if (active_symbol_.empty())
     {
-        std::snprintf(title, sizeof(title), "FINANCIALS %d###cb%d_financials%d", id_, runtime_id_, id_);
+        std::snprintf(title, sizeof(title), "FINANCIALS %d%s###cb%d_financials%d", id_, mark, runtime_id_, id_);
     }
     else
     {
-        std::snprintf(title, sizeof(title), "%s  %s  %s###cb%d_financials%d", active_symbol_.c_str(),
-                      statementLabel(statement_), periodLabel(timeframe_), runtime_id_, id_);
+        std::snprintf(title, sizeof(title), "%s  %s  %s%s###cb%d_financials%d", active_symbol_.c_str(),
+                      statementLabel(statement_), periodLabel(timeframe_), mark, runtime_id_, id_);
     }
 
     if (!ImGui::Begin(title, &window_open_, ImGuiWindowFlags_NoSavedSettings))

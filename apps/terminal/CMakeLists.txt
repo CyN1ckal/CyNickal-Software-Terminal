@@ -41,6 +41,7 @@ add_library(terminal_core OBJECT
     src/chart/CChartAxis.cpp
     src/chart/CChartCommand.cpp
     src/chart/CChartLoad.cpp
+    src/chart/CSymbolLink.cpp
     src/chart/CChartTransform.cpp
     src/chart/CChartbookDocument.cpp
     src/chart/CChartbookFile.cpp
@@ -176,6 +177,7 @@ if(CYN_TESTING)
         src/chart/CChartAxis.cpp
         src/chart/CChartCommand.cpp
         src/chart/CChartLoad.cpp
+        src/chart/CSymbolLink.cpp
         src/chart/CChartTransform.cpp
         src/chart/CChartbookDocument.cpp
         src/chart/CChartbookFile.cpp

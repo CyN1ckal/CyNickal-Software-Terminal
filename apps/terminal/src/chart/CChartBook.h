@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartbookDocument.h"
+#include "chart/CSymbolLink.h"
 #include "ui/FinancialsPanel.h"
 #include "ui/OptionsChainPanel.h"
 #include "ui/PortfolioPanel.h"
@@ -103,6 +104,8 @@ private:
     ChartbookData data_{};
     ChartbookLayout layout_{};
     std::vector<ChartbookFloating> floating_;
+    // Destroyed after the pane vectors so a binding detaches while this table is still alive.
+    CSymbolLink symbol_link_;
     std::vector<std::unique_ptr<CChartPane>> panes_;
     std::vector<std::unique_ptr<FinancialsPanel>> financials_;
     std::vector<std::unique_ptr<OptionsChainPanel>> options_;

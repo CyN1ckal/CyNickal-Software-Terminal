@@ -96,6 +96,7 @@ struct ChartbookLayout
 struct ChartbookFinancials
 {
     int id{0};
+    int link_group{0};  // 0 ungrouped, 1..4 a symbol group. Omitted from the file when 0.
     std::string symbol;
     std::string figi;  // empty until the symbol resolves to an instrument with a FIGI
     std::string statement{"income"};
@@ -231,6 +232,7 @@ static_assert(optionChainDefaultsAreOrdered());
 struct ChartbookOptions
 {
     int id{0};
+    int link_group{0};  // 0 ungrouped, 1..4 a symbol group. Omitted from the file when 0.
     std::string symbol;
     std::string figi;  // empty until the symbol resolves to an instrument with a FIGI
     int expiration{0};
@@ -262,6 +264,7 @@ struct ChartbookPayoff
 struct ChartbookPane
 {
     int id{0};
+    int link_group{0};  // 0 ungrouped, 1..4 a symbol group. Omitted from the file when 0.
     CChartSettings settings{};
     ChartInteractiveScale interactive{ChartInteractiveScale::Move};
     std::vector<float> region_ratios;

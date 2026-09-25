@@ -263,6 +263,7 @@ void CChartBook::addPane()
 {
     auto pane = std::make_unique<CChartPane>(next_id_);
     pane->setWindowScope(runtime_id_);
+    pane->attachSymbolLink(symbol_link_);
     focused_id_ = next_id_;
     pane->requestFocus();
     chartbookInsertPane(layout_, next_id_);
@@ -275,6 +276,7 @@ void CChartBook::addFinancials()
 {
     auto panel = std::make_unique<FinancialsPanel>(next_financials_id_);
     panel->setWindowScope(runtime_id_);
+    panel->attachSymbolLink(symbol_link_);
     focused_financials_id_ = next_financials_id_;
     panel->requestFocus();
     chartbookInsertFinancials(layout_, next_financials_id_);
@@ -287,6 +289,7 @@ void CChartBook::addOptions()
 {
     auto panel = std::make_unique<OptionsChainPanel>(next_options_id_);
     panel->setWindowScope(runtime_id_);
+    panel->attachSymbolLink(symbol_link_);
     focused_options_id_ = next_options_id_;
     panel->requestFocus();
     chartbookInsertOptions(layout_, next_options_id_);
@@ -407,6 +410,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
         auto panel = std::make_unique<FinancialsPanel>(record.id);
         panel->setWindowScope(runtime_id_);
         panel->importState(record);
+        panel->attachSymbolLink(symbol_link_);
+        panel->setSymbolLinkGroup(record.link_group);
         if (record.id == focused_financials_id_)
         {
             panel->requestFocus();
@@ -426,6 +431,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
         auto panel = std::make_unique<OptionsChainPanel>(record.id);
         panel->setWindowScope(runtime_id_);
         panel->importState(record);
+        panel->attachSymbolLink(symbol_link_);
+        panel->setSymbolLinkGroup(record.link_group);
         if (record.id == focused_options_id_)
         {
             panel->requestFocus();
@@ -483,6 +490,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
         auto pane = std::make_unique<CChartPane>(record.id);
         pane->setWindowScope(runtime_id_);
         pane->importRecord(record);
+        pane->attachSymbolLink(symbol_link_);
+        pane->setSymbolLinkGroup(record.link_group);
         if (record.id == focused_id_)
         {
             pane->requestFocus();

@@ -33,6 +33,10 @@ public:
     // different underlying, so anything priced on the old one is stale.
     bool drawPicker(IngestWorker* ingest);
 
+    // Inbound symbol from a link group. Same text returns without clearing the chain.
+    // Does not publish. The caller mirrors this into the edit buffer.
+    void applyLinkedSymbol(std::string_view symbol);
+
     // Call once per frame after drawPicker.
     void refresh(Store* store, IngestWorker* ingest);
 

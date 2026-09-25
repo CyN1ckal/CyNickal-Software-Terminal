@@ -35,41 +35,44 @@ constexpr std::size_t kChartKeyBufferMax = 32;
 }
 
 void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
-                      const CChartSettings& settings, std::string_view typed)
+                      const CChartSettings& settings, std::string_view typed, SymbolLinkGroup link)
 {
     const char* period = chartPeriodCode(settings.period);
     const int typed_n = static_cast<int>(typed.size());
+    char mark[8] = {};
+    writeSymbolLinkMark(mark, sizeof(mark), link);
     if (settings.symbol.empty())
     {
         if (typed.empty() && settings.period == ChartBarPeriod::Minute1)
         {
-            std::snprintf(title, title_n, "CHART %d###cb%d_pane%d", id, runtime_id, id);
+            std::snprintf(title, title_n, "CHART %d%s###cb%d_pane%d", id, mark, runtime_id, id);
             return;
         }
         if (typed.empty())
         {
-            std::snprintf(title, title_n, "CHART %d  %s###cb%d_pane%d", id, period, runtime_id, id);
+            std::snprintf(title, title_n, "CHART %d  %s%s###cb%d_pane%d", id, period, mark, runtime_id, id);
             return;
         }
         if (settings.period == ChartBarPeriod::Minute1)
         {
             // %.*s uses typed_n as the length, so the view does not need a terminator.
-            std::snprintf(title, title_n, "CHART %d  %.*s###cb%d_pane%d", id, typed_n,
+            std::snprintf(title, title_n, "CHART %d%s  %.*s###cb%d_pane%d", id, mark, typed_n,
                           typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
                           runtime_id, id);
             return;
         }
-        std::snprintf(title, title_n, "CHART %d  %s  %.*s###cb%d_pane%d", id, period, typed_n,
+        std::snprintf(title, title_n, "CHART %d  %s%s  %.*s###cb%d_pane%d", id, period, mark, typed_n,
                       typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
                       runtime_id, id);
         return;
     }
     if (typed.empty())
     {
-        std::snprintf(title, title_n, "%s  %s###cb%d_pane%d", settings.symbol.c_str(), period, runtime_id, id);
+        std::snprintf(title, title_n, "%s  %s%s###cb%d_pane%d", settings.symbol.c_str(), period, mark, runtime_id,
+                      id);
         return;
     }
-    std::snprintf(title, title_n, "%s  %s  %.*s###cb%d_pane%d", settings.symbol.c_str(), period, typed_n,
+    std::snprintf(title, title_n, "%s  %s%s  %.*s###cb%d_pane%d", settings.symbol.c_str(), period, mark, typed_n,
                   typed.data(), // NOLINT(bugprone-suspicious-stringview-data-usage)
                   runtime_id, id);
 }
@@ -204,6 +207,7 @@ void CChartPane::openSettings()
         return;
     }
     draft_ = settings_;
+    draft_link_ = symbol_link_.group();
     std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
     settings_open_ = true;
 }
@@ -337,8 +341,16 @@ void CChartPane::applyDraft(Store* store, std::string_view store_error, IngestWo
     {
         resetChartScale(view_);
     }
+    const std::string previous = normalizeChartSymbol(settings_.symbol);
+    const std::string committed = draft_.symbol;
     settings_ = draft_;
+    symbol_link_.setGroup(draft_link_);
     applyLiveSettings(store, store_error, ingest);
+    if (committed != previous)
+    {
+        link_publish_pending_ = true;
+        link_publish_symbol_ = committed;
+    }
 }
 
 void CChartPane::applyLiveSettings(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -531,6 +543,28 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
             "##chart_symbol", draft_symbol_, sizeof(draft_symbol_),
             ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::PopStyleColor();
+
+        ImGui::TextUnformatted("Link");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(140.0f);
+        if (ImGui::BeginCombo("##chart_link", symbolLinkGroupLabel(draft_link_)))
+        {
+            constexpr SymbolLinkGroup kGroups[] = {
+                SymbolLinkGroup::None,
+                SymbolLinkGroup::One,
+                SymbolLinkGroup::Two,
+                SymbolLinkGroup::Three,
+                SymbolLinkGroup::Four,
+            };
+            for (const SymbolLinkGroup group : kGroups)
+            {
+                if (ImGui::Selectable(symbolLinkGroupLabel(group), draft_link_ == group))
+                {
+                    draft_link_ = group;
+                }
+            }
+            ImGui::EndCombo();
+        }
 
         ImGui::TextUnformatted("Bar Period");
         ImGui::SameLine();
@@ -819,14 +853,20 @@ void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, Ing
     key_note_.clear();
     if (command.kind == ChartCommandKind::Symbol)
     {
-        settings_.symbol = command.symbol;
-        settings_.figi.clear();
+        const std::string committed = normalizeChartSymbol(command.symbol);
+        const bool changed = commitSymbol(command.symbol);
+        applyLiveSettings(store, store_error, ingest);
+        if (changed)
+        {
+            link_publish_pending_ = true;
+            link_publish_symbol_ = committed;
+        }
     }
     else
     {
         settings_.period = command.period;
+        applyLiveSettings(store, store_error, ingest);
     }
-    applyLiveSettings(store, store_error, ingest);
     // Reloading the plot can move the keyboard target off this pane.
     refocus_keyboard_ = true;
 }
@@ -962,6 +1002,53 @@ void CChartPane::setWindowScope(int runtime_id) noexcept
     runtime_id_ = runtime_id;
 }
 
+void CChartPane::attachSymbolLink(CSymbolLink& link)
+{
+    symbol_link_.attach(link, paneWindowId(id_), &CChartPane::applyLinkedThunk, this);
+}
+
+void CChartPane::setSymbolLinkGroup(int group) noexcept
+{
+    symbol_link_.setGroup(symbolLinkGroupFromInt(group));
+}
+
+bool CChartPane::commitSymbol(std::string_view raw)
+{
+    const std::string symbol = normalizeChartSymbol(raw);
+    if (symbol == normalizeChartSymbol(settings_.symbol))
+    {
+        return false;
+    }
+    settings_.symbol = symbol;
+    settings_.figi.clear();
+    if (!settings_open_)
+    {
+        draft_.symbol = settings_.symbol;
+        draft_.figi.clear();
+        std::snprintf(draft_symbol_, sizeof(draft_symbol_), "%s", draft_.symbol.c_str());
+    }
+    return true;
+}
+
+void CChartPane::flushSymbolLink()
+{
+    if (!link_publish_pending_)
+    {
+        return;
+    }
+    link_publish_pending_ = false;
+    symbol_link_.publish(link_publish_symbol_);
+}
+
+void CChartPane::applyLinkedThunk(void* self, std::string_view symbol)
+{
+    auto* pane = static_cast<CChartPane*>(self);
+    if (pane->commitSymbol(symbol))
+    {
+        pane->linked_reload_ = true;
+    }
+}
+
 void CChartPane::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
 {
     place_force_ = force;
@@ -975,6 +1062,7 @@ ChartbookPane CChartPane::exportRecord() const
 {
     ChartbookPane record;
     record.id = id_;
+    record.link_group = static_cast<int>(symbol_link_.group());
     record.settings = settings_;
     record.interactive = view_.interactive;
     record.region_ratios = view_.region_ratios;
@@ -1022,8 +1110,14 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
         place_force_ = false;
     }
 
+    if (linked_reload_)
+    {
+        linked_reload_ = false;
+        applyLiveSettings(store, store_error, ingest);
+    }
+
     char title[160];
-    formatChartTitle(title, sizeof(title), runtime_id_, id_, settings_, key_buffer_);
+    formatChartTitle(title, sizeof(title), runtime_id_, id_, settings_, key_buffer_, symbol_link_.group());
 
     // Enter and arrows are chart commands, not navigation between Settings and the plot.
     // No scrollbar: the series fills the client, and a bar would open a gap on the edge.
@@ -1034,6 +1128,10 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     {
         ImGui::End();
         ImGui::PopStyleVar();
+        if (window_open_)
+        {
+            flushSymbolLink();
+        }
         return false;
     }
 
@@ -1058,6 +1156,7 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     // After the overlay buttons, so a click opens the modal on this frame.
     drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();
+    flushSymbolLink();
 
     const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
     ImGui::End();

@@ -101,7 +101,7 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 | Tick / volume / renko bars | Not implemented. 5m / 15m / 1h / 1d candlesticks are an in-memory transform of 1-minute rows, not new Store tables. |
 | Drawing tools, replay, volume profile | Volume as a chart-region study is in scope (see **Studies**). Volume profile is not. |
 | Write study values or chart settings into SQLite | Studies and settings live in the chartbook file. Computed series stay in memory. |
-| Chart linking across panes | Sierra has it; skip. |
+| Symbol groups across panes | A pane joins group 1–4. The next symbol commit updates the other members of that group. Period, studies, joining a group, and the DATA row stay independent. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
 | Charts ingesting from MBoum | DATA / `IngestWorker` only. |
 | Schema v2, `queryBars` LIMIT | Daily split adjustment is in-memory after `queryBars`. Intraday stays as-traded. |

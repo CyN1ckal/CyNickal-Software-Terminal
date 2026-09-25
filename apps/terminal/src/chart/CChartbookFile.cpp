@@ -5,6 +5,7 @@
 
 #include "RepoRoot.h"
 #include "chart/CStudyCompute.h"
+#include "chart/CSymbolLink.h"
 #include "chart/studies/StudyRegistry.h"
 
 #include <nlohmann/json.hpp>
@@ -246,6 +247,36 @@ using nlohmann::json;
     }
     out = object.at(key).get<int>();
     return true;
+}
+
+// Missing key is ungrouped. A present 0, or any integer outside 1..4, fails the file.
+[[nodiscard]] bool readLinkGroup(const json& object, int& link_group, std::string& error)
+{
+    link_group = 0;
+    if (!object.contains("link_group"))
+    {
+        return true;
+    }
+    const json& value = object.at("link_group");
+    if (!value.is_number_integer())
+    {
+        return fail(error, "link_group is not an integer");
+    }
+    const int group = value.get<int>();
+    if (!isSymbolLinkGroup(group))
+    {
+        return fail(error, "unknown symbol link group");
+    }
+    link_group = group;
+    return true;
+}
+
+void writeLinkGroup(json& object, int link_group)
+{
+    if (link_group != 0)
+    {
+        object["link_group"] = link_group;
+    }
 }
 
 [[nodiscard]] bool readBool(const json& object, const char* key, bool& out, std::string& error)
@@ -628,6 +659,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     }
     json object = json::object();
     object["id"] = pane.id;
+    writeLinkGroup(object, pane.link_group);
     object["settings"] = settingsToJson(pane.settings);
     object["interactive_scale"] = interactiveName(pane.interactive);
     object["region_ratios"] = std::move(ratios);
@@ -646,6 +678,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     if (!readInt(*object, "id", pane.id, error) || pane.id <= 0)
     {
         return fail(error, "pane id is missing");
+    }
+    if (!readLinkGroup(*object, pane.link_group, error))
+    {
+        return false;
     }
     if (!object->contains("settings"))
     {
@@ -730,6 +766,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
 
 [[nodiscard]] bool readFinancialsFields(const json& object, ChartbookFinancials& financials, std::string& error)
 {
+    if (!readLinkGroup(object, financials.link_group, error))
+    {
+        return false;
+    }
     if (object.contains("symbol") && !readString(object, "symbol", financials.symbol, error))
     {
         return false;
@@ -787,6 +827,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     {
         json object = json::object();
         object["id"] = panel.id;
+        writeLinkGroup(object, panel.link_group);
         object["symbol"] = panel.symbol;
         if (!panel.figi.empty())
         {
@@ -913,6 +954,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
 
 [[nodiscard]] bool readOptionsFields(const json& object, ChartbookOptions& panel, std::string& error)
 {
+    if (!readLinkGroup(object, panel.link_group, error))
+    {
+        return false;
+    }
     if (object.contains("symbol") && !readString(object, "symbol", panel.symbol, error))
     {
         return false;
@@ -976,6 +1021,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     {
         json object = json::object();
         object["id"] = panel.id;
+        writeLinkGroup(object, panel.link_group);
         object["symbol"] = panel.symbol;
         if (!panel.figi.empty())
         {
