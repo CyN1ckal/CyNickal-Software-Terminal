@@ -59,9 +59,30 @@ private:
     [[nodiscard]] bool appendResolved(const Store& store, PortfolioAssetKind kind, const std::string& symbol,
                                       double quantity);
 
+    // How a row's profit-and-loss sample is built. Cash is a zero exposure.
+    // Close uses the share price. Delta scales the underlying move.
+    enum class HoldingRiskBasis : std::uint8_t
+    {
+        Unavailable,
+        Cash,
+        Close,
+        Delta,
+    };
+
+    struct HoldingRisk
+    {
+        HoldingRiskBasis basis{HoldingRiskBasis::Unavailable};
+        double unit_exposure{0.0};
+        std::vector<double> closes;
+    };
+
     std::vector<Portfolio> books_;
     std::vector<PortfolioHolding> drafts_;
     std::vector<std::optional<double>> lasts_;
+    std::vector<HoldingRisk> risks_;
+    bool show_position_var_{true};
+    bool show_unit_var_{true};
+    int var_confidence_pct_{95};
     bool marks_valid_{false};
     std::uint64_t priced_serial_{0};
     std::string book_name_;

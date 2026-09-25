@@ -5,8 +5,10 @@
 
 #include "IngestDefaults.h"
 #include "data/PortfolioFetch.h"
+#include "risk/HistoricalRisk.h"
 #include "ui/Theme.h"
 
+#include "market_data/Adjust.h"
 #include "market_data/NyseCalendar.h"
 #include "market_data/Store.h"
 #include "market_data/Time.h"
@@ -20,6 +22,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <exception>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -206,7 +209,13 @@ bool withWriter(Store* reader, std::string& error, Fn&& action)
     return minute->second;
 }
 
-[[nodiscard]] std::optional<double> optionLast(const Store& store, const PortfolioHolding& row)
+struct OptionSnapshot
+{
+    double last{0.0};
+    double delta{0.0};
+};
+
+[[nodiscard]] std::optional<OptionSnapshot> optionSnapshot(const Store& store, const PortfolioHolding& row)
 {
     if (!row.instrument_id.has_value() || !row.expiration.has_value() || !row.expiration_type.has_value() ||
         !row.strike.has_value() || !row.right.has_value())
@@ -225,26 +234,32 @@ bool withWriter(Store* reader, std::string& error, Fn&& action)
         {
             continue;
         }
-        return quote.last;
+        OptionSnapshot snapshot;
+        snapshot.last = quote.last;
+        snapshot.delta = quote.delta;
+        return snapshot;
     }
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<double> lastPrice(const Store& store, const PortfolioHolding& row)
+[[nodiscard]] std::vector<double> dailyCloses(const Store& store, InstrumentId id)
 {
-    if (row.kind == PortfolioAssetKind::Cash)
+    constexpr UnixSeconds kAllBarsEnd = std::numeric_limits<UnixSeconds>::max();
+    std::vector<Bar> bars = store.queryBars(id, kTimeframe1d, 0, kAllBarsEnd);
+    if (!bars.empty())
     {
-        return 1.0;
+        // End at the last bar: a split on that bar is left unchanged, so the last close stays as-traded.
+        const std::vector<CorporateAction> actions =
+            store.queryCorporateActions(id, 0, bars.back().ts);
+        bars = adjustBarsForSplits(std::move(bars), actions);
     }
-    if (!row.instrument_id.has_value())
+    std::vector<double> closes;
+    closes.reserve(bars.size());
+    for (const Bar& bar : bars)
     {
-        return std::nullopt;
+        closes.push_back(bar.close);
     }
-    if (row.kind == PortfolioAssetKind::Option)
-    {
-        return optionLast(store, row);
-    }
-    return equityLast(store, *row.instrument_id);
+    return closes;
 }
 
 [[nodiscard]] double lineValue(const PortfolioHolding& row, double last)
@@ -429,6 +444,114 @@ struct SliceLabel
     double sum = 0.0;
 };
 
+struct HoldingsColumns
+{
+    int unit_var{-1};
+    int position_cvar{-1};
+    int unit_cvar{-1};
+    int portfolio_var{-1};
+    int expiration{0};
+    int expiry_type{0};
+    int strike{0};
+    int right{0};
+    int count{0};
+};
+
+void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
+{
+    constexpr ImGuiTableColumnFlags kFixed = ImGuiTableColumnFlags_WidthFixed;
+    int next = 0;
+    const auto add = [&](const char* name, ImGuiTableColumnFlags flags, float width) {
+        ImGui::TableSetupColumn(name, flags, width);
+        const int index = next;
+        ++next;
+        return index;
+    };
+    add("Kind", kFixed, 72.f);
+    add("Symbol", ImGuiTableColumnFlags_WidthStretch, 1.f);
+    add("FIGI", kFixed, 136.f);
+    add("Quantity", kFixed, 108.f);
+    add("Last", kFixed, 128.f);
+    add("Value", kFixed, 148.f);
+    if (position)
+    {
+        columns.position_cvar = add("Position CVaR", kFixed, 168.f);
+    }
+    if (unit)
+    {
+        columns.unit_var = add("Unit VaR", kFixed, 148.f);
+        columns.unit_cvar = add("Unit CVaR", kFixed, 156.f);
+    }
+    columns.portfolio_var = add("Portfolio VaR", kFixed, 168.f);
+    columns.expiration = add("Expiration", kFixed, 108.f);
+    columns.expiry_type = add("Type", kFixed, 84.f);
+    columns.strike = add("Strike", kFixed, 120.f);
+    columns.right = add("Right", kFixed, 136.f);
+    columns.count = next;
+}
+
+void drawHoldingsHeaders(const HoldingsColumns& columns, int confidence_pct)
+{
+    const std::string pct = std::to_string(confidence_pct) + "%";
+    const std::string position_cvar = "CVaR " + pct;
+    const std::string unit_var = "Unit VaR " + pct;
+    const std::string unit_cvar = "Unit CVaR " + pct;
+    const std::string unit_var_tip =
+        "One share, or one option contract, in the same direction as the line. "
+        "A flat quantity shows one long unit. Same " +
+        pct + " history as the position figure.";
+    const std::string position_cvar_tip =
+        "Position 1-day " + pct + " expected shortfall: the average P&L beyond VaR. A loss prints negative.";
+    const std::string unit_cvar_tip = "Per-unit 1-day " + pct +
+                                      " expected shortfall. A loss prints negative.";
+    const std::string portfolio_var = "Portfolio " + pct;
+    const std::string portfolio_tip =
+        "Sum of each line's own 1-day " + pct +
+        " historical VaR, from that line's latest daily returns. A loss prints negative.";
+
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+    const int count = ImGui::TableGetColumnCount();
+    for (int column = 0; column < count; ++column)
+    {
+        ImGui::TableSetColumnIndex(column);
+        const char* name = ImGui::TableGetColumnName(column);
+        const char* tip = nullptr;
+        if (column == columns.unit_var)
+        {
+            name = unit_var.c_str();
+            tip = unit_var_tip.c_str();
+        }
+        else if (column == columns.position_cvar)
+        {
+            name = position_cvar.c_str();
+            tip = position_cvar_tip.c_str();
+        }
+        else if (column == columns.unit_cvar)
+        {
+            name = unit_cvar.c_str();
+            tip = unit_cvar_tip.c_str();
+        }
+        else if (column == columns.portfolio_var)
+        {
+            name = portfolio_var.c_str();
+            tip = portfolio_tip.c_str();
+        }
+        ImGui::PushID(column);
+        ImGui::TableHeader(name);
+        if (tip != nullptr && ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("%s", tip);
+        }
+        ImGui::PopID();
+    }
+}
+
+void drawRiskPnl(double loss, bool per_unit)
+{
+    const double pnl = -loss;
+    drawMoney(pnl, per_unit ? priceDecimals(pnl) : 2);
+}
+
 int formatSliceShare(double value, char* buffer, int size, void* data)  // NOLINT(misc-const-correctness)
 {
     if (buffer == nullptr || size <= 1)
@@ -489,6 +612,10 @@ void PortfolioPanel::requestFocus()
 void PortfolioPanel::importState(const ChartbookPortfolio& state)
 {
     portfolio_id_ = state.portfolio_id;
+    show_position_var_ = state.show_position_var;
+    show_unit_var_ = state.show_unit_var;
+    var_confidence_pct_ = state.var_confidence_pct >= 50 && state.var_confidence_pct <= 99 ? state.var_confidence_pct
+                                                                                            : 95;
     loaded_ = false;
     dirty_ = false;
 }
@@ -498,6 +625,9 @@ ChartbookPortfolio PortfolioPanel::exportState() const
     ChartbookPortfolio state;
     state.id = id_;
     state.portfolio_id = portfolio_id_;
+    state.var_confidence_pct = var_confidence_pct_;
+    state.show_position_var = show_position_var_;
+    state.show_unit_var = show_unit_var_;
     return state;
 }
 
@@ -754,40 +884,144 @@ void PortfolioPanel::drawBooks(Store& store)
 void PortfolioPanel::refreshMarks(const Store& store)
 {
     lasts_.assign(drafts_.size(), std::nullopt);
+    risks_.assign(drafts_.size(), HoldingRisk{});
     for (std::size_t index = 0; index < drafts_.size(); ++index)
     {
-        lasts_[index] = lastPrice(store, drafts_[index]);
+        const PortfolioHolding& row = drafts_[index];
+        if (row.kind == PortfolioAssetKind::Cash)
+        {
+            lasts_[index] = 1.0;
+            risks_[index].basis = HoldingRiskBasis::Cash;
+            continue;
+        }
+        const std::optional<InstrumentId> instrument_id = row.instrument_id;
+        if (!instrument_id.has_value())
+        {
+            continue;
+        }
+        const InstrumentId instrument = instrument_id.value();
+        if (row.kind == PortfolioAssetKind::Option)
+        {
+            const std::optional<OptionSnapshot> found = optionSnapshot(store, row);
+            if (!found.has_value())
+            {
+                continue;
+            }
+            const OptionSnapshot quote = found.value();
+            lasts_[index] = quote.last;
+            const std::optional<double> underlying = equityLast(store, instrument);
+            if (!underlying.has_value())
+            {
+                continue;
+            }
+            const double spot = underlying.value();
+            if (!(spot > 0.0) || !std::isfinite(quote.delta))
+            {
+                continue;
+            }
+            risks_[index].basis = HoldingRiskBasis::Delta;
+            risks_[index].unit_exposure = optionDeltaExposure(1.0, kOptionContractMultiplier, quote.delta, spot);
+            risks_[index].closes = dailyCloses(store, instrument);
+            continue;
+        }
+        const std::optional<double> last = equityLast(store, instrument);
+        if (!last.has_value())
+        {
+            continue;
+        }
+        const double price = last.value();
+        lasts_[index] = price;
+        if (!(price > 0.0))
+        {
+            continue;
+        }
+        risks_[index].basis = HoldingRiskBasis::Close;
+        risks_[index].unit_exposure = price;
+        risks_[index].closes = dailyCloses(store, instrument);
     }
     marks_valid_ = true;
 }
 
 void PortfolioPanel::drawHoldings(const Store& store)
 {
-    if (!marks_valid_ || lasts_.size() != drafts_.size())
+    if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
         refreshMarks(store);
     }
+    ImGui::Checkbox("CVaR", &show_position_var_);
+    ImGui::SameLine();
+    ImGui::Checkbox("Per unit", &show_unit_var_);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(168.f);
+    ImGui::SliderInt("##var_confidence", &var_confidence_pct_, 50, 99, "Confidence %d%%");
+
+    const int risk_columns = (show_position_var_ ? 1 : 0) + (show_unit_var_ ? 2 : 0) + 1;
+    const int column_count = 10 + risk_columns;
     const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY |
                                   ImGuiTableFlags_ScrollX | ImGuiTableFlags_Resizable |
                                   ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
-    const float inner_width = std::max(1160.f, ImGui::GetContentRegionAvail().x);
-    if (!ImGui::BeginTable("holdings", 10, flags, ImVec2(0.f, 0.f), inner_width))
+    const float inner_width =
+        std::max(1160.f + (160.f * static_cast<float>(risk_columns)), ImGui::GetContentRegionAvail().x);
+    if (!ImGui::BeginTable("holdings", column_count, flags, ImVec2(0.f, 0.f), inner_width))
     {
         return;
     }
-    constexpr ImGuiTableColumnFlags kFixed = ImGuiTableColumnFlags_WidthFixed;
-    ImGui::TableSetupColumn("Kind", kFixed, 72.f);
-    ImGui::TableSetupColumn("Symbol", ImGuiTableColumnFlags_WidthStretch, 1.f);
-    ImGui::TableSetupColumn("FIGI", kFixed, 136.f);
-    ImGui::TableSetupColumn("Quantity", kFixed, 108.f);
-    ImGui::TableSetupColumn("Last", kFixed, 128.f);
-    ImGui::TableSetupColumn("Value", kFixed, 148.f);
-    ImGui::TableSetupColumn("Expiration", kFixed, 108.f);
-    ImGui::TableSetupColumn("Type", kFixed, 84.f);
-    ImGui::TableSetupColumn("Strike", kFixed, 120.f);
-    ImGui::TableSetupColumn("Right", kFixed, 136.f);
+    HoldingsColumns columns;
+    setupHoldingsColumns(columns, show_position_var_, show_unit_var_);
     ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableHeadersRow();
+    drawHoldingsHeaders(columns, var_confidence_pct_);
+
+    struct BookColumn
+    {
+        std::optional<double> total_loss;
+        std::vector<std::optional<double>> row_loss;
+    };
+    const auto bookColumn = [&] {
+        BookColumn column;
+        column.row_loss.assign(drafts_.size(), std::nullopt);
+        if (risks_.size() != drafts_.size())
+        {
+            return column;
+        }
+        std::vector<PortfolioLeg> legs;
+        std::vector<std::size_t> rows;
+        legs.reserve(drafts_.size());
+        rows.reserve(drafts_.size());
+        for (std::size_t index = 0; index < drafts_.size(); ++index)
+        {
+            const HoldingRisk& risk = risks_[index];
+            if (risk.basis == HoldingRiskBasis::Unavailable)
+            {
+                continue;
+            }
+            const double quantity = drafts_[index].quantity;
+            const double exposure = quantity * risk.unit_exposure;
+            if (!std::isfinite(quantity) || !std::isfinite(exposure))
+            {
+                continue;
+            }
+            PortfolioLeg leg;
+            leg.closes = risk.closes;
+            leg.signed_exposure = exposure;
+            legs.push_back(leg);
+            rows.push_back(index);
+        }
+        ValueAtRiskSpec spec;
+        spec.confidence = static_cast<double>(var_confidence_pct_) / 100.0;
+        const PortfolioValueAtRisk measured = portfolioValueAtRisk(legs, spec);
+        if (!measured.var.has_value() || measured.component_var.size() != legs.size())
+        {
+            return column;
+        }
+        column.total_loss = measured.var;
+        for (std::size_t index = 0; index < rows.size(); ++index)
+        {
+            column.row_loss[rows[index]] = measured.component_var[index];
+        }
+        return column;
+    };
+    BookColumn book = bookColumn();
+
     for (std::size_t index = 0; index < drafts_.size(); ++index)
     {
         PortfolioHolding& row = drafts_[index];
@@ -857,25 +1091,57 @@ void PortfolioPanel::drawHoldings(const Store& store)
         {
             drawMoney(lineValue(row, last.value()), 2);
         }
-        ImGui::TableSetColumnIndex(6);
+        HoldingValueAtRisk figures;
+        if (index < risks_.size() && risks_[index].basis != HoldingRiskBasis::Unavailable)
+        {
+            ValueAtRiskSpec spec;
+            spec.confidence = static_cast<double>(var_confidence_pct_) / 100.0;
+            figures = holdingValueAtRisk(risks_[index].closes, row.quantity, risks_[index].unit_exposure, spec);
+        }
+        const auto draw_scope = [](int column, const std::optional<ValueAtRisk>& risk, bool cvar, bool per_unit) {
+            if (column < 0)
+            {
+                return;
+            }
+            ImGui::TableSetColumnIndex(column);
+            if (!risk.has_value())
+            {
+                return;
+            }
+            const ValueAtRisk measured = risk.value();
+            drawRiskPnl(cvar ? measured.cvar : measured.var, per_unit);
+        };
+        draw_scope(columns.position_cvar, figures.position, true, false);
+        draw_scope(columns.unit_var, figures.per_unit, false, true);
+        draw_scope(columns.unit_cvar, figures.per_unit, true, true);
+        ImGui::TableSetColumnIndex(columns.portfolio_var);
+        if (index < book.row_loss.size())
+        {
+            const std::optional<double> loss = book.row_loss[index];
+            if (loss.has_value())
+            {
+                drawRiskPnl(loss.value(), false);
+            }
+        }
+        ImGui::TableSetColumnIndex(columns.expiration);
         if (row.expiration.has_value())
         {
             const std::string when = formatSessionDate(*row.expiration);
             ImGui::TextUnformatted(when.c_str());
         }
-        ImGui::TableSetColumnIndex(7);
+        ImGui::TableSetColumnIndex(columns.expiry_type);
         if (row.expiration_type.has_value())
         {
             const std::string_view type = toSql(*row.expiration_type);
             ImGui::TextUnformatted(type.data(), type.data() + type.size());
         }
-        ImGui::TableSetColumnIndex(8);
+        ImGui::TableSetColumnIndex(columns.strike);
         if (row.strike.has_value())
         {
             const std::optional<double> strike = row.strike;
             drawMoney(strike.value(), priceDecimals(strike.value()));
         }
-        ImGui::TableSetColumnIndex(9);
+        ImGui::TableSetColumnIndex(columns.right);
         if (row.right.has_value())
         {
             const std::string_view side = toSql(*row.right);
@@ -894,9 +1160,10 @@ void PortfolioPanel::drawHoldings(const Store& store)
         }
         ImGui::PopID();
     }
-    if (!marks_valid_ || lasts_.size() != drafts_.size())
+    if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
         refreshMarks(store);
+        book = bookColumn();
     }
     double total = 0.0;
     int unpriced = 0;
@@ -921,6 +1188,12 @@ void PortfolioPanel::drawHoldings(const Store& store)
     }
     ImGui::TableSetColumnIndex(5);
     drawMoney(total, 2);
+    ImGui::TableSetColumnIndex(columns.portfolio_var);
+    if (book.total_loss.has_value())
+    {
+        const double loss = book.total_loss.value();
+        drawRiskPnl(loss, false);
+    }
     ImGui::EndTable();
 }
 
@@ -1214,7 +1487,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         status_color = Theme::kWarn;
     }
     ImGui::TextColored(status_color, "%s", status_.c_str());
-    if (!marks_valid_ || lasts_.size() != drafts_.size())
+    if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
         refreshMarks(*store);
     }

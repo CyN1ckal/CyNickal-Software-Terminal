@@ -803,6 +803,60 @@ TEST_CASE("portfolio windows round trip and a book without them still opens")
     CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
 }
 
+TEST_CASE("portfolio risk view round trips and a book without it keeps the defaults")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertPortfolio(document.layout, 1);
+    terminal::ChartbookPortfolio panel;
+    panel.id = 1;
+    panel.portfolio_id = 4;
+    panel.var_confidence_pct = 99;
+    panel.show_position_var = false;
+    panel.show_unit_var = true;
+    document.portfolios.push_back(panel);
+    document.focused_portfolio = 1;
+    document.next_portfolio_id = 2;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.portfolios.size() == 1);
+    CHECK(loaded.document.portfolios[0].var_confidence_pct == 99);
+    CHECK_FALSE(loaded.document.portfolios[0].show_position_var);
+    CHECK(loaded.document.portfolios[0].show_unit_var);
+
+    const char* legacy = R"({
+        "format": 1,
+        "name": "old",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_portfolio_id": 2,
+        "focused_portfolio": 1,
+        "data": {},
+        "portfolios": [{"id": 1, "book": 3}],
+        "layout": {"windows": ["portfolio:1"], "selected": "portfolio:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult old = terminal::chartbookFromJson(legacy);
+    REQUIRE(old.ok);
+    REQUIRE(old.document.portfolios.size() == 1);
+    CHECK(old.document.portfolios[0].var_confidence_pct == 95);
+    CHECK(old.document.portfolios[0].show_position_var);
+    CHECK(old.document.portfolios[0].show_unit_var);
+
+    const char* invalid = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_portfolio_id": 2,
+        "data": {},
+        "portfolios": [{"id": 1, "book": 3, "var_confidence": 10}],
+        "layout": {"windows": ["portfolio:1"], "selected": "portfolio:1"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(invalid).ok);
+}
+
 TEST_CASE("saved data column order must name every live column once")
 {
     std::vector<int> orders;

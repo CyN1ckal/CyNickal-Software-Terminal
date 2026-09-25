@@ -1067,6 +1067,18 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         json object = json::object();
         object["id"] = panel.id;
         object["book"] = panel.portfolio_id;
+        if (panel.var_confidence_pct != 95)
+        {
+            object["var_confidence"] = panel.var_confidence_pct;
+        }
+        if (!panel.show_position_var)
+        {
+            object["show_position_var"] = false;
+        }
+        if (!panel.show_unit_var)
+        {
+            object["show_unit_var"] = false;
+        }
         array.push_back(std::move(object));
     }
     return array;
@@ -1106,6 +1118,23 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
             {
                 return fail(error, "portfolio book is invalid");
             }
+        }
+        if (item->contains("var_confidence"))
+        {
+            int percent = 0;
+            if (!readInt(*item, "var_confidence", percent, error) || percent < 50 || percent > 99)
+            {
+                return fail(error, "portfolio var confidence is invalid");
+            }
+            panel.var_confidence_pct = percent;
+        }
+        if (item->contains("show_position_var") && !readBool(*item, "show_position_var", panel.show_position_var, error))
+        {
+            return false;
+        }
+        if (item->contains("show_unit_var") && !readBool(*item, "show_unit_var", panel.show_unit_var, error))
+        {
+            return false;
         }
         if (!acceptPortfolioId(document, panel.id, error))
         {

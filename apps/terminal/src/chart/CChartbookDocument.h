@@ -241,10 +241,15 @@ struct ChartbookOptions
 };
 
 // One portfolio window. portfolio_id is the store id, or 0 when the window has not chosen a book.
+// var_confidence_pct is the historical VaR confidence, in percent. The two flags hide
+// the position total or the per-unit columns.
 struct ChartbookPortfolio
 {
     int id{0};
     std::int64_t portfolio_id{0};
+    int var_confidence_pct{95};
+    bool show_position_var{true};
+    bool show_unit_var{true};
 };
 
 // One payoff wizard. The chain fields match ChartbookOptions. spot is the price
