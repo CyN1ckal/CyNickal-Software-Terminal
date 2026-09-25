@@ -42,6 +42,22 @@ enum class ChartScaleRange : std::uint8_t
     UserDefined       // fixed top/bottom
 };
 
+// Vertical grid lines and the calendar value printed on each one.
+enum class ChartVerticalGrid : std::uint8_t
+{
+    Daily = 0,
+    Weekly,
+    Monthly,
+};
+
+// Horizontal price grid. Manual uses horizontal_grid_spacing.
+enum class ChartHorizontalGrid : std::uint8_t
+{
+    Automatic = 0,
+    Manual,
+    Off,
+};
+
 inline constexpr int kChartNyseSessionsPerYear = 252;
 inline constexpr int kChartMinSessionCount = 1;
 inline constexpr int kChartDefaultIntradaySessionCount = 14;  // 2 NYSE weeks
@@ -68,6 +84,9 @@ inline constexpr float kChartDefaultBarSpacingPx = 8.0f;
 inline constexpr float kChartDefaultBarWidthFrac = 0.60f;
 inline constexpr float kChartDefaultScalePaddingPct = 4.0f;
 inline constexpr int kChartRightFillBars = 2;
+inline constexpr double kChartDefaultHorizontalGridSpacing = 1.0;
+inline constexpr double kChartMinHorizontalGridSpacing = 0.0001;
+inline constexpr double kChartMaxHorizontalGridSpacing = 1.0e9;
 
 struct CChartSettings
 {
@@ -88,6 +107,9 @@ struct CChartSettings
     float bar_spacing_px{kChartDefaultBarSpacingPx};
     float bar_width_frac{kChartDefaultBarWidthFrac};
     float scale_padding_pct{kChartDefaultScalePaddingPct};
+    ChartVerticalGrid vertical_grid{ChartVerticalGrid::Daily};
+    ChartHorizontalGrid horizontal_grid{ChartHorizontalGrid::Automatic};
+    double horizontal_grid_spacing{kChartDefaultHorizontalGridSpacing};
 };
 
 [[nodiscard]] inline int timeframeSeconds(ChartBarPeriod period) noexcept
@@ -124,6 +146,21 @@ struct CChartSettings
         return "1d";
     }
     return "1m";
+}
+
+// Short label for the chart strip's scale readout.
+[[nodiscard]] inline const char* chartScaleStripLabel(ChartScaleRange range) noexcept
+{
+    switch (range)
+    {
+    case ChartScaleRange::Automatic:
+        return "auto";
+    case ChartScaleRange::ConstantRange:
+        return "range";
+    case ChartScaleRange::UserDefined:
+        return "user";
+    }
+    return "auto";
 }
 
 [[nodiscard]] inline bool isV1Supported(const CChartSettings& s) noexcept
@@ -186,6 +223,14 @@ inline void clampV1Limits(CChartSettings& s) noexcept
         const double tmp = s.user_top;
         s.user_top = s.user_bottom;
         s.user_bottom = tmp;
+    }
+    if (!(s.horizontal_grid_spacing >= kChartMinHorizontalGridSpacing))
+    {
+        s.horizontal_grid_spacing = kChartMinHorizontalGridSpacing;
+    }
+    else if (s.horizontal_grid_spacing > kChartMaxHorizontalGridSpacing)
+    {
+        s.horizontal_grid_spacing = kChartMaxHorizontalGridSpacing;
     }
 }
 

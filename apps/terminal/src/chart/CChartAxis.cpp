@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <exception>
@@ -42,6 +43,10 @@ struct Placed
 
 constexpr int kTimeStepsS[] = {60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600};
 constexpr int kYearSteps[] = {1, 2, 5, 10, 20, 50, 100};
+
+// 0.1 is not a binary fraction, so a product such as 0.1 * 10 is not an integer
+// bit-for-bit. This slack still treats that product as sitting on the lattice.
+constexpr double kGridRelativeEps = 1.0e-8;
 
 [[nodiscard]] int dateKey(const ChartLocalTime& stamp) noexcept
 {
@@ -641,6 +646,31 @@ void addLeading(std::vector<int>& indices, int first, float width, float spacing
     return metrics;
 }
 
+// Smallest stride of `indices` whose labels clear one another. One entry when
+// even a pair overlaps. Empty stays empty.
+[[nodiscard]] std::vector<int> thinIndices(std::vector<int> indices, float width, float spacing, float gap)
+{
+    if (indices.size() <= 1 || seriesFits(indices, width, spacing, gap))
+    {
+        return indices;
+    }
+    const auto count = static_cast<int>(indices.size());
+    for (int step = 2; step < count; ++step)
+    {
+        std::vector<int> thinned;
+        thinned.reserve(static_cast<std::size_t>(((count + step) - 1) / step));
+        for (int i = 0; i < count; i += step)
+        {
+            thinned.push_back(indices[static_cast<std::size_t>(i)]);
+        }
+        if (seriesFits(thinned, width, spacing, gap))
+        {
+            return thinned;
+        }
+    }
+    return {indices.front()};
+}
+
 }  // namespace
 
 ChartLocalTime chartLocalTime(std::string_view timezone, UnixSeconds ts)
@@ -706,6 +736,183 @@ std::vector<ChartAxisTick> buildChartTimeTicks(std::span<const Bar> bars,
         ticks.push_back(fallbackTick(marks, origin, first, last));
     }
     return ticks;
+}
+
+std::vector<ChartAxisTick> buildChartVerticalGridTicks(std::span<const Bar> bars,
+                                                       const ChartVisibleWindow& win,
+                                                       std::string_view timezone,
+                                                       const ChartTickMetrics& metrics_in,
+                                                       ChartVerticalGrid grid)
+{
+    if (bars.empty() || win.first > win.last)
+    {
+        return {};
+    }
+    const int last = std::min(win.last, static_cast<int>(bars.size()) - 1);
+    const int first = std::clamp(win.first, 0, last);
+    const ChartTickMetrics metrics = sanitized(metrics_in);
+    const std::string_view zone = timezone.empty() ? std::string_view{"UTC"} : timezone;
+    const int origin = findSessionOrigin(bars, first, zone);
+    const std::vector<Mark> marks = buildMarks(bars, origin, last, zone);
+
+    LabelKind kind = LabelKind::Date;
+    std::vector<int> indices;
+    switch (grid)
+    {
+    case ChartVerticalGrid::Weekly:
+        indices = collectSessions(bars, marks, origin, first, last, zone,
+                                  [](const Mark* prev, const Mark& cur) {
+                                      return prev == nullptr || prev->week_key != cur.week_key;
+                                  });
+        break;
+    case ChartVerticalGrid::Monthly:
+        kind = LabelKind::Month;
+        indices = collectSessions(bars, marks, origin, first, last, zone,
+                                  [](const Mark* prev, const Mark& cur) {
+                                      return prev == nullptr || prev->stamp.year != cur.stamp.year ||
+                                             prev->stamp.month != cur.stamp.month;
+                                  });
+        break;
+    case ChartVerticalGrid::Daily:
+    default:
+        indices = dayIndices(marks, origin, first, last);
+        // The open of the session under `first` is left of the window, so it is
+        // not in `indices`, but that session is still on screen. Dropping it
+        // makes an afternoon plus the next morning look like one session.
+        {
+            std::size_t open_sessions = indices.size();
+            if (origin < first)
+            {
+                ++open_sessions;
+            }
+            if (open_sessions < 2)
+            {
+                return buildChartTimeTicks(bars, win, timezone, metrics);
+            }
+        }
+        break;
+    }
+
+    const float width = kindWidth(kind, metrics);
+    indices = thinIndices(std::move(indices), width, metrics.spacing_px, metrics.gap_px);
+    addLeading(indices, first, width, metrics.spacing_px, metrics.gap_px);
+
+    std::vector<Placed> placed;
+    placed.reserve(indices.size());
+    for (const int index : indices)
+    {
+        placed.push_back(Placed{.index=index, .kind=kind, .width=width});
+    }
+    std::vector<ChartAxisTick> ticks = emitTicks(placed, marks, origin, win, metrics.spacing_px);
+    if (ticks.empty())
+    {
+        const int center = first + ((last - first) / 2);
+        ChartAxisTick tick;
+        tick.x = static_cast<double>(center);
+        tick.label = formatLabel(kind, markAt(marks, origin, center).stamp);
+        ticks.push_back(std::move(tick));
+    }
+    return ticks;
+}
+
+std::vector<double> buildHorizontalGridTicks(double ymin, double ymax, double spacing)
+{
+    if (!std::isfinite(ymin) || !std::isfinite(ymax) || !std::isfinite(spacing) || !(spacing > 0.0) ||
+        !(ymax > ymin))
+    {
+        return {};
+    }
+
+    const double first_index = std::ceil((ymin / spacing) - kGridRelativeEps);
+    const double last_index = std::floor((ymax / spacing) + kGridRelativeEps);
+    if (!std::isfinite(first_index) || !std::isfinite(last_index) || !(last_index >= first_index))
+    {
+        return {};
+    }
+
+    const double first = first_index * spacing;
+    const double last = last_index * spacing;
+    if (!std::isfinite(first) || !std::isfinite(last) || !(last >= first))
+    {
+        return {};
+    }
+
+    // Span/spacing counts gaps, so [100, 148] at 1 is 49 levels and a 48-long
+    // walk drops 148. Widen from the inclusive count, then keep every widened
+    // level that is still <= last, including that far endpoint.
+    const double count = std::round((last - first) / spacing) + 1.0;
+    if (!(count >= 1.0) || !std::isfinite(count))
+    {
+        return {};
+    }
+
+    double step = spacing;
+    if (count > static_cast<double>(kChartMaxHorizontalGridLines))
+    {
+        const double factor = std::ceil(count / static_cast<double>(kChartMaxHorizontalGridLines));
+        step = spacing * factor;
+    }
+    if (!(step > 0.0) || !std::isfinite(step))
+    {
+        return {};
+    }
+
+    std::vector<double> ticks;
+    const double reserve_count = std::min(count, static_cast<double>(kChartMaxHorizontalGridLines));
+    ticks.reserve(static_cast<std::size_t>(reserve_count));
+
+    // The stop is `y <= last`, not 48. The index limit only keeps a bad step
+    // from walking forever; it sits past the last in-range lattice point.
+    const double gaps = (last - first) / step;
+    int n_limit = 1;
+    if (std::isfinite(gaps) && gaps > 0.0 && gaps < 1.0e6)
+    {
+        n_limit = static_cast<int>(std::ceil(gaps)) + 2;
+    }
+    const double scale = std::max({std::abs(first), std::abs(last), step, 1.0});
+    const double tol = scale * kGridRelativeEps;
+    for (int n = 0; n < n_limit; ++n)
+    {
+        const double y = first + (static_cast<double>(n) * step);
+        if (!std::isfinite(y) || y > last + tol)
+        {
+            break;
+        }
+        if (y >= ymin - tol && y <= ymax + tol)
+        {
+            ticks.push_back(y);
+        }
+    }
+    return ticks;
+}
+
+int horizontalGridDecimals(double step)
+{
+    if (!std::isfinite(step))
+    {
+        return 0;
+    }
+    double scale = std::abs(step);
+    if (!(scale > 0.0))
+    {
+        return 0;
+    }
+    for (int places = 0; places < 8; ++places)
+    {
+        const double nearest = std::round(scale);
+        const double span = std::max(std::abs(scale), std::abs(nearest));
+        if (std::abs(scale - nearest) <= span * kGridRelativeEps)
+        {
+            return places;
+        }
+        const double next = scale * 10.0;
+        if (!(next > scale) || !std::isfinite(next))
+        {
+            break;
+        }
+        scale = next;
+    }
+    return 8;
 }
 
 }  // namespace terminal

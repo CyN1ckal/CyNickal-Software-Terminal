@@ -996,3 +996,60 @@ TEST_CASE("symbol link groups persist on chartbook pane records")
         CHECK(bad_group.document.panes.empty());
     }
 }
+
+TEST_CASE("chart grid settings persist and older books keep the defaults")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("grid");
+    const std::string defaults = terminal::chartbookToJson(document);
+    CHECK(defaults.find("vertical_grid") == std::string::npos);
+    CHECK(defaults.find("horizontal_grid") == std::string::npos);
+
+    const terminal::ChartbookLoadResult loaded_defaults = terminal::chartbookFromJson(defaults);
+    REQUIRE(loaded_defaults.ok);
+    const terminal::CChartSettings& plain = loaded_defaults.document.panes[0].settings;
+    CHECK(plain.vertical_grid == terminal::ChartVerticalGrid::Daily);
+    CHECK(plain.horizontal_grid == terminal::ChartHorizontalGrid::Automatic);
+    CHECK(plain.horizontal_grid_spacing == terminal::kChartDefaultHorizontalGridSpacing);
+
+    document.panes[0].settings.vertical_grid = terminal::ChartVerticalGrid::Weekly;
+    document.panes[0].settings.horizontal_grid = terminal::ChartHorizontalGrid::Manual;
+    document.panes[0].settings.horizontal_grid_spacing = 2.5;
+    const std::string text = terminal::chartbookToJson(document);
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(text);
+    REQUIRE(loaded.ok);
+    const terminal::CChartSettings& saved = loaded.document.panes[0].settings;
+    CHECK(saved.vertical_grid == terminal::ChartVerticalGrid::Weekly);
+    CHECK(saved.horizontal_grid == terminal::ChartHorizontalGrid::Manual);
+    CHECK(saved.horizontal_grid_spacing == 2.5);
+    CHECK(terminal::chartbookToJson(loaded.document) == text);
+
+    document.panes[0].settings.vertical_grid = terminal::ChartVerticalGrid::Monthly;
+    document.panes[0].settings.horizontal_grid = terminal::ChartHorizontalGrid::Off;
+    document.panes[0].settings.horizontal_grid_spacing = 1.0;
+    const std::string off_text = terminal::chartbookToJson(document);
+    CHECK(off_text.find("horizontal_grid_spacing") == std::string::npos);
+    const terminal::ChartbookLoadResult off = terminal::chartbookFromJson(off_text);
+    REQUIRE(off.ok);
+    CHECK(off.document.panes[0].settings.vertical_grid == terminal::ChartVerticalGrid::Monthly);
+    CHECK(off.document.panes[0].settings.horizontal_grid == terminal::ChartHorizontalGrid::Off);
+    CHECK(off.document.panes[0].settings.horizontal_grid_spacing == 1.0);
+
+    nlohmann::json root = nlohmann::json::parse(text);
+    root["panes"][0]["settings"]["vertical_grid"] = "hourly";
+    const terminal::ChartbookLoadResult bad_vertical = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(bad_vertical.ok);
+    CHECK(bad_vertical.error == "unknown vertical grid");
+    CHECK(bad_vertical.document.panes.empty());
+
+    root = nlohmann::json::parse(text);
+    root["panes"][0]["settings"]["horizontal_grid"] = "dense";
+    const terminal::ChartbookLoadResult bad_horizontal = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(bad_horizontal.ok);
+    CHECK(bad_horizontal.error == "unknown horizontal grid");
+
+    root = nlohmann::json::parse(text);
+    root["panes"][0]["settings"]["horizontal_grid_spacing"] = "wide";
+    const terminal::ChartbookLoadResult bad_spacing = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(bad_spacing.ok);
+    CHECK(bad_spacing.error == "horizontal_grid_spacing is not a number");
+}

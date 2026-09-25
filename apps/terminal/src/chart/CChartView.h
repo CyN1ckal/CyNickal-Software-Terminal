@@ -66,6 +66,10 @@ struct CChartViewState
     ChartInteractiveScale interactive{ChartInteractiveScale::Move};
     float last_plot_w{800.0f};
     float last_plot_h{400.0f};
+    // Price-region limits from the latest draw. The strip's scale menu reads these
+    // after the plot, because Constant Range and User Defined capture the visible span.
+    ChartYLimits price_ylim{};
+    bool price_ylim_valid{false};
     bool dragging_y{};
     bool dragging_x{};
     bool dragging_plot{};

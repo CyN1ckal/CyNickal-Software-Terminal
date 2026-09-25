@@ -52,4 +52,26 @@ struct ChartAxisTick
                                                              std::string_view timezone,
                                                              const ChartTickMetrics& metrics);
 
+// Widest manual horizontal grid the plot will draw. A tighter spacing stays on
+// that lattice and steps by an integer multiple of itself.
+inline constexpr int kChartMaxHorizontalGridLines = 48;
+
+// Calendar ticks for the vertical grid. Labels stay on the chosen grain and
+// skip forward when the full set would overlap. A daily window with fewer
+// than two sessions keeps the adaptive clock, which still prints that date.
+// A session already open left of the window counts as one of those two.
+[[nodiscard]] std::vector<ChartAxisTick> buildChartVerticalGridTicks(std::span<const Bar> bars,
+                                                                     const ChartVisibleWindow& win,
+                                                                     std::string_view timezone,
+                                                                     const ChartTickMetrics& metrics,
+                                                                     ChartVerticalGrid grid);
+
+// Manual horizontal grid levels in [ymin, ymax]. Empty when spacing is not usable.
+[[nodiscard]] std::vector<double> buildHorizontalGridTicks(double ymin, double ymax, double spacing);
+
+// Decimal places that keep two manual grid labels apart. formatYTick's fixed
+// precision merges a 0.25 step near 2000 and a 0.001 step near 200. Integer
+// steps use none. Capped at 8.
+[[nodiscard]] int horizontalGridDecimals(double step);
+
 }  // namespace terminal

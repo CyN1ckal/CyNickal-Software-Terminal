@@ -16,12 +16,64 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
-#include <exception>
 #include <string>
 #include <string_view>
 #include <utility>
 
 namespace terminal {
+
+void drawChartScaleMenuItems(CChartSettings& settings,
+                             CChartViewState& view,
+                             const ChartYLimits& ylim,
+                             bool ylim_valid)
+{
+    if (ImGui::MenuItem("Interactive Scale Range", nullptr,
+                        view.interactive == ChartInteractiveScale::Range))
+    {
+        view.interactive = ChartInteractiveScale::Range;
+    }
+    if (ImGui::MenuItem("Interactive Scale Move", nullptr,
+                        view.interactive == ChartInteractiveScale::Move))
+    {
+        view.interactive = ChartInteractiveScale::Move;
+    }
+    if (ImGui::MenuItem("Interactive Scale Locked", nullptr,
+                        view.interactive == ChartInteractiveScale::Locked))
+    {
+        view.interactive = ChartInteractiveScale::Locked;
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Scale Range: Automatic", nullptr,
+                        settings.scale_range == ChartScaleRange::Automatic))
+    {
+        settings.scale_range = ChartScaleRange::Automatic;
+        resetChartScale(view);
+    }
+    ImGui::BeginDisabled(!ylim_valid);
+    if (ImGui::MenuItem("Scale Range: Constant Range", nullptr,
+                        settings.scale_range == ChartScaleRange::ConstantRange))
+    {
+        settings.scale_range = ChartScaleRange::ConstantRange;
+        view.working_range = ylim.max - ylim.min;
+        settings.constant_range = view.working_range;
+        view.extra_pad_frac = 0.0;
+    }
+    if (ImGui::MenuItem("Scale Range: User Defined", nullptr,
+                        settings.scale_range == ChartScaleRange::UserDefined))
+    {
+        settings.scale_range = ChartScaleRange::UserDefined;
+        settings.user_bottom = ylim.min - view.move_offset;
+        settings.user_top = ylim.max - view.move_offset;
+        view.extra_pad_frac = 0.0;
+    }
+    ImGui::EndDisabled();
+    ImGui::Separator();
+    if (ImGui::MenuItem("Reset Scale"))
+    {
+        resetChartScale(view);
+    }
+}
+
 namespace {
 
 int formatXTick(double value, char* buf, int size, void* data) // NOLINT(misc-const-correctness)
@@ -63,6 +115,7 @@ void buildTimeTicks(std::span<const Bar> bars,
                     const ChartVisibleWindow& win,
                     std::string_view tz,
                     float spacing_px,
+                    ChartVerticalGrid grid,
                     CChartViewState& view)
 {
     view.tick_xs.clear();
@@ -77,7 +130,7 @@ void buildTimeTicks(std::span<const Bar> bars,
     metrics.year_px = ImGui::CalcTextSize("0000").x;
     metrics.gap_px = std::max(8.0f, ImGui::GetFontSize() * 0.5f);
 
-    const std::vector<ChartAxisTick> ticks = buildChartTimeTicks(bars, win, tz, metrics);
+    const std::vector<ChartAxisTick> ticks = buildChartVerticalGridTicks(bars, win, tz, metrics, grid);
     view.tick_xs.reserve(ticks.size());
     view.tick_labels.reserve(ticks.size());
     for (const ChartAxisTick& tick : ticks)
@@ -243,49 +296,7 @@ void handlePlotInput(std::span<const Bar> bars,
     }
     if (region_scale == nullptr && ImGui::BeginPopup("##chart_scale_menu"))
     {
-        if (ImGui::MenuItem("Interactive Scale Range", nullptr,
-                            view.interactive == ChartInteractiveScale::Range))
-        {
-            view.interactive = ChartInteractiveScale::Range;
-        }
-        if (ImGui::MenuItem("Interactive Scale Move", nullptr,
-                            view.interactive == ChartInteractiveScale::Move))
-        {
-            view.interactive = ChartInteractiveScale::Move;
-        }
-        if (ImGui::MenuItem("Interactive Scale Locked", nullptr,
-                            view.interactive == ChartInteractiveScale::Locked))
-        {
-            view.interactive = ChartInteractiveScale::Locked;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Scale Range: Automatic", nullptr,
-                            settings.scale_range == ChartScaleRange::Automatic))
-        {
-            settings.scale_range = ChartScaleRange::Automatic;
-            resetChartScale(view);
-        }
-        if (ImGui::MenuItem("Scale Range: Constant Range", nullptr,
-                            settings.scale_range == ChartScaleRange::ConstantRange))
-        {
-            settings.scale_range = ChartScaleRange::ConstantRange;
-            view.working_range = ylim.max - ylim.min;
-            settings.constant_range = view.working_range;
-            view.extra_pad_frac = 0.0;
-        }
-        if (ImGui::MenuItem("Scale Range: User Defined", nullptr,
-                            settings.scale_range == ChartScaleRange::UserDefined))
-        {
-            settings.scale_range = ChartScaleRange::UserDefined;
-            settings.user_bottom = ylim.min - view.move_offset;
-            settings.user_top = ylim.max - view.move_offset;
-            view.extra_pad_frac = 0.0;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Reset Scale"))
-        {
-            resetChartScale(view);
-        }
+        drawChartScaleMenuItems(settings, view, ylim, true);
         ImGui::EndPopup();
     }
 
@@ -407,45 +418,6 @@ void drawCrosshair(std::span<const Bar> bars,
     ImGui::EndTooltip();
 }
 
-void drawSessionGuides(std::span<const Bar> bars, const ChartVisibleWindow& win, std::string_view tz)
-{
-    if (bars.empty())
-    {
-        return;
-    }
-    ImDrawList* draw_list = ImPlot::GetPlotDrawList();
-    const ImU32 color = ImGui::ColorConvertFloat4ToU32(Theme::WithAlpha(Theme::kHairline, 0.45f));
-    SessionDate prev = 0;
-    bool have = false;
-    ImPlot::PushPlotClipRect();
-    const ImPlotRect limits = ImPlot::GetPlotLimits();
-    for (int i = win.first; i <= win.last; ++i)
-    {
-        SessionDate date = 0;
-        try
-        {
-            date = utcToSessionDate(tz.empty() ? "UTC" : tz, bars[static_cast<std::size_t>(i)].ts);
-        }
-        catch (const std::exception&)
-        {
-            continue;
-        }
-        if (have && date == prev)
-        {
-            continue;
-        }
-        if (have)
-        {
-            const ImVec2 a = ImPlot::PlotToPixels(static_cast<double>(i) - 0.5, limits.Y.Min);
-            const ImVec2 b = ImPlot::PlotToPixels(static_cast<double>(i) - 0.5, limits.Y.Max);
-            draw_list->AddLine(a, b, color);
-        }
-        prev = date;
-        have = true;
-    }
-    ImPlot::PopPlotClipRect();
-}
-
 StudyRegionScale& studyRegionScale(CChartViewState& view, int chart_region)
 {
     const auto index = static_cast<std::size_t>(clampStudyChartRegion(chart_region));
@@ -473,6 +445,35 @@ void ensureRegionRatios(CChartViewState& view, int regions)
             view.region_ratios[static_cast<std::size_t>(i)] = each;
         }
     }
+}
+
+// SetupAxisTicks stores custom positions as minor ticks. ImPlot then multiplies
+// those grid lines by MinorAlpha and skips them once the pane is short, so a
+// calendar line goes faint and a 48-line manual scale disappears.
+void drawInstalledGridLines(const std::vector<double>& xs, const std::vector<double>& ys)
+{
+    if (xs.empty() && ys.empty())
+    {
+        return;
+    }
+    ImDrawList* draw_list = ImPlot::GetPlotDrawList();
+    const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImPlot::GetStyle().Colors[ImPlotCol_AxisGrid]);
+    const ImVec2 origin = ImPlot::GetPlotPos();
+    const ImVec2 size = ImPlot::GetPlotSize();
+    const ImVec2 plot_max(origin.x + size.x, origin.y + size.y);
+    const ImVec2 grid_px = ImPlot::GetStyle().MajorGridSize;
+    ImPlot::PushPlotClipRect();
+    for (const double x : xs)
+    {
+        const float px = ImPlot::PlotToPixels(x, 0.0).x;
+        draw_list->AddLine(ImVec2(px, origin.y), ImVec2(px, plot_max.y), color, grid_px.x);
+    }
+    for (const double y : ys)
+    {
+        const float py = ImPlot::PlotToPixels(0.0, y).y;
+        draw_list->AddLine(ImVec2(origin.x, py), ImVec2(plot_max.x, py), color, grid_px.y);
+    }
+    ImPlot::PopPlotClipRect();
 }
 
 void drawChartRegion(std::span<const Bar> bars,
@@ -523,30 +524,83 @@ void drawChartRegion(std::span<const Bar> bars,
         return;
     }
 
+    buildTimeTicks(bars, win, timezone, settings.bar_spacing_px, settings.vertical_grid, view);
+
+    std::vector<double> y_ticks;
+    std::vector<std::string> y_labels;
+    std::vector<const char*> y_ptrs;
+    ImPlotAxisFlags yflags = ImPlotAxisFlags_Opposite | ImPlotAxisFlags_NoHighlight;
+    if (settings.horizontal_grid == ChartHorizontalGrid::Off)
+    {
+        yflags |= ImPlotAxisFlags_NoGridLines;
+    }
+    if (price && settings.horizontal_grid == ChartHorizontalGrid::Manual)
+    {
+        y_ticks = buildHorizontalGridTicks(ylim.min, ylim.max, settings.horizontal_grid_spacing);
+        if (y_ticks.empty())
+        {
+            yflags |= ImPlotAxisFlags_NoGridLines;
+        }
+        else
+        {
+            // formatYTick's fixed precision merges distinct manual levels.
+            double label_step = settings.horizontal_grid_spacing;
+            if (y_ticks.size() >= 2)
+            {
+                label_step = y_ticks[1] - y_ticks[0];
+            }
+            const int decimals = horizontalGridDecimals(label_step);
+            y_labels.reserve(y_ticks.size());
+            for (const double level : y_ticks)
+            {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%.*f", decimals, level);
+                y_labels.emplace_back(buf);
+            }
+            y_ptrs.reserve(y_labels.size());
+            for (const std::string& label : y_labels)
+            {
+                y_ptrs.push_back(label.c_str());
+            }
+        }
+    }
+
     ImPlotAxisFlags xflags = ImPlotAxisFlags_NoHighlight;
     if (!bottom)
     {
         xflags |= ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks;
     }
+    // Installed ticks are drawn in drawInstalledGridLines. Leaving ImPlot's grid
+    // on paints the same positions again as faint minor lines.
+    if (!view.tick_xs.empty())
+    {
+        xflags |= ImPlotAxisFlags_NoGridLines;
+    }
+    if (!y_ticks.empty())
+    {
+        yflags |= ImPlotAxisFlags_NoGridLines;
+    }
     ImPlot::SetupAxis(ImAxis_X1, nullptr, xflags);
-    ImPlot::SetupAxis(ImAxis_Y1, nullptr, ImPlotAxisFlags_Opposite | ImPlotAxisFlags_NoHighlight);
+    ImPlot::SetupAxis(ImAxis_Y1, nullptr, yflags);
     ImPlot::SetupAxisLimits(ImAxis_X1, win.x_min, win.x_max, ImPlotCond_Always);
     ImPlot::SetupAxisLimits(ImAxis_Y1, ylim.min, ylim.max, ImPlotCond_Always);
     ImPlot::SetupAxisFormat(ImAxis_Y1, formatYTick, nullptr);
-    if (bottom)
+    if (!view.tick_xs.empty())
     {
-        buildTimeTicks(bars, win, timezone, settings.bar_spacing_px, view);
-        if (!view.tick_xs.empty())
-        {
-            ImPlot::SetupAxisTicks(ImAxis_X1, view.tick_xs.data(), static_cast<int>(view.tick_xs.size()),
-                                   view.tick_ptrs.data(), false);
-        }
-        else
-        {
-            ImPlot::SetupAxisFormat(ImAxis_X1, formatXTick, &bars);
-        }
+        ImPlot::SetupAxisTicks(ImAxis_X1, view.tick_xs.data(), static_cast<int>(view.tick_xs.size()),
+                               view.tick_ptrs.data(), false);
+    }
+    else if (bottom)
+    {
+        ImPlot::SetupAxisFormat(ImAxis_X1, formatXTick, &bars);
+    }
+    if (!y_ticks.empty())
+    {
+        ImPlot::SetupAxisTicks(ImAxis_Y1, y_ticks.data(), static_cast<int>(y_ticks.size()), y_ptrs.data(),
+                               false);
     }
     ImPlot::SetupFinish();
+    drawInstalledGridLines(view.tick_xs, y_ticks);
 
     if (price)
     {
@@ -559,10 +613,11 @@ void drawChartRegion(std::span<const Bar> bars,
             const OverlayYExtent overlay = overlayYExtent(studies, win, bar_count);
             ylim = computeYLimits(bars, win, settings, view, overlay);
         }
+        view.price_ylim = ylim;
+        view.price_ylim_valid = true;
     }
 
     handlePlotInput(bars, settings, view, win, ylim, x_handled, region_scale, clamp_scroll);
-    drawSessionGuides(bars, win, timezone);
 
     const bool stems_only = settings.bar_spacing_px < 2.0f;
     if (price)
@@ -611,6 +666,7 @@ void drawCandlesticks(std::span<const Bar> bars,
                       std::string_view timezone,
                       std::span<const CStudySeries> studies)
 {
+    view.price_ylim_valid = false;
     if (bars.empty())
     {
         return;

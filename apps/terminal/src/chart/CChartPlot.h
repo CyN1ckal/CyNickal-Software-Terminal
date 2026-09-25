@@ -13,6 +13,13 @@
 
 namespace terminal {
 
+// Interactive scale and scale-range items. Constant Range and User Defined stay
+// disabled when `ylim_valid` is false; they copy `ylim` into the settings.
+void drawChartScaleMenuItems(CChartSettings& settings,
+                             CChartViewState& view,
+                             const ChartYLimits& ylim,
+                             bool ylim_valid);
+
 void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,

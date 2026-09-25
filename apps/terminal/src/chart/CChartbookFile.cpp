@@ -189,6 +189,74 @@ using nlohmann::json;
     return false;
 }
 
+[[nodiscard]] const char* verticalGridName(ChartVerticalGrid grid) noexcept
+{
+    switch (grid)
+    {
+    case ChartVerticalGrid::Daily:
+        return "daily";
+    case ChartVerticalGrid::Weekly:
+        return "weekly";
+    case ChartVerticalGrid::Monthly:
+        return "monthly";
+    }
+    return "daily";
+}
+
+[[nodiscard]] bool parseVerticalGrid(std::string_view text, ChartVerticalGrid& grid)
+{
+    if (text == "daily")
+    {
+        grid = ChartVerticalGrid::Daily;
+        return true;
+    }
+    if (text == "weekly")
+    {
+        grid = ChartVerticalGrid::Weekly;
+        return true;
+    }
+    if (text == "monthly")
+    {
+        grid = ChartVerticalGrid::Monthly;
+        return true;
+    }
+    return false;
+}
+
+[[nodiscard]] const char* horizontalGridName(ChartHorizontalGrid grid) noexcept
+{
+    switch (grid)
+    {
+    case ChartHorizontalGrid::Automatic:
+        return "automatic";
+    case ChartHorizontalGrid::Manual:
+        return "manual";
+    case ChartHorizontalGrid::Off:
+        return "off";
+    }
+    return "automatic";
+}
+
+[[nodiscard]] bool parseHorizontalGrid(std::string_view text, ChartHorizontalGrid& grid)
+{
+    if (text == "automatic")
+    {
+        grid = ChartHorizontalGrid::Automatic;
+        return true;
+    }
+    if (text == "manual")
+    {
+        grid = ChartHorizontalGrid::Manual;
+        return true;
+    }
+    if (text == "off")
+    {
+        grid = ChartHorizontalGrid::Off;
+        return true;
+    }
+    return false;
+}
+
 [[nodiscard]] const char* interactiveName(ChartInteractiveScale scale) noexcept
 {
     switch (scale)
@@ -355,6 +423,18 @@ void writeLinkGroup(json& object, int link_group)
     object["bar_spacing_px"] = settings.bar_spacing_px;
     object["bar_width_frac"] = settings.bar_width_frac;
     object["scale_padding_pct"] = settings.scale_padding_pct;
+    if (settings.vertical_grid != ChartVerticalGrid::Daily)
+    {
+        object["vertical_grid"] = verticalGridName(settings.vertical_grid);
+    }
+    if (settings.horizontal_grid != ChartHorizontalGrid::Automatic)
+    {
+        object["horizontal_grid"] = horizontalGridName(settings.horizontal_grid);
+    }
+    if (settings.horizontal_grid_spacing != kChartDefaultHorizontalGridSpacing)
+    {
+        object["horizontal_grid_spacing"] = settings.horizontal_grid_spacing;
+    }
     return object;
 }
 
@@ -426,6 +506,34 @@ void writeLinkGroup(json& object, int link_group)
         return false;
     }
     settings.scale_padding_pct = static_cast<float>(number);
+    settings.vertical_grid = ChartVerticalGrid::Daily;
+    if (object->contains("vertical_grid"))
+    {
+        const json& field = object->at("vertical_grid");
+        if (!field.is_string() || !parseVerticalGrid(field.get<std::string>(), settings.vertical_grid))
+        {
+            return fail(error, "unknown vertical grid");
+        }
+    }
+    settings.horizontal_grid = ChartHorizontalGrid::Automatic;
+    if (object->contains("horizontal_grid"))
+    {
+        const json& field = object->at("horizontal_grid");
+        if (!field.is_string() || !parseHorizontalGrid(field.get<std::string>(), settings.horizontal_grid))
+        {
+            return fail(error, "unknown horizontal grid");
+        }
+    }
+    settings.horizontal_grid_spacing = kChartDefaultHorizontalGridSpacing;
+    if (object->contains("horizontal_grid_spacing"))
+    {
+        const json& field = object->at("horizontal_grid_spacing");
+        if (!field.is_number())
+        {
+            return fail(error, "horizontal_grid_spacing is not a number");
+        }
+        settings.horizontal_grid_spacing = field.get<double>();
+    }
     return true;
 }
 

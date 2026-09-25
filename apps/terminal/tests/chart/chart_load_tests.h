@@ -10,6 +10,7 @@
 #include "market_data/Time.h"
 #include "market_data/Types.h"
 
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -365,6 +366,16 @@ TEST_CASE("clampV1Limits clamps intraday and historical independently")
     terminal::clampV1Limits(settings);
     CHECK(settings.intraday_session_count == terminal::kChartMaxIntradaySessionCount);
     CHECK(settings.historical_session_count == 1);
+
+    settings.horizontal_grid_spacing = -5.0;
+    terminal::clampV1Limits(settings);
+    CHECK(settings.horizontal_grid_spacing == terminal::kChartMinHorizontalGridSpacing);
+    settings.horizontal_grid_spacing = 1.0e20;
+    terminal::clampV1Limits(settings);
+    CHECK(settings.horizontal_grid_spacing == terminal::kChartMaxHorizontalGridSpacing);
+    settings.horizontal_grid_spacing = std::numeric_limits<double>::quiet_NaN();
+    terminal::clampV1Limits(settings);
+    CHECK(settings.horizontal_grid_spacing == terminal::kChartMinHorizontalGridSpacing);
 }
 
 TEST_CASE("isStoreBusyError matches sqlite locked and busy")
