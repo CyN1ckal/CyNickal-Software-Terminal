@@ -6,6 +6,7 @@
 #include "chart/CChartSettings.h"
 #include "chart/CChartView.h"
 #include "chart/CStudy.h"
+#include "options/OptionPayoff.h"
 
 #include <cstdint>
 #include <string>
@@ -70,7 +71,8 @@ struct ChartbookFloating
 };
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
-// A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", or "pane:<id>") and selected.
+// A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", "payoff:<id>", or
+// "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -117,6 +119,20 @@ struct ChartbookPortfolio
     std::int64_t portfolio_id{0};
 };
 
+// One payoff wizard. The chain fields match ChartbookOptions. spot is the price
+// typed by hand, or 0 while the wizard estimates it from the chain. legs is the
+// strategy and validates as one set.
+struct ChartbookPayoff
+{
+    int id{0};
+    std::string symbol;
+    std::string figi;
+    int expiration{0};
+    std::string expiration_type;
+    double spot{0.0};
+    std::vector<PayoffLeg> legs;
+};
+
 struct ChartbookPane
 {
     int id{0};
@@ -139,6 +155,8 @@ struct CChartbookDocument
     int next_options_id{1};
     int focused_portfolio{0};
     int next_portfolio_id{1};
+    int focused_payoff{0};
+    int next_payoff_id{1};
     ChartbookData data{};
     ChartbookLayout layout{};
     std::vector<ChartbookFloating> floating;
@@ -146,6 +164,7 @@ struct CChartbookDocument
     std::vector<ChartbookFinancials> financials;
     std::vector<ChartbookOptions> options;
     std::vector<ChartbookPortfolio> portfolios;
+    std::vector<ChartbookPayoff> payoffs;
 };
 
 [[nodiscard]] inline std::string paneWindowId(int pane_id)
@@ -188,6 +207,32 @@ struct CChartbookDocument
         portfolio_id = (portfolio_id * 10) + (digit - '0');
     }
     return portfolio_id > 0;
+}
+
+[[nodiscard]] inline std::string payoffWindowId(int payoff_id)
+{
+    return "payoff:" + std::to_string(payoff_id);
+}
+
+// True when window is "payoff:<id>" and the id is a positive integer of at most 9 digits.
+[[nodiscard]] inline bool payoffIdFromWindow(std::string_view window, int& payoff_id) noexcept
+{
+    constexpr std::string_view prefix = "payoff:";
+    if (!window.starts_with(prefix) || window.size() > prefix.size() + 9)
+    {
+        return false;
+    }
+    payoff_id = 0;
+    for (const char digit : window.substr(prefix.size()))
+    {
+        if (digit < '0' || digit > '9')
+        {
+            payoff_id = 0;
+            return false;
+        }
+        payoff_id = (payoff_id * 10) + (digit - '0');
+    }
+    return payoff_id > 0;
 }
 
 // True when window is "options:<id>" and the id is a positive integer of at most 9 digits.
@@ -251,6 +296,9 @@ void chartbookInsertOptions(ChartbookLayout& layout, int options_id);
 // Dock one portfolio window the same way a new chart pane docks.
 void chartbookInsertPortfolio(ChartbookLayout& layout, int portfolio_id);
 
+// Dock one payoff wizard the same way a new chart pane docks.
+void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id);
+
 // Drop one window. An emptied leaf is replaced by its sibling.
 void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 
@@ -266,6 +314,8 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 [[nodiscard]] bool chartbookOptionsIsOpen(const CChartbookDocument& document, int options_id);
 
 [[nodiscard]] bool chartbookPortfolioIsOpen(const CChartbookDocument& document, int portfolio_id);
+
+[[nodiscard]] bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id);
 
 [[nodiscard]] CChartbookDocument makeDefaultChartbook(std::string name);
 

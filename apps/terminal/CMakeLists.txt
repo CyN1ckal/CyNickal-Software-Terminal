@@ -36,6 +36,8 @@ add_library(terminal_core OBJECT
     src/data/IngestWorker.cpp
     src/data/StatementSheet.cpp
     src/data/PortfolioFetch.cpp
+    src/options/OptionPayoff.cpp
+    src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp
     src/chart/CChartCommand.cpp
     src/chart/CChartLoad.cpp
@@ -69,6 +71,9 @@ add_library(terminal_gui OBJECT
     src/ui/InventoryPanel.cpp
     src/ui/FinancialsPanel.cpp
     src/ui/OptionsChainPanel.cpp
+    src/ui/OptionChainSource.cpp
+    src/ui/PayoffWizard.cpp
+    src/ui/PayoffPanel.cpp
     src/ui/PortfolioPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
@@ -181,6 +186,8 @@ if(CYN_TESTING)
         src/chart/studies/StudyRegistry.cpp
         src/data/StatementSheet.cpp
         src/data/PortfolioFetch.cpp
+        src/options/OptionPayoff.cpp
+        src/options/OptionStrategy.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h

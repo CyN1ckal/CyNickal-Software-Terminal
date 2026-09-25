@@ -13,6 +13,7 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -1026,6 +1027,199 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return true;
 }
 
+[[nodiscard]] const char* legKindToken(LegInstrument instrument) noexcept
+{
+    switch (instrument)
+    {
+    case LegInstrument::Call:
+        return "call";
+    case LegInstrument::Put:
+        return "put";
+    case LegInstrument::Underlying:
+        return "shares";
+    }
+    return "call";
+}
+
+[[nodiscard]] json payoffLegsToJson(const std::vector<PayoffLeg>& legs)
+{
+    json array = json::array();
+    for (const PayoffLeg& leg : legs)
+    {
+        json object = json::object();
+        object["kind"] = legKindToken(leg.instrument);
+        if (isOption(leg))
+        {
+            object["strike"] = leg.strike;
+            object["expiration"] = leg.expiration;
+        }
+        object["quantity"] = leg.quantity;
+        object["price"] = leg.price;
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+// Contracts carry kContractMultiplier and shares carry 1; neither is stored.
+[[nodiscard]] bool readPayoffLeg(const json& value, PayoffLeg& leg, std::string& error)
+{
+    const json* object = nullptr;
+    if (!readObject(value, "payoff leg", object, error))
+    {
+        return false;
+    }
+    std::string kind;
+    if (!readString(*object, "kind", kind, error))
+    {
+        return false;
+    }
+    if (kind == "call" || kind == "put")
+    {
+        leg.instrument = kind == "call" ? LegInstrument::Call : LegInstrument::Put;
+        leg.multiplier = kContractMultiplier;
+        int expiration = 0;
+        if (!readNumber(*object, "strike", leg.strike, error) ||
+            (object->contains("expiration") && !readInt(*object, "expiration", expiration, error)))
+        {
+            return false;
+        }
+        if (!validOptionExpiration(expiration))
+        {
+            return fail(error, "payoff leg expiration is invalid");
+        }
+        leg.expiration = expiration;
+    }
+    else if (kind == "shares")
+    {
+        leg.instrument = LegInstrument::Underlying;
+        leg.multiplier = 1.0;
+    }
+    else
+    {
+        return fail(error, "unknown payoff leg kind");
+    }
+    return readNumber(*object, "quantity", leg.quantity, error) && readNumber(*object, "price", leg.price, error);
+}
+
+[[nodiscard]] bool readPayoffFields(const json& object, ChartbookPayoff& panel, std::string& error)
+{
+    ChartbookOptions chain;
+    if (!readOptionsFields(object, chain, error))
+    {
+        return false;
+    }
+    panel.symbol = std::move(chain.symbol);
+    panel.figi = std::move(chain.figi);
+    panel.expiration = chain.expiration;
+    panel.expiration_type = std::move(chain.expiration_type);
+    if (object.contains("spot") && !readNumber(object, "spot", panel.spot, error))
+    {
+        return false;
+    }
+    if (!std::isfinite(panel.spot) || panel.spot < 0.0)
+    {
+        return fail(error, "payoff spot is invalid");
+    }
+    if (!object.contains("legs"))
+    {
+        return true;
+    }
+    const json& legs = object.at("legs");
+    if (!legs.is_array())
+    {
+        return fail(error, "payoff legs is not an array");
+    }
+    for (const json& item : legs)
+    {
+        PayoffLeg leg;
+        if (!readPayoffLeg(item, leg, error))
+        {
+            return false;
+        }
+        panel.legs.push_back(leg);
+    }
+    if (!panel.legs.empty())
+    {
+        if (const std::optional<std::string> problem = validateLegs(panel.legs); problem.has_value())
+        {
+            return fail(error, "payoff legs are invalid: " + *problem);
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool acceptPayoffId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "payoff id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.payoffs, [id](const ChartbookPayoff& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_payoff_id <= id)
+    {
+        return fail(error, "payoff id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json payoffsToJson(const std::vector<ChartbookPayoff>& payoffs)
+{
+    json array = json::array();
+    for (const ChartbookPayoff& panel : payoffs)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["symbol"] = panel.symbol;
+        if (!panel.figi.empty())
+        {
+            object["figi"] = panel.figi;
+        }
+        object["expiration"] = panel.expiration;
+        object["expiration_type"] = panel.expiration_type;
+        if (panel.spot > 0.0)
+        {
+            object["spot"] = panel.spot;
+        }
+        object["legs"] = payoffLegsToJson(panel.legs);
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool payoffsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                   std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "payoffs is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_payoff_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "payoffs", item, error))
+        {
+            return false;
+        }
+        ChartbookPayoff panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "payoff id is missing");
+        }
+        if (!readPayoffFields(*item, panel, error) || !acceptPayoffId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.payoffs.push_back(std::move(panel));
+    }
+    return true;
+}
+
 [[nodiscard]] bool optionsFromJson(const json& value, CChartbookDocument& document, bool next_present,
                                    std::string& error)
 {
@@ -1186,8 +1380,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     int financials_id = 0;
     int options_id = 0;
     int portfolio_id = 0;
+    int payoff_id = 0;
     if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
-        optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id))
+        optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id) ||
+        payoffIdFromWindow(window, payoff_id))
     {
         return true;
     }
@@ -1569,6 +1765,21 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing portfolio panel");
         }
     }
+    for (const std::string& window : windows)
+    {
+        int payoff_id = 0;
+        if (!payoffIdFromWindow(window, payoff_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.payoffs, [&](const ChartbookPayoff& panel) {
+            return panel.id == payoff_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing payoff panel");
+        }
+    }
     return true;
 }
 
@@ -1665,10 +1876,13 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_options_id"] = document.next_options_id;
     root["focused_portfolio"] = document.focused_portfolio;
     root["next_portfolio_id"] = document.next_portfolio_id;
+    root["focused_payoff"] = document.focused_payoff;
+    root["next_payoff_id"] = document.next_payoff_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
     root["options"] = optionsToJson(document.options);
     root["portfolios"] = portfoliosToJson(document.portfolios);
+    root["payoffs"] = payoffsToJson(document.payoffs);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -1877,6 +2091,40 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         if (!focused_ok)
         {
             result.error = "focused portfolio is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_payoff_present = false;
+    if (object->contains("next_payoff_id"))
+    {
+        next_payoff_present = true;
+        if (!readInt(*object, "next_payoff_id", result.document.next_payoff_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_payoff") &&
+        !readInt(*object, "focused_payoff", result.document.focused_payoff, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("payoffs") &&
+        !payoffsFromJson(object->at("payoffs"), result.document, next_payoff_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_payoff != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.payoffs, [&](const ChartbookPayoff& panel) {
+            return panel.id == result.document.focused_payoff;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused payoff is missing";
             result.document = {};
             return result;
         }

@@ -297,6 +297,11 @@ void chartbookInsertPortfolio(ChartbookLayout& layout, int portfolio_id)
     chartbookInsertWindow(layout, portfolioWindowId(portfolio_id));
 }
 
+void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id)
+{
+    chartbookInsertWindow(layout, payoffWindowId(payoff_id));
+}
+
 void chartbookInsertData(ChartbookLayout& layout)
 {
     if (layout.root < 0 || layout.nodes.empty())
@@ -353,6 +358,11 @@ bool chartbookOptionsIsOpen(const CChartbookDocument& document, int options_id)
 bool chartbookPortfolioIsOpen(const CChartbookDocument& document, int portfolio_id)
 {
     return chartbookWindowReferenced(document, portfolioWindowId(portfolio_id));
+}
+
+bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id)
+{
+    return chartbookWindowReferenced(document, payoffWindowId(payoff_id));
 }
 
 namespace {

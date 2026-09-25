@@ -5,8 +5,7 @@
 
 #include "chart/CChartbookDocument.h"
 #include "ui/OptionChainSource.h"
-
-#include "market_data/Types.h"
+#include "ui/PayoffWizard.h"
 
 #include "imgui.h"
 
@@ -17,24 +16,26 @@ namespace terminal {
 class IngestWorker;
 class Store;
 
-// One underlying's option chain. Calls sit left of the strike and puts sit right.
-class OptionsChainPanel
+// A standalone options payoff wizard. It picks its own underlying and
+// expiration. The top section is the payoff graph; the bottom section is
+// where legs are entered. A divider between them can be dragged.
+class PayoffPanel
 {
 public:
-    explicit OptionsChainPanel(int id);
-    ~OptionsChainPanel() = default;
+    explicit PayoffPanel(int id);
+    ~PayoffPanel() = default;
 
-    OptionsChainPanel(const OptionsChainPanel&) = delete;
-    OptionsChainPanel& operator=(const OptionsChainPanel&) = delete;
-    OptionsChainPanel(OptionsChainPanel&&) = delete;
-    OptionsChainPanel& operator=(OptionsChainPanel&&) = delete;
+    PayoffPanel(const PayoffPanel&) = delete;
+    PayoffPanel& operator=(const PayoffPanel&) = delete;
+    PayoffPanel(PayoffPanel&&) = delete;
+    PayoffPanel& operator=(PayoffPanel&&) = delete;
 
     [[nodiscard]] int id() const noexcept;
     [[nodiscard]] bool windowOpen() const noexcept;
     void closeWindow();
     void requestFocus();
-    void importState(const ChartbookOptions& state);
-    [[nodiscard]] ChartbookOptions exportState() const;
+    void importState(const ChartbookPayoff& state);
+    [[nodiscard]] ChartbookPayoff exportState() const;
     void setWindowScope(int runtime_id) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
 
@@ -42,9 +43,11 @@ public:
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
 
 private:
-    void drawChain() const;
+    void drawEntry(IngestWorker* ingest);
 
     OptionChainSource source_;
+    PayoffWizard wizard_;
+    float graph_share_{0.55f};
     int id_{0};
     bool window_open_{true};
     bool focus_on_appear_{false};

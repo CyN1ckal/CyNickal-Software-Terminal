@@ -92,6 +92,20 @@ void dropClosedPanes(CChartbookDocument& document)
             stale.push_back(window);
         }
     };
+    const auto considerPayoff = [&](const std::string& window) {
+        int payoff_id = 0;
+        if (!payoffIdFromWindow(window, payoff_id))
+        {
+            return;
+        }
+        const bool present = std::ranges::any_of(document.payoffs, [&](const ChartbookPayoff& panel) {
+            return panel.id == payoff_id;
+        });
+        if (!present)
+        {
+            stale.push_back(window);
+        }
+    };
     std::vector<int> pending;
     if (document.layout.root >= 0)
     {
@@ -118,6 +132,7 @@ void dropClosedPanes(CChartbookDocument& document)
             considerFinancials(window);
             considerOptions(window);
             considerPortfolio(window);
+            considerPayoff(window);
         }
     }
     for (const ChartbookFloating& floating : document.floating)
@@ -126,6 +141,7 @@ void dropClosedPanes(CChartbookDocument& document)
         considerFinancials(floating.window);
         considerOptions(floating.window);
         considerPortfolio(floating.window);
+        considerPayoff(floating.window);
     }
     for (const std::string& window : stale)
     {
@@ -291,6 +307,18 @@ void CChartBook::addPortfolio()
     layout_request_ = true;
 }
 
+void CChartBook::addPayoff()
+{
+    auto panel = std::make_unique<PayoffPanel>(next_payoff_id_);
+    panel->setWindowScope(runtime_id_);
+    focused_payoff_id_ = next_payoff_id_;
+    panel->requestFocus();
+    chartbookInsertPayoff(layout_, next_payoff_id_);
+    ++next_payoff_id_;
+    payoffs_.push_back(std::move(panel));
+    layout_request_ = true;
+}
+
 void CChartBook::closeFocused()
 {
     if (CChartPane* pane = focused())
@@ -323,6 +351,14 @@ void CChartBook::closeFocusedPortfolio()
     }
 }
 
+void CChartBook::closeFocusedPayoff()
+{
+    if (PayoffPanel* panel = focusedPayoffPanel())
+    {
+        panel->closeWindow();
+    }
+}
+
 void CChartBook::openFocusedSettings()
 {
     if (CChartPane* pane = focused())
@@ -347,6 +383,7 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     financials_.clear();
     options_.clear();
     portfolios_.clear();
+    payoffs_.clear();
     name_ = document.name;
     data_ = document.data;
     layout_ = document.layout;
@@ -359,6 +396,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     focused_options_id_ = document.focused_options;
     next_portfolio_id_ = std::max(document.next_portfolio_id, 1);
     focused_portfolio_id_ = document.focused_portfolio;
+    next_payoff_id_ = std::max(document.next_payoff_id, 1);
+    focused_payoff_id_ = document.focused_payoff;
     for (const ChartbookFinancials& record : document.financials)
     {
         if (!chartbookFinancialsIsOpen(document, record.id))
@@ -416,6 +455,25 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     {
         focused_portfolio_id_ = portfolios_.empty() ? 0 : portfolios_.front()->id();
     }
+    for (const ChartbookPayoff& record : document.payoffs)
+    {
+        if (!chartbookPayoffIsOpen(document, record.id))
+        {
+            continue;
+        }
+        auto panel = std::make_unique<PayoffPanel>(record.id);
+        panel->setWindowScope(runtime_id_);
+        panel->importState(record);
+        if (record.id == focused_payoff_id_)
+        {
+            panel->requestFocus();
+        }
+        payoffs_.push_back(std::move(panel));
+    }
+    if (findPayoff(focused_payoff_id_) == nullptr)
+    {
+        focused_payoff_id_ = payoffs_.empty() ? 0 : payoffs_.front()->id();
+    }
     for (const ChartbookPane& record : document.panes)
     {
         if (!chartbookPaneIsOpen(document, record.id))
@@ -449,6 +507,8 @@ CChartbookDocument CChartBook::exportDocument() const
     document.next_options_id = next_options_id_;
     document.focused_portfolio = focused_portfolio_id_;
     document.next_portfolio_id = next_portfolio_id_;
+    document.focused_payoff = focused_payoff_id_;
+    document.next_payoff_id = next_payoff_id_;
     document.data = data_;
     document.layout = layout_;
     document.floating = floating_;
@@ -478,6 +538,13 @@ CChartbookDocument CChartBook::exportDocument() const
         if (panel->windowOpen())
         {
             document.portfolios.push_back(panel->exportState());
+        }
+    }
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        if (panel->windowOpen())
+        {
+            document.payoffs.push_back(panel->exportState());
         }
     }
     dropClosedPanes(document);
@@ -551,6 +618,10 @@ void CChartBook::setWindowScope(int runtime_id)
     {
         panel->setWindowScope(runtime_id_);
     }
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        panel->setWindowScope(runtime_id_);
+    }
     for (const std::unique_ptr<CChartPane>& pane : panes_)
     {
         pane->setWindowScope(runtime_id_);
@@ -586,6 +657,11 @@ bool CChartBook::containsOptions(int options_id) const
 bool CChartBook::containsPortfolio(int portfolio_id) const
 {
     return findPortfolio(portfolio_id) != nullptr;
+}
+
+bool CChartBook::containsPayoff(int payoff_id) const
+{
+    return findPayoff(payoff_id) != nullptr;
 }
 
 void CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -698,6 +774,18 @@ void CChartBook::eraseClosedPortfolios()
     }
 }
 
+void CChartBook::eraseClosedPayoffs()
+{
+    const auto removed = std::ranges::remove_if(payoffs_, [](const std::unique_ptr<PayoffPanel>& panel) {
+        return !panel->windowOpen();
+    });
+    payoffs_.erase(removed.begin(), removed.end());
+    if (focusedPayoffPanel() == nullptr)
+    {
+        focused_payoff_id_ = 0;
+    }
+}
+
 PortfolioPanel* CChartBook::focusedPortfolioPanel()
 {
     if (focused_portfolio_id_ == 0)
@@ -714,9 +802,30 @@ PortfolioPanel* CChartBook::focusedPortfolioPanel()
     return nullptr;
 }
 
+PayoffPanel* CChartBook::focusedPayoffPanel()
+{
+    if (focused_payoff_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        if (panel->id() == focused_payoff_id_ && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
 const PortfolioPanel* CChartBook::focusedPortfolio() const
 {
     return findPortfolio(focused_portfolio_id_);
+}
+
+const PayoffPanel* CChartBook::focusedPayoff() const
+{
+    return findPayoff(focused_payoff_id_);
 }
 
 const PortfolioPanel* CChartBook::findPortfolio(int portfolio_id) const
@@ -728,6 +837,22 @@ const PortfolioPanel* CChartBook::findPortfolio(int portfolio_id) const
     for (const std::unique_ptr<PortfolioPanel>& panel : portfolios_)
     {
         if (panel->id() == portfolio_id && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+const PayoffPanel* CChartBook::findPayoff(int payoff_id) const
+{
+    if (payoff_id == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        if (panel->id() == payoff_id && panel->windowOpen())
         {
             return panel.get();
         }
@@ -748,11 +873,35 @@ void CChartBook::drawPortfolios(Store* store, std::string_view store_error, Inge
     eraseClosedPortfolios();
 }
 
+void CChartBook::drawPayoffs(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        panel->setWindowScope(runtime_id_);
+        if (panel->draw(store, store_error, ingest))
+        {
+            focused_payoff_id_ = panel->id();
+        }
+    }
+    eraseClosedPayoffs();
+}
+
 void CChartBook::placePortfolio(int portfolio_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
 {
     for (const std::unique_ptr<PortfolioPanel>& panel : portfolios_)
     {
         if (panel->id() == portfolio_id)
+        {
+            panel->setPlacement(force, floating, dock, pos, size);
+        }
+    }
+}
+
+void CChartBook::placePayoff(int payoff_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
+    {
+        if (panel->id() == payoff_id)
         {
             panel->setPlacement(force, floating, dock, pos, size);
         }
