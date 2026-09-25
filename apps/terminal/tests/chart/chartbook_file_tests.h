@@ -527,6 +527,9 @@ TEST_CASE("financials panels dock with the charts and round trip as a collection
     CHECK(loaded.document.options.empty());
     CHECK(loaded.document.next_options_id == 1);
     CHECK(loaded.document.focused_options == 0);
+    CHECK(loaded.document.portfolios.empty());
+    CHECK(loaded.document.next_portfolio_id == 1);
+    CHECK(loaded.document.focused_portfolio == 0);
 
     const char* legacy = R"({
         "format": 1,
@@ -629,6 +632,54 @@ TEST_CASE("options chains dock and round trip beside the charts")
         "data": {},
         "options": [{"id": 1, "symbol": "AAPL", "expiration": 20260925, "expiration_type": "weekly"}],
         "layout": {"windows": ["options:9"], "selected": "options:9"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
+}
+
+TEST_CASE("portfolio windows round trip and a book without them still opens")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertPortfolio(document.layout, 1);
+    CHECK(terminal::chartbookPortfolioIsOpen(document, 1));
+    terminal::ChartbookPortfolio panel;
+    panel.id = 1;
+    panel.portfolio_id = 4;
+    document.portfolios.push_back(panel);
+    document.focused_portfolio = 1;
+    document.next_portfolio_id = 2;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.portfolios.size() == 1);
+    CHECK(loaded.document.portfolios[0].id == 1);
+    CHECK(loaded.document.portfolios[0].portfolio_id == 4);
+    CHECK(loaded.document.focused_portfolio == 1);
+    CHECK(loaded.document.next_portfolio_id == 2);
+    CHECK(terminal::chartbookPortfolioIsOpen(loaded.document, 1));
+
+    const char* legacy = R"({
+        "format": 1,
+        "name": "old",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "data": {},
+        "layout": {"windows": ["data"], "selected": "data"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult old = terminal::chartbookFromJson(legacy);
+    REQUIRE(old.ok);
+    CHECK(old.document.portfolios.empty());
+
+    const char* missing = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_portfolio_id": 2,
+        "data": {},
+        "portfolios": [{"id": 1, "book": 3}],
+        "layout": {"windows": ["portfolio:9"], "selected": "portfolio:9"},
         "panes": []
     })";
     CHECK_FALSE(terminal::chartbookFromJson(missing).ok);

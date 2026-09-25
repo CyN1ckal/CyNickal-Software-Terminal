@@ -44,6 +44,11 @@ struct BuiltWindow
     {
         return "###cb" + std::to_string(runtime) + "_options" + std::to_string(options_id);
     }
+    int portfolio_id = 0;
+    if (portfolioIdFromWindow(window, portfolio_id))
+    {
+        return "###cb" + std::to_string(runtime) + "_portfolio" + std::to_string(portfolio_id);
+    }
     if (window.starts_with("pane:"))
     {
         return "###cb" + std::to_string(runtime) + "_pane" + std::string(window.substr(5));
@@ -87,6 +92,16 @@ struct BuiltWindow
             return {};
         }
         return "options:" + suffix;
+    }
+    constexpr std::string_view portfolio_prefix = "portfolio";
+    if (rest.starts_with(portfolio_prefix))
+    {
+        const std::string suffix = rest.substr(portfolio_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "portfolio:" + suffix;
     }
     if (rest.starts_with("pane"))
     {
@@ -566,6 +581,15 @@ void ChartbookHost::drawViewMenu()
     if (ImGui::MenuItem("Close Options Chain", nullptr, false, close_options))
     {
         open.book->closeFocusedOptions();
+    }
+    if (ImGui::MenuItem("New Portfolio"))
+    {
+        open.book->addPortfolio();
+    }
+    const bool close_portfolio = open.book->focusedPortfolio() != nullptr;
+    if (ImGui::MenuItem("Close Portfolio", nullptr, false, close_portfolio))
+    {
+        open.book->closeFocusedPortfolio();
     }
     endTitleMenu();
 }
@@ -1227,6 +1251,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
     {
         int financials_id = 0;
         int options_id = 0;
+        int portfolio_id = 0;
         if (window.window == "data")
         {
             inventory.setPlacement(true, false, window.dock, ImVec2{}, ImVec2{});
@@ -1238,6 +1263,10 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         else if (optionsIdFromWindow(window.window, options_id))
         {
             open.book->placeOptions(options_id, true, false, window.dock, ImVec2{}, ImVec2{});
+        }
+        else if (portfolioIdFromWindow(window.window, portfolio_id))
+        {
+            open.book->placePortfolio(portfolio_id, true, false, window.dock, ImVec2{}, ImVec2{});
         }
         else
         {
@@ -1251,6 +1280,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         const ImVec2 floating_size{floating.w, floating.h};
         int financials_id = 0;
         int options_id = 0;
+        int portfolio_id = 0;
         if (floating.window == "data")
         {
             inventory.setPlacement(true, true, 0, pos, floating_size);
@@ -1262,6 +1292,10 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         else if (optionsIdFromWindow(floating.window, options_id))
         {
             open.book->placeOptions(options_id, true, true, 0, pos, floating_size);
+        }
+        else if (portfolioIdFromWindow(floating.window, portfolio_id))
+        {
+            open.book->placePortfolio(portfolio_id, true, true, 0, pos, floating_size);
         }
         else
         {
@@ -1353,9 +1387,12 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             }
             int financials_id = 0;
             int options_id = 0;
+            int portfolio_id = 0;
             const bool is_financials = financialsIdFromWindow(id, financials_id);
             const bool is_options = optionsIdFromWindow(id, options_id);
-            if (id != "data" && !is_financials && !is_options && !open.book->containsPane(paneIdOf(id)))
+            const bool is_portfolio = portfolioIdFromWindow(id, portfolio_id);
+            if (id != "data" && !is_financials && !is_options && !is_portfolio &&
+                !open.book->containsPane(paneIdOf(id)))
             {
                 continue;
             }
@@ -1364,6 +1401,10 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
                 continue;
             }
             if (is_options && !open.book->containsOptions(options_id))
+            {
+                continue;
+            }
+            if (is_portfolio && !open.book->containsPortfolio(portfolio_id))
             {
                 continue;
             }
@@ -1434,6 +1475,10 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     {
         consider(optionsWindowId(panel.id));
     }
+    for (const ChartbookPortfolio& panel : exported.portfolios)
+    {
+        consider(portfolioWindowId(panel.id));
+    }
     for (const ChartbookPane& pane : exported.panes)
     {
         consider(paneWindowId(pane.id));
@@ -1457,6 +1502,13 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     for (const ChartbookOptions& panel : exported.options)
     {
         if (std::ranges::find(seen, optionsWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
+    }
+    for (const ChartbookPortfolio& panel : exported.portfolios)
+    {
+        if (std::ranges::find(seen, portfolioWindowId(panel.id)) == seen.end())
         {
             complete = false;
         }
@@ -1575,6 +1627,7 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
     }
     open.book->drawFinancials(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawOptions(store_.get(), open_error_, inventory.ingestWorker());
+    open.book->drawPortfolios(store_.get(), open_error_, inventory.ingestWorker());
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
     if (restore_tabs_)
     {

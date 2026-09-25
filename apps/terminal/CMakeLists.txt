@@ -69,6 +69,7 @@ add_library(terminal_gui OBJECT
     src/ui/InventoryPanel.cpp
     src/ui/FinancialsPanel.cpp
     src/ui/OptionsChainPanel.cpp
+    src/ui/PortfolioPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp

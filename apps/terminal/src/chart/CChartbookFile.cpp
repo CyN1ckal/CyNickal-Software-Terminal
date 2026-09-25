@@ -953,6 +953,79 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return array;
 }
 
+[[nodiscard]] bool acceptPortfolioId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "portfolio id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.portfolios, [id](const ChartbookPortfolio& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_portfolio_id <= id)
+    {
+        return fail(error, "portfolio id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json portfoliosToJson(const std::vector<ChartbookPortfolio>& portfolios)
+{
+    json array = json::array();
+    for (const ChartbookPortfolio& panel : portfolios)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["book"] = panel.portfolio_id;
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool portfoliosFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                     std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "portfolios is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_portfolio_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "portfolios", item, error))
+        {
+            return false;
+        }
+        ChartbookPortfolio panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "portfolio id is missing");
+        }
+        if (item->contains("book"))
+        {
+            if (!item->at("book").is_number_integer())
+            {
+                return fail(error, "portfolio book is missing");
+            }
+            panel.portfolio_id = item->at("book").get<std::int64_t>();
+            if (panel.portfolio_id < 0)
+            {
+                return fail(error, "portfolio book is invalid");
+            }
+        }
+        if (!acceptPortfolioId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.portfolios.push_back(panel);
+    }
+    return true;
+}
+
 [[nodiscard]] bool optionsFromJson(const json& value, CChartbookDocument& document, bool next_present,
                                    std::string& error)
 {
@@ -1112,8 +1185,9 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
 {
     int financials_id = 0;
     int options_id = 0;
+    int portfolio_id = 0;
     if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
-        optionsIdFromWindow(window, options_id))
+        optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id))
     {
         return true;
     }
@@ -1480,6 +1554,21 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing options panel");
         }
     }
+    for (const std::string& window : windows)
+    {
+        int portfolio_id = 0;
+        if (!portfolioIdFromWindow(window, portfolio_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.portfolios, [&](const ChartbookPortfolio& panel) {
+            return panel.id == portfolio_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing portfolio panel");
+        }
+    }
     return true;
 }
 
@@ -1574,9 +1663,12 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_financials_id"] = document.next_financials_id;
     root["focused_options"] = document.focused_options;
     root["next_options_id"] = document.next_options_id;
+    root["focused_portfolio"] = document.focused_portfolio;
+    root["next_portfolio_id"] = document.next_portfolio_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
     root["options"] = optionsToJson(document.options);
+    root["portfolios"] = portfoliosToJson(document.portfolios);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -1753,6 +1845,41 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
     {
         result.document = {};
         return result;
+    }
+    bool next_portfolio_present = false;
+    if (object->contains("next_portfolio_id"))
+    {
+        next_portfolio_present = true;
+        if (!readInt(*object, "next_portfolio_id", result.document.next_portfolio_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_portfolio") &&
+        !readInt(*object, "focused_portfolio", result.document.focused_portfolio, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("portfolios") &&
+        !portfoliosFromJson(object->at("portfolios"), result.document, next_portfolio_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_portfolio != 0)
+    {
+        const bool focused_ok =
+            std::ranges::any_of(result.document.portfolios, [&](const ChartbookPortfolio& panel) {
+                return panel.id == result.document.focused_portfolio;
+            });
+        if (!focused_ok)
+        {
+            result.error = "focused portfolio is missing";
+            result.document = {};
+            return result;
+        }
     }
     if (result.document.focused_options != 0)
     {
