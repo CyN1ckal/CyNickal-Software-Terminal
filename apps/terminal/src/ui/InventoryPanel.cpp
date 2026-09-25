@@ -85,11 +85,42 @@ void cellRight(const char* text)
     ImGui::TextUnformatted(text);
 }
 
+[[nodiscard]] ImFont* pushMono()
+{
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
+    return mono;
+}
+
+void cellMono(const char* text)
+{
+    const ImFont* const mono = pushMono();
+    ImGui::TextUnformatted(text);
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
+}
+
 void cellInt(int value)
 {
     char buf[16];
     std::snprintf(buf, sizeof(buf), "%d", value);
+    const ImFont* const mono = pushMono();
     cellRight(buf);
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
+}
+
+void dimLabel(const char* text)
+{
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(Theme::kTextDim, "%s", text);
 }
 
 [[nodiscard]] std::string formatUtcMinute(UnixSeconds ts)
@@ -570,8 +601,14 @@ void InventoryPanel::drawToolbar()
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("TF");
+    dimLabel("Symbol");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(72.0f);
+    const bool symbol_go =
+        ImGui::InputText("##symbol", symbol_, sizeof(symbol_),
+                         ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::SameLine();
+    dimLabel("Tf");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(52.0f);
     const char* tf_label = ingest_timeframe_s_ == kTimeframe1d ? "1d" : "1m";
@@ -608,20 +645,13 @@ void InventoryPanel::drawToolbar()
         ImGui::EndCombo();
     }
     ImGui::SameLine();
-    ImGui::TextUnformatted("SYMBOL");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(72.0f);
-    const bool symbol_go =
-        ImGui::InputText("##symbol", symbol_, sizeof(symbol_),
-                         ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::SameLine();
-    ImGui::TextUnformatted("FROM");
+    dimLabel("From");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(88.0f);
     const bool from_go = ImGui::InputText("##from", from_, sizeof(from_),
                                           ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    ImGui::TextUnformatted("TO");
+    dimLabel("To");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(88.0f);
     const bool to_go =
@@ -723,10 +753,10 @@ void InventoryPanel::drawSummaryTable()
     ImGui::TableSetupColumn("FIGI", ImGuiTableColumnFlags_WidthFixed, 96.0f);
     ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed, 36.0f);
     ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 64.0f);
-    ImGui::TableSetupColumn("SESS", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+    ImGui::TableSetupColumn("Sessions", ImGuiTableColumnFlags_WidthFixed, 72.0f);
     ImGui::TableSetupColumn("OK", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-    ImGui::TableSetupColumn("PART", ImGuiTableColumnFlags_WidthFixed, 44.0f);
-    ImGui::TableSetupColumn("MISS", ImGuiTableColumnFlags_WidthFixed, 44.0f);
+    ImGui::TableSetupColumn("Partial", ImGuiTableColumnFlags_WidthFixed, 64.0f);
+    ImGui::TableSetupColumn("Missing", ImGuiTableColumnFlags_WidthFixed, 68.0f);
     ImGui::TableSetupColumn("ERR", ImGuiTableColumnFlags_WidthFixed, 40.0f);
     ImGui::TableSetupColumn("FIRST");
     ImGui::TableSetupColumn("LAST");
@@ -786,7 +816,7 @@ void InventoryPanel::drawSummaryTable()
             ImGui::TableNextColumn();
             cellInt(row.session_count);
             ImGui::TableNextColumn();
-            ImGui::PushStyleColor(ImGuiCol_Text, Theme::kUp);
+            ImGui::PushStyleColor(ImGuiCol_Text, row.complete_count > 0 ? Theme::kUp : Theme::kMuted);
             cellInt(row.complete_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
@@ -795,7 +825,7 @@ void InventoryPanel::drawSummaryTable()
             cellInt(row.partial_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
-            ImGui::PushStyleColor(ImGuiCol_Text, Theme::kMuted);
+            ImGui::PushStyleColor(ImGuiCol_Text, row.missing_count > 0 ? Theme::kWarn : Theme::kMuted);
             cellInt(row.missing_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
@@ -806,12 +836,12 @@ void InventoryPanel::drawSummaryTable()
             const SessionDate first_date = row.first_session.value_or(0);
             const std::string first =
                 first_date != 0 ? formatSessionDate(first_date) : std::string{};
-            ImGui::TextUnformatted(first.c_str());
+            cellMono(first.c_str());
             ImGui::TableNextColumn();
             const SessionDate last_date = row.last_session.value_or(0);
             const std::string last =
                 last_date != 0 ? formatSessionDate(last_date) : std::string{};
-            ImGui::TextUnformatted(last.c_str());
+            cellMono(last.c_str());
         }
     }
     noteColumnEdits();
@@ -863,7 +893,7 @@ void InventoryPanel::drawDayTable()
     ImGui::TableSetupColumn("DATE");
     ImGui::TableSetupColumn("STATUS", ImGuiTableColumnFlags_WidthFixed, 80.0f);
     ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-    ImGui::TableSetupColumn("EXP", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+    ImGui::TableSetupColumn("Expected", ImGuiTableColumnFlags_WidthFixed, 72.0f);
     ImGui::TableSetupColumn("FIRST TS");
     ImGui::TableSetupColumn("INGESTED");
     ImGui::TableHeadersRow();
@@ -877,7 +907,8 @@ void InventoryPanel::drawDayTable()
             const CoverageDay& day = days_[static_cast<std::size_t>(i)];
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(formatSessionDate(day.session_date).c_str());
+            const std::string session = formatSessionDate(day.session_date);
+            cellMono(session.c_str());
             ImGui::TableNextColumn();
             const std::string status_text(toSql(day.status));
             ImGui::TextColored(statusColor(day.status), "%s", status_text.c_str());
@@ -893,11 +924,11 @@ void InventoryPanel::drawDayTable()
             if (day.first_ts.has_value())
             {
                 const std::string first = formatUtcMinute(day.first_ts.value_or(0));
-                ImGui::TextUnformatted(first.c_str());
+                cellMono(first.c_str());
             }
             ImGui::TableNextColumn();
             const std::string ingested = formatUtcMinute(day.ingested_at);
-            ImGui::TextUnformatted(ingested.c_str());
+            cellMono(ingested.c_str());
         }
     }
     ImGui::EndTable();

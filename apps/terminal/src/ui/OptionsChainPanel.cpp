@@ -3,10 +3,11 @@
 
 #include "ui/OptionsChainPanel.h"
 
-#include "chart/SymbolLinkCombo.h"
 #include "ui/Theme.h"
 
 #include "market_data/Time.h"
+
+#include "imgui_internal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,6 +19,9 @@
 
 namespace terminal {
 namespace {
+
+// Same id OptionChainSource::drawPicker reads. Payoff never sets it.
+constexpr char kOptionChainLinkBindingId[] = "##opt_link_binding";
 
 // Declaration order matches kOptionChainColumns.
 enum class ChainField : std::uint8_t
@@ -60,6 +64,16 @@ static_assert(static_cast<int>(ChainField::Count) == kOptionChainColumnCount);
         out.push_back(digits[static_cast<std::size_t>(index)]);
     }
     return out;
+}
+
+void writePremium(char* buf, std::size_t size, double value)
+{
+    if (std::fabs(value) < 1.0)
+    {
+        std::snprintf(buf, size, "%.4f", value);
+        return;
+    }
+    std::snprintf(buf, size, "%.2f", value);
 }
 
 void drawAligned(const char* text, const ImVec4* color)
@@ -132,15 +146,15 @@ void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
     switch (field)
     {
     case ChainField::Bid:
-        std::snprintf(buf, sizeof(buf), "%.2f", quote->bid);
+        writePremium(buf, sizeof(buf), quote->bid);
         drawAligned(buf, nullptr);
         break;
     case ChainField::Ask:
-        std::snprintf(buf, sizeof(buf), "%.2f", quote->ask);
+        writePremium(buf, sizeof(buf), quote->ask);
         drawAligned(buf, nullptr);
         break;
     case ChainField::Last:
-        std::snprintf(buf, sizeof(buf), "%.2f", quote->last);
+        writePremium(buf, sizeof(buf), quote->last);
         drawSigned(buf, quote->price_change);
         break;
     case ChainField::Change:
@@ -152,7 +166,7 @@ void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
         drawSigned(buf, quote->percent_change);
         break;
     case ChainField::Mid:
-        std::snprintf(buf, sizeof(buf), "%.2f", quote->mid);
+        writePremium(buf, sizeof(buf), quote->mid);
         drawAligned(buf, nullptr);
         break;
     case ChainField::Iv:
@@ -182,9 +196,15 @@ void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
         drawAligned(formatGrouped(quote->open_interest).c_str(), nullptr);
         break;
     case ChainField::OpenInterestChange:
-        drawSigned(formatGrouped(quote->open_interest_change).c_str(),
-                   static_cast<double>(quote->open_interest_change));
+    {
+        std::string text = formatGrouped(quote->open_interest_change);
+        if (quote->open_interest_change > 0)
+        {
+            text.insert(text.begin(), '+');
+        }
+        drawSigned(text.c_str(), static_cast<double>(quote->open_interest_change));
         break;
+    }
     case ChainField::Count:
         return;
     }
@@ -391,9 +411,9 @@ void OptionsChainPanel::drawChain() const
 
     const int side_count = static_cast<int>(columns_.size());
     constexpr ImGuiTableFlags flags =
-        ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-        ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
-        ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
+        ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter |
+        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
+        ImGuiTableFlags_NoSavedSettings;
     if (!ImGui::BeginTable("options_chain", (side_count * 2) + 1, flags, ImVec2(0.0f, 0.0f)))
     {
         return;
@@ -437,6 +457,11 @@ void OptionsChainPanel::drawChain() const
     for (const ChainRow& row : rows)
     {
         ImGui::TableNextRow();
+        // Hovered row is the previous frame; RowBg1 is the wash this ImGui version stores.
+        if (ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex())
+        {
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImGui::GetColorU32(Theme::kBg3));
+        }
         const bool call_itm = row.call != nullptr && row.call->moneyness > 0.0;
         const bool put_itm = row.put != nullptr && row.put->moneyness < 0.0;
         for (const std::string& id : columns_)
@@ -445,6 +470,7 @@ void OptionsChainPanel::drawChain() const
             drawQuoteField(id, row.call, call_itm);
         }
         ImGui::TableNextColumn();
+        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(Theme::kBg2));
         char strike[32];
         std::snprintf(strike, sizeof(strike), "%.2f", row.strike);
         drawAligned(strike, nullptr);
@@ -515,13 +541,13 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
         ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
     }
 
-    if (source_.drawPicker(ingest))
+    ImGui::GetStateStorage()->SetVoidPtr(ImGui::GetID(kOptionChainLinkBindingId), &symbol_link_);
+    const bool switched = source_.drawPicker(ingest);
+    ImGui::GetStateStorage()->SetVoidPtr(ImGui::GetID(kOptionChainLinkBindingId), nullptr);
+    if (switched)
     {
         symbol_link_.publish(source_.symbol());
     }
-    drawSymbolLinkCombo(symbol_link_);
-    ImGui::SameLine();
-    drawColumnMenu();
     source_.refresh(store, ingest);
     ImGui::Separator();
     ImVec4 status_color = Theme::kMuted;
@@ -537,6 +563,7 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
 
     if (ImGui::BeginChild("options_body", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders))
     {
+        drawColumnMenu();
         drawChain();
     }
     ImGui::EndChild();

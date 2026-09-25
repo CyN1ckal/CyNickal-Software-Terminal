@@ -264,6 +264,37 @@ void orderDockLeaf(ImGuiDockNode* node, ImGuiWindow* selected)
     node->TabBar->WantLayout = true;
 }
 
+[[nodiscard]] float confirmWidth(const char* a, const char* b, const char* c)
+{
+    const float pad = ImGui::GetStyle().FramePadding.x * 2.0f;
+    const float widest =
+        std::max({ImGui::CalcTextSize(a).x, ImGui::CalcTextSize(b).x, ImGui::CalcTextSize(c).x});
+    return widest + pad;
+}
+
+bool accentButton(const char* label, const ImVec2& size, bool default_focus)
+{
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    const bool pressed = ImGui::Button(label, size);
+    if (default_focus)
+    {
+        ImGui::SetItemDefaultFocus();
+    }
+    ImGui::PopStyleColor(4);
+    return pressed;
+}
+
+bool discardButton(const char* label, const ImVec2& size)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+    const bool pressed = ImGui::Button(label, size);
+    ImGui::PopStyleColor();
+    return pressed;
+}
+
 }  // namespace
 
 ChartbookHost::ChartbookHost()
@@ -356,6 +387,55 @@ bool ChartbookHost::dataShown(const OpenBook& open)
     probe.layout = open.book->layout();
     probe.floating = open.book->floating();
     return chartbookWindowReferenced(probe, "data");
+}
+
+void ChartbookHost::setDataShown(bool shown)
+{
+    if (active_ < 0 || std::cmp_greater_equal(active_, books_.size()))
+    {
+        return;
+    }
+    OpenBook const& open = books_[static_cast<std::size_t>(active_)];
+    if (shown == dataShown(open))
+    {
+        return;
+    }
+    ChartbookLayout layout = open.book->layout();
+    if (shown)
+    {
+        chartbookInsertData(layout);
+    }
+    else
+    {
+        chartbookRemoveWindow(layout, "data");
+        std::vector<ChartbookFloating> floating = open.book->floating();
+        std::erase_if(floating, [](const ChartbookFloating& item) { return item.window == "data"; });
+        open.book->setFloating(std::move(floating));
+    }
+    open.book->setLayout(std::move(layout));
+    apply_layout_ = true;
+}
+
+bool ChartbookHost::openListed(const std::filesystem::path& path)
+{
+    const int existing = findPath(path);
+    if (existing >= 0)
+    {
+        show(existing, false);
+        modal_error_.clear();
+        return true;
+    }
+    const ChartbookLoadResult loaded = loadChartbook(path);
+    if (!loaded.ok)
+    {
+        modal_error_ = loaded.error;
+        file_error_ = loaded.error;
+        return false;
+    }
+    adopt(loaded.document, path, false);
+    show(static_cast<int>(books_.size()) - 1, false);
+    modal_error_.clear();
+    return true;
 }
 
 void ChartbookHost::show(int index, bool fill_defaults)
@@ -498,6 +578,7 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
     if (ImGui::MenuItem("Open Chartbook..."))
     {
         open_selected_ = -1;
+        modal_error_.clear();
         requestModal(Modal::Open);
     }
     if (ImGui::MenuItem("Save"))
@@ -549,6 +630,21 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
             close_index_ = -1;
         }
     }
+    if (ImGui::BeginMenu("Chartbooks"))
+    {
+        for (int index = 0; std::cmp_less(index, books_.size()); ++index)
+        {
+            const OpenBook& open = books_[static_cast<std::size_t>(index)];
+            const std::string label = open.book->name() + (open.dirty ? "*" : "");
+            ImGui::PushID(index);
+            if (ImGui::MenuItem(label.c_str(), nullptr, index == active_))
+            {
+                show(index, false);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndMenu();
+    }
     ImGui::Separator();
     if (ImGui::MenuItem("Chartbooks to Open on Startup..."))
     {
@@ -556,6 +652,7 @@ void ChartbookHost::drawFileMenu(InventoryPanel& inventory)
         startup_edit_ = loaded.ok ? loaded.settings.open_on_startup : std::vector<std::string>{};
         startup_selected_ = startup_edit_.empty() ? -1 : 0;
         startup_picking_ = false;
+        modal_error_.clear();
         requestModal(Modal::Startup);
     }
     endTitleMenu();
@@ -571,13 +668,7 @@ void ChartbookHost::drawViewMenu()
     const bool shown = dataShown(open);
     if (ImGui::MenuItem("DATA", nullptr, shown))
     {
-        if (!shown)
-        {
-            ChartbookLayout layout = open.book->layout();
-            chartbookInsertData(layout);
-            open.book->setLayout(std::move(layout));
-            apply_layout_ = true;
-        }
+        setDataShown(!shown);
     }
     if (ImGui::MenuItem("New Financials"))
     {
@@ -628,36 +719,49 @@ void ChartbookHost::drawTitleMenus(InventoryPanel& inventory, float tabs_right)
 
 void ChartbookHost::drawTabs(float tabs_right)
 {
-    float width = 0.f;
+    const float frame_h = ImGui::GetFrameHeight();
+    const float close_w = frame_h;
+    const float pad_x = 8.0f;
+    const float gap = 8.0f;
+    const float text_h = ImGui::GetTextLineHeight();
+    float total = 0.0f;
     for (const OpenBook& open : books_)
     {
         const std::string label = open.book->name() + (open.dirty ? "*" : "");
-        width += ImGui::CalcTextSize(label.c_str()).x + ImGui::GetFrameHeight() + 16.f;
+        total += ImGui::CalcTextSize(label.c_str()).x + (pad_x * 2.0f) + close_w + gap;
+    }
+    if (total > gap)
+    {
+        total -= gap;
     }
     const float local_right = tabs_right - ImGui::GetWindowPos().x;
-    const float target = local_right - width - ImGui::GetStyle().ItemSpacing.x;
+    const float target = local_right - total;
     if (ImGui::GetCursorPosX() < target)
     {
         ImGui::SetCursorPosX(target);
     }
+
     int reorder_from = -1;
     int reorder_to = -1;
     int close_now = -1;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
     for (int index = 0; std::cmp_less(index, books_.size()); ++index)
     {
         OpenBook const& open = books_[static_cast<std::size_t>(index)];
         const std::string label = open.book->name() + (open.dirty ? "*" : "");
-        const bool highlight = index == active_;
-        if (highlight)
+        const float tab_w = ImGui::CalcTextSize(label.c_str()).x + (pad_x * 2.0f);
+        if (ImGui::GetCursorScreenPos().x + tab_w + close_w > tabs_right)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, Theme::kAccent);
-            ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+            break;
         }
+        const bool highlight = index == active_;
         ImGui::PushID(index);
-        if (ImGui::Button(label.c_str()))
+        const ImVec2 tab_min = ImGui::GetCursorScreenPos();
+        if (ImGui::InvisibleButton("tab", ImVec2(tab_w, frame_h)))
         {
             show(index, false);
         }
+        const bool tab_hot = ImGui::IsItemHovered();
         if (ImGui::BeginDragDropSource())
         {
             ImGui::SetDragDropPayload("CHARTBOOK_TAB", &index, sizeof(index));
@@ -675,8 +779,37 @@ void ChartbookHost::drawTabs(float tabs_right)
             }
             ImGui::EndDragDropTarget();
         }
-        ImGui::SameLine(0.f, 2.f);
-        if (ImGui::SmallButton("x"))
+        const ImVec2 tab_max = ImGui::GetItemRectMax();
+        if (tab_hot)
+        {
+            draw_list->AddRectFilled(tab_min, tab_max, ImGui::GetColorU32(Theme::kBg3));
+        }
+        if (highlight)
+        {
+            draw_list->AddLine(tab_min, ImVec2(tab_max.x, tab_min.y), ImGui::GetColorU32(Theme::kAccent));
+        }
+        const ImU32 text_col = ImGui::GetColorU32((highlight || tab_hot) ? Theme::kText : Theme::kTextDim);
+        draw_list->AddText(ImVec2(tab_min.x + pad_x, tab_min.y + ((frame_h - text_h) * 0.5f)), text_col,
+                           label.c_str());
+
+        ImGui::SameLine(0.0f, 0.0f);
+        const bool close_pressed = ImGui::InvisibleButton("close", ImVec2(close_w, frame_h));
+        const bool close_hot = ImGui::IsItemHovered();
+        if (tab_hot || close_hot)
+        {
+            const ImVec2 close_min = ImGui::GetItemRectMin();
+            const ImVec2 close_max = ImGui::GetItemRectMax();
+            if (close_hot)
+            {
+                draw_list->AddRectFilled(close_min, close_max, ImGui::GetColorU32(Theme::kBg3));
+            }
+            const ImVec2 mark = ImGui::CalcTextSize("x");
+            const ImU32 mark_col = ImGui::GetColorU32(close_hot ? Theme::kText : Theme::kTextDim);
+            draw_list->AddText(ImVec2(close_min.x + ((close_w - mark.x) * 0.5f),
+                                      close_min.y + ((frame_h - mark.y) * 0.5f)),
+                               mark_col, "x");
+        }
+        if (close_pressed)
         {
             close_index_ = index;
             if (open.dirty)
@@ -691,13 +824,9 @@ void ChartbookHost::drawTabs(float tabs_right)
             }
         }
         ImGui::PopID();
-        if (highlight)
-        {
-            ImGui::PopStyleColor(2);
-        }
         if (index + 1 < static_cast<int>(books_.size()))
         {
-            ImGui::SameLine(0.f, 6.f);
+            ImGui::SameLine(0.0f, gap);
         }
     }
     if (reorder_from >= 0 && reorder_to >= 0 && reorder_from != reorder_to &&
@@ -793,57 +922,35 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
                     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                     {
                         const std::filesystem::path path = chartbookPathForStem(names[static_cast<std::size_t>(index)]);
-                        const int existing = findPath(path);
-                        if (existing >= 0)
+                        if (openListed(path))
                         {
-                            show(existing, false);
+                            ImGui::CloseCurrentPopup();
                         }
-                        else
-                        {
-                            const ChartbookLoadResult loaded = loadChartbook(path);
-                            if (!loaded.ok)
-                            {
-                                file_error_ = loaded.error;
-                            }
-                            else
-                            {
-                                adopt(loaded.document, path, false);
-                                show(static_cast<int>(books_.size()) - 1, false);
-                            }
-                        }
-                        ImGui::CloseCurrentPopup();
                     }
                 }
             }
             ImGui::EndListBox();
         }
-        if (ImGui::Button("Open") && open_selected_ >= 0 && std::cmp_less(open_selected_, names.size()))
+        if (!modal_error_.empty())
+        {
+            ImGui::TextColored(Theme::kDown, "%s", modal_error_.c_str());
+        }
+        const ImVec2 open_size(confirmWidth("Open", "Cancel", "Cancel"), 0.0f);
+        const bool open_pressed =
+            accentButton("Open", open_size, false) && open_selected_ >= 0 && std::cmp_less(open_selected_, names.size());
+        if (open_pressed)
         {
             const std::filesystem::path path =
                 chartbookPathForStem(names[static_cast<std::size_t>(open_selected_)]);
-            const int existing = findPath(path);
-            if (existing >= 0)
+            if (openListed(path))
             {
-                show(existing, false);
+                ImGui::CloseCurrentPopup();
             }
-            else
-            {
-                const ChartbookLoadResult loaded = loadChartbook(path);
-                if (!loaded.ok)
-                {
-                    file_error_ = loaded.error;
-                }
-                else
-                {
-                    adopt(loaded.document, path, false);
-                    show(static_cast<int>(books_.size()) - 1, false);
-                }
-            }
-            ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
+        if (ImGui::Button("Cancel", open_size))
         {
+            modal_error_.clear();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -866,7 +973,16 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             ImGui::EndListBox();
         }
         const std::filesystem::path path = chartbookPathForStem(name_);
-        if (ImGui::Button("Save"))
+        const bool named =
+            std::ranges::find(names, std::string(name_)) != names.end();
+        const bool same_file = save_as_index_ >= 0 && std::cmp_less(save_as_index_, books_.size()) &&
+                               chartbookPathsEqual(books_[static_cast<std::size_t>(save_as_index_)].path, path);
+        if (named && !same_file && !path.empty())
+        {
+            ImGui::TextColored(Theme::kTextDim, "Replaces the chartbook on disk.");
+        }
+        const ImVec2 save_size(confirmWidth("Save", "Cancel", "Cancel"), 0.0f);
+        if (accentButton("Save", save_size, false))
         {
             const int existing = path.empty() ? -1 : findPath(path);
             if (save_as_index_ < 0 || std::cmp_greater_equal(save_as_index_, books_.size()))
@@ -940,7 +1056,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
+        if (ImGui::Button("Cancel", save_size))
         {
             const bool reopen_quit = save_as_then_quit_;
             const bool reopen_close = save_as_then_close_;
@@ -977,7 +1093,9 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             const int index = close_index_;
             const std::string label = books_[static_cast<std::size_t>(index)].book->name();
             ImGui::Text("Save changes to %s?", label.c_str());
-            if (ImGui::Button("Save"))
+            ImGui::TextColored(Theme::kTextDim, "Don't Save discards the unsaved edits.");
+            const ImVec2 choice(confirmWidth("Save", "Don't Save", "Cancel"), 0.0f);
+            if (accentButton("Save", choice, true))
             {
                 save_as_then_close_ = true;
                 save_as_then_quit_ = false;
@@ -999,15 +1117,15 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("Don't Save"))
+            if (ImGui::Button("Cancel", choice))
             {
-                destroyBook(index);
                 close_index_ = -1;
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cancel"))
+            if (discardButton("Don't Save", choice))
             {
+                destroyBook(index);
                 close_index_ = -1;
                 ImGui::CloseCurrentPopup();
             }
@@ -1018,8 +1136,10 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Save Chartbooks", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::TextUnformatted("Save changes to the open chartbooks?");
-        if (ImGui::Button("Save All"))
+        ImGui::TextUnformatted("Save changes before quitting?");
+        ImGui::TextColored(Theme::kTextDim, "Don't Save quits and discards unsaved chartbooks.");
+        const ImVec2 choice(confirmWidth("Save All", "Don't Save", "Cancel"), 0.0f);
+        if (accentButton("Save All", choice, true))
         {
             save_as_then_quit_ = true;
             save_as_then_close_ = false;
@@ -1041,16 +1161,16 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Don't Save"))
+        if (ImGui::Button("Cancel", choice))
         {
             quit_modal_ = false;
-            quit_now_ = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
+        if (discardButton("Don't Save", choice))
         {
             quit_modal_ = false;
+            quit_now_ = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -1118,20 +1238,31 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
                 ImGui::EndListBox();
             }
         }
-        if (ImGui::Button("OK"))
+        if (!modal_error_.empty())
+        {
+            ImGui::TextColored(Theme::kDown, "%s", modal_error_.c_str());
+        }
+        const ImVec2 choice(confirmWidth("OK", "Cancel", "Cancel"), 0.0f);
+        if (accentButton("OK", choice, false))
         {
             StartupSettings settings;
             settings.open_on_startup = startup_edit_;
             const std::string error = saveStartupSettings(defaultTerminalSettingsPath(), settings);
             if (!error.empty())
             {
+                modal_error_ = error;
                 file_error_ = error;
             }
-            ImGui::CloseCurrentPopup();
+            else
+            {
+                modal_error_.clear();
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
+        if (ImGui::Button("Cancel", choice))
         {
+            modal_error_.clear();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -1666,13 +1797,7 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
     {
         if (!inventory.draw())
         {
-            ChartbookLayout layout = open.book->layout();
-            chartbookRemoveWindow(layout, "data");
-            open.book->setLayout(std::move(layout));
-            std::vector<ChartbookFloating> floating = open.book->floating();
-            std::erase_if(floating, [](const ChartbookFloating& item) { return item.window == "data"; });
-            open.book->setFloating(std::move(floating));
-            apply_layout_ = true;
+            setDataShown(false);
             closed_data = true;
         }
     }

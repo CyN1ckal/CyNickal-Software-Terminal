@@ -10,7 +10,6 @@
 #include "imgui.h"
 
 #include <algorithm>
-#include <cfloat>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -21,6 +20,65 @@ namespace terminal {
 namespace {
 
 constexpr float kStudyListFraction = 0.38f;
+// Value editors stay this wide. The rest of the settings pane stays empty.
+constexpr float kStudyValueWidth = 220.0f;
+constexpr int kAddStudyRowFloor = 6;
+// Existing Add Study limits, counted in frame heights: min width 12, max width 28, max height 32.
+constexpr int kAddStudyWindowMaxRows = 32;
+constexpr float kAddStudyMinWidthRows = 12.0f;
+constexpr float kAddStudyMaxWidthRows = 28.0f;
+
+[[nodiscard]] float equalButtonWidth(const char* a, const char* b)
+{
+    const float text = std::max(ImGui::CalcTextSize(a).x, ImGui::CalcTextSize(b).x);
+    return text + (ImGui::GetStyle().FramePadding.x * 2.0f);
+}
+
+[[nodiscard]] float equalButtonWidth(const char* a, const char* b, const char* c)
+{
+    const float text =
+        std::max({ImGui::CalcTextSize(a).x, ImGui::CalcTextSize(b).x, ImGui::CalcTextSize(c).x});
+    return text + (ImGui::GetStyle().FramePadding.x * 2.0f);
+}
+
+[[nodiscard]] float buttonClusterWidth(float button_w, int count)
+{
+    const float spacing = ImGui::GetStyle().ItemSpacing.x * static_cast<float>(count - 1);
+    return (button_w * static_cast<float>(count)) + spacing;
+}
+
+void alignButtonCluster(float cluster_w)
+{
+    const float align_x = ImGui::GetContentRegionMax().x - cluster_w;
+    if (align_x > ImGui::GetCursorPosX())
+    {
+        ImGui::SetCursorPosX(align_x);
+    }
+}
+
+// default_focus is OK only. Enter still submits Length and does not press this button.
+[[nodiscard]] bool drawAccentButton(const char* label, float width, bool default_focus)
+{
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    const bool pressed = ImGui::Button(label, ImVec2(width, 0.0f));
+    if (default_focus)
+    {
+        ImGui::SetItemDefaultFocus();
+    }
+    ImGui::PopStyleColor(4);
+    return pressed;
+}
+
+[[nodiscard]] bool drawPlainButton(const char* label, float width)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kText);
+    const bool pressed = ImGui::Button(label, ImVec2(width, 0.0f));
+    ImGui::PopStyleColor();
+    return pressed;
+}
 
 [[nodiscard]] const char* studyTypeName(const CStudyInstance& inst) noexcept
 {
@@ -92,7 +150,7 @@ void drawPropertyLabel(const char* label)
         }
         int& value = inst.options[index];
         drawPropertyLabel(option.label);
-        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::SetNextItemWidth(kStudyValueWidth);
         char field_id[96];
         std::snprintf(field_id, sizeof(field_id), "##study_%d_%s", inst.id, option.key);
         if (option.choices.empty())
@@ -140,7 +198,7 @@ void drawChartRegionField(CStudyInstance& inst)
 {
     inst.chart_region = clampStudyChartRegion(inst.chart_region);
     drawPropertyLabel("Chart Region");
-    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemWidth(kStudyValueWidth);
     char region_id[64];
     std::snprintf(region_id, sizeof(region_id), "##study_region_%d", inst.id);
     char preview[64];
@@ -172,12 +230,18 @@ void drawChartRegionField(CStudyInstance& inst)
         }
         ImGui::EndCombo();
     }
+    // Dim suffix in the empty pane, not a second paragraph under the table.
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted("Region 1 is the main price graph. Regions 2-12 are panes below it.");
+    ImGui::PopTextWrapPos();
+    ImGui::PopStyleColor();
 }
 
-void drawOutputColorField(CStudyInstance& inst, std::size_t index, const char* label)
+void drawOutputColorField(CStudyInstance& inst, std::size_t index)
 {
-    drawPropertyLabel(label);
-    ImGui::SetNextItemWidth(-FLT_MIN);
     CStudyOutputStyle& style = inst.outputs[index];
     const ImVec4 current = ImGui::ColorConvertU32ToFloat4(style.color);
     float rgba[4] = {current.x, current.y, current.z, current.w};
@@ -199,8 +263,13 @@ void drawOutputColorField(CStudyInstance& inst, std::size_t index, const char* l
 
 void drawLineStyleField(CStudyInstance& inst, std::size_t index, StudyGraph graph)
 {
-    drawPropertyLabel("Style");
-    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::TextUnformatted("Style");
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
     CStudyOutputStyle& style = inst.outputs[index];
     char field_id[96];
     std::snprintf(field_id, sizeof(field_id), "##study_line_%d_%d", inst.id, static_cast<int>(index));
@@ -250,7 +319,6 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
     if (type.outputs.empty())
     {
         drawPropertyLabel("Color");
-        ImGui::SetNextItemWidth(-FLT_MIN);
         const ImVec4 current = ImGui::ColorConvertU32ToFloat4(inst.color);
         float rgba[4] = {current.x, current.y, current.z, current.w};
         char color_id[64];
@@ -265,20 +333,15 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
         return;
     }
     normalizeStudyOutputs(inst);
-    const bool many = type.outputs.size() > 1;
     for (std::size_t index = 0; index < type.outputs.size(); ++index)
     {
         const char* label = "Color";
-        if (many && type.outputs[index].label != nullptr && type.outputs[index].label[0] != '\0')
+        if (type.outputs[index].label != nullptr && type.outputs[index].label[0] != '\0')
         {
             label = type.outputs[index].label;
         }
-        drawOutputColorField(inst, index, label);
-        // A color-by-bar study's later outputs are colors for one series, not more series.
-        if (type.color_by_bar && index > 0)
-        {
-            continue;
-        }
+        drawPropertyLabel(label);
+        drawOutputColorField(inst, index);
         drawLineStyleField(inst, index, type.graph);
     }
 }
@@ -286,16 +349,22 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
 [[nodiscard]] float studyPropertyLabelWidth(const StudyType& type)
 {
     float width = ImGui::CalcTextSize("Chart Region").x;
-    width = std::max(width, ImGui::CalcTextSize("Style").x);
-    if (type.outputs.size() > 1)
+    width = std::max(width, ImGui::CalcTextSize("Color").x);
+    for (const StudyOption& option : type.options)
     {
-        for (const StudyOutput& output : type.outputs)
+        if (!option.shown || option.label == nullptr)
         {
-            if (output.label != nullptr)
-            {
-                width = std::max(width, ImGui::CalcTextSize(output.label).x);
-            }
+            continue;
         }
+        width = std::max(width, ImGui::CalcTextSize(option.label).x);
+    }
+    for (const StudyOutput& output : type.outputs)
+    {
+        if (output.label == nullptr || output.label[0] == '\0')
+        {
+            continue;
+        }
+        width = std::max(width, ImGui::CalcTextSize(output.label).x);
     }
     return width + ImGui::GetStyle().FramePadding.x;
 }
@@ -318,17 +387,16 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
     const float label_w = studyPropertyLabelWidth(*type);
     const ImGuiTableFlags table_flags = ImGuiTableFlags_SizingStretchProp |
                                         ImGuiTableFlags_PadOuterX | ImGuiTableFlags_NoSavedSettings;
-    if (ImGui::BeginTable("##study_props", 2, table_flags))
+    if (ImGui::BeginTable("##study_props", 3, table_flags))
     {
         ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, label_w);
-        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, kStudyValueWidth);
+        ImGui::TableSetupColumn("Note", ImGuiTableColumnFlags_WidthStretch);
         length_enter = drawStudyOptions(inst, *type);
         drawChartRegionField(inst);
         drawOutputStyleFields(inst, *type);
         ImGui::EndTable();
     }
-
-    drawMutedWrapped("Region 1 is the main price graph. Regions 2-12 are panes below it.");
     return length_enter;
 }
 
@@ -571,9 +639,37 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
     });
 
     const float row_h = ImGui::GetFrameHeight();
-    ImGui::SetNextWindowSize(ImVec2(row_h * 16.0f, row_h * 18.0f), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(row_h * 12.0f, row_h * 10.0f),
-                                        ImVec2(row_h * 28.0f, row_h * 32.0f));
+    const ImGuiStyle& popup_style = ImGui::GetStyle();
+    const float footer_h = ImGui::GetFrameHeightWithSpacing();
+    const float chrome = ImGui::GetFrameHeight() + (popup_style.WindowPadding.y * 2.0f) +
+                         (popup_style.WindowBorderSize * 2.0f) + (popup_style.ChildBorderSize * 2.0f) +
+                         footer_h + popup_style.ItemSpacing.y;
+    const float max_window_h = row_h * static_cast<float>(kAddStudyWindowMaxRows);
+    int max_rows = kAddStudyRowFloor;
+    if (row_h > 0.0f)
+    {
+        const float fit = std::max(0.0f, (max_window_h - chrome) / row_h);
+        max_rows = std::max(kAddStudyRowFloor, static_cast<int>(fit));
+    }
+    const int catalog_rows = std::clamp(type_count, kAddStudyRowFloor, max_rows);
+    const float window_h =
+        std::min(max_window_h, (row_h * static_cast<float>(catalog_rows)) + chrome);
+    const float floor_h =
+        std::min(max_window_h, (row_h * static_cast<float>(kAddStudyRowFloor)) + chrome);
+    float name_w = 0.0f;
+    for (const StudyType* const info : types)
+    {
+        name_w = std::max(name_w, ImGui::CalcTextSize(info->display_name).x);
+    }
+    const float button_w = equalButtonWidth("Add", "Cancel");
+    const float buttons = buttonClusterWidth(button_w, 2) + (popup_style.WindowPadding.x * 2.0f);
+    const float names =
+        name_w + (popup_style.WindowPadding.x * 2.0f) + (popup_style.FramePadding.x * 2.0f);
+    const float min_w = row_h * kAddStudyMinWidthRows;
+    const float max_w = row_h * kAddStudyMaxWidthRows;
+    const float window_w = std::clamp(std::max(names, buttons), min_w, max_w);
+    ImGui::SetNextWindowSize(ImVec2(window_w, window_h), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(min_w, floor_h), ImVec2(max_w, max_window_h));
     bool add_open = true;
     if (!ImGui::BeginPopupModal("Add Study###add_study", &add_open,
                                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
@@ -589,8 +685,7 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
         pick = 0;
     }
 
-    const float footer_h = ImGui::GetFrameHeightWithSpacing();
-    const float list_h = std::max(row_h * 4.0f, ImGui::GetContentRegionAvail().y - footer_h);
+    const float list_h = std::max(row_h, ImGui::GetContentRegionAvail().y - footer_h);
     bool commit = false;
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Theme::kBg0);
     ImGui::BeginChild("##add_study_list", ImVec2(0.0f, list_h), ImGuiChildFlags_Borders);
@@ -616,17 +711,12 @@ void drawAddStudyModal(std::vector<CStudyInstance>& draft,
     modal_state->SetInt(pick_key, pick);
 
     const bool can_add = type_count > 0 && !atCap(draft);
+    alignButtonCluster(buttonClusterWidth(button_w, 2));
     ImGui::BeginDisabled(!can_add);
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
-    const bool add_clicked = ImGui::Button("Add");
-    ImGui::PopStyleColor(3);
+    const bool add_clicked = drawAccentButton("Add", button_w, false);
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
-    const bool cancel = ImGui::Button("Cancel");
-    ImGui::PopStyleColor();
+    const bool cancel = drawPlainButton("Cancel", button_w);
 
     // The studies window does not take Escape while this modal is open.
     const bool escape = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
@@ -673,29 +763,14 @@ void drawStudyFooter(std::vector<CStudyInstance>& draft,
         ImGui::TextColored(Theme::kMuted, "maximum %d studies", kStudyMaxPerPane);
     }
 
-    const ImGuiStyle& style = ImGui::GetStyle();
-    const float ok_w = ImGui::CalcTextSize("OK").x + (style.FramePadding.x * 2.0f);
-    const float apply_w = ImGui::CalcTextSize("Apply").x + (style.FramePadding.x * 2.0f);
-    const float cancel_w = ImGui::CalcTextSize("Cancel").x + (style.FramePadding.x * 2.0f);
-    const float cluster = ok_w + apply_w + cancel_w + (style.ItemSpacing.x * 2.0f);
-    const float align_x = ImGui::GetContentRegionMax().x - cluster;
+    const float action_w = equalButtonWidth("OK", "Apply", "Cancel");
     ImGui::SameLine();
-    if (align_x > ImGui::GetCursorPosX())
-    {
-        ImGui::SetCursorPosX(align_x);
-    }
-
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
-    ui.ok = ImGui::Button("OK");
-    ImGui::PopStyleColor(3);
+    alignButtonCluster(buttonClusterWidth(action_w, 3));
+    ui.ok = drawAccentButton("OK", action_w, true);
     ImGui::SameLine();
-    ui.apply = ImGui::Button("Apply");
+    ui.apply = ImGui::Button("Apply", ImVec2(action_w, 0.0f));
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
-    ui.cancel = ImGui::Button("Cancel");
-    ImGui::PopStyleColor();
+    ui.cancel = drawPlainButton("Cancel", action_w);
 }
 
 }  // namespace

@@ -33,6 +33,7 @@ struct RailField
 {
     std::string text;
     ImVec4 color{Theme::kMuted};
+    bool warn_gap{false};
 };
 
 void appendQueued(std::string& text, int queued)
@@ -81,37 +82,25 @@ void appendQueued(std::string& text, int queued)
     }
 
     const std::string_view inventory_status = inventory.statusText();
-    if (inventory_status.empty())
-    {
-        return {.text="idle", .color=Theme::kMuted};
-    }
-    if (inventory_status == open_error)
+    if (inventory_status == open_error && !inventory_status.empty())
     {
         return {.text=std::string(inventory_status), .color=Theme::kDown};
     }
-    if (inventory_status == "idle" || inventory_status == "no coverage yet")
+    const bool resting = inventory_status.empty() || inventory_status == "idle" ||
+                         inventory_status == "no coverage yet";
+    if (resting && inventory.hasPartialCoverage())
+    {
+        return {.text="partial coverage", .color=Theme::kText, .warn_gap=true};
+    }
+    if (inventory_status.empty() || inventory_status == "idle")
+    {
+        return {};
+    }
+    if (inventory_status == "no coverage yet")
     {
         return {.text=std::string(inventory_status), .color=Theme::kMuted};
     }
     return {.text=std::string(inventory_status), .color=Theme::kText};
-}
-
-[[nodiscard]] ImVec4 chartTone(ChartLoadStatus status)
-{
-    switch (status)
-    {
-    case ChartLoadStatus::Error:
-    case ChartLoadStatus::UnknownSymbol:
-    case ChartLoadStatus::Unsupported:
-        return Theme::kDown;
-    case ChartLoadStatus::Ready:
-        return Theme::kText;
-    case ChartLoadStatus::Unconfigured:
-    case ChartLoadStatus::Empty:
-    case ChartLoadStatus::Busy:
-        return Theme::kMuted;
-    }
-    return Theme::kMuted;
 }
 
 [[nodiscard]] RailField chartField(const CChartPane* pane)
@@ -145,27 +134,17 @@ void appendQueued(std::string& text, int queued)
         text += chartPeriodCode(settings.period);
     }
 
-    if (pane->status() == ChartLoadStatus::Ready)
-    {
-        if (!line.empty())
-        {
-            return {.text=std::string(line), .color=Theme::kText};
-        }
-        if (pane->barCount() > 0)
-        {
-            text += "  ";
-            text += std::to_string(pane->barCount());
-            text += " bars";
-        }
-        return {.text=std::move(text), .color=Theme::kText};
-    }
-
-    if (!line.empty())
+    constexpr std::string_view kCoaching = "Type a symbol and press Enter, or open Chart Settings.";
+    const bool coaching = line == kCoaching;
+    const ChartLoadStatus status = pane->status();
+    const bool failed = status == ChartLoadStatus::Error || status == ChartLoadStatus::UnknownSymbol ||
+                        status == ChartLoadStatus::Unsupported;
+    if (!line.empty() && !coaching && status != ChartLoadStatus::Unconfigured)
     {
         text += "  ";
         text += line;
     }
-    return {.text=std::move(text), .color=chartTone(pane->status())};
+    return {.text=std::move(text), .color=failed ? Theme::kDown : Theme::kMuted};
 }
 
 [[nodiscard]] std::string formatEtClock()
@@ -224,14 +203,14 @@ void drawField(const std::string& text, const ImVec4& color, float width, float 
     ImGui::SetCursorPos(ImVec2(x + width, y));
 }
 
-void drawGap()
+void drawGap(const ImVec4& color)
 {
     const ImVec2 window = ImGui::GetWindowPos();
     const float height = ImGui::GetWindowHeight();
     const ImVec2 screen = ImGui::GetCursorScreenPos();
     const float x = screen.x + (kRailGap * 0.5f);
     ImGui::GetWindowDrawList()->AddLine(ImVec2(x, window.y + 3.0f), ImVec2(x, window.y + height - 3.0f),
-                                        ImGui::GetColorU32(Theme::kLine));
+                                        ImGui::GetColorU32(color));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + kRailGap);
 }
 
@@ -280,18 +259,23 @@ void drawStatusRail(const InventoryPanel& inventory, const CChartBook& charts)
     }
 
     const float inner = std::max(0.0f, width - (kRailPadX * 2.0f));
-    const float remain = std::max(0.0f, inner - clock_w - (kRailGap * 2.0f));
+    const bool show_action = !action.text.empty();
+    const float gaps = show_action ? (kRailGap * 2.0f) : kRailGap;
+    const float remain = std::max(0.0f, inner - clock_w - gaps);
     const float chart_natural = ImGui::CalcTextSize(chart.text.c_str()).x;
-    const float chart_w = std::min(chart_natural, remain * 0.46f);
-    const float action_w = std::max(0.0f, remain - chart_w);
+    const float chart_w = show_action ? std::min(chart_natural, remain * 0.46f) : std::min(chart_natural, remain);
+    const float action_w = show_action ? std::max(0.0f, remain - chart_w) : 0.0f;
 
     const float text_h = ImGui::GetTextLineHeight();
     const float y = std::max(0.0f, (ImGui::GetWindowHeight() - text_h) * 0.5f);
     ImGui::SetCursorPos(ImVec2(kRailPadX, y));
-    drawField(action.text, action.color, action_w, y, false);
-    drawGap();
+    if (show_action)
+    {
+        drawField(action.text, action.color, action_w, y, false);
+        drawGap(action.warn_gap ? Theme::kWarn : Theme::kLine);
+    }
     drawField(chart.text, chart.color, chart_w, y, true);
-    drawGap();
+    drawGap(Theme::kLine);
     if (mono != nullptr)
     {
         ImGui::PushFont(mono);

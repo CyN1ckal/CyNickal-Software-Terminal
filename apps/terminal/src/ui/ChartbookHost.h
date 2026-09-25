@@ -50,6 +50,8 @@ private:
     [[nodiscard]] bool saveAll(InventoryPanel& inventory);
     void destroyBook(int index);
     [[nodiscard]] static bool dataShown(const OpenBook& open);
+    void setDataShown(bool shown);
+    [[nodiscard]] bool openListed(const std::filesystem::path& path);
     [[nodiscard]] int findPath(const std::filesystem::path& path) const;
     [[nodiscard]] std::string nextName();
 

@@ -41,6 +41,18 @@ public:
     [[nodiscard]] const IngestWorker* ingestWorker() const noexcept;
     [[nodiscard]] std::string_view statusText() const noexcept;
     [[nodiscard]] std::string_view openError() const noexcept;
+    // True when any loaded coverage summary has at least one partial session.
+    [[nodiscard]] bool hasPartialCoverage() const noexcept
+    {
+        for (const CoverageSummary& row : summaries_)
+        {
+            if (row.partial_count > 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
 private:
     void fillDefaultDates();

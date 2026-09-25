@@ -4,6 +4,7 @@
 #include "ui/OptionChainSource.h"
 
 #include "chart/CChartLoad.h"
+#include "chart/SymbolLinkCombo.h"
 #include "data/IngestWorker.h"
 #include "ui/Theme.h"
 
@@ -44,6 +45,9 @@ namespace {
 {
     return formatSessionDate(expiry.expiration) + " " + std::string(toSql(expiry.expiration_type));
 }
+
+// Same id OptionsChainPanel::draw writes before drawPicker. Payoff leaves it unset.
+constexpr char kOptionChainLinkBindingId[] = "##opt_link_binding";
 
 }  // namespace
 
@@ -422,14 +426,20 @@ bool OptionChainSource::drawPicker(IngestWorker* ingest)
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("SYMBOL");
+    ImGui::TextColored(Theme::kTextDim, "Symbol");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(96.0f);
     const bool symbol_go =
         ImGui::InputText("##opt_symbol", symbol_input_, sizeof(symbol_input_),
                          ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
+    void* const link = ImGui::GetStateStorage()->GetVoidPtr(ImGui::GetID(kOptionChainLinkBindingId));
+    if (link != nullptr)
+    {
+        drawSymbolLinkCombo(*static_cast<CSymbolLink::Binding*>(link));
+    }
     ImGui::SameLine();
-    ImGui::TextUnformatted("EXPIRATION");
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(Theme::kTextDim, "Expiration");
     ImGui::SameLine();
     const OptionExpiry* selected = selectedExpiry();
     const std::string current_label = selected != nullptr ? expiryLabel(*selected) : expirationLabel();

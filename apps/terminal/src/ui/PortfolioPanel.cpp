@@ -369,6 +369,17 @@ void drawRight(const char* text, const ImVec4& color)
     ImGui::TextColored(color, "%s", text);
 }
 
+[[nodiscard]] bool accentButton(const char* label)
+{
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    const bool pressed = ImGui::Button(label);
+    ImGui::PopStyleColor(4);
+    return pressed;
+}
+
 void drawMoney(double amount, int decimals)
 {
     const std::string text = formatUsd(amount, decimals);
@@ -484,7 +495,7 @@ void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
     }
     columns.portfolio_var = add("Portfolio VaR", kFixed, 168.f);
     columns.expiration = add("Expiration", kFixed, 108.f);
-    columns.expiry_type = add("Type", kFixed, 84.f);
+    columns.expiry_type = add("Expiry", kFixed, 84.f);
     columns.strike = add("Strike", kFixed, 120.f);
     columns.right = add("Right", kFixed, 136.f);
     columns.count = next;
@@ -493,7 +504,7 @@ void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
 void drawHoldingsHeaders(const HoldingsColumns& columns, int confidence_pct)
 {
     const std::string pct = std::to_string(confidence_pct) + "%";
-    const std::string position_cvar = "CVaR " + pct;
+    const std::string position_cvar = "Pos CVaR " + pct;
     const std::string unit_var = "Unit VaR " + pct;
     const std::string unit_cvar = "Unit CVaR " + pct;
     const std::string unit_var_tip =
@@ -504,7 +515,7 @@ void drawHoldingsHeaders(const HoldingsColumns& columns, int confidence_pct)
         "Position 1-day " + pct + " expected shortfall: the average P&L beyond VaR. A loss prints negative.";
     const std::string unit_cvar_tip = "Per-unit 1-day " + pct +
                                       " expected shortfall. A loss prints negative.";
-    const std::string portfolio_var = "Portfolio " + pct;
+    const std::string portfolio_var = "VaR " + pct;
     const std::string portfolio_tip =
         "Sum of each line's own 1-day " + pct +
         " historical VaR, from that line's latest daily returns. A loss prints negative.";
@@ -841,7 +852,7 @@ void PortfolioPanel::apply(Store& store, IngestWorker* ingest)
     status_ = "saved";
 }
 
-void PortfolioPanel::drawBooks(Store& store)
+void PortfolioPanel::drawBooks([[maybe_unused]] Store& store)
 {
     const char* preview = book_name_.empty() ? "select a portfolio" : book_name_.c_str();
     ImGui::SetNextItemWidth(180.f);
@@ -857,27 +868,6 @@ void PortfolioPanel::drawBooks(Store& store)
             }
         }
         ImGui::EndCombo();
-    }
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(140.f);
-    ImGui::InputTextWithHint("##new", "new name", new_name_, sizeof(new_name_));
-    ImGui::SameLine();
-    if (ImGui::Button("New"))
-    {
-        createBook(store);
-    }
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(140.f);
-    ImGui::InputText("##rename", rename_, sizeof(rename_));
-    ImGui::SameLine();
-    if (ImGui::Button("Rename") && portfolio_id_ != 0)
-    {
-        renameBook(store);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Delete") && portfolio_id_ != 0)
-    {
-        deleteBook(store);
     }
 }
 
@@ -957,9 +947,10 @@ void PortfolioPanel::drawHoldings(const Store& store)
 
     const int risk_columns = (show_position_var_ ? 1 : 0) + (show_unit_var_ ? 2 : 0) + 1;
     const int column_count = 10 + risk_columns;
-    const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY |
-                                  ImGuiTableFlags_ScrollX | ImGuiTableFlags_Resizable |
-                                  ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                                  ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
+                                  ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit |
+                                  ImGuiTableFlags_NoSavedSettings;
     const float inner_width =
         std::max(1160.f + (160.f * static_cast<float>(risk_columns)), ImGui::GetContentRegionAvail().x);
     if (!ImGui::BeginTable("holdings", column_count, flags, ImVec2(0.f, 0.f), inner_width))
@@ -1039,46 +1030,57 @@ void PortfolioPanel::drawHoldings(const Store& store)
             ImGui::TextUnformatted(row.figi->c_str());
         }
         ImGui::TableSetColumnIndex(3);
-        ImGui::SetNextItemWidth(-1.f);
         const int row_index = static_cast<int>(index);
-        char quantity_buf[96];
-        if (quantity_edit_ == row_index)
-        {
-            std::snprintf(quantity_buf, sizeof(quantity_buf), "%s", quantity_edit_buf_);
-        }
-        else
-        {
-            const std::string shown = formatQuantity(row.quantity);
-            std::snprintf(quantity_buf, sizeof(quantity_buf), "%s", shown.c_str());
-        }
+        ImGuiStorage* const storage = ImGui::GetStateStorage();
+        const ImGuiID focus_id = ImGui::GetID("qty_focus");
+        const bool focus_qty = storage != nullptr && storage->GetBool(focus_id, false);
         ImFont* const mono = Theme::monoFont();
         if (mono != nullptr)
         {
             ImGui::PushFont(mono);
         }
-        const bool quantity_changed = ImGui::InputText("##qty", quantity_buf, sizeof(quantity_buf));
+        // Grouped and right-aligned only while idle. The edit buffer stays raw.
+        if (quantity_edit_ == row_index)
+        {
+            if (focus_qty && storage != nullptr)
+            {
+                ImGui::SetKeyboardFocusHere();
+                storage->SetBool(focus_id, false);
+            }
+            ImGui::SetNextItemWidth(-1.f);
+            const bool quantity_changed = ImGui::InputText("##qty", quantity_edit_buf_, sizeof(quantity_edit_buf_));
+            if (quantity_changed)
+            {
+                double parsed = 0.0;
+                if (parseLooseDouble(quantity_edit_buf_, parsed) && parsed != row.quantity)
+                {
+                    row.quantity = parsed;
+                    dirty_ = true;
+                    status_ = "unsaved";
+                }
+            }
+            if (!focus_qty && ImGui::IsItemDeactivated())
+            {
+                quantity_edit_ = -1;
+            }
+        }
+        else
+        {
+            const std::string shown = formatQuantity(row.quantity);
+            drawRight(shown.c_str(), Theme::kText);
+            if (ImGui::IsItemClicked())
+            {
+                std::snprintf(quantity_edit_buf_, sizeof(quantity_edit_buf_), "%s", shown.c_str());
+                quantity_edit_ = row_index;
+                if (storage != nullptr)
+                {
+                    storage->SetBool(focus_id, true);
+                }
+            }
+        }
         if (mono != nullptr)
         {
             ImGui::PopFont();
-        }
-        if (ImGui::IsItemActive())
-        {
-            std::snprintf(quantity_edit_buf_, sizeof(quantity_edit_buf_), "%s", quantity_buf);
-            quantity_edit_ = row_index;
-        }
-        else if (quantity_edit_ == row_index)
-        {
-            quantity_edit_ = -1;
-        }
-        if (quantity_changed)
-        {
-            double parsed = 0.0;
-            if (parseLooseDouble(quantity_buf, parsed) && parsed != row.quantity)
-            {
-                row.quantity = parsed;
-                dirty_ = true;
-                status_ = "unsaved";
-            }
         }
         const std::optional<double> last = index < lasts_.size() ? lasts_[index] : std::nullopt;
         ImGui::TableSetColumnIndex(4);
@@ -1127,7 +1129,15 @@ void PortfolioPanel::drawHoldings(const Store& store)
         if (row.expiration.has_value())
         {
             const std::string when = formatSessionDate(*row.expiration);
+            if (mono != nullptr)
+            {
+                ImGui::PushFont(mono);
+            }
             ImGui::TextUnformatted(when.c_str());
+            if (mono != nullptr)
+            {
+                ImGui::PopFont();
+            }
         }
         ImGui::TableSetColumnIndex(columns.expiry_type);
         if (row.expiration_type.has_value())
@@ -1308,18 +1318,22 @@ void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
     {
         return;
     }
-    ImGui::SetNextItemWidth(90.f);
-    ImGui::Combo("##kind", &kind_, kKinds, 4);
     const bool cash = kindAt(kind_) == PortfolioAssetKind::Cash;
     if (!cash)
     {
-        ImGui::SameLine();
         ImGui::SetNextItemWidth(90.f);
         ImGui::InputTextWithHint("##symbol", "symbol", symbol_, sizeof(symbol_));
+        ImGui::SameLine();
     }
+    ImGui::SetNextItemWidth(90.f);
+    ImGui::Combo("##kind", &kind_, kKinds, 4);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(80.f);
+    ImGui::InputTextWithHint("##add_qty", "quantity", quantity_, sizeof(quantity_));
+    ImGui::SameLine();
+    const bool add = accentButton("Add");
     if (kindAt(kind_) == PortfolioAssetKind::Option)
     {
-        ImGui::SameLine();
         ImGui::SetNextItemWidth(90.f);
         ImGui::InputTextWithHint("##expiration", "YYYYMMDD", expiration_, sizeof(expiration_));
         ImGui::SameLine();
@@ -1332,11 +1346,7 @@ void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
         ImGui::SetNextItemWidth(70.f);
         ImGui::Combo("##right", &right_, kRights, 2);
     }
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.f);
-    ImGui::InputTextWithHint("##add_qty", "quantity", quantity_, sizeof(quantity_));
-    ImGui::SameLine();
-    if (!ImGui::Button("Add") || pending_)
+    if (!add || pending_)
     {
         return;
     }
@@ -1461,16 +1471,72 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     if (dirty_)
     {
         ImGui::SameLine();
-        if (ImGui::Button("Apply"))
+        if (accentButton("Apply"))
         {
             apply(*store, ingest);
         }
         ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
         if (ImGui::Button("Revert"))
         {
             dirty_ = false;
             loaded_ = false;
         }
+        ImGui::PopStyleColor();
+    }
+    bool ask_delete = false;
+    ImGui::SameLine();
+    if (ImGui::BeginMenu("Book"))
+    {
+        ImGui::SetNextItemWidth(140.f);
+        ImGui::InputTextWithHint("##new", "new name", new_name_, sizeof(new_name_));
+        ImGui::SameLine();
+        if (ImGui::Button("New"))
+        {
+            createBook(*store);
+        }
+        ImGui::SetNextItemWidth(140.f);
+        ImGui::InputText("##rename", rename_, sizeof(rename_));
+        ImGui::SameLine();
+        if (ImGui::Button("Rename") && portfolio_id_ != 0)
+        {
+            renameBook(*store);
+        }
+        ImGui::Separator();
+        if (ImGui::Button("Delete") && portfolio_id_ != 0)
+        {
+            ask_delete = true;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndMenu();
+    }
+    if (ask_delete)
+    {
+        ImGui::OpenPopup("Delete portfolio");
+    }
+    if (const ImGuiViewport* viewport = ImGui::GetMainViewport(); viewport != nullptr)
+    {
+        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    }
+    if (ImGui::BeginPopupModal("Delete portfolio", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::TextUnformatted("Delete this portfolio?");
+        ImGui::TextUnformatted(book_name_.c_str());
+        ImGui::TextUnformatted("Holdings in this book are removed.");
+        if (ImGui::Button("Cancel"))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SetItemDefaultFocus();
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        if (ImGui::Button("Delete"))
+        {
+            deleteBook(*store);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::PopStyleColor();
+        ImGui::EndPopup();
     }
     ImGui::Separator();
     ImVec4 status_color = Theme::kMuted;
@@ -1492,7 +1558,15 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         refreshMarks(*store);
     }
     const bool show_add = portfolio_id_ != 0;
-    const float footer = show_add ? ImGui::GetFrameHeightWithSpacing() : 0.f;
+    float footer = 0.f;
+    if (show_add)
+    {
+        footer = ImGui::GetFrameHeightWithSpacing();
+        if (kindAt(kind_) == PortfolioAssetKind::Option)
+        {
+            footer *= 2.f;
+        }
+    }
     const float gap = ImGui::GetStyle().ItemSpacing.x;
     const float avail = ImGui::GetContentRegionAvail().x;
     const float right_w = std::max(0.f, (avail - gap) * 0.40f);

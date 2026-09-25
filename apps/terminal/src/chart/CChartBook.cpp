@@ -4,6 +4,7 @@
 #include "chart/CChartBook.h"
 
 #include "chart/CChartPane.h"
+#include "ui/Theme.h"
 #include "ui/TitleBar.h"
 
 #include "imgui.h"
@@ -925,7 +926,7 @@ void CChartBook::drawMenu()
         {
             addPane();
         }
-        CChartPane const* pane = focused();
+        CChartPane* pane = focused();
         const bool has_focus = pane != nullptr;
         const bool settings_enabled = has_focus && !pane->studiesOpen();
         const bool studies_enabled = has_focus && !pane->settingsOpen();
@@ -936,6 +937,41 @@ void CChartBook::drawMenu()
         if (ImGui::MenuItem("Studies", "F6", false, studies_enabled))
         {
             openFocusedStudies();
+        }
+        const bool keys_enabled = has_focus && !pane->settingsOpen() && !pane->studiesOpen();
+        const bool start_enabled = keys_enabled && pane->barCount() != 0;
+        if (ImGui::MenuItem("Symbol or Period", "type, Enter", false, keys_enabled) && pane != nullptr)
+        {
+            pane->requestFocus();
+        }
+        if (ImGui::MenuItem("Zoom In", "Up", false, keys_enabled) && pane != nullptr)
+        {
+            pane->zoomBy(1.0f);
+        }
+        if (ImGui::MenuItem("Zoom Out", "Down", false, keys_enabled) && pane != nullptr)
+        {
+            pane->zoomBy(-1.0f);
+        }
+        if (ImGui::MenuItem("Scroll Left", "Left", false, keys_enabled) && pane != nullptr)
+        {
+            pane->scrollBy(1);
+        }
+        if (ImGui::MenuItem("Scroll Right", "Right", false, keys_enabled) && pane != nullptr)
+        {
+            pane->scrollBy(-1);
+        }
+        if (ImGui::MenuItem("Go to Start", "Home", false, start_enabled) && pane != nullptr)
+        {
+            pane->goToStart();
+        }
+        if (ImGui::MenuItem("Go to End", "End", false, keys_enabled) && pane != nullptr)
+        {
+            pane->goToEnd();
+        }
+        ImGui::TextColored(Theme::kTextDim, "Shift+wheel keeps the bar under the pointer.");
+        if (ImGui::MenuItem("Reset Study Scales", nullptr, false, keys_enabled) && pane != nullptr)
+        {
+            pane->resetStudyScales();
         }
         if (ImGui::MenuItem("Close Chart", nullptr, false, has_focus))
         {

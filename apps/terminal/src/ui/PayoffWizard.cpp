@@ -124,15 +124,35 @@ public:
         next(ImGui::CalcTextSize(label).x + (ImGui::GetStyle().FramePadding.x * 2.0f));
     }
 
-    // A caption and a colored value, both text.
-    void fact(const char* label, const std::string& value, const ImVec4& color)
+    // A caption and a colored value. Numeric values use the mono face, not the caption.
+    void fact(const char* label, const std::string& value, const ImVec4& color, bool numeric)
     {
+        ImFont* const mono = numeric ? Theme::monoFont() : nullptr;
+        float value_w = 0.0f;
+        if (mono != nullptr)
+        {
+            ImGui::PushFont(mono);
+            value_w = ImGui::CalcTextSize(value.c_str()).x;
+            ImGui::PopFont();
+        }
+        else
+        {
+            value_w = ImGui::CalcTextSize(value.c_str()).x;
+        }
         const ImGuiStyle& style = ImGui::GetStyle();
-        next(ImGui::CalcTextSize(label).x + style.ItemSpacing.x + ImGui::CalcTextSize(value.c_str()).x);
+        next(ImGui::CalcTextSize(label).x + style.ItemSpacing.x + value_w);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(Theme::kMuted, "%s", label);
         ImGui::SameLine();
+        if (mono != nullptr)
+        {
+            ImGui::PushFont(mono);
+        }
         ImGui::TextColored(color, "%s", value.c_str());
+        if (mono != nullptr)
+        {
+            ImGui::PopFont();
+        }
     }
 
 private:
@@ -200,7 +220,7 @@ void PayoffWizard::clear()
     refit_ = true;
     if (had_legs)
     {
-        setStatus("new underlying; legs cleared", false);
+        setStatus("new underlying; legs cleared", true);
     }
     else
     {
@@ -313,9 +333,18 @@ void PayoffWizard::drawRecipeRow(std::span<const OptionQuote> chain)
     RowFlow row;
 
     row.labelled("QTY", 48.0f);
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
     if (ImGui::InputInt("##payoff_qty", &quantity_, 0, 0))
     {
         quantity_ = std::clamp(quantity_, 1, 9999);
+    }
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
     }
     ImGui::SetItemTooltip("contracts per leg; a share leg is 100 shares per contract");
 
@@ -450,10 +479,19 @@ void PayoffWizard::drawLegRow(std::span<const OptionQuote> chain, SessionDate ex
     }
 
     row.labelled("PRICE", 72.0f);
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
     if (ImGui::InputDouble("##leg_price", &draft_.price, 0.0, 0.0, "%.2f"))
     {
         draft_.price = std::isfinite(draft_.price) ? std::max(draft_.price, 0.0) : 0.0;
         draft_.price_typed = true;
+    }
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
     }
     ImGui::SetItemTooltip("%s", draft_.price_typed ? "typed by hand" : "from the chain at the PRICING basis");
     if (draft_.price_typed)
@@ -465,21 +503,7 @@ void PayoffWizard::drawLegRow(std::span<const OptionQuote> chain, SessionDate ex
         }
     }
 
-    row.button("ADD LEG");
-    const bool add = primaryButton("ADD LEG");
-    ImGui::SameLine();
-    ImGui::BeginDisabled(legs_.empty());
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
-    if (ImGui::Button("CLEAR"))
-    {
-        legs_.clear();
-        refit_ = true;
-        setStatus("cleared", false);
-    }
-    ImGui::PopStyleColor();
-    ImGui::EndDisabled();
-
-    if (!add)
+    if (!ImGui::Button("ADD LEG"))
     {
         return;
     }
@@ -525,6 +549,8 @@ void PayoffWizard::drawLegTable()
     constexpr ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
                                       ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollY |
                                       ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
+    const float clear_w = ImGui::CalcTextSize("CLEAR").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
+    const float remove_w = std::max(clear_w, ImGui::GetFrameHeight());
     if (!ImGui::BeginTable("payoff_legs", 7, flags))
     {
         return;
@@ -535,9 +561,24 @@ void PayoffWizard::drawLegTable()
     ImGui::TableSetupColumn("Expires", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableSetupColumn("Price", ImGuiTableColumnFlags_WidthStretch, 0.9f);
     ImGui::TableSetupColumn("Cost", ImGuiTableColumnFlags_WidthStretch, 1.1f);
-    ImGui::TableSetupColumn("##remove", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+    ImGui::TableSetupColumn("##remove", ImGuiTableColumnFlags_WidthFixed, remove_w);
     ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableHeadersRow();
+    bool clear_all = false;
+    const int column_count = ImGui::TableGetColumnCount();
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+    if (column_count > 0)
+    {
+        for (int column = 0; column < column_count - 1; ++column)
+        {
+            ImGui::TableSetColumnIndex(column);
+            ImGui::TableHeader(ImGui::TableGetColumnName(column));
+        }
+        ImGui::TableSetColumnIndex(column_count - 1);
+        if (ImGui::SmallButton("CLEAR"))
+        {
+            clear_all = true;
+        }
+    }
 
     std::optional<std::size_t> remove;
     ImFont* const mono = Theme::monoFont();
@@ -554,7 +595,16 @@ void PayoffWizard::drawLegTable()
         ImGui::TableNextColumn();
         double quantity = leg.quantity;
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::InputDouble("##qty", &quantity, 0.0, 0.0, "%.0f") && quantity != leg.quantity)
+        if (mono != nullptr)
+        {
+            ImGui::PushFont(mono);
+        }
+        const bool quantity_edited = ImGui::InputDouble("##qty", &quantity, 0.0, 0.0, "%.0f");
+        if (mono != nullptr)
+        {
+            ImGui::PopFont();
+        }
+        if (quantity_edited && quantity != leg.quantity)
         {
             std::vector<PayoffLeg> edited = legs_;
             edited[index].quantity = quantity;
@@ -585,7 +635,16 @@ void PayoffWizard::drawLegTable()
         ImGui::TableNextColumn();
         double price = leg.price;
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::InputDouble("##price", &price, 0.0, 0.0, "%.2f") && std::isfinite(price))
+        if (mono != nullptr)
+        {
+            ImGui::PushFont(mono);
+        }
+        const bool price_edited = ImGui::InputDouble("##price", &price, 0.0, 0.0, "%.2f");
+        if (mono != nullptr)
+        {
+            ImGui::PopFont();
+        }
+        if (price_edited && std::isfinite(price))
         {
             leg.price = std::max(price, 0.0);
         }
@@ -612,7 +671,13 @@ void PayoffWizard::drawLegTable()
     }
     ImGui::EndTable();
 
-    if (remove.has_value())
+    if (clear_all)
+    {
+        legs_.clear();
+        refit_ = true;
+        setStatus("cleared", false);
+    }
+    else if (remove.has_value())
     {
         legs_.erase(legs_.begin() + static_cast<std::ptrdiff_t>(*remove));
         refit_ = true;
@@ -645,16 +710,18 @@ void PayoffWizard::drawSummary(const PayoffSummary& summary)
 
     if (const std::optional<std::int32_t> expires = strategyExpiration(legs_); expires.has_value() && *expires != 0)
     {
-        row.fact("EXPIRES", formatSessionDate(*expires), Theme::kText);
+        row.fact("EXPIRES", formatSessionDate(*expires), Theme::kText, true);
     }
     const bool credit = summary.net_cost < 0.0;
-    row.fact(credit ? "NET CREDIT" : "NET DEBIT", formatDollars(std::fabs(summary.net_cost), false), Theme::kText);
+    row.fact(credit ? "NET CREDIT" : "NET DEBIT", formatDollars(std::fabs(summary.net_cost), false), Theme::kText,
+             true);
+    const bool profit_known = summary.max_profit.has_value();
     row.fact("MAX PROFIT",
-             summary.max_profit.has_value() ? formatDollars(*summary.max_profit, true) : std::string("unlimited"),
-             summary.max_profit.has_value() && *summary.max_profit <= 0.0 ? Theme::kDown : Theme::kUp);
-    row.fact("MAX LOSS",
-             summary.max_loss.has_value() ? formatDollars(*summary.max_loss, true) : std::string("unlimited"),
-             summary.max_loss.has_value() && *summary.max_loss >= 0.0 ? Theme::kUp : Theme::kDown);
+             profit_known ? formatDollars(*summary.max_profit, true) : std::string("unlimited"),
+             profit_known && *summary.max_profit <= 0.0 ? Theme::kDown : Theme::kUp, profit_known);
+    const bool loss_known = summary.max_loss.has_value();
+    row.fact("MAX LOSS", loss_known ? formatDollars(*summary.max_loss, true) : std::string("unlimited"),
+             loss_known && *summary.max_loss >= 0.0 ? Theme::kUp : Theme::kDown, loss_known);
     std::string breakevens;
     for (const double breakeven : summary.breakevens)
     {
@@ -664,11 +731,12 @@ void PayoffWizard::drawSummary(const PayoffSummary& summary)
         }
         breakevens += formatStrike(breakeven);
     }
-    row.fact("BREAKEVEN", breakevens.empty() ? std::string("none") : breakevens, Theme::kText);
+    const bool has_breakeven = !breakevens.empty();
+    row.fact("BREAKEVEN", has_breakeven ? breakevens : std::string("none"), Theme::kText, has_breakeven);
     if (spot_ > 0.0)
     {
         const double here = strategyPayoff(legs_, spot_);
-        row.fact("AT SPOT", formatDollars(here, true), here < 0.0 ? Theme::kDown : Theme::kUp);
+        row.fact("AT SPOT", formatDollars(here, true), here < 0.0 ? Theme::kDown : Theme::kUp, true);
     }
 }
 
@@ -677,10 +745,20 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
     constexpr ImPlotFlags plot_flags = ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus |
                                        ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText | ImPlotFlags_Crosshairs;
     // The Y fit is applied in EndPlot, so the padding stays pushed until then.
+    // Ticks and tags are drawn before EndPlot returns, so the mono face stays pushed too.
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
     ImPlot::PushStyleVar(ImPlotStyleVar_FitPadding, ImVec2(0.0f, kPayoffFitPadding));
     if (!ImPlot::BeginPlot("##payoff_plot", ImVec2(-1.0f, -1.0f), plot_flags))
     {
         ImPlot::PopStyleVar();
+        if (mono != nullptr)
+        {
+            ImGui::PopFont();
+        }
         return;
     }
     ImPlot::SetupAxis(ImAxis_X1, nullptr, ImPlotAxisFlags_NoHighlight);
@@ -779,6 +857,10 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
     }
     ImPlot::EndPlot();
     ImPlot::PopStyleVar();
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
 }
 
 void PayoffWizard::drawGraph()
@@ -800,7 +882,9 @@ void PayoffWizard::drawEntry(std::span<const OptionQuote> chain, SessionDate exp
     drawLegRow(chain, expiration);
     if (!status_.empty())
     {
-        ImGui::TextColored(status_error_ ? Theme::kDown : Theme::kMuted, "%s", status_.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, status_error_ ? Theme::kDown : Theme::kMuted);
+        ImGui::TextWrapped("%s", status_.c_str());
+        ImGui::PopStyleColor();
     }
     if (legs_.empty())
     {

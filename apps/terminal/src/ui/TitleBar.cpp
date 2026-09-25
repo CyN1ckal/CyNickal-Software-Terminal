@@ -21,13 +21,10 @@ namespace {
 
 // Shorter than StratumChrome::kTitleBarH (38). The terminal keeps the menus on
 // this same bar, so it does not need a second strip. Scaled with the font DPI.
-// The brand mark stays square: this workstation uses radius 0.
 constexpr float kTitleBarHeight = 30.0f;
 constexpr float kCaptionButtonWidth = 46.0f;
 constexpr float kFrameBorder = 8.0f;
-constexpr float kTitleIconPad = 14.0f;
-constexpr float kTitleIconSize = 14.0f;
-constexpr float kTitleBrandGap = 10.0f;
+constexpr float kTitleTextPad = 12.0f;
 constexpr float kTitleMenuGap = 18.0f;
 constexpr int kCaptionButtonCount = 3;
 
@@ -179,13 +176,7 @@ void handleCaptionDrag(Window& window, ImVec2 drag_min, ImVec2 drag_max, ImGuiWi
 // Returns the screen x where the menus should start.
 [[nodiscard]] float drawBrand(ImDrawList* draw_list, ImVec2 origin, float height, float scale, float buttons_left)
 {
-    const float icon = std::min(kTitleIconSize * scale, std::max(8.0f, height - 8.0f));
-    const float icon_x = origin.x + (kTitleIconPad * scale);
-    const float icon_y = origin.y + ((height - icon) * 0.5f);
-    draw_list->AddRectFilled(ImVec2(icon_x, icon_y), ImVec2(icon_x + icon, icon_y + icon),
-                             ImGui::GetColorU32(Theme::kAccent), 0.0f);
-
-    const float text_x = icon_x + icon + (kTitleBrandGap * scale);
+    const float text_x = origin.x + (kTitleTextPad * scale);
     const float text_y = origin.y + ((height - ImGui::GetTextLineHeight()) * 0.5f);
     const float text_w = ImGui::CalcTextSize(kWindowTitle).x;
     const float clip_right = buttons_left - (8.0f * scale);
@@ -193,7 +184,7 @@ void handleCaptionDrag(Window& window, ImVec2 drag_min, ImVec2 drag_max, ImGuiWi
     if (text_right > text_x)
     {
         ImGui::PushClipRect(ImVec2(text_x, origin.y), ImVec2(text_right, origin.y + height), true);
-        draw_list->AddText(ImVec2(text_x, text_y), ImGui::GetColorU32(Theme::kText), kWindowTitle);
+        draw_list->AddText(ImVec2(text_x, text_y), ImGui::GetColorU32(Theme::kTextDim), kWindowTitle);
         ImGui::PopClipRect();
     }
     return text_right + (kTitleMenuGap * scale);
@@ -263,8 +254,8 @@ void drawCaptionButtons(ImDrawList* draw_list, ImVec2 origin, ImVec2 size, float
             const ImVec4 fill = buttons[i] == CaptionButton::Close ? Theme::kDanger : Theme::kBg3;
             draw_list->AddRectFilled(bmin, bmax, ImGui::GetColorU32(fill));
         }
-        const ImVec4 glyph = (hovered && buttons[i] == CaptionButton::Close) ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)
-                                                                              : Theme::kTextDim;
+        const ImVec4 glyph =
+            (hovered && buttons[i] == CaptionButton::Close) ? Theme::kBg0 : Theme::kTextDim;
         const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
         drawCaptionGlyph(draw_list, buttons[i], center, scale, ImGui::GetColorU32(glyph), maximized);
 
@@ -392,6 +383,7 @@ void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventor
 
     // The sidebar is only as tall as its menu bar, so the content clip is empty
     // until BeginMenuBar replaces it. Buttons drawn earlier never appear.
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, Theme::kBg0);
     if (ImGui::BeginMenuBar())
     {
         const float menu_x = drawBrand(draw_list, origin, size.y, scale, buttons_left);
@@ -402,6 +394,7 @@ void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventor
                            ImVec2(origin.x + size.x, origin.y + size.y - 1.0f), ImGui::GetColorU32(Theme::kLine));
         ImGui::EndMenuBar();
     }
+    ImGui::PopStyleColor();
     handleCaptionDrag(window, origin, ImVec2(buttons_left, origin.y + size.y), previous_focus);
     ImGui::End();
     ImGui::PopStyleVar();

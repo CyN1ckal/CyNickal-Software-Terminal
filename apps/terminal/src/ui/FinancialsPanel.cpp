@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace terminal {
 namespace {
@@ -73,6 +74,128 @@ void drawRight(const char* text, const ImVec4& color)
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + width - text_w);
     }
     ImGui::TextColored(color, "%s", text);
+}
+
+[[nodiscard]] bool isDigit(unsigned char ch)
+{
+    return ch >= static_cast<unsigned char>('0') && ch <= static_cast<unsigned char>('9');
+}
+
+// True when every digit rolled over. Commas stay put.
+[[nodiscard]] bool incrementDigits(std::string& text)
+{
+    std::size_t index = text.size();
+    while (index > 0)
+    {
+        --index;
+        const auto ch = static_cast<unsigned char>(text[index]);
+        if (ch == static_cast<unsigned char>(','))
+        {
+            continue;
+        }
+        if (ch != static_cast<unsigned char>('9'))
+        {
+            text[index] = static_cast<char>(ch + 1U);
+            return false;
+        }
+        text[index] = '0';
+    }
+    return true;
+}
+
+[[nodiscard]] bool isGroupedNumber(std::string_view text)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+    std::size_t index = 0;
+    if (text.front() == '-')
+    {
+        ++index;
+    }
+    if (index >= text.size())
+    {
+        return false;
+    }
+    bool saw_digit = false;
+    bool fraction = false;
+    for (; index < text.size(); ++index)
+    {
+        const auto ch = static_cast<unsigned char>(text[index]);
+        if (ch == static_cast<unsigned char>('.'))
+        {
+            if (fraction || !saw_digit)
+            {
+                return false;
+            }
+            fraction = true;
+            continue;
+        }
+        if (ch == static_cast<unsigned char>(','))
+        {
+            if (fraction || !saw_digit)
+            {
+                return false;
+            }
+            continue;
+        }
+        if (!isDigit(ch))
+        {
+            return false;
+        }
+        saw_digit = true;
+    }
+    return saw_digit;
+}
+
+void prependThousandsCarry(std::string& whole)
+{
+    const auto comma = whole.find(',');
+    const std::size_t lead = comma == std::string::npos ? whole.size() : comma;
+    if (lead >= 3U)
+    {
+        whole.insert(0, "1,");
+        return;
+    }
+    whole.insert(whole.begin(), '1');
+}
+
+// Draw path only. formatStatementValue stays untouched; integers never reach here.
+[[nodiscard]] std::string padTwoDecimals(std::string text)
+{
+    if (!isGroupedNumber(text))
+    {
+        return text;
+    }
+    const bool negative = text.front() == '-';
+    if (negative)
+    {
+        text.erase(text.begin());
+    }
+    const auto dot = text.find('.');
+    std::string whole = dot == std::string::npos ? text : text.substr(0, dot);
+    std::string fraction = dot == std::string::npos ? std::string{} : text.substr(dot + 1);
+    if (fraction.size() > 2U)
+    {
+        const bool round_up = static_cast<unsigned char>(fraction[2]) >= static_cast<unsigned char>('5');
+        fraction.resize(2);
+        if (round_up && incrementDigits(fraction) && incrementDigits(whole))
+        {
+            prependThousandsCarry(whole);
+        }
+    }
+    else if (fraction.size() < 2U)
+    {
+        fraction.resize(2, '0');
+    }
+    if (negative)
+    {
+        whole.insert(whole.begin(), '-');
+    }
+    whole.push_back('.');
+    whole += fraction;
+    return whole;
 }
 
 }  // namespace
@@ -390,15 +513,11 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("SYMBOL");
-    ImGui::SameLine();
     ImGui::SetNextItemWidth(88.0f);
     const bool symbol_go =
-        ImGui::InputText("##fin_symbol", symbol_, sizeof(symbol_),
-                         ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::SameLine();
-    ImGui::TextUnformatted("STATEMENT");
+        ImGui::InputTextWithHint("##fin_symbol", "Symbol", symbol_, sizeof(symbol_),
+                                 ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
+    drawSymbolLinkCombo(symbol_link_);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::BeginCombo("##fin_statement", statementLabel(statement_)))
@@ -414,8 +533,6 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
         }
         ImGui::EndCombo();
     }
-    ImGui::SameLine();
-    ImGui::TextUnformatted("PERIOD");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::BeginCombo("##fin_period", periodLabel(timeframe_)))
@@ -442,7 +559,6 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
     const bool clicked = ImGui::Button("GO");
     ImGui::EndDisabled();
     ImGui::PopStyleColor(4);
-    drawSymbolLinkCombo(symbol_link_);
 
     if (symbol_go || clicked)
     {
@@ -506,9 +622,26 @@ void FinancialsPanel::drawSheet() const
             headers[static_cast<std::size_t>(index)] = "—";
         }
         ImGui::TableSetupColumn(headers[static_cast<std::size_t>(index)].c_str(),
-                                ImGuiTableColumnFlags_WidthStretch);
+                                ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoHeaderLabel);
     }
     ImGui::TableHeadersRow();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
+    for (int index = 0; index < kStatementSheetPeriods; ++index)
+    {
+        if (!ImGui::TableSetColumnIndex(index + 1))
+        {
+            continue;
+        }
+        const std::string& label = headers[static_cast<std::size_t>(index)];
+        drawRight(label.c_str(), index >= sheet_.period_count ? Theme::kTextFaint : Theme::kText);
+    }
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
 
     if (sheet_.rows.empty())
     {
@@ -544,7 +677,11 @@ void FinancialsPanel::drawSheet() const
                     drawRight("—", Theme::kTextFaint);
                     continue;
                 }
-                const std::string text = formatStatementValue(slot.value);
+                std::string text = formatStatementValue(slot.value);
+                if (std::holds_alternative<double>(slot.value))
+                {
+                    text = padTwoDecimals(text);
+                }
                 const bool negative = !text.empty() && text.front() == '-';
                 drawRight(text.c_str(), negative ? Theme::kDown : Theme::kText);
             }

@@ -79,7 +79,7 @@ void PayoffPanel::drawEntry(IngestWorker* ingest)
     {
         wizard_.clear();
     }
-    ImGui::SameLine();
+    ImGui::Separator();
     ImVec4 status_color = Theme::kMuted;
     if (source_.fetching())
     {
@@ -89,9 +89,9 @@ void PayoffPanel::drawEntry(IngestWorker* ingest)
     {
         status_color = Theme::kDown;
     }
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(status_color, "%s", source_.status().c_str());
-    ImGui::Separator();
+    ImGui::PushStyleColor(ImGuiCol_Text, status_color);
+    ImGui::TextWrapped("%s", source_.status().c_str());
+    ImGui::PopStyleColor();
     wizard_.drawEntry(source_.quotes(), source_.hasExpiration() ? source_.expiration() : 0);
 }
 

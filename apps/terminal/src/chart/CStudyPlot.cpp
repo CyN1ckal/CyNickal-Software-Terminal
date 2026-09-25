@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <string>
+#include <string_view>
 
 namespace terminal {
 namespace {
@@ -98,6 +100,52 @@ void strokeStudyLine(ImDrawList* draw,
     }
 }
 
+// Prefix plus "..." that fits max_width in the current font. Empty when even
+// the mark does not fit, so AddText cannot run past the pill.
+[[nodiscard]] std::string ellipsizeLabel(std::string_view text, float max_width)
+{
+    if (!(max_width > 0.0f))
+    {
+        return {};
+    }
+    const char* begin = text.data();
+    const char* end = begin + text.size();
+    if (ImGui::CalcTextSize(begin, end, false).x <= max_width)
+    {
+        return std::string{text};
+    }
+    const char* dots = "...";
+    const float dots_w = ImGui::CalcTextSize(dots, nullptr, false).x;
+    if (dots_w > max_width)
+    {
+        return {};
+    }
+    const float budget = max_width - dots_w;
+    std::size_t lo = 0;
+    std::size_t hi = text.size();
+    while (lo < hi)
+    {
+        const std::size_t span = hi - lo + 1U;
+        const std::size_t mid = lo + (span / 2U);
+        if (ImGui::CalcTextSize(begin, begin + mid, false).x <= budget)
+        {
+            lo = mid;
+        }
+        else
+        {
+            hi = mid - 1U;
+        }
+    }
+    while (lo > 0 && lo < text.size() &&
+           (static_cast<unsigned char>(text[lo]) & 0xC0U) == 0x80U)
+    {
+        --lo;
+    }
+    std::string out(text.substr(0, lo));
+    out += dots;
+    return out;
+}
+
 void drawStudyValueLabels(ImDrawList* draw_list, std::span<const CStudySeries> studies)
 {
     const ImVec2 plot_pos = ImPlot::GetPlotPos();
@@ -111,6 +159,11 @@ void drawStudyValueLabels(ImDrawList* draw_list, std::span<const CStudySeries> s
     if (!(max_w > 0.0f) || !(plot_size.y > 0.0f))
     {
         return;
+    }
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
     }
     float y = plot_pos.y + kInset;
     const float bottom = plot_pos.y + plot_size.y - kInset;
@@ -130,13 +183,24 @@ void drawStudyValueLabels(ImDrawList* draw_list, std::span<const CStudySeries> s
         const float box_h = text_size.y + (2.0f * kPadY);
         const ImVec2 box_min(plot_pos.x + kInset, y);
         const ImVec2 box_max(box_min.x + box_w, box_min.y + box_h);
-        const ImVec4 fill = ImGui::ColorConvertU32ToFloat4(series.color);
-        const ImU32 border = ImGui::ColorConvertFloat4ToU32(Theme::Mix(fill, Theme::kBg0, 0.35f));
-        const ImU32 ink = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
-        draw_list->AddRectFilled(box_min, box_max, series.color, kRounding);
+        const float inner_w = box_w - (2.0f * kPadX);
+        const std::string shown = ellipsizeLabel(text, inner_w);
+        const ImU32 fill = ImGui::ColorConvertFloat4ToU32(Theme::kBg1);
+        const ImU32 border = ImGui::ColorConvertFloat4ToU32(Theme::kHairline);
+        draw_list->AddRectFilled(box_min, box_max, fill, kRounding);
         draw_list->AddRect(box_min, box_max, border, kRounding);
-        draw_list->AddText(ImVec2(box_min.x + kPadX, box_min.y + kPadY), ink, text.c_str());
+        if (!shown.empty())
+        {
+            const ImVec2 text_pos(box_min.x + kPadX, box_min.y + kPadY);
+            const ImVec4 clip(box_min.x, box_min.y, box_max.x, box_max.y);
+            draw_list->AddText(ImGui::GetFont(), ImGui::GetFontSize(), text_pos, series.color,
+                               shown.c_str(), nullptr, 0.0f, &clip);
+        }
         y += box_h + kGap;
+    }
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
     }
 }
 
