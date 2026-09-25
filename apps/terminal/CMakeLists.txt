@@ -49,6 +49,7 @@ add_library(terminal_core OBJECT
     src/chart/studies/CMovingAverage.cpp
     src/chart/studies/CVolume.cpp
     src/chart/studies/CBollinger.cpp
+    src/chart/studies/CNBarPercentChange.cpp
     src/chart/studies/StudyRegistry.cpp
     ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
 )
@@ -185,6 +186,7 @@ if(CYN_TESTING)
         src/chart/studies/CMovingAverage.cpp
         src/chart/studies/CVolume.cpp
         src/chart/studies/CBollinger.cpp
+        src/chart/studies/CNBarPercentChange.cpp
         src/chart/studies/StudyRegistry.cpp
         src/data/StatementSheet.cpp
         src/data/PortfolioFetch.cpp

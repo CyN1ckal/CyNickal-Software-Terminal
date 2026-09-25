@@ -62,12 +62,15 @@ inline constexpr int kStudyPaletteCount = 4;
     return std::numeric_limits<double>::quiet_NaN();
 }
 
-// How a line output is stroked. Histogram outputs ignore it. Solid is the default.
+// How one study output is drawn. Solid, dotted, and dashed stroke a line.
+// Histogram studies ignore those three and draw bars. Value replaces the
+// series with a label of the latest sample on the price chart.
 enum class StudyLineStyle : std::uint8_t
 {
     Solid = 0,
     Dotted,
     Dashed,
+    Value,
 };
 
 [[nodiscard]] inline constexpr const char* studyLineStyleToken(StudyLineStyle style) noexcept
@@ -78,6 +81,8 @@ enum class StudyLineStyle : std::uint8_t
         return "dotted";
     case StudyLineStyle::Dashed:
         return "dashed";
+    case StudyLineStyle::Value:
+        return "value";
     case StudyLineStyle::Solid:
         return "solid";
     }
@@ -92,6 +97,8 @@ enum class StudyLineStyle : std::uint8_t
         return "Dotted";
     case StudyLineStyle::Dashed:
         return "Dashed";
+    case StudyLineStyle::Value:
+        return "Value";
     case StudyLineStyle::Solid:
         return "Solid";
     }
@@ -113,6 +120,11 @@ enum class StudyLineStyle : std::uint8_t
     if (text == "dashed")
     {
         style = StudyLineStyle::Dashed;
+        return true;
+    }
+    if (text == "value")
+    {
+        style = StudyLineStyle::Value;
         return true;
     }
     return false;

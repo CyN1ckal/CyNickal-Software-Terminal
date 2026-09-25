@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "chart/CStudy.h"
 #include "market_data/Types.h"
 
 #include <cstdint>
@@ -52,11 +53,13 @@ struct StudyTrace
 // key is the chartbook token. label is the settings name.
 // palette_index -1 uses the study's palette slot plus this output's position.
 // A fixed palette_index pins that output's default color.
+// line is the output's default visualization. Value is a label, not a stroke.
 struct StudyOutput
 {
     const char* key{""};
     const char* label{""};
     int palette_index{-1};
+    StudyLineStyle line{StudyLineStyle::Solid};
 };
 
 // Writes one trace per drawn series, in output order. A single line is one trace;

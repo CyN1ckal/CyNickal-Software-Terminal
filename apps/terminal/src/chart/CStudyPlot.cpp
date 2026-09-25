@@ -3,6 +3,9 @@
 
 #include "chart/CStudyPlot.h"
 
+#include "chart/CStudyCompute.h"
+#include "ui/Theme.h"
+
 #include "imgui.h"
 #include "implot.h"
 
@@ -40,6 +43,10 @@ void strokeStudyLine(ImDrawList* draw,
                      StudyLineStyle style,
                      float& phase)
 {
+    if (style == StudyLineStyle::Value)
+    {
+        return;
+    }
     if (style == StudyLineStyle::Solid)
     {
         draw->AddLine(from, to, color, kStudyLineThickness);
@@ -91,6 +98,48 @@ void strokeStudyLine(ImDrawList* draw,
     }
 }
 
+void drawStudyValueLabels(ImDrawList* draw_list, std::span<const CStudySeries> studies)
+{
+    const ImVec2 plot_pos = ImPlot::GetPlotPos();
+    const ImVec2 plot_size = ImPlot::GetPlotSize();
+    constexpr float kInset = 6.0f;
+    constexpr float kPadX = 6.0f;
+    constexpr float kPadY = 3.0f;
+    constexpr float kGap = 3.0f;
+    constexpr float kRounding = 2.0f;
+    const float max_w = plot_size.x - (2.0f * kInset);
+    if (!(max_w > 0.0f) || !(plot_size.y > 0.0f))
+    {
+        return;
+    }
+    float y = plot_pos.y + kInset;
+    const float bottom = plot_pos.y + plot_size.y - kInset;
+    for (const CStudySeries& series : studies)
+    {
+        if (series.line != StudyLineStyle::Value)
+        {
+            continue;
+        }
+        const std::string text = studyValueLabelText(series.label, series.values, series.value_decimals);
+        if (text.empty() || !(y < bottom))
+        {
+            continue;
+        }
+        const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+        const float box_w = std::min(max_w, text_size.x + (2.0f * kPadX));
+        const float box_h = text_size.y + (2.0f * kPadY);
+        const ImVec2 box_min(plot_pos.x + kInset, y);
+        const ImVec2 box_max(box_min.x + box_w, box_min.y + box_h);
+        const ImVec4 fill = ImGui::ColorConvertU32ToFloat4(series.color);
+        const ImU32 border = ImGui::ColorConvertFloat4ToU32(Theme::Mix(fill, Theme::kBg0, 0.35f));
+        const ImU32 ink = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
+        draw_list->AddRectFilled(box_min, box_max, series.color, kRounding);
+        draw_list->AddRect(box_min, box_max, border, kRounding);
+        draw_list->AddText(ImVec2(box_min.x + kPadX, box_min.y + kPadY), ink, text.c_str());
+        y += box_h + kGap;
+    }
+}
+
 }  // namespace
 
 void drawStudyRegion(std::span<const CStudySeries> studies,
@@ -122,7 +171,8 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
     ImPlot::PushPlotClipRect();
     for (const CStudySeries& series : studies)
     {
-        if (!series.histogram || clampStudyChartRegion(series.chart_region) != region ||
+        if (series.line == StudyLineStyle::Value || !series.histogram ||
+            clampStudyChartRegion(series.chart_region) != region ||
             series.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;
@@ -163,7 +213,8 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
     }
     for (const CStudySeries& series : studies)
     {
-        if (series.histogram || clampStudyChartRegion(series.chart_region) != region ||
+        if (series.line == StudyLineStyle::Value || series.histogram ||
+            clampStudyChartRegion(series.chart_region) != region ||
             series.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;
@@ -188,6 +239,10 @@ void drawStudyRegion(std::span<const CStudySeries> studies,
             previous = point;
             have_point = true;
         }
+    }
+    if (region == kStudyMainChartRegion)
+    {
+        drawStudyValueLabels(draw_list, studies);
     }
     ImPlot::PopPlotClipRect();
 }

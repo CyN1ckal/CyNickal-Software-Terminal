@@ -218,8 +218,12 @@ TEST_CASE("study line styles are solid dotted and dashed")
     CHECK(std::string_view{terminal::studyLineStyleLabel(style)} == "Dashed");
     CHECK(terminal::parseStudyLineStyle("solid", style));
     CHECK(style == terminal::StudyLineStyle::Solid);
+    CHECK(terminal::parseStudyLineStyle("value", style));
+    CHECK(style == terminal::StudyLineStyle::Value);
+    CHECK(std::string_view{terminal::studyLineStyleToken(style)} == "value");
+    CHECK(std::string_view{terminal::studyLineStyleLabel(style)} == "Value");
     CHECK_FALSE(terminal::parseStudyLineStyle("dash", style));
-    CHECK(style == terminal::StudyLineStyle::Solid);
+    CHECK(style == terminal::StudyLineStyle::Value);
 }
 
 TEST_CASE("study palette cycles stratum colors")
@@ -455,7 +459,7 @@ TEST_CASE("moving average chart region selects the subgraph")
     inst.chart_region = 4;
     const auto bars = smaCloseBars({2.0, 4.0});
     const std::vector<terminal::CStudyInstance> studies{inst};
-    const auto series = terminal::computeStudies(bars, studies);
+    auto series = terminal::computeStudies(bars, studies);
     REQUIRE(series.size() == 1);
     CHECK(series[0].chart_region == 4);
     CHECK(series[0].placement == terminal::StudyPlacement::Subgraph);
@@ -467,6 +471,10 @@ TEST_CASE("moving average chart region selects the subgraph")
     win.last = 1;
     CHECK_FALSE(terminal::overlayYExtent(series, win, 2).valid);
     CHECK(terminal::studyChartRegionCount(series) == 4);
+
+    series[0].line = terminal::StudyLineStyle::Value;
+    CHECK(terminal::studyChartRegionCount(series) == 1);
+    CHECK_FALSE(terminal::overlayYExtent(series, win, 2).valid);
 }
 
 TEST_CASE("chart region clamps into 1..12")

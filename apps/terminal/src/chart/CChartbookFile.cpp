@@ -508,7 +508,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         json row = json::object();
         row["key"] = output.key != nullptr ? output.key : "";
         row["color"] = color;
-        if (lines)
+        if (lines || line == StudyLineStyle::Value)
         {
             row["line"] = studyLineStyleToken(line);
         }

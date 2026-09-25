@@ -197,21 +197,41 @@ void drawOutputColorField(CStudyInstance& inst, std::size_t index, const char* l
     }
 }
 
-void drawLineStyleField(CStudyInstance& inst, std::size_t index)
+void drawLineStyleField(CStudyInstance& inst, std::size_t index, StudyGraph graph)
 {
-    drawPropertyLabel("Line Style");
+    drawPropertyLabel("Style");
     ImGui::SetNextItemWidth(-FLT_MIN);
     CStudyOutputStyle& style = inst.outputs[index];
     char field_id[96];
     std::snprintf(field_id, sizeof(field_id), "##study_line_%d_%d", inst.id, static_cast<int>(index));
-    if (!ImGui::BeginCombo(field_id, studyLineStyleLabel(style.line)))
+    const bool value = style.line == StudyLineStyle::Value;
+    const char* preview = studyLineStyleLabel(style.line);
+    if (graph == StudyGraph::Histogram && !value)
     {
+        preview = "Histogram";
+    }
+    if (!ImGui::BeginCombo(field_id, preview))
+    {
+        return;
+    }
+    if (graph == StudyGraph::Histogram)
+    {
+        if (ImGui::Selectable("Histogram", !value))
+        {
+            style.line = StudyLineStyle::Solid;
+        }
+        if (ImGui::Selectable(studyLineStyleLabel(StudyLineStyle::Value), value))
+        {
+            style.line = StudyLineStyle::Value;
+        }
+        ImGui::EndCombo();
         return;
     }
     constexpr StudyLineStyle kStyles[] = {
         StudyLineStyle::Solid,
         StudyLineStyle::Dotted,
         StudyLineStyle::Dashed,
+        StudyLineStyle::Value,
     };
     for (const StudyLineStyle choice : kStyles)
     {
@@ -246,7 +266,6 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
     }
     normalizeStudyOutputs(inst);
     const bool many = type.outputs.size() > 1;
-    const bool lines = type.graph == StudyGraph::Line;
     for (std::size_t index = 0; index < type.outputs.size(); ++index)
     {
         const char* label = "Color";
@@ -255,17 +274,19 @@ void drawOutputStyleFields(CStudyInstance& inst, const StudyType& type)
             label = type.outputs[index].label;
         }
         drawOutputColorField(inst, index, label);
-        if (lines)
+        // A color-by-bar study's later outputs are colors for one series, not more series.
+        if (type.color_by_bar && index > 0)
         {
-            drawLineStyleField(inst, index);
+            continue;
         }
+        drawLineStyleField(inst, index, type.graph);
     }
 }
 
 [[nodiscard]] float studyPropertyLabelWidth(const StudyType& type)
 {
     float width = ImGui::CalcTextSize("Chart Region").x;
-    width = std::max(width, ImGui::CalcTextSize("Line Style").x);
+    width = std::max(width, ImGui::CalcTextSize("Style").x);
     if (type.outputs.size() > 1)
     {
         for (const StudyOutput& output : type.outputs)

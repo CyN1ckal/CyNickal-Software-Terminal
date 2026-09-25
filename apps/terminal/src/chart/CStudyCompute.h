@@ -10,6 +10,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace terminal {
@@ -47,7 +48,7 @@ void assignStudyOutputDefaults(CStudyInstance& inst, int slot);
                                             int bar_count) noexcept;
 
 // How many stacked regions to draw: 1 through the highest chart region in use.
-// An empty list is the price graph alone.
+// An empty list is the price graph alone. Value labels do not open a pane.
 [[nodiscard]] int studyChartRegionCount(std::span<const CStudySeries> series) noexcept;
 
 // Automatic Y for one chart region. anchor_zero series include zero so bars grow
@@ -61,5 +62,11 @@ void assignStudyOutputDefaults(CStudyInstance& inst, int slot);
                                                      double move_offset) noexcept;
 
 [[nodiscard]] std::string studyShortLabel(const CStudyInstance& inst);
+
+// Name plus the latest finite sample, printed with `decimals` places and a sign.
+// No finite sample leaves the name alone.
+[[nodiscard]] std::string studyValueLabelText(std::string_view label,
+                                              std::span<const double> values,
+                                              int decimals);
 
 }  // namespace terminal

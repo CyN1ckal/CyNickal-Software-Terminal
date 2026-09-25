@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <string>
 #include <utility>
 
@@ -91,7 +92,8 @@ void normalizeStudyOutputs(CStudyInstance& inst)
             next.push_back(inst.outputs[index]);
             continue;
         }
-        next.push_back(CStudyOutputStyle{.color = inst.color, .line = StudyLineStyle::Solid});
+        next.push_back(
+            CStudyOutputStyle{.color = inst.color, .line = type->outputs[index].line});
     }
     inst.outputs = std::move(next);
     if (!inst.outputs.empty())
@@ -117,12 +119,44 @@ void assignStudyOutputDefaults(CStudyInstance& inst, int slot)
         const int chosen =
             output.palette_index >= 0 ? output.palette_index : base + static_cast<int>(index);
         inst.outputs.push_back(
-            CStudyOutputStyle{.color = studyPaletteColor(chosen), .line = StudyLineStyle::Solid});
+            CStudyOutputStyle{.color = studyPaletteColor(chosen), .line = output.line});
     }
     if (!inst.outputs.empty())
     {
         inst.color = inst.outputs.front().color;
     }
+}
+
+std::string studyValueLabelText(std::string_view label, std::span<const double> values, int decimals)
+{
+    bool found = false;
+    double latest = 0.0;
+    for (std::size_t index = values.size(); index > 0; --index)
+    {
+        const double sample = values[index - 1];
+        if (!std::isfinite(sample))
+        {
+            continue;
+        }
+        latest = sample;
+        found = true;
+        break;
+    }
+    if (!found)
+    {
+        return std::string{label};
+    }
+    const int places = std::clamp(decimals, 0, 8);
+    char number[64];
+    std::snprintf(number, sizeof(number), "%+.*f", places, latest);
+    std::string text{label};
+    if (!text.empty())
+    {
+        text += ' ';
+        text += ' ';
+    }
+    text += number;
+    return text;
 }
 
 std::string studyShortLabel(const CStudyInstance& inst)
@@ -158,7 +192,11 @@ std::vector<CStudySeries> computeStudies(std::span<const Bar> bars,
         for (std::size_t index = 0; index < traces.size(); ++index)
         {
             StudyTrace& trace = traces[index];
-            const auto style = studyOutputStyle(inst, index);
+            CStudyOutputStyle style = studyOutputStyle(inst, index);
+            if (index >= inst.outputs.size() && index < type->outputs.size())
+            {
+                style.line = type->outputs[index].line;
+            }
             CStudySeries series;
             series.study_id = inst.id;
             series.type_id = inst.type_id;
@@ -211,7 +249,7 @@ OverlayYExtent overlayYExtent(std::span<const CStudySeries> series,
     }
     for (const CStudySeries& item : series)
     {
-        if (item.placement != StudyPlacement::Overlay ||
+        if (item.line == StudyLineStyle::Value || item.placement != StudyPlacement::Overlay ||
             item.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;
@@ -244,6 +282,10 @@ int studyChartRegionCount(std::span<const CStudySeries> series) noexcept
     int max_region = kStudyMainChartRegion;
     for (const CStudySeries& item : series)
     {
+        if (item.line == StudyLineStyle::Value)
+        {
+            continue;
+        }
         max_region = std::max(max_region, clampStudyChartRegion(item.chart_region));
     }
     return max_region;
@@ -278,7 +320,7 @@ ChartYLimits computeStudyRegionYLimits(std::span<const CStudySeries> series,
     double hi = 0.0;
     for (const CStudySeries& item : series)
     {
-        if (clampStudyChartRegion(item.chart_region) != region ||
+        if (item.line == StudyLineStyle::Value || clampStudyChartRegion(item.chart_region) != region ||
             item.values.size() != static_cast<std::size_t>(bar_count))
         {
             continue;

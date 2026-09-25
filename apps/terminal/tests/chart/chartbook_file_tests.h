@@ -8,6 +8,7 @@
 #include "chart/CStudy.h"
 #include "chart/studies/CBollinger.h"
 #include "chart/studies/CMovingAverage.h"
+#include "chart/studies/CNBarPercentChange.h"
 
 #include <nlohmann/json.hpp>
 
@@ -297,6 +298,32 @@ TEST_CASE("chartbook studies keep per-output color and line style")
     REQUIRE(study.options.size() == 3);
     CHECK(study.options[0] == 20);
     CHECK(study.options[2] == 2);
+}
+
+TEST_CASE("chartbook keeps a value label style")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("label");
+    terminal::CStudyInstance study;
+    study.id = 1;
+    study.type_id = "n_bar_percent_change";
+    study.chart_region = 2;
+    study.options = {1, static_cast<int>(terminal::CNBarPercentChange::Source::Close)};
+    study.outputs = {
+        {.color = terminal::kStudyPalette[1], .line = terminal::StudyLineStyle::Value},
+    };
+    study.color = study.outputs[0].color;
+    document.panes[0].next_study_id = 2;
+    document.panes[0].studies.push_back(std::move(study));
+
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.panes[0].studies.size() == 1);
+    const terminal::CStudyInstance& saved = loaded.document.panes[0].studies[0];
+    REQUIRE(saved.outputs.size() == 1);
+    CHECK(saved.outputs[0].line == terminal::StudyLineStyle::Value);
+    CHECK(saved.outputs[0].color == terminal::kStudyPalette[1]);
+    CHECK(saved.type_id == "n_bar_percent_change");
 }
 
 TEST_CASE("chartbook rejects an unknown study line style")
