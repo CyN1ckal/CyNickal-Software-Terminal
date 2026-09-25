@@ -118,14 +118,14 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
     return ImGui::CalcTextSize(label).x + (ImGui::GetStyle().FramePadding.x * 2.0f);
 }
 
-[[nodiscard]] bool quietButton(const char* label)
+[[nodiscard]] bool quietButton(const char* label, float width = 0.0f)
 {
     const ImVec4 clear(0.0f, 0.0f, 0.0f, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, clear);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBg3);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBg3);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-    const bool pressed = ImGui::Button(label);
+    const bool pressed = ImGui::Button(label, ImVec2(width, 0.0f));
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(3);
     return pressed;
@@ -229,23 +229,77 @@ void drawEmptyStatus(std::string_view text, ChartLoadStatus status)
     ImGui::SetCursorPos(saved);
 }
 
-void drawSeriesStatusLine(std::string_view text, ChartLoadStatus status, ImVec2 origin, ImVec2 avail)
+constexpr float kSettingsValueWidth = 160.0f;
+
+constexpr const char* kHintCandles = "v1: candlesticks only";
+constexpr const char* kHintDays = "Intraday default 2 weeks. Historical default 5 years.";
+constexpr const char* kHintScale = "Sierra-style. Right-click the price scale to change interactively.";
+constexpr const char* kHintGrid =
+    "Vertical labels are the day, week, or month. Spacing is a price increment.";
+
+[[nodiscard]] float settingsHintLane()
 {
-    if (text.empty() || avail.x <= 1.0f || avail.y <= 1.0f)
+    float width = ImGui::CalcTextSize(kHintCandles).x;
+    width = std::max(width, ImGui::CalcTextSize(kHintDays).x);
+    width = std::max(width, ImGui::CalcTextSize(kHintScale).x);
+    width = std::max(width, ImGui::CalcTextSize(kHintGrid).x);
+    return width;
+}
+
+void drawSettingsSection(const char* title)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::TextUnformatted(title);
+    ImGui::PopStyleColor();
+}
+
+void drawSettingsLabel(const char* label)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::TextUnformatted(label);
+    ImGui::PopStyleColor();
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(kSettingsValueWidth);
+}
+
+void drawSettingsHint(const char* hint)
+{
+    ImGui::SameLine();
+    ImGui::TextColored(Theme::kTextDim, "%s", hint);
+}
+
+[[nodiscard]] bool beginSettingsColumns(const char* table_id, float label_w)
+{
+    const ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_PadOuterX |
+                                  ImGuiTableFlags_NoSavedSettings;
+    if (!ImGui::BeginTable(table_id, 2, flags))
     {
-        return;
+        return false;
     }
-    const bool downloading = text.find("downloading") != std::string_view::npos;
-    const ImVec4 color = downloading ? Theme::kAccent : statusColor(status);
-    constexpr float kInset = 8.0f;
+    ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, label_w);
+    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+    return true;
+}
+
+// Clip width is the strip lane left of the period control. Returns the width actually used.
+[[nodiscard]] float drawStripFailure(std::string_view text, ImVec2 origin, float width, float row_h)
+{
+    if (text.empty() || width <= 1.0f || row_h <= 1.0f)
+    {
+        return 0.0f;
+    }
     const char* const begin = text.data();
     const char* const end = begin + text.size();
+    const float text_w = ImGui::CalcTextSize(begin, end).x;
+    const float text_y = origin.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
     ImDrawList* list = ImGui::GetWindowDrawList();
-    // The plot already filled the client. A text item would grow it.
-    list->PushClipRect(origin, ImVec2(origin.x + avail.x, origin.y + avail.y), true);
-    list->AddText(ImVec2(origin.x + kInset, origin.y + kInset), ImGui::GetColorU32(color), begin,
-                  end);
+    list->PushClipRect(origin, ImVec2(origin.x + width, origin.y + row_h), true);
+    list->AddText(ImVec2(origin.x, text_y), ImGui::GetColorU32(Theme::kTextDim), begin, end);
     list->PopClipRect();
+    return std::min(text_w, width);
 }
 
 }  // namespace
@@ -656,206 +710,239 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
     {
         ImGui::OpenPopup(popup_id);
     }
-    if (ImGui::BeginPopupModal(popup_id, &settings_open_))
+
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float row = ImGui::GetFrameHeight();
+    const float label_w =
+        ImGui::CalcTextSize("Historical Days to Load").x + (style.FramePadding.x * 2.0f);
+    const float hint_w = settingsHintLane();
+    const float chrome = (style.WindowPadding.x * 4.0f) + (style.CellPadding.x * 4.0f) +
+                         (style.ChildBorderSize * 2.0f) + style.ScrollbarSize + 16.0f;
+    const float min_w = label_w + kSettingsValueWidth + chrome;
+    const float width = min_w + style.ItemSpacing.x + hint_w;
+    const float height = row * 22.0f;
+    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(min_w, row * 12.0f),
+                                        ImVec2(std::max(width, row * 80.0f), row * 48.0f));
+    if (ImGui::BeginPopupModal(popup_id, &settings_open_,
+                               ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
     {
+        const float footer_h = ImGui::GetFrameHeightWithSpacing();
+        bool enter = false;
         ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("Symbol");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(120.0f);
-        const bool enter = ImGui::InputText(
-            "##chart_symbol", draft_symbol_, sizeof(draft_symbol_),
-            ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
-        ImGui::PopStyleColor();
+        ImGui::BeginChild("##chart_settings_form", ImVec2(0.0f, -footer_h), ImGuiChildFlags_None);
 
-        ImGui::TextUnformatted("Link");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(140.0f);
-        if (ImGui::BeginCombo("##chart_link", symbolLinkGroupLabel(draft_link_)))
+        drawSettingsSection("Series");
+        if (beginSettingsColumns("##chart_settings_series", label_w))
         {
-            constexpr SymbolLinkGroup kGroups[] = {
-                SymbolLinkGroup::None,
-                SymbolLinkGroup::One,
-                SymbolLinkGroup::Two,
-                SymbolLinkGroup::Three,
-                SymbolLinkGroup::Four,
-            };
-            for (const SymbolLinkGroup group : kGroups)
+            drawSettingsLabel("Symbol");
+            enter = ImGui::InputText("##chart_symbol", draft_symbol_, sizeof(draft_symbol_),
+                                     ImGuiInputTextFlags_CharsUppercase |
+                                         ImGuiInputTextFlags_EnterReturnsTrue);
+
+            drawSettingsLabel("Link");
+            if (ImGui::BeginCombo("##chart_link", symbolLinkGroupLabel(draft_link_)))
             {
-                if (ImGui::Selectable(symbolLinkGroupLabel(group), draft_link_ == group))
+                constexpr SymbolLinkGroup kGroups[] = {
+                    SymbolLinkGroup::None,
+                    SymbolLinkGroup::One,
+                    SymbolLinkGroup::Two,
+                    SymbolLinkGroup::Three,
+                    SymbolLinkGroup::Four,
+                };
+                for (const SymbolLinkGroup group : kGroups)
                 {
-                    draft_link_ = group;
+                    if (ImGui::Selectable(symbolLinkGroupLabel(group), draft_link_ == group))
+                    {
+                        draft_link_ = group;
+                    }
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
-        }
 
-        ImGui::TextUnformatted("Bar Period");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(140.0f);
-        if (ImGui::BeginCombo("##period", periodDisplayName(draft_.period)))
-        {
-            for (const ChartBarPeriod period :
-                 {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
-                  ChartBarPeriod::Hour1, ChartBarPeriod::Day1,})
+            drawSettingsLabel("Bar Period");
+            if (ImGui::BeginCombo("##period", periodDisplayName(draft_.period)))
             {
-                if (ImGui::Selectable(periodDisplayName(period), draft_.period == period))
+                for (const ChartBarPeriod period :
+                     {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
+                      ChartBarPeriod::Hour1, ChartBarPeriod::Day1,})
                 {
-                    draft_.period = period;
+                    if (ImGui::Selectable(periodDisplayName(period), draft_.period == period))
+                    {
+                        draft_.period = period;
+                    }
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
-        }
 
-        ImGui::TextUnformatted("Bar Type");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(140.0f);
-        if (ImGui::BeginCombo("##bar_type", "Candlestick"))
-        {
-            bool selected = true;
-            ImGui::Selectable("Candlestick", &selected);
-            ImGui::EndCombo();
-        }
-        ImGui::TextColored(Theme::kMuted, "v1: candlesticks only");
-
-        ImGui::TextUnformatted("Intraday Days to Load");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputInt("##intraday_days", &draft_.intraday_session_count);
-        ImGui::TextUnformatted("Historical Days to Load");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputInt("##historical_days", &draft_.historical_session_count);
-        ImGui::TextColored(Theme::kMuted, "Intraday default 2 weeks. Historical default 5 years.");
-
-        ImGui::Separator();
-        ImGui::TextUnformatted("Bar Spacing (px)");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputFloat("##spacing", &draft_.bar_spacing_px, 1.0f, 4.0f, "%.0f");
-
-        ImGui::TextUnformatted("Candlestick Width %");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.0f);
-        float width_pct = draft_.bar_width_frac * 100.0f;
-        if (ImGui::InputFloat("##width", &width_pct, 5.0f, 10.0f, "%.0f"))
-        {
-            draft_.bar_width_frac = width_pct / 100.0f;
-        }
-
-        const char* scale_label = "Automatic";
-        if (draft_.scale_range == ChartScaleRange::ConstantRange)
-        {
-            scale_label = "Constant Range";
-        }
-        else if (draft_.scale_range == ChartScaleRange::UserDefined)
-        {
-            scale_label = "User Defined";
-        }
-        ImGui::TextUnformatted("Scale Range");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(160.0f);
-        if (ImGui::BeginCombo("##scale_range", scale_label))
-        {
-            if (ImGui::Selectable("Automatic", draft_.scale_range == ChartScaleRange::Automatic))
+            drawSettingsLabel("Bar Type");
+            if (ImGui::BeginCombo("##bar_type", "Candlestick"))
             {
-                draft_.scale_range = ChartScaleRange::Automatic;
+                bool selected = true;
+                ImGui::Selectable("Candlestick", &selected);
+                ImGui::EndCombo();
             }
-            if (ImGui::Selectable("Constant Range", draft_.scale_range == ChartScaleRange::ConstantRange))
+            drawSettingsHint(kHintCandles);
+
+            drawSettingsLabel("Intraday Days to Load");
+            ImGui::InputInt("##intraday_days", &draft_.intraday_session_count, 0, 0);
+
+            drawSettingsLabel("Historical Days to Load");
+            ImGui::InputInt("##historical_days", &draft_.historical_session_count, 0, 0);
+            drawSettingsHint(kHintDays);
+            ImGui::EndTable();
+        }
+
+        ImGui::Spacing();
+        drawSettingsSection("Scale");
+        if (beginSettingsColumns("##chart_settings_scale", label_w))
+        {
+            const char* scale_label = "Automatic";
+            if (draft_.scale_range == ChartScaleRange::ConstantRange)
             {
-                draft_.scale_range = ChartScaleRange::ConstantRange;
+                scale_label = "Constant Range";
             }
-            if (ImGui::Selectable("User Defined", draft_.scale_range == ChartScaleRange::UserDefined))
+            else if (draft_.scale_range == ChartScaleRange::UserDefined)
             {
-                draft_.scale_range = ChartScaleRange::UserDefined;
+                scale_label = "User Defined";
             }
-            ImGui::EndCombo();
-        }
-        ImGui::TextColored(Theme::kMuted, "Sierra-style. Right-click the price scale to change interactively.");
-
-        if (draft_.scale_range == ChartScaleRange::ConstantRange)
-        {
-            ImGui::TextUnformatted("Range");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::InputDouble("##const_range", &draft_.constant_range, 0.0, 0.0, "%.4f");
-        }
-        if (draft_.scale_range == ChartScaleRange::UserDefined)
-        {
-            ImGui::TextUnformatted("Top");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::InputDouble("##user_top", &draft_.user_top, 0.0, 0.0, "%.4f");
-            ImGui::TextUnformatted("Bottom");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::InputDouble("##user_bottom", &draft_.user_bottom, 0.0, 0.0, "%.4f");
-        }
-
-        ImGui::TextUnformatted("Scale Padding %");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputFloat("##pad", &draft_.scale_padding_pct, 1.0f, 4.0f, "%.1f");
-
-        ImGui::Separator();
-        ImGui::TextUnformatted("Vertical Grid");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(160.0f);
-        if (ImGui::BeginCombo("##vertical_grid", verticalGridLabel(draft_.vertical_grid)))
-        {
-            for (const ChartVerticalGrid grid : {ChartVerticalGrid::Daily, ChartVerticalGrid::Weekly,
-                                                 ChartVerticalGrid::Monthly,})
+            drawSettingsLabel("Scale Range");
+            if (ImGui::BeginCombo("##scale_range", scale_label))
             {
-                if (ImGui::Selectable(verticalGridLabel(grid), draft_.vertical_grid == grid))
+                if (ImGui::Selectable("Automatic", draft_.scale_range == ChartScaleRange::Automatic))
                 {
-                    draft_.vertical_grid = grid;
+                    draft_.scale_range = ChartScaleRange::Automatic;
                 }
+                if (ImGui::Selectable("Constant Range",
+                                      draft_.scale_range == ChartScaleRange::ConstantRange))
+                {
+                    draft_.scale_range = ChartScaleRange::ConstantRange;
+                }
+                if (ImGui::Selectable("User Defined", draft_.scale_range == ChartScaleRange::UserDefined))
+                {
+                    draft_.scale_range = ChartScaleRange::UserDefined;
+                }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
+            drawSettingsHint(kHintScale);
+
+            drawSettingsLabel("Scale Padding %");
+            ImGui::InputFloat("##pad", &draft_.scale_padding_pct, 0.0f, 0.0f, "%.1f");
+
+            if (draft_.scale_range == ChartScaleRange::ConstantRange)
+            {
+                drawSettingsLabel("Range");
+                ImGui::InputDouble("##const_range", &draft_.constant_range, 0.0, 0.0, "%.4f");
+            }
+            if (draft_.scale_range == ChartScaleRange::UserDefined)
+            {
+                drawSettingsLabel("Top");
+                ImGui::InputDouble("##user_top", &draft_.user_top, 0.0, 0.0, "%.4f");
+                drawSettingsLabel("Bottom");
+                ImGui::InputDouble("##user_bottom", &draft_.user_bottom, 0.0, 0.0, "%.4f");
+            }
+
+            drawSettingsLabel("Bar Spacing (px)");
+            ImGui::InputFloat("##spacing", &draft_.bar_spacing_px, 0.0f, 0.0f, "%.0f");
+
+            drawSettingsLabel("Candlestick Width %");
+            float width_pct = draft_.bar_width_frac * 100.0f;
+            if (ImGui::InputFloat("##width", &width_pct, 0.0f, 0.0f, "%.0f"))
+            {
+                draft_.bar_width_frac = width_pct / 100.0f;
+            }
+            ImGui::EndTable();
         }
 
-        ImGui::TextUnformatted("Horizontal Grid");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(160.0f);
-        if (ImGui::BeginCombo("##horizontal_grid", horizontalGridLabel(draft_.horizontal_grid)))
+        ImGui::Spacing();
+        drawSettingsSection("Grid");
+        if (beginSettingsColumns("##chart_settings_grid", label_w))
         {
-            for (const ChartHorizontalGrid grid : {ChartHorizontalGrid::Automatic, ChartHorizontalGrid::Manual,
-                                                   ChartHorizontalGrid::Off,})
+            drawSettingsLabel("Vertical Grid");
+            if (ImGui::BeginCombo("##vertical_grid", verticalGridLabel(draft_.vertical_grid)))
             {
-                if (ImGui::Selectable(horizontalGridLabel(grid), draft_.horizontal_grid == grid))
+                for (const ChartVerticalGrid grid :
+                     {ChartVerticalGrid::Daily, ChartVerticalGrid::Weekly, ChartVerticalGrid::Monthly})
                 {
-                    draft_.horizontal_grid = grid;
+                    if (ImGui::Selectable(verticalGridLabel(grid), draft_.vertical_grid == grid))
+                    {
+                        draft_.vertical_grid = grid;
+                    }
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
+            drawSettingsHint(kHintGrid);
+
+            drawSettingsLabel("Horizontal Grid");
+            if (ImGui::BeginCombo("##horizontal_grid", horizontalGridLabel(draft_.horizontal_grid)))
+            {
+                for (const ChartHorizontalGrid grid : {ChartHorizontalGrid::Automatic,
+                                                       ChartHorizontalGrid::Manual,
+                                                       ChartHorizontalGrid::Off,})
+                {
+                    if (ImGui::Selectable(horizontalGridLabel(grid), draft_.horizontal_grid == grid))
+                    {
+                        draft_.horizontal_grid = grid;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            if (draft_.horizontal_grid == ChartHorizontalGrid::Manual)
+            {
+                drawSettingsLabel("Grid Spacing");
+                ImGui::InputDouble("##h_grid", &draft_.horizontal_grid_spacing, 0.0, 0.0, "%.4f");
+            }
+            ImGui::EndTable();
         }
-        if (draft_.horizontal_grid == ChartHorizontalGrid::Manual)
-        {
-            ImGui::TextUnformatted("Grid Spacing");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::InputDouble("##h_grid", &draft_.horizontal_grid_spacing, 0.0, 0.0, "%.4f");
-        }
-        ImGui::TextColored(Theme::kMuted,
-                           "Vertical labels are the day, week, or month. Spacing is a price increment.");
 
         if (!isChartSettingsSupported(draft_))
         {
+            ImGui::Spacing();
+            ImGui::PushTextWrapPos(0.0f);
             ImGui::TextColored(Theme::kDown, "candlestick bars and Days to Load only.");
+            ImGui::PopTextWrapPos();
         }
 
-        ImGui::Separator();
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+
+        const float text_w = std::max({ImGui::CalcTextSize("OK").x, ImGui::CalcTextSize("Apply").x,
+                                       ImGui::CalcTextSize("Cancel").x,});
+        const float button_w = text_w + (style.FramePadding.x * 2.0f);
+        const float cluster = (button_w * 3.0f) + (style.ItemSpacing.x * 2.0f);
+        const float align_x = ImGui::GetContentRegionMax().x - cluster;
+        if (align_x > ImGui::GetCursorPosX())
+        {
+            ImGui::SetCursorPosX(align_x);
+        }
+
         ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
         ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
-        const bool ok = ImGui::Button("OK");
-        ImGui::PopStyleColor(3);
+        const bool ok = ImGui::Button("OK", ImVec2(button_w, 0.0f));
+        ImGui::SetItemDefaultFocus();
+        ImGui::PopStyleColor(4);
         ImGui::SameLine();
-        const bool apply = ImGui::Button("Apply");
+        const bool apply = ImGui::Button("Apply", ImVec2(button_w, 0.0f));
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
-        const bool cancel = ImGui::Button("Cancel");
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kText);
+        const bool cancel = ImGui::Button("Cancel", ImVec2(button_w, 0.0f));
         ImGui::PopStyleColor();
+
+        // A combo closes on Esc during NewFrame. Skip that press so one Esc does not
+        // also cancel the dialog. IsKeyPressed, not Shortcut: the field child must see it.
+        const bool child_popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+        ImGuiStorage* state = ImGui::GetStateStorage();
+        const ImGuiID child_popup_id = ImGui::GetID("##settings_child_popup");
+        const bool child_popup_was_open = state->GetBool(child_popup_id, false);
+        state->SetBool(child_popup_id, child_popup);
+        bool escape = false;
+        if (!child_popup && !child_popup_was_open &&
+            ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows))
+        {
+            escape = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+        }
 
         if (enter || apply || ok)
         {
@@ -866,7 +953,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
             settings_open_ = false;
             ImGui::CloseCurrentPopup();
         }
-        if (cancel)
+        if (cancel || escape)
         {
             cancelDraft();
             ImGui::CloseCurrentPopup();
@@ -1043,12 +1130,14 @@ void CChartPane::drawStudyLegend(ImVec2 cursor, float width)
         const ImVec2 min = ImGui::GetItemRectMin();
         const ImVec2 max = ImGui::GetItemRectMax();
         ImDrawList* list = ImGui::GetWindowDrawList();
-        if (ImGui::IsItemHovered())
+        const bool hovered = ImGui::IsItemHovered();
+        if (hovered)
         {
             list->AddRectFilled(min, max, ImGui::GetColorU32(Theme::kBg3));
         }
         const float text_y = min.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
-        list->AddText(ImVec2(min.x, text_y), ImGui::GetColorU32(name.color), name.label.c_str());
+        const ImVec4 ink = (hovered || studies_open_) ? name.color : Theme::kTextDim;
+        list->AddText(ImVec2(min.x, text_y), ImGui::GetColorU32(ink), name.label.c_str());
         if (ImGui::IsItemClicked())
         {
             openStudies(name.index);
@@ -1102,16 +1191,32 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     const char* scale_label = chartScaleStripLabel(settings_.scale_range);
     const float right_w = buttonWidth(period_label) + gap + buttonWidth(scale_label);
     float period_x = row_x + width - right_w;
+    float legend_x = row_x;
     float legend_w = period_x - gap - row_x;
     if (legend_w < 0.0f)
     {
         legend_w = 0.0f;
         period_x = row_x;
     }
+    // A failed reload keeps the candles. The line sits on the strip, left of the period control.
+    if (!loaded_.bars.empty() && loaded_.status == ChartLoadStatus::Error && legend_w > 0.0f)
+    {
+        const float used = drawStripFailure(statusLine(), origin, legend_w, row_h);
+        const float next = used + gap;
+        if (used > 0.0f && next < legend_w)
+        {
+            legend_x = row_x + next;
+            legend_w -= next;
+        }
+        else if (used > 0.0f)
+        {
+            legend_w = 0.0f;
+        }
+    }
     constexpr float kLegendHoverMin = 8.0f;
     if (legend_w > 0.0f)
     {
-        drawStudyLegend(ImVec2(row_x, row_y), legend_w);
+        drawStudyLegend(ImVec2(legend_x, row_y), legend_w);
     }
 
     ImGui::SetCursorPos(ImVec2(period_x, row_y));
@@ -1131,7 +1236,8 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
              {ChartBarPeriod::Minute1, ChartBarPeriod::Minute5, ChartBarPeriod::Minute15,
               ChartBarPeriod::Hour1, ChartBarPeriod::Day1,})
         {
-            if (ImGui::MenuItem(periodDisplayName(period), nullptr, settings_.period == period) &&
+            if (ImGui::MenuItem(periodDisplayName(period), chartPeriodCode(period),
+                                settings_.period == period) &&
                 period != settings_.period)
             {
                 settings_.period = period;
@@ -1150,8 +1256,8 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
     {
-        ImGui::SetTooltip("Scale Range: %s / %s", scaleRangeName(settings_.scale_range),
-                          dragModeName(view_.interactive));
+        ImGui::SetTooltip("Scale Range: %s / %s. Ctrl swaps Range and Move while dragging.",
+                          scaleRangeName(settings_.scale_range), dragModeName(view_.interactive));
     }
 
     const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
@@ -1172,6 +1278,43 @@ void CChartPane::drawStripScalePopup()
     }
     drawChartScaleMenuItems(settings_, view_, view_.price_ylim, view_.price_ylim_valid);
     ImGui::EndPopup();
+}
+
+void CChartPane::drawChartMenu(ImVec2 origin, ImVec2 size)
+{
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const bool in_chart = size.x > 0.0f && size.y > 0.0f && mouse.x >= origin.x && mouse.y >= origin.y &&
+                          mouse.x < origin.x + size.x && mouse.y < origin.y + size.y;
+    if (in_chart && ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
+        !view_.y_axis_hovered)
+    {
+        ImGui::OpenPopup("##chart_menu");
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 2.0f));
+    if (ImGui::BeginPopup("##chart_menu"))
+    {
+        ImGui::Checkbox("Crosshair", &view_.crosshair);
+        ImGui::Separator();
+        const float button_w = std::max(buttonWidth("Chart Settings"), buttonWidth("Study Settings"));
+        ImGui::BeginDisabled(studies_open_);
+        if (quietButton("Chart Settings", button_w))
+        {
+            ImGui::CloseCurrentPopup();
+            openSettings();
+        }
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(settings_open_);
+        if (quietButton("Study Settings", button_w))
+        {
+            ImGui::CloseCurrentPopup();
+            openStudies();
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
 }
 
 void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -1207,6 +1350,44 @@ void CChartPane::commitKeyBuffer(Store* store, std::string_view store_error, Ing
     }
     // Reloading the plot can move the keyboard target off this pane.
     refocus_keyboard_ = true;
+}
+
+void CChartPane::zoomBy(float delta_px)
+{
+    settings_.bar_spacing_px += delta_px;
+    clampV1Limits(settings_);
+}
+
+void CChartPane::scrollBy(int delta)
+{
+    view_.scroll_from_end += delta;
+}
+
+void CChartPane::goToEnd()
+{
+    view_.scroll_from_end = 0;
+    if (settings_.scale_range == ChartScaleRange::ConstantRange)
+    {
+        view_.move_offset = 0.0;
+    }
+}
+
+void CChartPane::goToStart()
+{
+    const ChartVisibleWindow win =
+        computeVisibleWindow(static_cast<int>(loaded_.bars.size()), view_.last_plot_w,
+                             settings_.bar_spacing_px, 0, kChartRightFillBars);
+    view_.scroll_from_end =
+        std::max(0, static_cast<int>(loaded_.bars.size()) + kChartRightFillBars - win.slot_count);
+}
+
+void CChartPane::resetStudyScales()
+{
+    for (StudyRegionScale& entry : view_.study_region_scale)
+    {
+        entry.extra_pad_frac = 0.0;
+        entry.move_offset = 0.0;
+    }
 }
 
 void CChartPane::handleChartKeys(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -1285,35 +1466,27 @@ void CChartPane::handleChartKeys(Store* store, std::string_view store_error, Ing
     ImGui::SetNavCursorVisible(false);
     if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
     {
-        settings_.bar_spacing_px += 1.0f;
+        zoomBy(1.0f);
     }
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
     {
-        settings_.bar_spacing_px -= 1.0f;
+        zoomBy(-1.0f);
     }
     if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))
     {
-        view_.scroll_from_end += 1;
+        scrollBy(1);
     }
     if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
     {
-        view_.scroll_from_end -= 1;
+        scrollBy(-1);
     }
     if (ImGui::IsKeyPressed(ImGuiKey_End))
     {
-        view_.scroll_from_end = 0;
-        if (settings_.scale_range == ChartScaleRange::ConstantRange)
-        {
-            view_.move_offset = 0.0;
-        }
+        goToEnd();
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Home) && !loaded_.bars.empty())
     {
-        const ChartVisibleWindow win =
-            computeVisibleWindow(static_cast<int>(loaded_.bars.size()), view_.last_plot_w,
-                                 settings_.bar_spacing_px, 0, kChartRightFillBars);
-        view_.scroll_from_end =
-            std::max(0, static_cast<int>(loaded_.bars.size()) + kChartRightFillBars - win.slot_count);
+        goToStart();
     }
     clampV1Limits(settings_);
 }
@@ -1343,11 +1516,6 @@ void CChartPane::drawPlotBody()
             }
         }
         drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
-        // A failed reload keeps these bars. The rail only shows the focused chart.
-        if (loaded_.status != ChartLoadStatus::Ready)
-        {
-            drawSeriesStatusLine(statusLine(), loaded_.status, origin, avail);
-        }
     }
     else
     {
@@ -1511,8 +1679,12 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     overlayDownloadStatus(store, store_error, ingest);
 
     view_.price_ylim_valid = false;
+    view_.y_axis_hovered = false;
+    const ImVec2 chart_origin = ImGui::GetCursorScreenPos();
+    const ImVec2 chart_size = ImGui::GetContentRegionAvail();
     drawStrip(store, store_error, ingest);
     drawPlotBody();
+    drawChartMenu(chart_origin, chart_size);
     drawStripScalePopup();
     drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();

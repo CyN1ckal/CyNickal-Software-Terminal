@@ -51,6 +51,12 @@ public:
     void openStudies(int index = 0);
     void closeWindow();
     void requestFocus();
+    void zoomBy(float delta_px);
+    void scrollBy(int delta);
+    void goToEnd();
+    void goToStart();
+    // Lower study regions only. Does not reset the price scale.
+    void resetStudyScales();
     void setWindowScope(int runtime_id) noexcept;
     void attachSymbolLink(CSymbolLink& link);
     void setSymbolLinkGroup(int group) noexcept;
@@ -76,6 +82,7 @@ private:
     void reload(Store* store, std::string_view store_error);
     void drawStrip(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawStripScalePopup();
+    void drawChartMenu(ImVec2 origin, ImVec2 size);
     void drawStudyLegend(ImVec2 cursor, float width);
     void showEnabledStudyTooltip() const;
     void drawPlotBody();

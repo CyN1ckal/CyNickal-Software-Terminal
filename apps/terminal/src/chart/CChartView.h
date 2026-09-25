@@ -73,6 +73,11 @@ struct CChartViewState
     bool dragging_y{};
     bool dragging_x{};
     bool dragging_plot{};
+    // Set while this frame's pointer is on a values scale. The chart menu leaves
+    // that click to the scale popup. Cleared at the start of the pane draw.
+    bool y_axis_hovered{false};
+    // Hover crosshair, axis value marks, and the bar readout. Not saved.
+    bool crosshair{true};
     // Lower chart regions (2..12). Index by chart region number; 0 and 1 unused.
     // The price graph keeps extra_pad_frac / move_offset / dragging_y above.
     std::vector<StudyRegionScale> study_region_scale;

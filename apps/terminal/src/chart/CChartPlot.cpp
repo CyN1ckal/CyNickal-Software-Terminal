@@ -42,6 +42,7 @@ void drawChartScaleMenuItems(CChartSettings& settings,
     {
         view.interactive = ChartInteractiveScale::Locked;
     }
+    ImGui::TextColored(Theme::kTextDim, "Ctrl swaps Range and Move while dragging.");
     ImGui::Separator();
     if (ImGui::MenuItem("Scale Range: Automatic", nullptr,
                         settings.scale_range == ChartScaleRange::Automatic))
@@ -172,6 +173,10 @@ void handlePlotInput(std::span<const Bar> bars,
     const float plot_h = std::max(1.0f, ImPlot::GetPlotSize().y);
     const float spacing = settings.bar_spacing_px;
     const bool hovered = ImPlot::IsPlotHovered();
+    if (ImPlot::IsAxisHovered(ImAxis_Y1))
+    {
+        view.y_axis_hovered = true;
+    }
     const bool x_axis = ImPlot::IsAxisHovered(ImAxis_X1);
     const bool shared_x = x_handled != nullptr;
     const bool x_free = !shared_x || !*x_handled;
@@ -299,6 +304,21 @@ void handlePlotInput(std::span<const Bar> bars,
         drawChartScaleMenuItems(settings, view, ylim, true);
         ImGui::EndPopup();
     }
+    if (region_scale != nullptr && ImPlot::IsAxisHovered(ImAxis_Y1) &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    {
+        ImGui::OpenPopup("##study_region_scale_menu");
+    }
+    if (region_scale != nullptr && ImGui::BeginPopup("##study_region_scale_menu"))
+    {
+        if (ImGui::MenuItem("Reset Scale"))
+        {
+            region_scale->extra_pad_frac = 0.0;
+            region_scale->move_offset = 0.0;
+            dragging_y = false;
+        }
+        ImGui::EndPopup();
+    }
 
     if (clamp_scroll)
     {
@@ -310,27 +330,188 @@ void handlePlotInput(std::span<const Bar> bars,
     }
 }
 
-void drawCrosshair(std::span<const Bar> bars,
-                   std::string_view tz,
-                   const ChartYLimits& ylim,
-                   std::span<const CStudySeries> studies,
-                   int chart_region,
-                   int region_count)
+// Same string the time axis paints for this bar. An installed tick wins. Other
+// bars follow that grain. With no calendar ticks, formatXTick is the axis text.
+void formatTagX(std::span<const Bar> bars,
+                const CChartViewState& view,
+                std::string_view tz,
+                int idx,
+                char* buf,
+                int size)
 {
-    if (bars.empty())
+    if (buf == nullptr || size <= 0)
     {
         return;
+    }
+    buf[0] = '\0';
+    for (std::size_t i = 0; i < view.tick_xs.size() && i < view.tick_labels.size(); ++i)
+    {
+        if (std::lround(view.tick_xs[i]) == static_cast<long>(idx))
+        {
+            std::snprintf(buf, static_cast<std::size_t>(size), "%s", view.tick_labels[i].c_str());
+            return;
+        }
+    }
+    if (view.tick_labels.empty())
+    {
+        formatXTick(static_cast<double>(idx), buf, size, &bars);
+        return;
+    }
+    if (idx < 0 || static_cast<std::size_t>(idx) >= bars.size())
+    {
+        return;
+    }
+    bool time_grain = false;
+    std::size_t widest = 0;
+    for (const std::string& label : view.tick_labels)
+    {
+        if (label.find(':') != std::string::npos)
+        {
+            time_grain = true;
+        }
+        widest = std::max(widest, label.size());
+    }
+    const ChartLocalTime stamp = chartLocalTime(tz, bars[static_cast<std::size_t>(idx)].ts);
+    if (time_grain)
+    {
+        std::snprintf(buf, static_cast<std::size_t>(size), "%02d:%02d", stamp.hour, stamp.minute);
+        return;
+    }
+    if (widest >= 10)
+    {
+        std::snprintf(buf, static_cast<std::size_t>(size), "%04d-%02d-%02d", stamp.year, stamp.month,
+                      stamp.day);
+        return;
+    }
+    if (widest >= 7)
+    {
+        std::snprintf(buf, static_cast<std::size_t>(size), "%04d-%02d", stamp.year, stamp.month);
+        return;
+    }
+    std::snprintf(buf, static_cast<std::size_t>(size), "%04d", stamp.year);
+}
+
+// Pixel geometry for the value marks. Filled while the plot is current, drawn
+// after EndPlot so the marks sit on the axis labels.
+struct CrosshairMarks
+{
+    bool y{false};
+    bool x{false};
+    ImVec2 plot_min;
+    ImVec2 plot_max;
+    float y_px{};
+    float x_px{};
+    char y_text[32]{};
+    char x_text[32]{};
+};
+
+// ImPlot TagX/TagY call OverrideSizeLate. The next frame sizes the axis from
+// that tag, the plot moves under the pointer, and the crosshair flashes.
+// These marks paint in the gutter that the tick labels already reserved.
+constexpr float kAxisMarkPadX = 3.0f;
+
+void shiftMarkIntoWindow(ImVec2& text_pos, const ImVec2& text_size)
+{
+    const ImVec2 win_pos = ImGui::GetWindowPos();
+    const ImVec2 win_size = ImGui::GetWindowSize();
+    const float left = win_pos.x;
+    const float right = win_pos.x + win_size.x;
+    const float top = win_pos.y;
+    const float bottom = win_pos.y + win_size.y;
+    const float box_left = text_pos.x - kAxisMarkPadX;
+    const float box_right = text_pos.x + text_size.x + kAxisMarkPadX;
+    const float box_bottom = text_pos.y + text_size.y;
+    if (box_right > right)
+    {
+        text_pos.x -= box_right - right;
+    }
+    else if (box_left < left)
+    {
+        text_pos.x += left - box_left;
+    }
+    if (box_bottom > bottom)
+    {
+        text_pos.y -= box_bottom - bottom;
+    }
+    else if (text_pos.y < top)
+    {
+        text_pos.y += top - text_pos.y;
+    }
+}
+
+void drawAxisValueMark(ImDrawList* draw, ImVec2 text_pos, const char* text)
+{
+    if (draw == nullptr || text == nullptr || text[0] == '\0')
+    {
+        return;
+    }
+    const ImVec2 text_size = ImGui::CalcTextSize(text);
+    shiftMarkIntoWindow(text_pos, text_size);
+    const ImVec2 box_min(text_pos.x - kAxisMarkPadX, text_pos.y);
+    const ImVec2 box_max(text_pos.x + text_size.x + kAxisMarkPadX, text_pos.y + text_size.y);
+    draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(Theme::kAccent));
+    draw->AddText(text_pos, ImGui::GetColorU32(Theme::kBg0), text);
+}
+
+void drawCrosshairMarks(const CrosshairMarks& marks)
+{
+    if (!marks.y && !marks.x)
+    {
+        return;
+    }
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 label_pad = ImPlot::GetStyle().LabelPadding;
+    if (marks.y && marks.y_text[0] != '\0')
+    {
+        const ImVec2 text_size = ImGui::CalcTextSize(marks.y_text);
+        float text_y = marks.y_px - (text_size.y * 0.5f);
+        const float max_y = marks.plot_max.y - text_size.y;
+        if (max_y >= marks.plot_min.y)
+        {
+            text_y = std::clamp(text_y, marks.plot_min.y, max_y);
+        }
+        drawAxisValueMark(draw, ImVec2(marks.plot_max.x + label_pad.x, text_y), marks.y_text);
+    }
+    if (marks.x && marks.x_text[0] != '\0')
+    {
+        const ImVec2 text_size = ImGui::CalcTextSize(marks.x_text);
+        float text_x = marks.x_px - (text_size.x * 0.5f);
+        const float max_x = marks.plot_max.x - text_size.x;
+        if (max_x >= marks.plot_min.x)
+        {
+            text_x = std::clamp(text_x, marks.plot_min.x, max_x);
+        }
+        drawAxisValueMark(draw, ImVec2(text_x, marks.plot_max.y + label_pad.y), marks.x_text);
+    }
+}
+
+CrosshairMarks drawCrosshair(std::span<const Bar> bars,
+                             std::string_view tz,
+                             const CChartViewState& view,
+                             const ChartYLimits& ylim,
+                             std::span<const CStudySeries> studies,
+                             int chart_region,
+                             int region_count)
+{
+    CrosshairMarks marks;
+    if (!view.crosshair || bars.empty())
+    {
+        return marks;
     }
     const ImVec2 pos = ImPlot::GetPlotPos();
     const ImVec2 size = ImPlot::GetPlotSize();
     const ImVec2 mouse = ImGui::GetMousePos();
-    const bool hovered = ImPlot::IsPlotHovered();
-    const bool x_inside = size.x > 0.0f && mouse.x >= pos.x && mouse.x <= pos.x + size.x;
-    // One region keeps the old hover gate. A stack draws the vertical line in
-    // every region while the pointer is in the shared X column.
-    if (!hovered && (!x_inside || region_count <= 1))
+    // Geometric, and only while this pane is the hovered window. A parked pointer
+    // keeps the same bar. Another pane, or the right-click menu, does not steal it.
+    const bool window_hovered = ImGui::IsWindowHovered();
+    const bool x_inside = window_hovered && size.x > 0.0f && mouse.x >= pos.x && mouse.x <= pos.x + size.x;
+    const bool y_inside = window_hovered && size.y > 0.0f && mouse.y >= pos.y && mouse.y <= pos.y + size.y;
+    const bool inside = x_inside && y_inside;
+    // A stack keeps the vertical line in regions that share the pointer's X.
+    const bool column = region_count > 1 && x_inside;
+    if (!inside && !column)
     {
-        return;
+        return marks;
     }
 
     const float sample_y = pos.y + (size.y * 0.5f);
@@ -340,55 +521,46 @@ void drawCrosshair(std::span<const Bar> bars,
     const Bar& bar = bars[static_cast<std::size_t>(idx)];
 
     ImDrawList* draw_list = ImPlot::GetPlotDrawList();
-    const ImU32 color = ImGui::ColorConvertFloat4ToU32(Theme::kHairline);
+    const ImU32 color = ImGui::ColorConvertFloat4ToU32(Theme::kAccent);
     ImPlot::PushPlotClipRect();
     const ImVec2 top = ImPlot::PlotToPixels(static_cast<double>(idx), ylim.max);
     const ImVec2 bot = ImPlot::PlotToPixels(static_cast<double>(idx), ylim.min);
-    draw_list->AddLine(top, bot, color);
-    if (hovered)
+    draw_list->AddLine(top, bot, color, 1.0f);
+    marks.plot_min = pos;
+    marks.plot_max = ImVec2(pos.x + size.x, pos.y + size.y);
+    marks.x_px = top.x;
+    if (inside)
     {
         const double price = ImPlot::GetPlotMousePos().y;
         const ImVec2 left = ImPlot::PlotToPixels(ImPlot::GetPlotLimits().X.Min, price);
         const ImVec2 right = ImPlot::PlotToPixels(ImPlot::GetPlotLimits().X.Max, price);
-        draw_list->AddLine(left, right, color);
-        ImPlot::PopPlotClipRect();
-        if (chart_region == kStudyMainChartRegion)
-        {
-            ImPlot::TagY(price, Theme::kAccent, "%.4f", price);
-        }
-        else if (std::abs(price) >= 1000.0)
-        {
-            ImPlot::TagY(price, Theme::kAccent, "%.0f", price);
-        }
-        else
-        {
-            ImPlot::TagY(price, Theme::kAccent, "%.2f", price);
-        }
+        draw_list->AddLine(left, right, color, 1.0f);
+        marks.y = true;
+        marks.y_px = left.y;
+        formatYTick(price, marks.y_text, static_cast<int>(sizeof(marks.y_text)), nullptr);
     }
-    else
-    {
-        ImPlot::PopPlotClipRect();
-    }
+    ImPlot::PopPlotClipRect();
 
     const bool bottom = chart_region == region_count;
-    if (bottom && (hovered || region_count > 1))
+    if (bottom)
     {
-        const ChartLocalTime stamp = chartLocalTime(tz, bar.ts);
-        char time_buf[32];
-        std::snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d", stamp.year, stamp.month,
-                      stamp.day, stamp.hour, stamp.minute);
-        ImPlot::TagX(static_cast<double>(idx), Theme::kAccent, "%s", time_buf);
+        marks.x = true;
+        formatTagX(bars, view, tz, idx, marks.x_text, static_cast<int>(sizeof(marks.x_text)));
     }
 
-    if (!hovered)
+    const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup);
+    if (!inside || popup || ImGui::IsMouseDown(ImGuiMouseButton_Right))
     {
-        return;
+        return marks;
     }
     const ChartLocalTime stamp = chartLocalTime(tz, bar.ts);
     char time_buf[32];
     std::snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d", stamp.year, stamp.month,
                   stamp.day, stamp.hour, stamp.minute);
-    ImGui::BeginTooltip();
+    if (!ImGui::BeginTooltip())
+    {
+        return marks;
+    }
     ImGui::Text("%s  O  %.4f  H  %.4f  L  %.4f  C  %.4f  V  %.0f", time_buf, bar.open, bar.high,
                 bar.low, bar.close, bar.volume);
     const auto bar_count = static_cast<int>(bars.size());
@@ -404,18 +576,18 @@ void drawCrosshair(std::span<const Bar> bars,
             continue;
         }
         const std::uint32_t tint = studyHistogramColor(series, bar.close >= bar.open);
+        const ImVec4 ink = ImGui::ColorConvertU32ToFloat4(tint);
         if (series.value_decimals <= 0)
         {
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(tint), "%s  %.0f", series.label.c_str(),
-                               value);
+            ImGui::TextColored(ink, "%s  %.0f", series.label.c_str(), value);
         }
         else
         {
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(tint), "%s  %.4f", series.label.c_str(),
-                               value);
+            ImGui::TextColored(ink, "%s  %.*f", series.label.c_str(), series.value_decimals, value);
         }
     }
     ImGui::EndTooltip();
+    return marks;
 }
 
 StudyRegionScale& studyRegionScale(CChartViewState& view, int chart_region)
@@ -519,9 +691,32 @@ void drawChartRegion(std::span<const Bar> bars,
 
     const ImPlotFlags flags = ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus |
                               ImPlotFlags_NoBoxSelect | ImPlotFlags_NoInputs | ImPlotFlags_NoMouseText;
+    // Tick nibs and the faint minor lattice, on every region. Grid lines and
+    // labels stay. Not the subplot padding push: that zero inset closes the gap
+    // between regions and must not move.
+    const bool hide_tick_marks = true;
+    if (hide_tick_marks)
+    {
+        ImPlot::PushStyleVar(ImPlotStyleVar_MajorTickLen, ImVec2(0.0f, 0.0f));
+        ImPlot::PushStyleVar(ImPlotStyleVar_MinorTickLen, ImVec2(0.0f, 0.0f));
+        ImPlot::PushStyleVar(ImPlotStyleVar_MinorAlpha, 0.0f);
+    }
     if (!ImPlot::BeginPlot(plot_id, ImVec2(-1.0f, -1.0f), flags))
     {
+        if (hide_tick_marks)
+        {
+            ImPlot::PopStyleVar(3);
+        }
         return;
+    }
+
+    // Mono for tick measurement and the labels SetupFinish draws. Popped before
+    // input so the scale menu keeps the UI face, then pushed again around the
+    // readout and the axis marks drawn after EndPlot.
+    ImFont* const mono = Theme::monoFont();
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
     }
 
     buildTimeTicks(bars, win, timezone, settings.bar_spacing_px, settings.vertical_grid, view);
@@ -601,6 +796,10 @@ void drawChartRegion(std::span<const Bar> bars,
     }
     ImPlot::SetupFinish();
     drawInstalledGridLines(view.tick_xs, y_ticks);
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
 
     if (price)
     {
@@ -654,8 +853,22 @@ void drawChartRegion(std::span<const Bar> bars,
     }
 
     drawStudyRegion(studies, chart_region, win, bar_count, bars, settings.bar_width_frac, stems_only);
-    drawCrosshair(bars, timezone, ylim, studies, chart_region, region_count);
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
+    const CrosshairMarks marks =
+        drawCrosshair(bars, timezone, view, ylim, studies, chart_region, region_count);
     ImPlot::EndPlot();
+    drawCrosshairMarks(marks);
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
+    if (hide_tick_marks)
+    {
+        ImPlot::PopStyleVar(3);
+    }
 }
 
 }  // namespace
