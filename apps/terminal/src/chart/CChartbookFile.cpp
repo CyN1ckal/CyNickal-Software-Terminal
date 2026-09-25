@@ -881,6 +881,36 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return month >= 1 && month <= 12 && day >= 1 && day <= 31;
 }
 
+[[nodiscard]] bool readOptionColumns(const json& value, std::vector<std::string>& columns, std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "option columns is not an array");
+    }
+    columns.clear();
+    for (const json& item : value)
+    {
+        if (!item.is_string())
+        {
+            return fail(error, "option column is not a string");
+        }
+        std::string id = item.get<std::string>();
+        if (!isOptionChainColumn(id))
+        {
+            return fail(error, "unknown option column");
+        }
+        if (std::ranges::find(columns, id) != columns.end())
+        {
+            return fail(error, "duplicate option column");
+        }
+        columns.push_back(std::move(id));
+    }
+    std::ranges::sort(columns, [](const std::string& left, const std::string& right) {
+        return optionChainColumnIndex(left) < optionChainColumnIndex(right);
+    });
+    return true;
+}
+
 [[nodiscard]] bool readOptionsFields(const json& object, ChartbookOptions& panel, std::string& error)
 {
     if (object.contains("symbol") && !readString(object, "symbol", panel.symbol, error))
@@ -901,6 +931,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     }
     if (object.contains("expiration_type") &&
         !readString(object, "expiration_type", panel.expiration_type, error))
+    {
+        return false;
+    }
+    if (object.contains("columns") && !readOptionColumns(object.at("columns"), panel.columns, error))
     {
         return false;
     }
@@ -949,6 +983,15 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         }
         object["expiration"] = panel.expiration;
         object["expiration_type"] = panel.expiration_type;
+        if (!optionChainColumnsAreDefault(panel.columns))
+        {
+            json columns = json::array();
+            for (const std::string& id : panel.columns)
+            {
+                columns.push_back(id);
+            }
+            object["columns"] = std::move(columns);
+        }
         array.push_back(std::move(object));
     }
     return array;

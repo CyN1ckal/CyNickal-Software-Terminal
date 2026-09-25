@@ -7,7 +7,9 @@
 
 #include "market_data/Time.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <string_view>
@@ -16,7 +18,27 @@
 namespace terminal {
 namespace {
 
-constexpr int kChainColumns = 15;
+// Declaration order matches kOptionChainColumns.
+enum class ChainField : std::uint8_t
+{
+    Bid,
+    Ask,
+    Last,
+    Change,
+    Percent,
+    Mid,
+    Iv,
+    Delta,
+    Theta,
+    Vega,
+    Rho,
+    Volume,
+    OpenInterest,
+    OpenInterestChange,
+    Count,
+};
+
+static_assert(static_cast<int>(ChainField::Count) == kOptionChainColumnCount);
 
 [[nodiscard]] std::string formatGrouped(std::int64_t value)
 {
@@ -55,79 +77,124 @@ void drawAligned(const char* text, const ImVec4* color)
     ImGui::TextUnformatted(text);
 }
 
-void drawPrice(const OptionQuote* quote, double value, bool color_change, bool itm)
+void paintInTheMoney(bool itm)
 {
-    if (itm)
-    {
-        const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
-    }
-    if (quote == nullptr)
+    if (!itm)
     {
         return;
     }
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%.2f", value);
+    const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
+}
+
+void drawSigned(const char* text, double sign)
+{
     const ImVec4* color = nullptr;
     ImVec4 tint{};
-    if (color_change && quote->price_change > 0.0)
+    if (sign > 0.0)
     {
         tint = Theme::kUp;
         color = &tint;
     }
-    else if (color_change && quote->price_change < 0.0)
+    else if (sign < 0.0)
     {
         tint = Theme::kDown;
         color = &tint;
     }
-    drawAligned(buf, color);
+    drawAligned(text, color);
 }
 
-void drawPercent(const OptionQuote* quote, double fraction, bool itm)
+void drawTip(const OptionQuote& quote);
+
+[[nodiscard]] bool findChainField(std::string_view id, ChainField& field) noexcept
 {
-    if (itm)
+    for (int index = 0; index < kOptionChainColumnCount; ++index)
     {
-        const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
+        if (id == kOptionChainColumns[index].id)
+        {
+            field = static_cast<ChainField>(index);
+            return true;
+        }
     }
-    if (quote == nullptr)
+    return false;
+}
+
+void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
+{
+    paintInTheMoney(itm);
+    ChainField field{};
+    if (quote == nullptr || !findChainField(id, field))
     {
         return;
     }
     char buf[32];
-    std::snprintf(buf, sizeof(buf), "%.1f", fraction * 100.0);
-    drawAligned(buf, nullptr);
-}
-
-void drawGreek(const OptionQuote* quote, double value, bool itm)
-{
-    if (itm)
+    switch (field)
     {
-        const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
-    }
-    if (quote == nullptr)
-    {
+    case ChainField::Bid:
+        std::snprintf(buf, sizeof(buf), "%.2f", quote->bid);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Ask:
+        std::snprintf(buf, sizeof(buf), "%.2f", quote->ask);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Last:
+        std::snprintf(buf, sizeof(buf), "%.2f", quote->last);
+        drawSigned(buf, quote->price_change);
+        break;
+    case ChainField::Change:
+        std::snprintf(buf, sizeof(buf), "%+.2f", quote->price_change);
+        drawSigned(buf, quote->price_change);
+        break;
+    case ChainField::Percent:
+        std::snprintf(buf, sizeof(buf), "%+.1f", quote->percent_change * 100.0);
+        drawSigned(buf, quote->percent_change);
+        break;
+    case ChainField::Mid:
+        std::snprintf(buf, sizeof(buf), "%.2f", quote->mid);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Iv:
+        std::snprintf(buf, sizeof(buf), "%.1f", quote->implied_vol * 100.0);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Delta:
+        std::snprintf(buf, sizeof(buf), "%.3f", quote->delta);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Theta:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote->theta);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Vega:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote->vega);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Rho:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote->rho);
+        drawAligned(buf, nullptr);
+        break;
+    case ChainField::Volume:
+        drawAligned(formatGrouped(quote->volume).c_str(), nullptr);
+        break;
+    case ChainField::OpenInterest:
+        drawAligned(formatGrouped(quote->open_interest).c_str(), nullptr);
+        break;
+    case ChainField::OpenInterestChange:
+        drawSigned(formatGrouped(quote->open_interest_change).c_str(),
+                   static_cast<double>(quote->open_interest_change));
+        break;
+    case ChainField::Count:
         return;
     }
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%.3f", value);
-    drawAligned(buf, nullptr);
+    drawTip(*quote);
 }
 
-void drawCount(const OptionQuote* quote, std::int64_t value, bool itm)
+void setupChainColumn(const char* side, std::string_view id)
 {
-    if (itm)
-    {
-        const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
-    }
-    if (quote == nullptr)
-    {
-        return;
-    }
-    const std::string text = formatGrouped(value);
-    drawAligned(text.c_str(), nullptr);
+    char header[32];
+    std::snprintf(header, sizeof(header), "%s %s", side, optionChainColumnLabel(id));
+    ImGui::TableSetupColumn(header);
 }
 
 void drawTip(const OptionQuote& quote)
@@ -189,6 +256,11 @@ void OptionsChainPanel::requestFocus()
 void OptionsChainPanel::importState(const ChartbookOptions& state)
 {
     source_.restore(state.symbol, state.figi, state.expiration, state.expiration_type);
+    columns_.clear();
+    for (const std::string& id : state.columns)
+    {
+        setOptionChainColumnVisible(columns_, id, true);
+    }
 }
 
 ChartbookOptions OptionsChainPanel::exportState() const
@@ -199,6 +271,7 @@ ChartbookOptions OptionsChainPanel::exportState() const
     state.figi = source_.figi();
     state.expiration = source_.hasExpiration() ? source_.expiration() : 0;
     state.expiration_type = source_.hasExpiration() ? std::string(toSql(source_.expirationType())) : std::string{};
+    state.columns = columns_;
     return state;
 }
 
@@ -214,6 +287,48 @@ void OptionsChainPanel::setPlacement(bool force, bool floating, ImGuiID dock, Im
     place_dock_ = dock;
     place_pos_ = pos;
     place_size_ = size;
+}
+
+void OptionsChainPanel::drawColumnMenu()
+{
+    constexpr float kMenuStride = 148.0f;
+    ImGui::PushID(id_);
+    if (ImGui::Button("COLUMNS"))
+    {
+        ImGui::OpenPopup("columns");
+    }
+    if (ImGui::BeginPopup("columns"))
+    {
+        ImGui::TextColored(Theme::kMuted, "Strike stays in the middle. Puts mirror these.");
+        for (int index = 0; index < kOptionChainColumnCount; ++index)
+        {
+            if (index % 2 == 1)
+            {
+                ImGui::SameLine(kMenuStride);
+            }
+            const OptionChainColumn& column = kOptionChainColumns[index];
+            const auto found = std::ranges::find_if(columns_, [&](const std::string& column_id) {
+                return column_id == column.id;
+            });
+            const bool shown = found != columns_.end();
+            bool next = shown;
+            ImGui::PushID(column.id);
+            if (ImGui::Checkbox(column.label, &next) && next != shown)
+            {
+                setOptionChainColumnVisible(columns_, column.id, next);
+            }
+            ImGui::PopID();
+        }
+        ImGui::Separator();
+        ImGui::BeginDisabled(optionChainColumnsAreDefault(columns_));
+        if (ImGui::Button("Reset"))
+        {
+            columns_ = defaultOptionChainColumns();
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
 }
 
 void OptionsChainPanel::drawChain() const
@@ -257,19 +372,23 @@ void OptionsChainPanel::drawChain() const
         }
     }
 
+    const int side_count = static_cast<int>(columns_.size());
     constexpr ImGuiTableFlags flags =
         ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
         ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
         ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
-    if (!ImGui::BeginTable("options_chain", kChainColumns, flags, ImVec2(0.0f, 0.0f)))
+    if (!ImGui::BeginTable("options_chain", (side_count * 2) + 1, flags, ImVec2(0.0f, 0.0f)))
     {
         return;
     }
-    constexpr const char* kHeaders[] = {"C Bid", "C Ask", "C Last", "C IV",  "C Delta", "C Vol", "C OI", "Strike",
-                                        "P OI",  "P Vol", "P Delta", "P IV", "P Last",  "P Ask", "P Bid",};
-    for (const char* header : kHeaders)
+    for (const std::string& id : columns_)
     {
-        ImGui::TableSetupColumn(header);
+        setupChainColumn("C", id);
+    }
+    ImGui::TableSetupColumn("Strike");
+    for (int index = side_count - 1; index >= 0; --index)
+    {
+        setupChainColumn("P", columns_[static_cast<std::size_t>(index)]);
     }
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableHeadersRow();
@@ -303,46 +422,20 @@ void OptionsChainPanel::drawChain() const
         ImGui::TableNextRow();
         const bool call_itm = row.call != nullptr && row.call->moneyness > 0.0;
         const bool put_itm = row.put != nullptr && row.put->moneyness < 0.0;
-        ImGui::TableNextColumn();
-        drawPrice(row.call, row.call != nullptr ? row.call->bid : 0.0, false, call_itm);
-        ImGui::TableNextColumn();
-        drawPrice(row.call, row.call != nullptr ? row.call->ask : 0.0, false, call_itm);
-        ImGui::TableNextColumn();
-        drawPrice(row.call, row.call != nullptr ? row.call->last : 0.0, true, call_itm);
-        if (row.call != nullptr)
+        for (const std::string& id : columns_)
         {
-            drawTip(*row.call);
+            ImGui::TableNextColumn();
+            drawQuoteField(id, row.call, call_itm);
         }
-        ImGui::TableNextColumn();
-        drawPercent(row.call, row.call != nullptr ? row.call->implied_vol : 0.0, call_itm);
-        ImGui::TableNextColumn();
-        drawGreek(row.call, row.call != nullptr ? row.call->delta : 0.0, call_itm);
-        ImGui::TableNextColumn();
-        drawCount(row.call, row.call != nullptr ? row.call->volume : 0, call_itm);
-        ImGui::TableNextColumn();
-        drawCount(row.call, row.call != nullptr ? row.call->open_interest : 0, call_itm);
         ImGui::TableNextColumn();
         char strike[32];
         std::snprintf(strike, sizeof(strike), "%.2f", row.strike);
         drawAligned(strike, nullptr);
-        ImGui::TableNextColumn();
-        drawCount(row.put, row.put != nullptr ? row.put->open_interest : 0, put_itm);
-        ImGui::TableNextColumn();
-        drawCount(row.put, row.put != nullptr ? row.put->volume : 0, put_itm);
-        ImGui::TableNextColumn();
-        drawGreek(row.put, row.put != nullptr ? row.put->delta : 0.0, put_itm);
-        ImGui::TableNextColumn();
-        drawPercent(row.put, row.put != nullptr ? row.put->implied_vol : 0.0, put_itm);
-        ImGui::TableNextColumn();
-        drawPrice(row.put, row.put != nullptr ? row.put->last : 0.0, true, put_itm);
-        if (row.put != nullptr)
+        for (int index = side_count - 1; index >= 0; --index)
         {
-            drawTip(*row.put);
+            ImGui::TableNextColumn();
+            drawQuoteField(columns_[static_cast<std::size_t>(index)], row.put, put_itm);
         }
-        ImGui::TableNextColumn();
-        drawPrice(row.put, row.put != nullptr ? row.put->ask : 0.0, false, put_itm);
-        ImGui::TableNextColumn();
-        drawPrice(row.put, row.put != nullptr ? row.put->bid : 0.0, false, put_itm);
     }
     if (mono != nullptr)
     {
@@ -403,6 +496,8 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
     }
 
     source_.drawPicker(ingest);
+    ImGui::SameLine();
+    drawColumnMenu();
     source_.refresh(store, ingest);
     ImGui::Separator();
     ImVec4 status_color = Theme::kMuted;

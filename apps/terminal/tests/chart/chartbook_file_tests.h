@@ -9,6 +9,8 @@
 #include "chart/studies/CBollinger.h"
 #include "chart/studies/CMovingAverage.h"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -619,6 +621,7 @@ TEST_CASE("options chains dock and round trip beside the charts")
     CHECK(loaded.document.options[0].symbol == "$SPX");
     CHECK(loaded.document.options[0].expiration == 20261016);
     CHECK(loaded.document.options[0].expiration_type == "monthly");
+    CHECK(terminal::optionChainColumnsAreDefault(loaded.document.options[0].columns));
     CHECK(loaded.document.focused_options == 1);
     CHECK(loaded.document.next_options_id == 2);
     CHECK(terminal::chartbookOptionsIsOpen(loaded.document, 1));
@@ -635,6 +638,94 @@ TEST_CASE("options chains dock and round trip beside the charts")
         "panes": []
     })";
     CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
+}
+
+TEST_CASE("option chain columns select, persist, and default when omitted")
+{
+    using nlohmann::json;
+
+    std::vector<std::string> columns = terminal::defaultOptionChainColumns();
+    CHECK(terminal::optionChainColumnsAreDefault(columns));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "iv", false));
+    const std::vector<std::string> without_iv{"bid", "ask", "last", "delta", "vol", "oi"};
+    CHECK(columns == without_iv);
+    CHECK(terminal::setOptionChainColumnVisible(columns, "theta", true));
+    const std::vector<std::string> with_theta{"bid", "ask", "last", "delta", "theta", "vol", "oi"};
+    CHECK(columns == with_theta);
+    CHECK_FALSE(terminal::setOptionChainColumnVisible(columns, "theta", true));
+    CHECK_FALSE(terminal::setOptionChainColumnVisible(columns, "nope", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "bid", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "ask", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "last", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "delta", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "theta", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "vol", false));
+    CHECK(terminal::setOptionChainColumnVisible(columns, "oi", false));
+    CHECK(columns.empty());
+
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertOptions(document.layout, 1);
+    terminal::ChartbookOptions chain;
+    chain.id = 1;
+    chain.symbol = "AAPL";
+    chain.expiration = 20261016;
+    chain.expiration_type = "monthly";
+    chain.columns = {"oi", "bid", "theta"};
+    document.options.push_back(chain);
+    document.focused_options = 1;
+    document.next_options_id = 2;
+
+    const json written = json::parse(terminal::chartbookToJson(document));
+    const json saved_order = json::array({"oi", "bid", "theta"});
+    CHECK(written["options"][0]["columns"] == saved_order);
+
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.options.size() == 1);
+    const std::vector<std::string> catalog_order{"bid", "theta", "oi"};
+    CHECK(loaded.document.options[0].columns == catalog_order);
+
+    document.options[0].columns.clear();
+    const json strike_only = json::parse(terminal::chartbookToJson(document));
+    CHECK(strike_only["options"][0]["columns"].is_array());
+    CHECK(strike_only["options"][0]["columns"].empty());
+    const terminal::ChartbookLoadResult bare = terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(bare.ok);
+    CHECK(bare.document.options[0].columns.empty());
+
+    terminal::ChartbookOptions stock;
+    stock.id = 1;
+    stock.symbol = "AAPL";
+    document.options[0] = stock;
+    const json omitted = json::parse(terminal::chartbookToJson(document));
+    CHECK_FALSE(omitted["options"][0].contains("columns"));
+    const terminal::ChartbookLoadResult defaults = terminal::chartbookFromJson(omitted.dump());
+    REQUIRE(defaults.ok);
+    CHECK(terminal::optionChainColumnsAreDefault(defaults.document.options[0].columns));
+
+    json unknown = omitted;
+    unknown["options"][0]["columns"] = json::array({"bid", "gamma"});
+    const terminal::ChartbookLoadResult bad_name = terminal::chartbookFromJson(unknown.dump());
+    CHECK_FALSE(bad_name.ok);
+    CHECK(bad_name.error == "unknown option column");
+
+    json duplicate = omitted;
+    duplicate["options"][0]["columns"] = json::array({"bid", "bid"});
+    const terminal::ChartbookLoadResult bad_dup = terminal::chartbookFromJson(duplicate.dump());
+    CHECK_FALSE(bad_dup.ok);
+    CHECK(bad_dup.error == "duplicate option column");
+
+    json not_array = omitted;
+    not_array["options"][0]["columns"] = "bid";
+    const terminal::ChartbookLoadResult bad_type = terminal::chartbookFromJson(not_array.dump());
+    CHECK_FALSE(bad_type.ok);
+    CHECK(bad_type.error == "option columns is not an array");
+
+    json not_string = omitted;
+    not_string["options"][0]["columns"] = json::array({1});
+    const terminal::ChartbookLoadResult bad_item = terminal::chartbookFromJson(not_string.dump());
+    CHECK_FALSE(bad_item.ok);
+    CHECK(bad_item.error == "option column is not a string");
 }
 
 TEST_CASE("portfolio windows round trip and a book without them still opens")

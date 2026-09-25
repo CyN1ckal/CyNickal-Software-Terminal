@@ -10,7 +10,9 @@
 
 #include "imgui.h"
 
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace terminal {
 
@@ -18,6 +20,7 @@ class IngestWorker;
 class Store;
 
 // One underlying's option chain. Calls sit left of the strike and puts sit right.
+// The Columns menu chooses the call-side fields. Puts mirror that selection.
 class OptionsChainPanel
 {
 public:
@@ -42,9 +45,11 @@ public:
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
 
 private:
+    void drawColumnMenu();
     void drawChain() const;
 
     OptionChainSource source_;
+    std::vector<std::string> columns_{defaultOptionChainColumns()};
     int id_{0};
     bool window_open_{true};
     bool focus_on_appear_{false};

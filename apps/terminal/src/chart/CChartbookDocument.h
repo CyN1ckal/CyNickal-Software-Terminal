@@ -8,6 +8,7 @@
 #include "chart/CStudy.h"
 #include "options/OptionPayoff.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -101,8 +102,132 @@ struct ChartbookFinancials
     std::string timeframe{"annually"};
 };
 
+// Call-side fields, left to right. Strike is not a field: the chain keeps it in the middle
+// and mirrors the selected fields onto the put side.
+struct OptionChainColumn
+{
+    const char* id;
+    const char* label;
+};
+
+inline constexpr OptionChainColumn kOptionChainColumns[] = {
+    {"bid", "Bid"},   {"ask", "Ask"},   {"last", "Last"}, {"chg", "Chg"}, {"pct", "%"},
+    {"mid", "Mid"},   {"iv", "IV"},     {"delta", "Delta"}, {"theta", "Theta"}, {"vega", "Vega"},
+    {"rho", "Rho"},   {"vol", "Vol"},   {"oi", "OI"},     {"oi_chg", "OI Chg"},
+};
+inline constexpr int kOptionChainColumnCount =
+    static_cast<int>(sizeof(kOptionChainColumns) / sizeof(kOptionChainColumns[0]));
+
+// The chain as it looked before the column menu: bid through open interest.
+inline constexpr const char* kOptionChainDefaultColumns[] = {
+    "bid", "ask", "last", "iv", "delta", "vol", "oi",
+};
+inline constexpr int kOptionChainDefaultColumnCount =
+    static_cast<int>(sizeof(kOptionChainDefaultColumns) / sizeof(kOptionChainDefaultColumns[0]));
+
+[[nodiscard]] constexpr int optionChainColumnIndex(std::string_view id) noexcept
+{
+    for (int index = 0; index < kOptionChainColumnCount; ++index)
+    {
+        if (id == kOptionChainColumns[index].id)
+        {
+            return index;
+        }
+    }
+    return -1;
+}
+
+[[nodiscard]] constexpr bool isOptionChainColumn(std::string_view id) noexcept
+{
+    return optionChainColumnIndex(id) >= 0;
+}
+
+[[nodiscard]] inline const char* optionChainColumnLabel(std::string_view id) noexcept
+{
+    const int index = optionChainColumnIndex(id);
+    if (index < 0)
+    {
+        return "";
+    }
+    return kOptionChainColumns[index].label;
+}
+
+[[nodiscard]] inline std::vector<std::string> defaultOptionChainColumns()
+{
+    std::vector<std::string> columns;
+    columns.reserve(static_cast<std::size_t>(kOptionChainDefaultColumnCount));
+    for (const char* id : kOptionChainDefaultColumns)
+    {
+        columns.emplace_back(id);
+    }
+    return columns;
+}
+
+[[nodiscard]] inline bool optionChainColumnsAreDefault(const std::vector<std::string>& columns) noexcept
+{
+    if (columns.size() != static_cast<std::size_t>(kOptionChainDefaultColumnCount))
+    {
+        return false;
+    }
+    for (int index = 0; index < kOptionChainDefaultColumnCount; ++index)
+    {
+        if (columns[static_cast<std::size_t>(index)] != kOptionChainDefaultColumns[index])
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Inserts or erases id, keeping catalog order. False when id is unknown or already in that state.
+inline bool setOptionChainColumnVisible(std::vector<std::string>& columns, std::string_view id, bool visible)
+{
+    const int catalog = optionChainColumnIndex(id);
+    if (catalog < 0)
+    {
+        return false;
+    }
+    const auto found = std::ranges::find_if(columns, [id](const std::string& column) { return column == id; });
+    if (!visible)
+    {
+        if (found == columns.end())
+        {
+            return false;
+        }
+        columns.erase(found);
+        return true;
+    }
+    if (found != columns.end())
+    {
+        return false;
+    }
+    const auto insert_at = std::ranges::find_if(columns, [catalog](const std::string& existing) {
+        return optionChainColumnIndex(existing) > catalog;
+    });
+    columns.emplace(insert_at, id);
+    return true;
+}
+
+constexpr bool optionChainDefaultsAreOrdered()
+{
+    int previous = -1;
+    for (const char* id : kOptionChainDefaultColumns)
+    {
+        const int index = optionChainColumnIndex(id);
+        if (index <= previous)
+        {
+            return false;
+        }
+        previous = index;
+    }
+    return kOptionChainDefaultColumnCount > 0;
+}
+static_assert(optionChainDefaultsAreOrdered());
+
 // One options chain. expiration is YYYYMMDD, or 0 when the panel has not chosen a date.
 // expiration_type is weekly, monthly, or empty while expiration is 0.
+// columns is the call-side field ids in catalog order. Empty shows the strike only.
+// A chartbook that omits the key loads the default set, which is not empty.
 struct ChartbookOptions
 {
     int id{0};
@@ -110,6 +235,7 @@ struct ChartbookOptions
     std::string figi;  // empty until the symbol resolves to an instrument with a FIGI
     int expiration{0};
     std::string expiration_type;
+    std::vector<std::string> columns{defaultOptionChainColumns()};
 };
 
 // One portfolio window. portfolio_id is the store id, or 0 when the window has not chosen a book.
