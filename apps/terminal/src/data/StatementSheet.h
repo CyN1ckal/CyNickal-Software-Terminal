@@ -21,9 +21,11 @@ struct StatementSheetSlot
     StatementValue value;
 };
 
+// line_item is the vendor slug. label is the analysis name drawn in the sheet.
 struct StatementSheetRow
 {
     std::string line_item;
+    std::string label;
     std::array<StatementSheetSlot, kStatementSheetPeriods> slots{};
 };
 
@@ -37,6 +39,9 @@ struct StatementSheet
 // TTM and the fiscalYear / fiscalQuarter label rows are omitted.
 // Known income summary lines stay above the remaining vendor keys.
 [[nodiscard]] StatementSheet buildStatementSheet(std::span<const StatementCell> cells);
+
+// Analysis name for a MBoum modules line slug. Unknown keys are split into words.
+[[nodiscard]] std::string statementLineLabel(std::string_view line_item);
 
 [[nodiscard]] std::string formatStatementValue(const StatementValue& value);
 

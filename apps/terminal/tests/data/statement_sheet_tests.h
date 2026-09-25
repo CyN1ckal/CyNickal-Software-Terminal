@@ -52,6 +52,9 @@ TEST_CASE("statement sheet keeps the four newest periods, newest first")
     CHECK(sheet.rows[0].line_item == "revenue");
     CHECK(sheet.rows[1].line_item == "epsdil");
     CHECK(sheet.rows[2].line_item == "aaa");
+    CHECK(sheet.rows[0].label == "Revenue");
+    CHECK(sheet.rows[1].label == "Diluted EPS");
+    CHECK(sheet.rows[2].label == "Aaa");
     CHECK(sheet.rows[0].slots[0].present);
     CHECK(std::get<std::int64_t>(sheet.rows[0].slots[0].value) == 100);
     CHECK(sheet.rows[0].slots[3].present);
@@ -74,6 +77,23 @@ TEST_CASE("statement sheet leaves unused period columns empty")
     CHECK(sheet.rows[0].slots[0].present);
     CHECK(sheet.rows[0].slots[1].present);
     CHECK_FALSE(sheet.rows[0].slots[2].present);
+}
+
+TEST_CASE("statement line labels use analysis names")
+{
+    CHECK(terminal::statementLineLabel("revenue") == "Revenue");
+    CHECK(terminal::statementLineLabel("cor") == "Cost of Revenue");
+    CHECK(terminal::statementLineLabel("gp") == "Gross Profit");
+    CHECK(terminal::statementLineLabel("opinc") == "Operating Income");
+    CHECK(terminal::statementLineLabel("netinccmn") == "Net Income to Common");
+    CHECK(terminal::statementLineLabel("epsdil") == "Diluted EPS");
+    CHECK(terminal::statementLineLabel("cashneq") == "Cash and Equivalents");
+    CHECK(terminal::statementLineLabel("defferedTaxAssets") == "Deferred Tax Assets");
+    CHECK(terminal::statementLineLabel("fcfMargin") == "Free Cash Flow Margin");
+    CHECK(terminal::statementLineLabel("accountsReceivableCM") == "Accounts Receivable (Capital Markets)");
+    CHECK(terminal::statementLineLabel("ncfo") == "Operating Cash Flow");
+    CHECK(terminal::statementLineLabel("workingcapital") == "Working Capital");
+    CHECK(terminal::statementLineLabel("someNewLineCF") == "Some New Line CF");
 }
 
 TEST_CASE("statement values format as grouped dollars, trimmed reals, and text")

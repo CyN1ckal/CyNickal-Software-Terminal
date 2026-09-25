@@ -35,6 +35,7 @@ add_library(terminal_core OBJECT
     src/platform/window/Window.cpp
     src/data/IngestWorker.cpp
     src/data/StatementSheet.cpp
+    src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
     src/risk/HistoricalRisk.cpp
     src/options/OptionPayoff.cpp
@@ -190,6 +191,7 @@ if(CYN_TESTING)
         src/chart/studies/CNBarPercentChange.cpp
         src/chart/studies/StudyRegistry.cpp
         src/data/StatementSheet.cpp
+        src/data/StatementLineLabel.cpp
         src/data/PortfolioFetch.cpp
         src/risk/HistoricalRisk.cpp
         src/options/OptionPayoff.cpp

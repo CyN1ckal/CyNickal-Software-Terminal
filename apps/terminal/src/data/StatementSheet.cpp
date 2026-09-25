@@ -172,6 +172,7 @@ StatementSheet buildStatementSheet(std::span<const StatementCell> cells)
     {
         StatementSheetRow row;
         row.line_item = line_item;
+        row.label = statementLineLabel(line_item);
         for (const StatementCell& cell : cells)
         {
             if (cell.line_item != line_item)

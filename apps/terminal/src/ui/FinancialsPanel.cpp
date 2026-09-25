@@ -10,6 +10,7 @@
 
 #include "market_data/Store.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -472,21 +473,27 @@ void FinancialsPanel::drawSheet() const
         ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
     constexpr int kColumns = 1 + kStatementSheetPeriods;
     ImFont* const mono = Theme::monoFont();
-    if (mono != nullptr)
+    const float pad = (ImGui::GetStyle().CellPadding.x * 2.0f) + 12.0f;
+    float line_width = ImGui::CalcTextSize("Line").x + pad;
+    constexpr const char* kNotes[] = {
+        "Enter a symbol and GO.",
+        "No values in the last four periods.",
+    };
+    for (const char* note : kNotes)
     {
-        ImGui::PushFont(mono);
+        line_width = std::max(line_width, ImGui::CalcTextSize(note).x + pad);
+    }
+    for (const StatementSheetRow& row : sheet_.rows)
+    {
+        line_width = std::max(line_width, ImGui::CalcTextSize(row.label.c_str()).x + pad);
     }
     if (!ImGui::BeginTable("financials_sheet", kColumns, flags, ImVec2(0.0f, 0.0f)))
     {
-        if (mono != nullptr)
-        {
-            ImGui::PopFont();
-        }
         return;
     }
     ImGui::TableSetupScrollFreeze(1, 1);
     ImGui::TableSetupColumn("Line", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide,
-                            180.0f);
+                            line_width);
     std::array<std::string, kStatementSheetPeriods> headers;
     for (int index = 0; index < kStatementSheetPeriods; ++index)
     {
@@ -511,10 +518,6 @@ void FinancialsPanel::drawSheet() const
                            active_symbol_.empty() ? "Enter a symbol and GO."
                                                   : "No values in the last four periods.");
         ImGui::EndTable();
-        if (mono != nullptr)
-        {
-            ImGui::PopFont();
-        }
         return;
     }
 
@@ -527,7 +530,11 @@ void FinancialsPanel::drawSheet() const
             const StatementSheetRow& row = sheet_.rows[static_cast<std::size_t>(row_index)];
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(row.line_item.c_str());
+            ImGui::TextUnformatted(row.label.c_str());
+            if (mono != nullptr)
+            {
+                ImGui::PushFont(mono);
+            }
             for (int column = 0; column < kStatementSheetPeriods; ++column)
             {
                 ImGui::TableSetColumnIndex(column + 1);
@@ -541,13 +548,13 @@ void FinancialsPanel::drawSheet() const
                 const bool negative = !text.empty() && text.front() == '-';
                 drawRight(text.c_str(), negative ? Theme::kDown : Theme::kText);
             }
+            if (mono != nullptr)
+            {
+                ImGui::PopFont();
+            }
         }
     }
     ImGui::EndTable();
-    if (mono != nullptr)
-    {
-        ImGui::PopFont();
-    }
 }
 
 bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWorker* ingest)
