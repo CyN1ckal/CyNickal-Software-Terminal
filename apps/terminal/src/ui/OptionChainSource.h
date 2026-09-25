@@ -51,6 +51,10 @@ public:
     [[nodiscard]] const std::string& status() const noexcept;
     [[nodiscard]] bool failed() const noexcept;
     [[nodiscard]] bool fetching() const;
+    // When the selected expiration's quotes were written. Empty until a slice is loaded.
+    [[nodiscard]] std::optional<UnixSeconds> receivedAt() const;
+    // Next refresh enqueues a fetch even when this slice is already loaded.
+    void requestData();
 
     // "2026-10-16 weekly", or empty without an expiration.
     [[nodiscard]] std::string expirationLabel() const;

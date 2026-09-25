@@ -65,6 +65,19 @@ ChartLoadResult caughtAsStatus(const std::exception& ex)
     return std::ranges::any_of(days, [](const CoverageDay& day) { return day.bar_count > 0; });
 }
 
+[[nodiscard]] std::optional<UnixSeconds> latestIngested(const std::vector<CoverageDay>& days)
+{
+    std::optional<UnixSeconds> latest;
+    for (const CoverageDay& day : days)
+    {
+        if (!latest.has_value() || day.ingested_at > *latest)
+        {
+            latest = day.ingested_at;
+        }
+    }
+    return latest;
+}
+
 }  // namespace
 
 std::string normalizeChartSymbol(std::string_view symbol)
@@ -170,6 +183,7 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
         out.last_session = last_session;
         out.first_session = first_session;
         out.sessions_used = static_cast<int>(collected.size());
+        out.received_at = latestIngested(collected);
         out.ts_begin = usRthUtcWindow(tz, first_session).start;
         out.ts_end = usRthUtcWindow(tz, last_session).end;
         if (daily)

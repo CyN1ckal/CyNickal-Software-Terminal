@@ -6,6 +6,7 @@
 #include "IngestDefaults.h"
 #include "data/PortfolioFetch.h"
 #include "risk/HistoricalRisk.h"
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include "market_data/Adjust.h"
@@ -169,50 +170,67 @@ bool withWriter(Store* reader, std::string& error, Fn&& action)
     }
 }
 
-[[nodiscard]] std::optional<std::pair<UnixSeconds, double>> latestClose(const Store& store,
-                                                                        InstrumentId id,
-                                                                        int timeframe_s)
+struct CloseSample
+{
+    UnixSeconds bar_ts{0};
+    UnixSeconds ingested_at{0};
+    double close{0.0};
+};
+
+[[nodiscard]] std::optional<CloseSample> latestClose(const Store& store, InstrumentId id, int timeframe_s)
 {
     const std::vector<CoverageDay> days = store.queryCoverageDays(id, timeframe_s);
-    UnixSeconds latest = -1;
+    const CoverageDay* best = nullptr;
     for (const CoverageDay& day : days)
     {
-        if (day.bar_count > 0 && day.last_ts.has_value() && *day.last_ts > latest)
+        const UnixSeconds day_ts = day.last_ts.value_or(-1);
+        if (day.bar_count <= 0 || day_ts < 0)
         {
-            latest = *day.last_ts;
+            continue;
+        }
+        const UnixSeconds best_ts = best == nullptr ? -1 : best->last_ts.value_or(-1);
+        if (best == nullptr || day_ts > best_ts)
+        {
+            best = &day;
         }
     }
-    if (latest < 0)
+    if (best == nullptr)
     {
         return std::nullopt;
     }
+    const UnixSeconds latest = best->last_ts.value_or(0);
     const std::vector<Bar> bars = store.queryBars(id, timeframe_s, latest, latest + 1);
     if (bars.empty())
     {
         return std::nullopt;
     }
-    return std::pair<UnixSeconds, double>{bars.back().ts, bars.back().close};
+    CloseSample sample;
+    sample.bar_ts = bars.back().ts;
+    sample.ingested_at = best->ingested_at;
+    sample.close = bars.back().close;
+    return sample;
 }
 
-[[nodiscard]] std::optional<double> equityLast(const Store& store, InstrumentId id)
+[[nodiscard]] std::optional<CloseSample> equitySample(const Store& store, InstrumentId id)
 {
-    const std::optional<std::pair<UnixSeconds, double>> daily = latestClose(store, id, kTimeframe1d);
-    const std::optional<std::pair<UnixSeconds, double>> minute = latestClose(store, id, kTimeframe1m);
+    const std::optional<CloseSample> daily = latestClose(store, id, kTimeframe1d);
+    const std::optional<CloseSample> minute = latestClose(store, id, kTimeframe1m);
     if (!daily.has_value())
     {
-        return minute.has_value() ? std::optional<double>{minute->second} : std::nullopt;
+        return minute;
     }
-    if (!minute.has_value() || minute->first <= daily->first)
+    if (!minute.has_value() || minute->bar_ts <= daily->bar_ts)
     {
-        return daily->second;
+        return daily;
     }
-    return minute->second;
+    return minute;
 }
 
 struct OptionSnapshot
 {
     double last{0.0};
     double delta{0.0};
+    UnixSeconds fetched_at{0};
 };
 
 [[nodiscard]] std::optional<OptionSnapshot> optionSnapshot(const Store& store, const PortfolioHolding& row)
@@ -237,6 +255,7 @@ struct OptionSnapshot
         OptionSnapshot snapshot;
         snapshot.last = quote.last;
         snapshot.delta = quote.delta;
+        snapshot.fetched_at = quote.fetched_at;
         return snapshot;
     }
     return std::nullopt;
@@ -875,6 +894,13 @@ void PortfolioPanel::refreshMarks(const Store& store)
 {
     lasts_.assign(drafts_.size(), std::nullopt);
     risks_.assign(drafts_.size(), HoldingRisk{});
+    std::optional<UnixSeconds> newest;
+    const auto note = [&newest](UnixSeconds ts) {
+        if (!newest.has_value() || ts > *newest)
+        {
+            newest = ts;
+        }
+    };
     for (std::size_t index = 0; index < drafts_.size(); ++index)
     {
         const PortfolioHolding& row = drafts_[index];
@@ -899,12 +925,14 @@ void PortfolioPanel::refreshMarks(const Store& store)
             }
             const OptionSnapshot quote = found.value();
             lasts_[index] = quote.last;
-            const std::optional<double> underlying = equityLast(store, instrument);
+            note(quote.fetched_at);
+            const std::optional<CloseSample> underlying = equitySample(store, instrument);
             if (!underlying.has_value())
             {
                 continue;
             }
-            const double spot = underlying.value();
+            note(underlying->ingested_at);
+            const double spot = underlying->close;
             if (!(spot > 0.0) || !std::isfinite(quote.delta))
             {
                 continue;
@@ -914,12 +942,13 @@ void PortfolioPanel::refreshMarks(const Store& store)
             risks_[index].closes = dailyCloses(store, instrument);
             continue;
         }
-        const std::optional<double> last = equityLast(store, instrument);
-        if (!last.has_value())
+        const std::optional<CloseSample> sample = equitySample(store, instrument);
+        if (!sample.has_value())
         {
             continue;
         }
-        const double price = last.value();
+        note(sample->ingested_at);
+        const double price = sample->close;
         lasts_[index] = price;
         if (!(price > 0.0))
         {
@@ -929,7 +958,43 @@ void PortfolioPanel::refreshMarks(const Store& store)
         risks_[index].unit_exposure = price;
         risks_[index].closes = dailyCloses(store, instrument);
     }
+    received_at_ = newest;
     marks_valid_ = true;
+}
+
+void PortfolioPanel::requestData(Store* store, IngestWorker* ingest)
+{
+    if (store == nullptr || ingest == nullptr || portfolio_id_ == 0)
+    {
+        return;
+    }
+    std::vector<PortfolioHolding> holdings = drafts_;
+    if (holdings.empty())
+    {
+        try
+        {
+            holdings = store->queryHoldings(portfolio_id_);
+        }
+        catch (const std::exception& ex)
+        {
+            error_ = ex.what();
+            status_ = error_;
+            return;
+        }
+    }
+    const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+    const std::vector<IngestWorker::Job> jobs = portfolioFetchJobs(*store, holdings, today, false);
+    if (jobs.empty())
+    {
+        return;
+    }
+    std::uint64_t serial = 0;
+    for (const IngestWorker::Job& job : jobs)
+    {
+        serial = std::max(serial, ingest->enqueue(job).serial);
+    }
+    refresh_serial_ = serial;
+    status_ = "fetching";
 }
 
 void PortfolioPanel::drawHoldings(const Store& store)
@@ -1467,6 +1532,15 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         priced_serial_ = ingest->snapshot().finished_serial;
         marks_valid_ = false;
     }
+    if (refresh_serial_ != 0 && ingest != nullptr &&
+        ingest->snapshot().finished_serial >= refresh_serial_)
+    {
+        refresh_serial_ = 0;
+        if (status_ == "fetching")
+        {
+            status_ = book_name_.empty() ? std::string("select a portfolio") : book_name_;
+        }
+    }
     drawBooks(*store);
     if (dirty_)
     {
@@ -1540,7 +1614,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     }
     ImGui::Separator();
     ImVec4 status_color = Theme::kMuted;
-    if (pending_)
+    if (pending_ || refresh_serial_ != 0)
     {
         status_color = Theme::kAccent;
     }
@@ -1552,11 +1626,12 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     {
         status_color = Theme::kWarn;
     }
-    ImGui::TextColored(status_color, "%s", status_.c_str());
     if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
         refreshMarks(*store);
     }
+    ImGui::TextColored(status_color, "%s", status_.c_str());
+    drawReceivedStamp(received_at_);
     const bool show_add = portfolio_id_ != 0;
     float footer = 0.f;
     if (show_add)

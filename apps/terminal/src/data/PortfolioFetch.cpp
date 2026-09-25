@@ -16,13 +16,15 @@
 
 namespace terminal {
 
-std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioId id, SessionDate today)
+std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
+                                                std::span<const PortfolioHolding> holdings,
+                                                SessionDate today,
+                                                bool missing_only)
 {
     const auto ymd = sessionDateToYmd(today);
     const SessionDate from =
         toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{kIngestDefaultDailyDays});
 
-    const std::vector<PortfolioHolding> holdings = store.queryHoldings(id);
     std::vector<IngestWorker::Job> jobs;
     // One options fetch covers every contract on that symbol and expiration date.
     std::vector<std::pair<std::string, SessionDate>> planned_options;
@@ -37,12 +39,15 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioI
         const std::string& symbol = *holding.symbol;
         if (holding.kind == PortfolioAssetKind::Equity || holding.kind == PortfolioAssetKind::Etf)
         {
-            const std::vector<CoverageDay> days = store.queryCoverageDays(instrument_id, kTimeframe1d);
-            const bool has_bars =
-                std::ranges::any_of(days, [](const CoverageDay& day) { return day.bar_count > 0; });
-            if (has_bars)
+            if (missing_only)
             {
-                continue;
+                const std::vector<CoverageDay> days = store.queryCoverageDays(instrument_id, kTimeframe1d);
+                const bool has_bars =
+                    std::ranges::any_of(days, [](const CoverageDay& day) { return day.bar_count > 0; });
+                if (has_bars)
+                {
+                    continue;
+                }
             }
             IngestWorker::Job job;
             job.symbol = symbol;
@@ -61,13 +66,17 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioI
         const OptionExpirationType expiration_type = *holding.expiration_type;
         const double strike = *holding.strike;
         const OptionRight right = *holding.right;
-        const std::vector<OptionQuote> quotes = store.queryOptionQuotes(instrument_id, expiration, expiration_type);
-        const bool matched = std::ranges::any_of(quotes, [strike, right](const OptionQuote& quote) {
-            return quote.strike == strike && quote.right == right;
-        });
-        if (matched)
+        if (missing_only)
         {
-            continue;
+            const std::vector<OptionQuote> quotes =
+                store.queryOptionQuotes(instrument_id, expiration, expiration_type);
+            const bool matched = std::ranges::any_of(quotes, [strike, right](const OptionQuote& quote) {
+                return quote.strike == strike && quote.right == right;
+            });
+            if (matched)
+            {
+                continue;
+            }
         }
         const std::pair<std::string, SessionDate> key{symbol, expiration};
         if (std::ranges::find(planned_options, key) != planned_options.end())
@@ -82,6 +91,12 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioI
         jobs.push_back(std::move(job));
     }
     return jobs;
+}
+
+std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioId id, SessionDate today,
+                                                  bool missing_only)
+{
+    return portfolioFetchJobs(store, store.queryHoldings(id), today, missing_only);
 }
 
 }  // namespace terminal

@@ -3,6 +3,7 @@
 
 #include "ui/OptionsChainPanel.h"
 
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include "market_data/Time.h"
@@ -257,6 +258,11 @@ OptionsChainPanel::OptionsChainPanel(int id) : id_(id) {}
 int OptionsChainPanel::id() const noexcept
 {
     return id_;
+}
+
+void OptionsChainPanel::requestData()
+{
+    source_.requestData();
 }
 
 bool OptionsChainPanel::windowOpen() const noexcept
@@ -560,6 +566,7 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
         status_color = Theme::kDown;
     }
     ImGui::TextColored(status_color, "%s", source_.status().c_str());
+    drawReceivedStamp(source_.receivedAt());
 
     if (ImGui::BeginChild("options_body", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders))
     {

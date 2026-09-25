@@ -57,6 +57,7 @@ private:
 
     void drawFileMenu(InventoryPanel& inventory);
     void drawViewMenu();
+    void dispatchRefresh(InventoryPanel& inventory);
     void drawTabs(float tabs_right);
     void drawModals(InventoryPanel& inventory);
     void applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVec2 size);
@@ -72,6 +73,8 @@ private:
     bool apply_layout_{true};
     bool panel_import_{true};
     bool refresh_clean_{true};
+    PanelKind armed_{PanelKind::None};
+    bool refresh_from_menu_{false};
     std::string file_error_;
     std::string modal_error_;
     bool saved_this_frame_{false};

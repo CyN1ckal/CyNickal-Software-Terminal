@@ -28,6 +28,15 @@ struct BuiltWindow
     ImGuiID dock{0};
 };
 
+[[nodiscard]] bool refreshChordPressed()
+{
+    if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+    {
+        return false;
+    }
+    return ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_R, ImGuiInputFlags_RouteAlways);
+}
+
 [[nodiscard]] std::string dockWindowName(int runtime, std::string_view window)
 {
     if (window == "data")
@@ -665,6 +674,10 @@ void ChartbookHost::drawViewMenu()
         return;
     }
     OpenBook const& open = books_[static_cast<std::size_t>(active_)];
+    if (ImGui::MenuItem("Refresh", "Ctrl+R", false, armed_ != PanelKind::None))
+    {
+        refresh_from_menu_ = true;
+    }
     const bool shown = dataShown(open);
     if (ImGui::MenuItem("DATA", nullptr, shown))
     {
@@ -1749,9 +1762,26 @@ void ChartbookHost::syncActive(InventoryPanel& inventory)
     }
 }
 
+void ChartbookHost::dispatchRefresh(InventoryPanel& inventory)
+{
+    const OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    if (armed_ == PanelKind::Data)
+    {
+        inventory.requestData();
+        return;
+    }
+    open.book->requestPanelData(armed_, store_.get(), inventory.ingestWorker());
+}
+
 void ChartbookHost::drawSpace(InventoryPanel& inventory)
 {
     OpenBook& open = books_[static_cast<std::size_t>(active_)];
+    if (refresh_from_menu_ || refreshChordPressed())
+    {
+        refresh_from_menu_ = false;
+        dispatchRefresh(inventory);
+    }
+    open.book->beginFrame();
     if (open.book->consumeLayoutRequest())
     {
         apply_layout_ = true;
@@ -1799,6 +1829,10 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
         {
             setDataShown(false);
             closed_data = true;
+            if (armed_ == PanelKind::Data)
+            {
+                armed_ = PanelKind::None;
+            }
         }
     }
     open.book->drawFinancials(store_.get(), open_error_, inventory.ingestWorker());
@@ -1806,6 +1840,14 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
     open.book->drawPortfolios(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawPayoffs(store_.get(), open_error_, inventory.ingestWorker());
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
+    if (dataShown(open) && inventory.focused())
+    {
+        armed_ = PanelKind::Data;
+    }
+    else if (open.book->frameFocus() != PanelKind::None)
+    {
+        armed_ = open.book->frameFocus();
+    }
     if (restore_tabs_)
     {
         restoreOpenTabs();

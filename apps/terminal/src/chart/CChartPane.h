@@ -51,6 +51,8 @@ public:
     void openStudies(int index = 0);
     void closeWindow();
     void requestFocus();
+    // Downloads the chart window again, including sessions that already have bars.
+    void requestData(Store* store, IngestWorker* ingest);
     void zoomBy(float delta_px);
     void scrollBy(int delta);
     void goToEnd();
@@ -116,6 +118,7 @@ private:
     std::uint64_t download_serial_{0};
     std::string download_error_;
     bool coverage_retry_{false};
+    bool refresh_requested_{false};
     std::string split_sync_symbol_;
     std::string split_sync_pending_;
     std::uint64_t split_sync_serial_{0};

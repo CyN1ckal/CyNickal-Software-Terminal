@@ -6,6 +6,7 @@
 #include "IngestDefaults.h"
 #include "RepoRoot.h"
 #include "data/IngestWorker.h"
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include "market_data/NyseCalendar.h"
@@ -310,6 +311,33 @@ void InventoryPanel::refreshDays()
     }
 }
 
+bool InventoryPanel::focused() const noexcept
+{
+    return focused_;
+}
+
+std::optional<UnixSeconds> InventoryPanel::receivedAt() const
+{
+    std::optional<UnixSeconds> latest;
+    for (const CoverageSummary& row : summaries_)
+    {
+        if (!row.last_ingested_at.has_value())
+        {
+            continue;
+        }
+        if (!latest.has_value() || *row.last_ingested_at > *latest)
+        {
+            latest = *row.last_ingested_at;
+        }
+    }
+    return latest;
+}
+
+void InventoryPanel::requestData()
+{
+    submitIngest();
+}
+
 void InventoryPanel::submitIngest()
 {
     uppercaseInPlace(symbol_);
@@ -562,6 +590,7 @@ bool InventoryPanel::draw()
     bool open = true;
     if (!ImGui::Begin(title, &open, ImGuiWindowFlags_NoSavedSettings))
     {
+        focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
         ImGui::End();
         return open;
     }
@@ -569,6 +598,7 @@ bool InventoryPanel::draw()
     if (!open_error_.empty() && store_ == nullptr)
     {
         ImGui::TextColored(Theme::kDown, "%s", open_error_.c_str());
+        focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
         ImGui::End();
         return open;
     }
@@ -578,6 +608,7 @@ bool InventoryPanel::draw()
     drawToolbar();
     ImGui::Separator();
     ImGui::TextColored(Theme::kMuted, "%s", status_.c_str());
+    drawReceivedStamp(receivedAt());
 
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     const float summary_h = avail.y * 0.58f;
@@ -591,6 +622,7 @@ bool InventoryPanel::draw()
         drawDayTable();
     }
     ImGui::EndChild();
+    focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
     ImGui::End();
     return open;
 }

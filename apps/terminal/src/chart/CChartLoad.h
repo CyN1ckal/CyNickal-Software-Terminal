@@ -37,6 +37,8 @@ struct ChartLoadResult
     int sessions_used{};
     UnixSeconds ts_begin{};
     UnixSeconds ts_end{};
+    // Newest coverage ingested_at among the sessions this load used.
+    std::optional<UnixSeconds> received_at;
 };
 
 [[nodiscard]] std::string normalizeChartSymbol(std::string_view symbol);

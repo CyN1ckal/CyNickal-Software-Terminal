@@ -14,7 +14,6 @@
 #include "imgui.h"
 
 #include <cstdio>
-#include <ctime>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -26,19 +25,6 @@ namespace {
 [[nodiscard]] bool isBusyError(std::string_view what) noexcept
 {
     return what.find("busy") != std::string_view::npos || what.find("locked") != std::string_view::npos;
-}
-
-[[nodiscard]] std::string formatFetched(UnixSeconds ts)
-{
-    std::tm parts{};
-    if (!tryUtcTm(static_cast<std::time_t>(ts), parts))
-    {
-        return {};
-    }
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d UTC", parts.tm_year + 1900, parts.tm_mon + 1,
-                  parts.tm_mday, parts.tm_hour, parts.tm_min);
-    return buf;
 }
 
 [[nodiscard]] std::string expiryLabel(const OptionExpiry& expiry)
@@ -348,11 +334,6 @@ void OptionChainSource::refresh(Store* store, IngestWorker* ingest)
                 status_ = active_symbol_ + "  " + formatSessionDate(expiration_) + " " +
                           std::string(toSql(expiration_type_)) + "  " + std::to_string(quotes_.size()) +
                           " contracts";
-                if (selected->fetched_at.has_value())
-                {
-                    status_ += "  ";
-                    status_ += formatFetched(*selected->fetched_at);
-                }
             }
         }
     }
@@ -413,6 +394,28 @@ void OptionChainSource::applyLinkedSymbol(std::string_view symbol)
     have_slice_ = false;
     active_symbol_ = normalized;
     std::snprintf(symbol_input_, sizeof(symbol_input_), "%s", active_symbol_.c_str());
+    failed_key_.clear();
+    error_.clear();
+    fetch_now_ = true;
+    needs_reload_ = true;
+}
+
+std::optional<UnixSeconds> OptionChainSource::receivedAt() const
+{
+    const OptionExpiry* selected = selectedExpiry();
+    if (selected == nullptr)
+    {
+        return std::nullopt;
+    }
+    return selected->fetched_at;
+}
+
+void OptionChainSource::requestData()
+{
+    if (active_symbol_.empty() || blocked_)
+    {
+        return;
+    }
     failed_key_.clear();
     error_.clear();
     fetch_now_ = true;

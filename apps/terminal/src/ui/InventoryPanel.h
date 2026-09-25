@@ -33,6 +33,12 @@ public:
 
     // True while the window stays open. False when the user closes it.
     bool draw();
+    // True when this window was focused on the last draw.
+    [[nodiscard]] bool focused() const noexcept;
+    // Newest coverage ingest across the names currently listed.
+    [[nodiscard]] std::optional<UnixSeconds> receivedAt() const;
+    // Queues the symbol and dates in the toolbar.
+    void requestData();
     void setWindowScope(int runtime_id) noexcept;
     void setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] ChartbookData exportData() const;
@@ -93,6 +99,7 @@ private:
     bool apply_columns_{false};
     bool ignore_settings_dirty_{false};
     int runtime_id_{0};
+    bool focused_{false};
     bool place_force_{false};
     bool place_floating_{false};
     ImGuiID place_dock_{0};

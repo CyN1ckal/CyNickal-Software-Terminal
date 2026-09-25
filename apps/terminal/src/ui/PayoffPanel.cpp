@@ -3,6 +3,7 @@
 
 #include "ui/PayoffPanel.h"
 
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include <algorithm>
@@ -23,6 +24,11 @@ PayoffPanel::PayoffPanel(int id) : id_(id) {}
 int PayoffPanel::id() const noexcept
 {
     return id_;
+}
+
+void PayoffPanel::requestData()
+{
+    source_.requestData();
 }
 
 bool PayoffPanel::windowOpen() const noexcept
@@ -92,6 +98,7 @@ void PayoffPanel::drawEntry(IngestWorker* ingest)
     ImGui::PushStyleColor(ImGuiCol_Text, status_color);
     ImGui::TextWrapped("%s", source_.status().c_str());
     ImGui::PopStyleColor();
+    drawReceivedStamp(source_.receivedAt());
     wizard_.drawEntry(source_.quotes(), source_.hasExpiration() ? source_.expiration() : 0);
 }
 

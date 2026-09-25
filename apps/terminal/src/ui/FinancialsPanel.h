@@ -10,6 +10,7 @@
 #include "imgui.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -43,6 +44,8 @@ public:
 
     // True when this window is focused.
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
+    // Next refresh enqueues a statement fetch even when a snapshot is already loaded.
+    void requestData();
 
 private:
     void drawToolbar(IngestWorker* ingest);
@@ -72,6 +75,7 @@ private:
     bool blocked_{false};
     bool fetch_now_{false};
     bool needs_reload_{true};
+    std::optional<UnixSeconds> received_at_;
     int id_{0};
     bool window_open_{true};
     bool focus_on_appear_{false};

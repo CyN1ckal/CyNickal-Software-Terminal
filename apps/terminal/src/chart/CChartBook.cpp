@@ -160,6 +160,56 @@ CChartBook::CChartBook(int runtime_id)
 {
 }
 
+void CChartBook::beginFrame() noexcept
+{
+    frame_focus_ = PanelKind::None;
+}
+
+PanelKind CChartBook::frameFocus() const noexcept
+{
+    return frame_focus_;
+}
+
+void CChartBook::requestPanelData(PanelKind kind, Store* store, IngestWorker* ingest)
+{
+    switch (kind)
+    {
+    case PanelKind::Chart:
+        if (CChartPane* pane = focused())
+        {
+            pane->requestData(store, ingest);
+        }
+        break;
+    case PanelKind::Financials:
+        if (FinancialsPanel* panel = focusedFinancialsPanel())
+        {
+            panel->requestData();
+        }
+        break;
+    case PanelKind::Options:
+        if (OptionsChainPanel* panel = focusedOptionsPanel())
+        {
+            panel->requestData();
+        }
+        break;
+    case PanelKind::Portfolio:
+        if (PortfolioPanel* panel = focusedPortfolioPanel())
+        {
+            panel->requestData(store, ingest);
+        }
+        break;
+    case PanelKind::Payoff:
+        if (PayoffPanel* panel = focusedPayoffPanel())
+        {
+            panel->requestData();
+        }
+        break;
+    case PanelKind::None:
+    case PanelKind::Data:
+        break;
+    }
+}
+
 CChartBook::~CChartBook() = default;
 
 CChartPane* CChartBook::focused()
@@ -682,6 +732,7 @@ void CChartBook::drawFinancials(Store* store, std::string_view store_error, Inge
         if (panel->draw(store, store_error, ingest))
         {
             focused_financials_id_ = panel->id();
+            frame_focus_ = PanelKind::Financials;
         }
     }
     eraseClosedFinancials();
@@ -756,6 +807,7 @@ void CChartBook::drawOptions(Store* store, std::string_view store_error, IngestW
         if (panel->draw(store, store_error, ingest))
         {
             focused_options_id_ = panel->id();
+            frame_focus_ = PanelKind::Options;
         }
     }
     eraseClosedOptions();
@@ -878,6 +930,7 @@ void CChartBook::drawPortfolios(Store* store, std::string_view store_error, Inge
         if (panel->draw(store, store_error, ingest))
         {
             focused_portfolio_id_ = panel->id();
+            frame_focus_ = PanelKind::Portfolio;
         }
     }
     eraseClosedPortfolios();
@@ -891,6 +944,7 @@ void CChartBook::drawPayoffs(Store* store, std::string_view store_error, IngestW
         if (panel->draw(store, store_error, ingest))
         {
             focused_payoff_id_ = panel->id();
+            frame_focus_ = PanelKind::Payoff;
         }
     }
     eraseClosedPayoffs();
@@ -988,6 +1042,7 @@ void CChartBook::draw(Store* store, std::string_view store_error, IngestWorker* 
         if (pane->draw(store, store_error, ingest))
         {
             focused_id_ = pane->id();
+            frame_focus_ = PanelKind::Chart;
         }
     }
     eraseClosed();

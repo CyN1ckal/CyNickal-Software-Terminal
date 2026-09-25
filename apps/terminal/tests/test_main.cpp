@@ -17,6 +17,7 @@
 #include "options/option_payoff_tests.h"
 #include "options/option_strategy_tests.h"
 #include "ui/frame_chrome_tests.h"
+#include "ui/received_stamp_tests.h"
 #include "chart/chartbook_file_tests.h"
 #include "chart/symbol_link_tests.h"
 #include "options/payoff_chartbook_tests.h"

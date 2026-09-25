@@ -43,6 +43,8 @@ public:
 
     // True when this window is focused.
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
+    // Fetches prices for the holdings on screen, including names that already have bars.
+    void requestData(Store* store, IngestWorker* ingest);
 
 private:
     void reload(Store& store);
@@ -84,7 +86,9 @@ private:
     bool show_unit_var_{true};
     int var_confidence_pct_{95};
     bool marks_valid_{false};
+    std::optional<UnixSeconds> received_at_;
     std::uint64_t priced_serial_{0};
+    std::uint64_t refresh_serial_{0};
     std::string book_name_;
     std::string status_{"select a portfolio"};
     std::string error_;

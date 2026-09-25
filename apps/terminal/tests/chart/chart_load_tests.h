@@ -166,6 +166,7 @@ TEST_CASE("loadChartBars instrument with no coverage is empty")
     const auto result = terminal::loadChartBars(store, settings);
     CHECK(result.status == terminal::ChartLoadStatus::Empty);
     CHECK(result.bars.empty());
+    CHECK_FALSE(result.received_at.has_value());
 }
 
 TEST_CASE("loadChartBars skips 0-bar holiday and ranges traded sessions")
@@ -194,6 +195,17 @@ TEST_CASE("loadChartBars skips 0-bar holiday and ranges traded sessions")
     const auto newest = terminal::usRthUtcWindow("America/New_York", 20250116);
     CHECK(result.ts_begin == oldest.start);
     CHECK(result.ts_end == newest.end);
+
+    terminal::UnixSeconds latest = -1;
+    for (const terminal::CoverageDay& day : store.queryCoverageDays(id, terminal::kTimeframe1m))
+    {
+        if (day.bar_count > 0 && day.ingested_at > latest)
+        {
+            latest = day.ingested_at;
+        }
+    }
+    REQUIRE(result.received_at.has_value());
+    CHECK(*result.received_at == latest);
 }
 
 TEST_CASE("loadChartBars collects error coverage rows with leftover bars")

@@ -73,6 +73,7 @@ add_library(terminal_gui OBJECT
     src/ui/ChartbookHost.cpp
     src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
+    src/ui/ReceivedStamp.cpp
     src/ui/FinancialsPanel.cpp
     src/ui/OptionsChainPanel.cpp
     src/ui/OptionChainSource.cpp

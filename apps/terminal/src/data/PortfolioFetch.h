@@ -11,11 +11,18 @@
 
 namespace terminal {
 
-// Open listings that still have no daily bar or matching option quote.
-// Cash and a closed listing produce nothing.
+// Open listings. Cash and a closed listing produce nothing.
+// missing_only skips an equity that already has a daily bar and an option that
+// already has a matching quote. A refresh passes false so those names are fetched again.
+[[nodiscard]] std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
+                                                                std::span<const PortfolioHolding> holdings,
+                                                                SessionDate today,
+                                                                bool missing_only = true);
+
 [[nodiscard]] std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
                                                                 PortfolioId id,
-                                                                SessionDate today);
+                                                                SessionDate today,
+                                                                bool missing_only = true);
 
 inline void enqueuePortfolioFetches(IngestWorker& worker, std::span<const IngestWorker::Job> jobs)
 {

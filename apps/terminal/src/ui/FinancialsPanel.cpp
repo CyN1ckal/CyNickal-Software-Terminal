@@ -6,6 +6,7 @@
 #include "chart/CChartLoad.h"
 #include "chart/SymbolLinkCombo.h"
 #include "data/IngestWorker.h"
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include "market_data/Store.h"
@@ -254,6 +255,7 @@ void FinancialsPanel::importState(const ChartbookFinancials& state)
     inflight_serial_ = 0;
     inflight_ = false;
     have_snapshot_ = false;
+    received_at_.reset();
     busy_ = false;
     blocked_ = false;
     fetch_now_ = false;
@@ -299,6 +301,19 @@ void FinancialsPanel::applyLinkedSymbol(std::string_view symbol)
     active_figi_.clear();
     active_symbol_ = normalized;
     std::snprintf(symbol_, sizeof(symbol_), "%s", active_symbol_.c_str());
+    failed_key_.clear();
+    error_.clear();
+    received_at_.reset();
+    fetch_now_ = true;
+    needs_reload_ = true;
+}
+
+void FinancialsPanel::requestData()
+{
+    if (active_symbol_.empty())
+    {
+        return;
+    }
     failed_key_.clear();
     error_.clear();
     fetch_now_ = true;
@@ -399,6 +414,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
     {
         sheet_ = {};
         have_snapshot_ = false;
+        received_at_.reset();
         loaded_key_ = key;
         fetch_now_ = false;
         status_ = "market data is unavailable";
@@ -408,6 +424,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
     {
         sheet_ = {};
         have_snapshot_ = false;
+        received_at_.reset();
         loaded_key_ = key;
         error_.clear();
         status_ = "enter a symbol";
@@ -434,6 +451,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
         {
             sheet_ = {};
             have_snapshot_ = false;
+            received_at_.reset();
             loaded_key_ = key;
         }
         else
@@ -444,6 +462,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
             {
                 sheet_ = {};
                 have_snapshot_ = false;
+                received_at_.reset();
                 loaded_key_ = key;
             }
             else
@@ -452,6 +471,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
                     store->queryStatementCells(found->id, statement_, timeframe_);
                 sheet_ = buildStatementSheet(cells);
                 have_snapshot_ = true;
+                received_at_ = snapshot->fetched_at;
                 loaded_key_ = key;
                 error_.clear();
                 if (sheet_.rows.empty())
@@ -477,6 +497,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
             {
                 sheet_ = {};
                 have_snapshot_ = false;
+                received_at_.reset();
             }
             needs_reload_ = true;
             status_ = "database busy";
@@ -485,6 +506,7 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
         }
         sheet_ = {};
         have_snapshot_ = false;
+        received_at_.reset();
         loaded_key_ = key;
         error_ = ex.what();
         status_ = error_;
@@ -760,6 +782,7 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
                        periodLabel(timeframe_)
                  : status_;
     ImGui::TextColored(status_color, "%s", shown.c_str());
+    drawReceivedStamp(received_at_);
 
     if (ImGui::BeginChild("financials_body", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders))
     {

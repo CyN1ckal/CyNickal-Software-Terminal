@@ -183,6 +183,11 @@ TEST_CASE("open equity and etf listings with no positive daily bars plan a daily
 
     writeCoverage(store, spy, terminal::kTimeframe1d, 1);
     CHECK(terminal::portfolioFetchJobs(store, book, kFetchToday).empty());
+
+    const auto refresh = terminal::portfolioFetchJobs(store, book, kFetchToday, false);
+    REQUIRE(refresh.size() == 2);
+    checkDailyJob(refresh[0], "AAPL");
+    checkDailyJob(refresh[1], "SPY");
 }
 
 TEST_CASE("relinkSymbol plans the new ticker")
@@ -226,6 +231,7 @@ TEST_CASE("a closed listing plans no fetch")
     store.closeListing(id, at->created_at, terminal::ListingCloseReason::Delisted);
 
     CHECK(terminal::portfolioFetchJobs(store, book, kFetchToday).empty());
+    CHECK(terminal::portfolioFetchJobs(store, book, kFetchToday, false).empty());
     const auto rows = store.queryHoldings(book);
     REQUIRE(rows.size() == 1);
     CHECK_FALSE(rows[0].listing_open);
@@ -276,6 +282,10 @@ TEST_CASE("an option without a matching quote plans one job per underlying and e
     replaceQuotes(store, aapl, kNear, terminal::OptionExpirationType::Weekly,
                   {makeQuote(aapl, kNear, terminal::OptionExpirationType::Weekly, 100.0, terminal::OptionRight::Call)});
     CHECK(terminal::portfolioFetchJobs(store, book, kFetchToday).empty());
+    const auto refresh = terminal::portfolioFetchJobs(store, book, kFetchToday, false);
+    REQUIRE(refresh.size() == 2);
+    checkOptionJob(refresh[0], "$SPX", kNear);
+    checkOptionJob(refresh[1], "AAPL", kNear);
 
     holdings.push_back(makeOption(spx_figi, kFar, terminal::OptionExpirationType::Monthly, 3200.0,
                                   terminal::OptionRight::Call, 1));

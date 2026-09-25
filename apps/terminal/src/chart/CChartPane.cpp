@@ -8,6 +8,7 @@
 #include "chart/CStudyCompute.h"
 #include "chart/CStudySettings.h"
 #include "data/IngestWorker.h"
+#include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
 
 #include "market_data/Time.h"
@@ -551,6 +552,61 @@ void CChartPane::applyLiveSettings(Store* store, std::string_view store_error, I
         }
     }
     reload(store, store_error);
+}
+
+void CChartPane::requestData(Store* store, IngestWorker* ingest)
+{
+    refresh_requested_ = false;
+    download_error_.clear();
+    if (store == nullptr || normalizeChartSymbol(settings_.symbol).empty() ||
+        !isChartSettingsSupported(settings_))
+    {
+        return;
+    }
+
+    ChartDownloadRequest window;
+    try
+    {
+        const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+        window = chartDownloadWindow(settings_, today);
+        const std::optional<Instrument> found =
+            resolveChartInstrument(*store, settings_.figi, window.symbol);
+        if (found.has_value())
+        {
+            if (!found->listing_open)
+            {
+                return;
+            }
+            window.symbol = found->symbol;
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        if (isStoreBusyError(ex.what()))
+        {
+            refresh_requested_ = true;
+            return;
+        }
+        download_error_ = ex.what();
+        return;
+    }
+
+    if (window.symbol.empty())
+    {
+        return;
+    }
+    pending_download_ = window;
+    if (ingest == nullptr)
+    {
+        download_error_ = "ingest worker is not running";
+        return;
+    }
+    IngestWorker::Job job;
+    job.symbol = window.symbol;
+    job.from = window.from;
+    job.to = window.to;
+    job.timeframe_s = window.timeframe_s;
+    download_serial_ = ingest->enqueue(std::move(job)).serial;
 }
 
 void CChartPane::requestMissingData(Store* store, IngestWorker* ingest)
@@ -1189,15 +1245,17 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
 
     const char* period_label = chartPeriodCode(settings_.period);
     const char* scale_label = chartScaleStripLabel(settings_.scale_range);
+    const std::string received =
+        loaded_.received_at.has_value() ? formatReceivedUtc(*loaded_.received_at) : std::string{};
+    const float received_w = received.empty() ? 0.0f : ImGui::CalcTextSize(received.c_str()).x;
     const float right_w = buttonWidth(period_label) + gap + buttonWidth(scale_label);
-    float period_x = row_x + width - right_w;
+    const float received_span = received_w > 0.0f ? received_w + gap : 0.0f;
+    const float period_x = std::max(row_x, row_x + width - right_w);
+    const float received_x = period_x - received_span;
+    const bool show_received = received_span > 0.0f && received_x >= row_x;
+    const float legend_limit = show_received ? received_x : period_x;
     float legend_x = row_x;
-    float legend_w = period_x - gap - row_x;
-    if (legend_w < 0.0f)
-    {
-        legend_w = 0.0f;
-        period_x = row_x;
-    }
+    float legend_w = std::max(0.0f, legend_limit - gap - row_x);
     // A failed reload keeps the candles. The line sits on the strip, left of the period control.
     if (!loaded_.bars.empty() && loaded_.status == ChartLoadStatus::Error && legend_w > 0.0f)
     {
@@ -1217,6 +1275,21 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     if (legend_w > 0.0f)
     {
         drawStudyLegend(ImVec2(legend_x, row_y), legend_w);
+    }
+    bool stamp_hovered = false;
+    if (show_received)
+    {
+        const float text_y = origin.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
+        const ImVec2 stamp_pos(origin.x + (received_x - row_x), text_y);
+        draw->AddText(stamp_pos, ImGui::GetColorU32(Theme::kTextDim), received.c_str());
+        const ImVec2 stamp_min(stamp_pos.x, origin.y);
+        const ImVec2 stamp_max(stamp_pos.x + received_w, origin.y + row_h);
+        const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+        stamp_hovered = !popup && ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(stamp_min, stamp_max);
+        if (stamp_hovered)
+        {
+            ImGui::SetTooltip("Data received");
+        }
     }
 
     ImGui::SetCursorPos(ImVec2(period_x, row_y));
@@ -1261,7 +1334,8 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     }
 
     const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
-    if (legend_w < kLegendHoverMin && !popup && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() &&
+    if (!stamp_hovered && legend_w < kLegendHoverMin && !popup && ImGui::IsWindowHovered() &&
+        !ImGui::IsAnyItemHovered() &&
         ImGui::IsMouseHoveringRect(origin, ImVec2(origin.x + width, origin.y + row_h)))
     {
         showEnabledStudyTooltip();
@@ -1668,7 +1742,11 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
         if (now - last_reload_ >= kReloadInterval)
         {
             reload(store, store_error);
-            if (coverage_retry_ && download_serial_ == 0)
+            if (download_serial_ == 0 && refresh_requested_)
+            {
+                requestData(store, ingest);
+            }
+            else if (coverage_retry_ && download_serial_ == 0)
             {
                 requestMissingData(store, ingest);
             }

@@ -12,6 +12,7 @@
 
 #include "imgui.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -22,6 +23,18 @@ namespace terminal {
 class CChartPane;
 class IngestWorker;
 class Store;
+
+// Which panel last took focus. Data is the inventory window, owned outside the book.
+enum class PanelKind : std::uint8_t
+{
+    None = 0,
+    Data,
+    Chart,
+    Financials,
+    Options,
+    Portfolio,
+    Payoff,
+};
 
 class CChartBook
 {
@@ -35,6 +48,9 @@ public:
     CChartBook& operator=(CChartBook&&) = delete;
 
     void drawMenu();
+    void beginFrame() noexcept;
+    [[nodiscard]] PanelKind frameFocus() const noexcept;
+    void requestPanelData(PanelKind kind, Store* store, IngestWorker* ingest);
     void draw(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawOptions(Store* store, std::string_view store_error, IngestWorker* ingest);
@@ -100,6 +116,7 @@ private:
     [[nodiscard]] const PayoffPanel* findPayoff(int payoff_id) const;
 
     int runtime_id_{0};
+    PanelKind frame_focus_{PanelKind::None};
     std::string name_;
     ChartbookData data_{};
     ChartbookLayout layout_{};

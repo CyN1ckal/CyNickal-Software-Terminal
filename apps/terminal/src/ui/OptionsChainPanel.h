@@ -46,6 +46,7 @@ public:
 
     // True when this window is focused.
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void requestData();
 
 private:
     void drawColumnMenu();
