@@ -73,7 +73,7 @@ struct ChartbookFloating
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
 // A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", "payoff:<id>",
-// "ledger:<id>", "stats:<id>", or "pane:<id>") and selected.
+// "ledger:<id>", "stats:<id>", "backtest:<id>", or "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -291,6 +291,21 @@ struct ChartbookLedger
     std::string tab{"positions"};
 };
 
+// One backtest window: the inputs of its next run. Runs themselves live in the store.
+// params and config are JSON objects (strategyParamsJson, backtestConfigJson). period is a
+// chart period code. from and to are YYYY-MM-DD, or empty for the window's default range.
+struct ChartbookBacktest
+{
+    int id{0};
+    std::string strategy{"ma_cross"};
+    std::string params{"{}"};
+    std::string symbol;
+    std::string period{"1d"};
+    std::string from;
+    std::string to;
+    std::string config{"{}"};
+};
+
 // One statistics window. ledger_id is the store id of the ledger it measures, or 0 before
 // one is chosen. benchmark is a symbol compared by buy-and-hold; empty means none.
 struct ChartbookStats
@@ -327,6 +342,8 @@ struct CChartbookDocument
     int next_payoff_id{1};
     int focused_ledger{0};
     int next_ledger_id{1};
+    int focused_backtest{0};
+    int next_backtest_id{1};
     int focused_stats{0};
     int next_stats_id{1};
     ChartbookData data{};
@@ -338,6 +355,7 @@ struct CChartbookDocument
     std::vector<ChartbookPortfolio> portfolios;
     std::vector<ChartbookPayoff> payoffs;
     std::vector<ChartbookLedger> ledgers;
+    std::vector<ChartbookBacktest> backtests;
     std::vector<ChartbookStats> stats;
 };
 
@@ -461,6 +479,32 @@ struct CChartbookDocument
     return stats_id > 0;
 }
 
+[[nodiscard]] inline std::string backtestWindowId(int backtest_id)
+{
+    return "backtest:" + std::to_string(backtest_id);
+}
+
+// True when window is "backtest:<id>" and the id is a positive integer of at most 9 digits.
+[[nodiscard]] inline bool backtestIdFromWindow(std::string_view window, int& backtest_id) noexcept
+{
+    constexpr std::string_view prefix = "backtest:";
+    if (!window.starts_with(prefix) || window.size() > prefix.size() + 9)
+    {
+        return false;
+    }
+    backtest_id = 0;
+    for (const char digit : window.substr(prefix.size()))
+    {
+        if (digit < '0' || digit > '9')
+        {
+            backtest_id = 0;
+            return false;
+        }
+        backtest_id = (backtest_id * 10) + (digit - '0');
+    }
+    return backtest_id > 0;
+}
+
 // True when window is "options:<id>" and the id is a positive integer of at most 9 digits.
 [[nodiscard]] inline bool optionsIdFromWindow(std::string_view window, int& options_id) noexcept
 {
@@ -528,6 +572,9 @@ void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id);
 // Dock one ledger window the same way a new chart pane docks.
 void chartbookInsertLedger(ChartbookLayout& layout, int ledger_id);
 
+// Dock one Backtest window the same way a new chart pane docks.
+void chartbookInsertBacktest(ChartbookLayout& layout, int backtest_id);
+
 // Dock one Statistics window the same way a new chart pane docks.
 void chartbookInsertStats(ChartbookLayout& layout, int stats_id);
 
@@ -550,6 +597,8 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 [[nodiscard]] bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id);
 
 [[nodiscard]] bool chartbookLedgerIsOpen(const CChartbookDocument& document, int ledger_id);
+
+[[nodiscard]] bool chartbookBacktestIsOpen(const CChartbookDocument& document, int backtest_id);
 
 [[nodiscard]] bool chartbookStatsIsOpen(const CChartbookDocument& document, int stats_id);
 

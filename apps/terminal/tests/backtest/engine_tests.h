@@ -102,6 +102,24 @@ TEST_CASE("zero-cost buy and hold returns the price move from the first open")
     CHECK(result.position.back() == 0.0);
 }
 
+TEST_CASE("a held target is not rebalanced as equity moves")
+{
+    std::vector<terminal::Bar> bars;
+    for (int day = 0; day < 10; ++day)
+    {
+        const double price = 100.0 + (day * 3.0);
+        bars.push_back(engineBar(day, price, price, price, price));
+    }
+    terminal::BacktestConfig config;
+    config.initial_cash = 10'000.0;
+    config.close_at_end = false;
+    const std::vector<double> targets(10, 1.0);
+    const auto result = runEngine(bars, targets, config);
+    REQUIRE(result.fills.size() == 1);
+    CHECK(result.fills[0].quantity == 100.0);
+    CHECK(result.position.back() == 100.0);
+}
+
 TEST_CASE("slippage and commission move every fill against the trader")
 {
     auto config = sharesConfig(10);

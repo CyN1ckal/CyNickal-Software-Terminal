@@ -46,6 +46,8 @@ add_library(terminal_core OBJECT
     src/ui/TradingFormat.cpp
     src/backtest/Strategy.cpp
     src/backtest/Engine.cpp
+    src/backtest/BacktestJob.cpp
+    src/backtest/BacktestWorker.cpp
     src/backtest/strategies/MaCross.cpp
     src/backtest/strategies/BollingerRevert.cpp
     src/backtest/strategies/Momentum.cpp
@@ -94,6 +96,7 @@ add_library(terminal_gui OBJECT
     src/ui/TradingWidgets.cpp
     src/ui/LedgerPanel.cpp
     src/ui/StatsPanel.cpp
+    src/ui/BacktestPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp
@@ -217,6 +220,8 @@ if(CYN_TESTING)
         src/ui/TradingFormat.cpp
         src/backtest/Strategy.cpp
         src/backtest/Engine.cpp
+        src/backtest/BacktestJob.cpp
+        src/backtest/BacktestWorker.cpp
         src/backtest/strategies/MaCross.cpp
         src/backtest/strategies/BollingerRevert.cpp
         src/backtest/strategies/Momentum.cpp

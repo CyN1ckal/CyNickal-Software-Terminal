@@ -180,6 +180,11 @@ void LedgerPanel::setPlacement(bool force, bool floating, ImGuiID dock, ImVec2 p
     place_size_ = size;
 }
 
+void LedgerPanel::showLedger(LedgerId id)
+{
+    selectLedger(id);
+}
+
 bool LedgerPanel::editable() const noexcept
 {
     return ledger_id_ != 0 && ledger_kind_ == LedgerKind::Manual;

@@ -154,6 +154,15 @@ ChartbookStats StatsPanel::exportState() const
     return state;
 }
 
+void StatsPanel::showLedger(LedgerId id)
+{
+    ledger_id_ = id;
+    loaded_ = false;
+    fetched_missing_ = false;
+    stale_ = true;
+    error_.clear();
+}
+
 void StatsPanel::setWindowScope(int runtime_id) noexcept
 {
     runtime_id_ = runtime_id;

@@ -913,6 +913,53 @@ TEST_CASE("statistics windows round trip their ledger and benchmark")
     CHECK(refused.error == "stats benchmark is invalid");
 }
 
+TEST_CASE("backtest windows round trip their inputs as JSON objects")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertBacktest(document.layout, 1);
+    terminal::ChartbookBacktest panel;
+    panel.id = 1;
+    panel.strategy = "bollinger_revert";
+    panel.params = R"({"length":20,"deviations":2,"direction":"long"})";
+    panel.symbol = "MSFT";
+    panel.period = "1h";
+    panel.from = "2026-01-02";
+    panel.to = "2026-06-30";
+    panel.config = R"({"initial_cash":5000.0})";
+    document.backtests.push_back(panel);
+    document.focused_backtest = 1;
+    document.next_backtest_id = 2;
+    const std::string text = terminal::chartbookToJson(document);
+    CHECK(text.find(R"("deviations": 2)") != std::string::npos);
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(text);
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.backtests.size() == 1);
+    const auto& back = loaded.document.backtests[0];
+    CHECK(back.strategy == "bollinger_revert");
+    CHECK(back.symbol == "MSFT");
+    CHECK(back.period == "1h");
+    CHECK(back.from == "2026-01-02");
+    CHECK(back.to == "2026-06-30");
+    CHECK(back.params.find("\"deviations\":2") != std::string::npos);
+    CHECK(back.config == R"({"initial_cash":5000.0})");
+    CHECK(terminal::chartbookBacktestIsOpen(loaded.document, 1));
+
+    const char* bad = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_backtest_id": 2,
+        "data": {},
+        "backtests": [{"id": 1, "params": [1, 2]}],
+        "layout": {"windows": ["backtest:1"], "selected": "backtest:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(bad);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "backtest window is invalid");
+}
+
 TEST_CASE("portfolio risk view round trips and a book without it keeps the defaults")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");

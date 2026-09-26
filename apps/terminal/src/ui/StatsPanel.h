@@ -41,6 +41,8 @@ public:
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
     // Fetches daily history for every traded share and the benchmark.
     void requestData(Store* store, IngestWorker* ingest);
+    // Switches the window to one ledger, as a backtest window's "Open in Statistics" does.
+    void showLedger(LedgerId id);
 
 private:
     void reload(const Store& store, IngestWorker* ingest);

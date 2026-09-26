@@ -42,6 +42,8 @@ public:
     bool draw(Store* store, std::string_view store_error, IngestWorker* ingest);
     // Fetches prices for the open positions, including names that already have bars.
     void requestData(Store* store, IngestWorker* ingest);
+    // Switches the window to one ledger, as a backtest window's "Open ledger" does.
+    void showLedger(LedgerId id);
 
 private:
     enum class Tab : std::uint8_t

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PRs 1–6 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER and STATS panels, the backtest engine and strategies. |
+| Status | Draft. PRs 1–7 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER and STATS panels, the backtest engine and strategies, the BACKTEST panel. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -106,7 +106,7 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_core` and is tested 
 - Stop-loss and take-profit are engine settings, checked against each later bar's low and high. A bar that gaps through the level fills at its open. When one bar touches both, the stop fills first. After either exit the engine stays flat until the strategy's target changes.
 - `close_at_end` (on by default) closes the last position at the last close, so every trade is a round trip.
 - Costs: commission per share, a minimum per order, and slippage in basis points against the trader.
-- Sizing: fixed shares, fixed notional, or a percent of equity, rounded down to whole shares.
+- Sizing: fixed shares, fixed notional, or a percent of equity, rounded down to whole shares. A position is sized when its target changes, not rebalanced every bar.
 - Optional flatten at the last bar of each session for intraday runs.
 - Bars are split-adjusted before the run.
 
@@ -124,7 +124,7 @@ Each follows the PORTFOLIO pattern: a `PanelKind`, a panel vector in `CChartBook
 |---|---|
 | LEDGER | `ui/LedgerPanel`. Ledger picker and a Ledger menu (new, rename, delete with a confirmation). A summary row: deposits, cash, position value, equity, realized, unrealized after open fees, fees. Tabs **Positions** (open lots marked by `data/LedgerMarks`: the newer of the daily and 1-minute close, or the chain's last print for an option), **Closed** (round trips, newest first), **Fills**, and **Cash**. Manual ledgers get an add-fill row (symbol, shares or option, side, quantity, price, fees, New York time, note; a date alone is the 16:00 close) and an add-cash row; right-click a fill or cash row to delete it. A symbol with no listing is fetched first, as PORTFOLIO does. Backtest ledgers hide both. The chartbook saves the chosen ledger and tab. Ctrl+R fetches marks through `portfolioFetchJobs`. Shared text lives in `ui/TradingFormat`, shared widgets in `ui/TradingWidgets`. |
 | STATS | `ui/StatsPanel`, bound to one ledger, manual or backtest, with a benchmark symbol (SPY by default, empty for none). `data/LedgerAnalysis::analyzeLedger` evaluates the ledger at every stored daily close of the shares it traded; shares with no closes are named and held at cost. A table of returns (net profit, total return, CAGR, buy-and-hold benchmark, exposure), risk (volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, one-period VaR and CVaR), and trades. Charts: time-weighted return against the benchmark (`kAccent` and `kTextDim`), drawdown (`kDanger` wash), and net profit per closed trade (`kUp` and `kDown`). Opening a ledger fetches missing daily history once; Ctrl+R refetches all of it. The chartbook saves the ledger and benchmark. No new hues. |
-| BACKTEST | Strategy, its inputs, symbol with a link group, period, range, costs, sizing. Run. Past runs with **Open in Stats** and **Show on chart**. Runs execute on a `BacktestWorker` thread with its own `Reader` and `Writer` connections. |
+| BACKTEST | `ui/BacktestPanel`. Strategy and its inputs, symbol, period (1d, 1h, 15m, 5m, 1m), range (two years of daily or 20 days of intraday by default), starting cash, sizing, commission, slippage, stop, take-profit, session flattening, close at the end. Run downloads missing bars through `IngestWorker` first, then runs on a `BacktestWorker` thread with its own writer. `backtest/BacktestJob::runAndRecordBacktest` loads split-adjusted bars (1-minute bars composited for 5m–1h), runs the engine, converts fills back to as-traded shares and prices (`unadjustFill`), and records the ledger, starting capital, fills, and run in one transaction. The result offers **Open in Statistics** and **Open Ledger**; the runs table offers those, **Load Inputs**, and **Delete Run**. The chartbook saves the inputs. The symbol link group and chart markers are later work. |
 
 The chart pane gains an optional ledger overlay: buy and sell markers at fill times, up and down colors for direction.
 

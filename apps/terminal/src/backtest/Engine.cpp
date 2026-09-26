@@ -190,6 +190,7 @@ BacktestResult runTargets(std::span<const Bar> bars,
     }
     Simulator sim(config, instrument_id, kind);
     double target = 0.0;
+    double sized_target = 0.0;      // the target the current position was sized for
     std::optional<double> pending;  // shares wanted at the next open
     std::optional<double> blocked;  // target that a protective exit closed
 
@@ -226,9 +227,13 @@ BacktestResult runTargets(std::span<const Bar> bars,
         {
             blocked.reset();
         }
-        if (!last && !blocked.has_value())
+        // Size on a new target, or to re-enter from flat (after a session close). A held
+        // position is not rebalanced as prices move.
+        const bool resize = target != sized_target || (sim.shares() == 0.0 && target != 0.0);
+        if (!last && !blocked.has_value() && resize)
         {
             const double desired = sim.desiredShares(target, bar.close);
+            sized_target = target;
             if (desired != sim.shares())
             {
                 pending = desired;

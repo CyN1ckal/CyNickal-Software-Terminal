@@ -1531,6 +1531,106 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return true;
 }
 
+[[nodiscard]] bool acceptBacktestId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "backtest id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.backtests, [id](const ChartbookBacktest& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_backtest_id <= id)
+    {
+        return fail(error, "backtest id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json backtestsToJson(const std::vector<ChartbookBacktest>& panels)
+{
+    json array = json::array();
+    for (const ChartbookBacktest& panel : panels)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["strategy"] = panel.strategy;
+        const json params = json::parse(panel.params, nullptr, false);
+        object["params"] = params.is_object() ? params : json::object();
+        object["symbol"] = panel.symbol;
+        object["period"] = panel.period;
+        object["from"] = panel.from;
+        object["to"] = panel.to;
+        const json config = json::parse(panel.config, nullptr, false);
+        object["config"] = config.is_object() ? config : json::object();
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool backtestsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "backtests is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_backtest_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "backtests", item, error))
+        {
+            return false;
+        }
+        ChartbookBacktest panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "backtest id is missing");
+        }
+        const auto readText = [&](const char* key, std::string& out, std::size_t limit) {
+            if (!item->contains(key))
+            {
+                return true;
+            }
+            if (!item->at(key).is_string() || item->at(key).get<std::string>().size() > limit)
+            {
+                return false;
+            }
+            out = item->at(key).get<std::string>();
+            return true;
+        };
+        const auto readObjectText = [&](const char* key, std::string& out) {
+            if (!item->contains(key))
+            {
+                return true;
+            }
+            if (!item->at(key).is_object())
+            {
+                return false;
+            }
+            out = item->at(key).dump();
+            return true;
+        };
+        if (!readText("strategy", panel.strategy, 64) || !readText("symbol", panel.symbol, 32) ||
+            !readText("period", panel.period, 8) || !readText("from", panel.from, 10) ||
+            !readText("to", panel.to, 10) || !readObjectText("params", panel.params) ||
+            !readObjectText("config", panel.config))
+        {
+            return fail(error, "backtest window is invalid");
+        }
+        if (!acceptBacktestId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.backtests.push_back(std::move(panel));
+    }
+    return true;
+}
+
 [[nodiscard]] bool acceptStatsId(const CChartbookDocument& document, int id, std::string& error)
 {
     if (id <= 0)
@@ -1772,10 +1872,11 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     int payoff_id = 0;
     int ledger_id = 0;
     int stats_id = 0;
+    int backtest_id = 0;
     if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
         optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id) ||
         payoffIdFromWindow(window, payoff_id) || ledgerIdFromWindow(window, ledger_id) ||
-        statsIdFromWindow(window, stats_id))
+        statsIdFromWindow(window, stats_id) || backtestIdFromWindow(window, backtest_id))
     {
         return true;
     }
@@ -2189,6 +2290,21 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
     }
     for (const std::string& window : windows)
     {
+        int backtest_id = 0;
+        if (!backtestIdFromWindow(window, backtest_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.backtests, [&](const ChartbookBacktest& panel) {
+            return panel.id == backtest_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing backtest panel");
+        }
+    }
+    for (const std::string& window : windows)
+    {
         int stats_id = 0;
         if (!statsIdFromWindow(window, stats_id))
         {
@@ -2302,6 +2418,8 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_payoff_id"] = document.next_payoff_id;
     root["focused_ledger"] = document.focused_ledger;
     root["next_ledger_id"] = document.next_ledger_id;
+    root["focused_backtest"] = document.focused_backtest;
+    root["next_backtest_id"] = document.next_backtest_id;
     root["focused_stats"] = document.focused_stats;
     root["next_stats_id"] = document.next_stats_id;
     root["data"] = dataToJson(document.data);
@@ -2310,6 +2428,7 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["portfolios"] = portfoliosToJson(document.portfolios);
     root["payoffs"] = payoffsToJson(document.payoffs);
     root["ledgers"] = ledgersToJson(document.ledgers);
+    root["backtests"] = backtestsToJson(document.backtests);
     root["stats"] = statsToJson(document.stats);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
@@ -2587,6 +2706,40 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         if (!focused_ok)
         {
             result.error = "focused ledger is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_backtest_present = false;
+    if (object->contains("next_backtest_id"))
+    {
+        next_backtest_present = true;
+        if (!readInt(*object, "next_backtest_id", result.document.next_backtest_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_backtest") &&
+        !readInt(*object, "focused_backtest", result.document.focused_backtest, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("backtests") &&
+        !backtestsFromJson(object->at("backtests"), result.document, next_backtest_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_backtest != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.backtests, [&](const ChartbookBacktest& panel) {
+            return panel.id == result.document.focused_backtest;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused backtest is missing";
             result.document = {};
             return result;
         }

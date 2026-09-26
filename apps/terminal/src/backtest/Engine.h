@@ -60,7 +60,8 @@ struct BacktestResult
 };
 
 // Fills a target series. A change in target at bar i's close becomes an order at
-// bar i + 1's open; nothing fills on the bar that decided it.
+// bar i + 1's open; nothing fills on the bar that decided it. A position is sized
+// when its target changes and is not rebalanced while the target holds.
 //
 // Stop-loss and take-profit are checked against every bar a position is open,
 // including the bar it opened on. A bar that opens beyond a level fills at its open;

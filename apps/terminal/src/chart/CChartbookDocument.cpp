@@ -307,6 +307,11 @@ void chartbookInsertLedger(ChartbookLayout& layout, int ledger_id)
     chartbookInsertWindow(layout, ledgerWindowId(ledger_id));
 }
 
+void chartbookInsertBacktest(ChartbookLayout& layout, int backtest_id)
+{
+    chartbookInsertWindow(layout, backtestWindowId(backtest_id));
+}
+
 void chartbookInsertStats(ChartbookLayout& layout, int stats_id)
 {
     chartbookInsertWindow(layout, statsWindowId(stats_id));
@@ -378,6 +383,11 @@ bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id)
 bool chartbookLedgerIsOpen(const CChartbookDocument& document, int ledger_id)
 {
     return chartbookWindowReferenced(document, ledgerWindowId(ledger_id));
+}
+
+bool chartbookBacktestIsOpen(const CChartbookDocument& document, int backtest_id)
+{
+    return chartbookWindowReferenced(document, backtestWindowId(backtest_id));
 }
 
 bool chartbookStatsIsOpen(const CChartbookDocument& document, int stats_id)
