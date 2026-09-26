@@ -38,6 +38,7 @@ add_library(terminal_core OBJECT
     src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
     src/data/LedgerMarks.cpp
+    src/data/LedgerAnalysis.cpp
     src/risk/HistoricalRisk.cpp
     src/trading/Ledger.cpp
     src/trading/EquityCurve.cpp
@@ -87,6 +88,7 @@ add_library(terminal_gui OBJECT
     src/ui/PortfolioPanel.cpp
     src/ui/TradingWidgets.cpp
     src/ui/LedgerPanel.cpp
+    src/ui/StatsPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp
@@ -202,6 +204,7 @@ if(CYN_TESTING)
         src/data/StatementLineLabel.cpp
         src/data/PortfolioFetch.cpp
         src/data/LedgerMarks.cpp
+        src/data/LedgerAnalysis.cpp
         src/risk/HistoricalRisk.cpp
         src/trading/Ledger.cpp
         src/trading/EquityCurve.cpp

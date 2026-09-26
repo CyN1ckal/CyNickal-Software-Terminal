@@ -12,6 +12,7 @@
 #include "chart/chart_transform_tests.h"
 #include "chart/chart_view_tests.h"
 #include "data/statement_sheet_tests.h"
+#include "data/ledger_analysis_tests.h"
 #include "data/ledger_marks_tests.h"
 #include "data/portfolio_fetch_tests.h"
 #include "risk/historical_risk_tests.h"

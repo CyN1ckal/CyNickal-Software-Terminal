@@ -876,6 +876,43 @@ TEST_CASE("ledger windows round trip and a layout naming a missing ledger is ref
     CHECK_FALSE(terminal::chartbookFromJson(no_next).ok);
 }
 
+TEST_CASE("statistics windows round trip their ledger and benchmark")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertStats(document.layout, 1);
+    CHECK(terminal::chartbookStatsIsOpen(document, 1));
+    terminal::ChartbookStats panel;
+    panel.id = 1;
+    panel.ledger_id = 5;
+    panel.benchmark = "QQQ";
+    document.stats.push_back(panel);
+    document.focused_stats = 1;
+    document.next_stats_id = 2;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.stats.size() == 1);
+    CHECK(loaded.document.stats[0].ledger_id == 5);
+    CHECK(loaded.document.stats[0].benchmark == "QQQ");
+    CHECK(loaded.document.focused_stats == 1);
+    CHECK(terminal::chartbookStatsIsOpen(loaded.document, 1));
+
+    const char* bad = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_stats_id": 2,
+        "data": {},
+        "stats": [{"id": 1, "ledger": 2, "benchmark": "WAY-TOO-LONG-SYMBOL"}],
+        "layout": {"windows": ["stats:1"], "selected": "stats:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(bad);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "stats benchmark is invalid");
+}
+
 TEST_CASE("portfolio risk view round trips and a book without it keeps the defaults")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");

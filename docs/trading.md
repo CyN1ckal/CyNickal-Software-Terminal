@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PRs 1–4 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER panel. |
+| Status | Draft. PRs 1–5 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER and STATS panels. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -122,7 +122,7 @@ Each follows the PORTFOLIO pattern: a `PanelKind`, a panel vector in `CChartBook
 | Panel | Contents |
 |---|---|
 | LEDGER | `ui/LedgerPanel`. Ledger picker and a Ledger menu (new, rename, delete with a confirmation). A summary row: deposits, cash, position value, equity, realized, unrealized after open fees, fees. Tabs **Positions** (open lots marked by `data/LedgerMarks`: the newer of the daily and 1-minute close, or the chain's last print for an option), **Closed** (round trips, newest first), **Fills**, and **Cash**. Manual ledgers get an add-fill row (symbol, shares or option, side, quantity, price, fees, New York time, note; a date alone is the 16:00 close) and an add-cash row; right-click a fill or cash row to delete it. A symbol with no listing is fetched first, as PORTFOLIO does. Backtest ledgers hide both. The chartbook saves the chosen ledger and tab. Ctrl+R fetches marks through `portfolioFetchJobs`. Shared text lives in `ui/TradingFormat`, shared widgets in `ui/TradingWidgets`. |
-| STATS | Bound to one ledger, manual or backtest. Statistics table, equity curve (`kAccent`), drawdown (`kDanger` wash), histogram of trade returns, per-symbol table. No new hues. |
+| STATS | `ui/StatsPanel`, bound to one ledger, manual or backtest, with a benchmark symbol (SPY by default, empty for none). `data/LedgerAnalysis::analyzeLedger` evaluates the ledger at every stored daily close of the shares it traded; shares with no closes are named and held at cost. A table of returns (net profit, total return, CAGR, buy-and-hold benchmark, exposure), risk (volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, one-period VaR and CVaR), and trades. Charts: time-weighted return against the benchmark (`kAccent` and `kTextDim`), drawdown (`kDanger` wash), and net profit per closed trade (`kUp` and `kDown`). Opening a ledger fetches missing daily history once; Ctrl+R refetches all of it. The chartbook saves the ledger and benchmark. No new hues. |
 | BACKTEST | Strategy, its inputs, symbol with a link group, period, range, costs, sizing. Run. Past runs with **Open in Stats** and **Show on chart**. Runs execute on a `BacktestWorker` thread with its own `Reader` and `Writer` connections. |
 
 The chart pane gains an optional ledger overlay: buy and sell markers at fill times, up and down colors for direction.

@@ -73,7 +73,7 @@ struct ChartbookFloating
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
 // A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", "payoff:<id>",
-// "ledger:<id>", or "pane:<id>") and selected.
+// "ledger:<id>", "stats:<id>", or "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -291,6 +291,15 @@ struct ChartbookLedger
     std::string tab{"positions"};
 };
 
+// One statistics window. ledger_id is the store id of the ledger it measures, or 0 before
+// one is chosen. benchmark is a symbol compared by buy-and-hold; empty means none.
+struct ChartbookStats
+{
+    int id{0};
+    std::int64_t ledger_id{0};
+    std::string benchmark{"SPY"};
+};
+
 struct ChartbookPane
 {
     int id{0};
@@ -318,6 +327,8 @@ struct CChartbookDocument
     int next_payoff_id{1};
     int focused_ledger{0};
     int next_ledger_id{1};
+    int focused_stats{0};
+    int next_stats_id{1};
     ChartbookData data{};
     ChartbookLayout layout{};
     std::vector<ChartbookFloating> floating;
@@ -327,6 +338,7 @@ struct CChartbookDocument
     std::vector<ChartbookPortfolio> portfolios;
     std::vector<ChartbookPayoff> payoffs;
     std::vector<ChartbookLedger> ledgers;
+    std::vector<ChartbookStats> stats;
 };
 
 [[nodiscard]] inline std::string paneWindowId(int pane_id)
@@ -423,6 +435,32 @@ struct CChartbookDocument
     return ledger_id > 0;
 }
 
+[[nodiscard]] inline std::string statsWindowId(int stats_id)
+{
+    return "stats:" + std::to_string(stats_id);
+}
+
+// True when window is "stats:<id>" and the id is a positive integer of at most 9 digits.
+[[nodiscard]] inline bool statsIdFromWindow(std::string_view window, int& stats_id) noexcept
+{
+    constexpr std::string_view prefix = "stats:";
+    if (!window.starts_with(prefix) || window.size() > prefix.size() + 9)
+    {
+        return false;
+    }
+    stats_id = 0;
+    for (const char digit : window.substr(prefix.size()))
+    {
+        if (digit < '0' || digit > '9')
+        {
+            stats_id = 0;
+            return false;
+        }
+        stats_id = (stats_id * 10) + (digit - '0');
+    }
+    return stats_id > 0;
+}
+
 // True when window is "options:<id>" and the id is a positive integer of at most 9 digits.
 [[nodiscard]] inline bool optionsIdFromWindow(std::string_view window, int& options_id) noexcept
 {
@@ -490,6 +528,9 @@ void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id);
 // Dock one ledger window the same way a new chart pane docks.
 void chartbookInsertLedger(ChartbookLayout& layout, int ledger_id);
 
+// Dock one Statistics window the same way a new chart pane docks.
+void chartbookInsertStats(ChartbookLayout& layout, int stats_id);
+
 // Drop one window. An emptied leaf is replaced by its sibling.
 void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 
@@ -509,6 +550,8 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 [[nodiscard]] bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id);
 
 [[nodiscard]] bool chartbookLedgerIsOpen(const CChartbookDocument& document, int ledger_id);
+
+[[nodiscard]] bool chartbookStatsIsOpen(const CChartbookDocument& document, int stats_id);
 
 [[nodiscard]] CChartbookDocument makeDefaultChartbook(std::string name);
 
