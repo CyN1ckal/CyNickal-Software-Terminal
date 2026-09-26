@@ -44,6 +44,11 @@ add_library(terminal_core OBJECT
     src/trading/EquityCurve.cpp
     src/trading/TradeStats.cpp
     src/ui/TradingFormat.cpp
+    src/backtest/Strategy.cpp
+    src/backtest/Engine.cpp
+    src/backtest/strategies/MaCross.cpp
+    src/backtest/strategies/BollingerRevert.cpp
+    src/backtest/strategies/Momentum.cpp
     src/options/OptionPayoff.cpp
     src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp
@@ -210,6 +215,11 @@ if(CYN_TESTING)
         src/trading/EquityCurve.cpp
         src/trading/TradeStats.cpp
         src/ui/TradingFormat.cpp
+        src/backtest/Strategy.cpp
+        src/backtest/Engine.cpp
+        src/backtest/strategies/MaCross.cpp
+        src/backtest/strategies/BollingerRevert.cpp
+        src/backtest/strategies/Momentum.cpp
         src/options/OptionPayoff.cpp
         src/options/OptionStrategy.cpp
         tests/chart/chart_command_tests.h

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PRs 1–5 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER and STATS panels. |
+| Status | Draft. PRs 1–6 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER and STATS panels, the backtest engine and strategies. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -103,7 +103,8 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_core` and is tested 
 
 - A strategy writes a **target position** per bar, in units of the sizing rule. NaN is "no opinion" and keeps the current target.
 - A change in target becomes an order that fills at the **next bar's open**. No order fills on the bar that produced it.
-- Stop-loss and take-profit are engine settings, checked against each later bar's low and high. A bar that gaps through the level fills at its open. When one bar touches both, the stop fills first.
+- Stop-loss and take-profit are engine settings, checked against each later bar's low and high. A bar that gaps through the level fills at its open. When one bar touches both, the stop fills first. After either exit the engine stays flat until the strategy's target changes.
+- `close_at_end` (on by default) closes the last position at the last close, so every trade is a round trip.
 - Costs: commission per share, a minimum per order, and slippage in basis points against the trader.
 - Sizing: fixed shares, fixed notional, or a percent of equity, rounded down to whole shares.
 - Optional flatten at the last bar of each session for intraday runs.

@@ -1,6 +1,8 @@
 // Copyright 2026 CyNickal Software LLC
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+#include "backtest/engine_tests.h"
+#include "backtest/strategy_tests.h"
 #include "catch_amalgamated.hpp"
 #include "chart/chart_axis_tests.h"
 #include "chart/chart_command_tests.h"
