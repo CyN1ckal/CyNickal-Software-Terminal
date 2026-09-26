@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PR 1 (schema v6 and the Store ledger API) and PR 2 (lot matching) implemented 2026-09-25. |
+| Status | Draft. PR 1 (schema v6 and the Store ledger API), PR 2 (lot matching), and PR 3 (equity curve and statistics) implemented 2026-09-25. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -93,8 +93,8 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_core` and is tested 
 | File | Role |
 |---|---|
 | `apps/terminal/src/trading/Ledger.{h,cpp}` | `LotBook` steps through time: `advanceTo(ts)` applies splits, `apply(fill)` matches FIFO. `matchLots(fills, actions, as_of)` runs one to a date. Round trips carry allocated fees and net P&L. Partial closes, a fill that flips long to short, shorts, splits applied to open share lots (not options), a 100 multiplier on options. `fillCashFlow` and `unrealizedPnl` feed the equity curve. |
-| `apps/terminal/src/trading/EquityCurve.{h,cpp}` | Cash, market value, equity, and drawdown at each session close. Intraday ledgers are grouped into sessions before any annualized figure. |
-| `apps/terminal/src/trading/TradeStats.{h,cpp}` | Trade statistics: count, win rate, average win and loss, payoff ratio, profit factor, expectancy, largest win and loss, streaks, average holding time, MAE/MFE when bars are given. Curve statistics: total return, CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, exposure, buy-and-hold benchmark. VaR and CVaR reuse `valueAtRisk` from `risk/HistoricalRisk.h`. |
+| `apps/terminal/src/trading/EquityCurve.{h,cpp}` | `equityCurve(fills, cash_flows, actions, marks, points)` replays a `LotBook` to each point: cash, market value, equity, flows, open positions. Returns are time-weighted (flows arrive at the start of a period), so a deposit is not a gain; growth and drawdown come from that index. Shares mark at the latest as-traded close, or at average price before their first mark. Options mark at their last trade in the ledger. `closeMarks` and `markTimes` build marks and session-close points from bars. Callers pass session closes, so intraday ledgers are already grouped before annualizing. |
+| `apps/terminal/src/trading/TradeStats.{h,cpp}` | `tradeStats(round_trips)`: count, win rate, gross profit and loss, fees, average trade (expectancy), average win and loss, payoff ratio, profit factor, largest win and loss, streaks, average holding time. `curveStats(curve)`: total return, net P&L, CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, exposure, and VaR/CVaR of period P&L through `valueAtRisk` from `risk/HistoricalRisk.h`. `buyAndHoldReturn` is the benchmark. MAE/MFE is deferred to the backtest PRs, where bars and entries share a split basis. |
 | `apps/terminal/src/backtest/Engine.{h,cpp}` | `runBacktest(bars, strategy, options, config)` returns fills, equity, and diagnostics. Deterministic. |
 | `apps/terminal/src/backtest/StrategyRegistry.{h,cpp}` | `StrategyType`: id, display name, `StudyOption` inputs, and a `process` callback. Static registration, first id wins. |
 | `apps/terminal/src/backtest/strategies/` | MA crossover, Bollinger mean reversion, N-bar momentum. Each calls the matching study's `process`. |
