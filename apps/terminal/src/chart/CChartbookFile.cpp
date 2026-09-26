@@ -1446,6 +1446,91 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return true;
 }
 
+[[nodiscard]] bool acceptLedgerId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "ledger id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.ledgers, [id](const ChartbookLedger& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_ledger_id <= id)
+    {
+        return fail(error, "ledger id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json ledgersToJson(const std::vector<ChartbookLedger>& ledgers)
+{
+    json array = json::array();
+    for (const ChartbookLedger& panel : ledgers)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["ledger"] = panel.ledger_id;
+        if (panel.tab != kLedgerTabs[0])
+        {
+            object["tab"] = panel.tab;
+        }
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool ledgersFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                   std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "ledgers is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_ledger_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "ledgers", item, error))
+        {
+            return false;
+        }
+        ChartbookLedger panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "ledger id is missing");
+        }
+        if (item->contains("ledger"))
+        {
+            if (!item->at("ledger").is_number_integer())
+            {
+                return fail(error, "ledger store id is missing");
+            }
+            panel.ledger_id = item->at("ledger").get<std::int64_t>();
+            if (panel.ledger_id < 0)
+            {
+                return fail(error, "ledger store id is invalid");
+            }
+        }
+        if (item->contains("tab"))
+        {
+            if (!item->at("tab").is_string() || !isLedgerTab(item->at("tab").get<std::string>()))
+            {
+                return fail(error, "ledger tab is invalid");
+            }
+            panel.tab = item->at("tab").get<std::string>();
+        }
+        if (!acceptLedgerId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.ledgers.push_back(panel);
+    }
+    return true;
+}
+
 [[nodiscard]] bool optionsFromJson(const json& value, CChartbookDocument& document, bool next_present,
                                    std::string& error)
 {
@@ -1607,9 +1692,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     int options_id = 0;
     int portfolio_id = 0;
     int payoff_id = 0;
+    int ledger_id = 0;
     if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
         optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id) ||
-        payoffIdFromWindow(window, payoff_id))
+        payoffIdFromWindow(window, payoff_id) || ledgerIdFromWindow(window, ledger_id))
     {
         return true;
     }
@@ -2006,6 +2092,21 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing payoff panel");
         }
     }
+    for (const std::string& window : windows)
+    {
+        int ledger_id = 0;
+        if (!ledgerIdFromWindow(window, ledger_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.ledgers, [&](const ChartbookLedger& panel) {
+            return panel.id == ledger_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing ledger panel");
+        }
+    }
     return true;
 }
 
@@ -2104,11 +2205,14 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_portfolio_id"] = document.next_portfolio_id;
     root["focused_payoff"] = document.focused_payoff;
     root["next_payoff_id"] = document.next_payoff_id;
+    root["focused_ledger"] = document.focused_ledger;
+    root["next_ledger_id"] = document.next_ledger_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
     root["options"] = optionsToJson(document.options);
     root["portfolios"] = portfoliosToJson(document.portfolios);
     root["payoffs"] = payoffsToJson(document.payoffs);
+    root["ledgers"] = ledgersToJson(document.ledgers);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -2351,6 +2455,40 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         if (!focused_ok)
         {
             result.error = "focused payoff is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_ledger_present = false;
+    if (object->contains("next_ledger_id"))
+    {
+        next_ledger_present = true;
+        if (!readInt(*object, "next_ledger_id", result.document.next_ledger_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_ledger") &&
+        !readInt(*object, "focused_ledger", result.document.focused_ledger, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("ledgers") &&
+        !ledgersFromJson(object->at("ledgers"), result.document, next_ledger_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_ledger != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.ledgers, [&](const ChartbookLedger& panel) {
+            return panel.id == result.document.focused_ledger;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused ledger is missing";
             result.document = {};
             return result;
         }

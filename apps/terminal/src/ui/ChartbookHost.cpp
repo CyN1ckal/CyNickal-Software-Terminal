@@ -63,6 +63,11 @@ struct BuiltWindow
     {
         return "###cb" + std::to_string(runtime) + "_payoff" + std::to_string(payoff_id);
     }
+    int ledger_id = 0;
+    if (ledgerIdFromWindow(window, ledger_id))
+    {
+        return "###cb" + std::to_string(runtime) + "_ledger" + std::to_string(ledger_id);
+    }
     if (window.starts_with("pane:"))
     {
         return "###cb" + std::to_string(runtime) + "_pane" + std::string(window.substr(5));
@@ -126,6 +131,16 @@ struct BuiltWindow
             return {};
         }
         return "payoff:" + suffix;
+    }
+    constexpr std::string_view ledger_prefix = "ledger";
+    if (rest.starts_with(ledger_prefix))
+    {
+        const std::string suffix = rest.substr(ledger_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "ledger:" + suffix;
     }
     if (rest.starts_with("pane"))
     {
@@ -718,6 +733,15 @@ void ChartbookHost::drawViewMenu()
     if (ImGui::MenuItem("Close Payoff Wizard", nullptr, false, close_payoff))
     {
         open.book->closeFocusedPayoff();
+    }
+    if (ImGui::MenuItem("New Ledger"))
+    {
+        open.book->addLedger();
+    }
+    const bool close_ledger = open.book->focusedLedger() != nullptr;
+    if (ImGui::MenuItem("Close Ledger", nullptr, false, close_ledger))
+    {
+        open.book->closeFocusedLedger();
     }
     endTitleMenu();
 }
@@ -1421,6 +1445,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         int options_id = 0;
         int portfolio_id = 0;
         int payoff_id = 0;
+        int ledger_id = 0;
         if (window.window == "data")
         {
             inventory.setPlacement(true, false, window.dock, ImVec2{}, ImVec2{});
@@ -1441,6 +1466,10 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         {
             open.book->placePayoff(payoff_id, true, false, window.dock, ImVec2{}, ImVec2{});
         }
+        else if (ledgerIdFromWindow(window.window, ledger_id))
+        {
+            open.book->placeLedger(ledger_id, true, false, window.dock, ImVec2{}, ImVec2{});
+        }
         else
         {
             open.book->placePane(paneIdOf(window.window), true, false, window.dock, ImVec2{}, ImVec2{});
@@ -1455,6 +1484,7 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         int options_id = 0;
         int portfolio_id = 0;
         int payoff_id = 0;
+        int ledger_id = 0;
         if (floating.window == "data")
         {
             inventory.setPlacement(true, true, 0, pos, floating_size);
@@ -1474,6 +1504,10 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         else if (payoffIdFromWindow(floating.window, payoff_id))
         {
             open.book->placePayoff(payoff_id, true, true, 0, pos, floating_size);
+        }
+        else if (ledgerIdFromWindow(floating.window, ledger_id))
+        {
+            open.book->placeLedger(ledger_id, true, true, 0, pos, floating_size);
         }
         else
         {
@@ -1571,7 +1605,9 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             int payoff_id = 0;
             const bool is_portfolio = portfolioIdFromWindow(id, portfolio_id);
             const bool is_payoff = payoffIdFromWindow(id, payoff_id);
-            if (id != "data" && !is_financials && !is_options && !is_portfolio && !is_payoff &&
+            int ledger_id = 0;
+            const bool is_ledger = ledgerIdFromWindow(id, ledger_id);
+            if (id != "data" && !is_financials && !is_options && !is_portfolio && !is_payoff && !is_ledger &&
                 !open.book->containsPane(paneIdOf(id)))
             {
                 continue;
@@ -1589,6 +1625,10 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
                 continue;
             }
             if (is_payoff && !open.book->containsPayoff(payoff_id))
+            {
+                continue;
+            }
+            if (is_ledger && !open.book->containsLedger(ledger_id))
             {
                 continue;
             }
@@ -1667,6 +1707,10 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     {
         consider(payoffWindowId(panel.id));
     }
+    for (const ChartbookLedger& panel : exported.ledgers)
+    {
+        consider(ledgerWindowId(panel.id));
+    }
     for (const ChartbookPane& pane : exported.panes)
     {
         consider(paneWindowId(pane.id));
@@ -1704,6 +1748,13 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     for (const ChartbookPayoff& panel : exported.payoffs)
     {
         if (std::ranges::find(seen, payoffWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
+    }
+    for (const ChartbookLedger& panel : exported.ledgers)
+    {
+        if (std::ranges::find(seen, ledgerWindowId(panel.id)) == seen.end())
         {
             complete = false;
         }
@@ -1839,6 +1890,7 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
     open.book->drawOptions(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawPortfolios(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawPayoffs(store_.get(), open_error_, inventory.ingestWorker());
+    open.book->drawLedgers(store_.get(), open_error_, inventory.ingestWorker());
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
     if (dataShown(open) && inventory.focused())
     {

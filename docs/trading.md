@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PR 1 (schema v6 and the Store ledger API), PR 2 (lot matching), and PR 3 (equity curve and statistics) implemented 2026-09-25. |
+| Status | Draft. PRs 1–4 implemented 2026-09-25: schema v6 and the Store ledger API, lot matching, equity curve and statistics, the LEDGER panel. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -121,7 +121,7 @@ Each follows the PORTFOLIO pattern: a `PanelKind`, a panel vector in `CChartBook
 
 | Panel | Contents |
 |---|---|
-| LEDGER | Ledger picker. Fills table, add-fill row (symbol, side, quantity, price, fees, time), delete. Cash flows. **Positions** (open lots, marked at the last close) and **Closed** (round trips) tabs. Writes open a short-lived `Writer`, as `PortfolioPanel` does. Missing marks are fetched through `IngestWorker`. |
+| LEDGER | `ui/LedgerPanel`. Ledger picker and a Ledger menu (new, rename, delete with a confirmation). A summary row: deposits, cash, position value, equity, realized, unrealized after open fees, fees. Tabs **Positions** (open lots marked by `data/LedgerMarks`: the newer of the daily and 1-minute close, or the chain's last print for an option), **Closed** (round trips, newest first), **Fills**, and **Cash**. Manual ledgers get an add-fill row (symbol, shares or option, side, quantity, price, fees, New York time, note; a date alone is the 16:00 close) and an add-cash row; right-click a fill or cash row to delete it. A symbol with no listing is fetched first, as PORTFOLIO does. Backtest ledgers hide both. The chartbook saves the chosen ledger and tab. Ctrl+R fetches marks through `portfolioFetchJobs`. Shared text lives in `ui/TradingFormat`, shared widgets in `ui/TradingWidgets`. |
 | STATS | Bound to one ledger, manual or backtest. Statistics table, equity curve (`kAccent`), drawdown (`kDanger` wash), histogram of trade returns, per-symbol table. No new hues. |
 | BACKTEST | Strategy, its inputs, symbol with a link group, period, range, costs, sizing. Run. Past runs with **Open in Stats** and **Show on chart**. Runs execute on a `BacktestWorker` thread with its own `Reader` and `Writer` connections. |
 

@@ -37,10 +37,12 @@ add_library(terminal_core OBJECT
     src/data/StatementSheet.cpp
     src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
+    src/data/LedgerMarks.cpp
     src/risk/HistoricalRisk.cpp
     src/trading/Ledger.cpp
     src/trading/EquityCurve.cpp
     src/trading/TradeStats.cpp
+    src/ui/TradingFormat.cpp
     src/options/OptionPayoff.cpp
     src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp
@@ -83,6 +85,8 @@ add_library(terminal_gui OBJECT
     src/ui/PayoffWizard.cpp
     src/ui/PayoffPanel.cpp
     src/ui/PortfolioPanel.cpp
+    src/ui/TradingWidgets.cpp
+    src/ui/LedgerPanel.cpp
     src/chart/CChartBook.cpp
     src/chart/CChartPane.cpp
     src/chart/CChartPlot.cpp
@@ -197,10 +201,12 @@ if(CYN_TESTING)
         src/data/StatementSheet.cpp
         src/data/StatementLineLabel.cpp
         src/data/PortfolioFetch.cpp
+        src/data/LedgerMarks.cpp
         src/risk/HistoricalRisk.cpp
         src/trading/Ledger.cpp
         src/trading/EquityCurve.cpp
         src/trading/TradeStats.cpp
+        src/ui/TradingFormat.cpp
         src/options/OptionPayoff.cpp
         src/options/OptionStrategy.cpp
         tests/chart/chart_command_tests.h

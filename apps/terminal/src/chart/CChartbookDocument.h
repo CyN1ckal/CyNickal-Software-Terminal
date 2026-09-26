@@ -72,8 +72,8 @@ struct ChartbookFloating
 };
 
 // Flat tree. root < 0 means an empty dock. A split node's first/second are indexes.
-// A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", "payoff:<id>", or
-// "pane:<id>") and selected.
+// A leaf uses windows ("data", "financials:<id>", "options:<id>", "portfolio:<id>", "payoff:<id>",
+// "ledger:<id>", or "pane:<id>") and selected.
 struct ChartbookLayoutNode
 {
     bool is_split{false};
@@ -266,6 +266,31 @@ struct ChartbookPayoff
     std::vector<PayoffLeg> legs;
 };
 
+// Ledger window tabs, in tab-bar order. The chartbook stores the token.
+inline constexpr const char* kLedgerTabs[] = {"positions", "closed", "fills", "cash"};
+inline constexpr int kLedgerTabCount = 4;
+
+[[nodiscard]] constexpr bool isLedgerTab(std::string_view tab) noexcept
+{
+    for (const char* known : kLedgerTabs)
+    {
+        if (tab == known)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// One ledger window. ledger_id is the store id, or 0 when the window has not chosen a ledger.
+// tab is one of kLedgerTabs and is omitted from the file when it is "positions".
+struct ChartbookLedger
+{
+    int id{0};
+    std::int64_t ledger_id{0};
+    std::string tab{"positions"};
+};
+
 struct ChartbookPane
 {
     int id{0};
@@ -291,6 +316,8 @@ struct CChartbookDocument
     int next_portfolio_id{1};
     int focused_payoff{0};
     int next_payoff_id{1};
+    int focused_ledger{0};
+    int next_ledger_id{1};
     ChartbookData data{};
     ChartbookLayout layout{};
     std::vector<ChartbookFloating> floating;
@@ -299,6 +326,7 @@ struct CChartbookDocument
     std::vector<ChartbookOptions> options;
     std::vector<ChartbookPortfolio> portfolios;
     std::vector<ChartbookPayoff> payoffs;
+    std::vector<ChartbookLedger> ledgers;
 };
 
 [[nodiscard]] inline std::string paneWindowId(int pane_id)
@@ -369,6 +397,32 @@ struct CChartbookDocument
     return payoff_id > 0;
 }
 
+[[nodiscard]] inline std::string ledgerWindowId(int ledger_id)
+{
+    return "ledger:" + std::to_string(ledger_id);
+}
+
+// True when window is "ledger:<id>" and the id is a positive integer of at most 9 digits.
+[[nodiscard]] inline bool ledgerIdFromWindow(std::string_view window, int& ledger_id) noexcept
+{
+    constexpr std::string_view prefix = "ledger:";
+    if (!window.starts_with(prefix) || window.size() > prefix.size() + 9)
+    {
+        return false;
+    }
+    ledger_id = 0;
+    for (const char digit : window.substr(prefix.size()))
+    {
+        if (digit < '0' || digit > '9')
+        {
+            ledger_id = 0;
+            return false;
+        }
+        ledger_id = (ledger_id * 10) + (digit - '0');
+    }
+    return ledger_id > 0;
+}
+
 // True when window is "options:<id>" and the id is a positive integer of at most 9 digits.
 [[nodiscard]] inline bool optionsIdFromWindow(std::string_view window, int& options_id) noexcept
 {
@@ -433,6 +487,9 @@ void chartbookInsertPortfolio(ChartbookLayout& layout, int portfolio_id);
 // Dock one payoff wizard the same way a new chart pane docks.
 void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id);
 
+// Dock one ledger window the same way a new chart pane docks.
+void chartbookInsertLedger(ChartbookLayout& layout, int ledger_id);
+
 // Drop one window. An emptied leaf is replaced by its sibling.
 void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 
@@ -450,6 +507,8 @@ void chartbookRemoveWindow(ChartbookLayout& layout, std::string_view window_id);
 [[nodiscard]] bool chartbookPortfolioIsOpen(const CChartbookDocument& document, int portfolio_id);
 
 [[nodiscard]] bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id);
+
+[[nodiscard]] bool chartbookLedgerIsOpen(const CChartbookDocument& document, int ledger_id);
 
 [[nodiscard]] CChartbookDocument makeDefaultChartbook(std::string name);
 

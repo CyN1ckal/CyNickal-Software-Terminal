@@ -107,6 +107,20 @@ void dropClosedPanes(CChartbookDocument& document)
             stale.push_back(window);
         }
     };
+    const auto considerLedger = [&](const std::string& window) {
+        int ledger_id = 0;
+        if (!ledgerIdFromWindow(window, ledger_id))
+        {
+            return;
+        }
+        const bool present = std::ranges::any_of(document.ledgers, [&](const ChartbookLedger& panel) {
+            return panel.id == ledger_id;
+        });
+        if (!present)
+        {
+            stale.push_back(window);
+        }
+    };
     std::vector<int> pending;
     if (document.layout.root >= 0)
     {
@@ -134,6 +148,7 @@ void dropClosedPanes(CChartbookDocument& document)
             considerOptions(window);
             considerPortfolio(window);
             considerPayoff(window);
+            considerLedger(window);
         }
     }
     for (const ChartbookFloating& floating : document.floating)
@@ -143,6 +158,7 @@ void dropClosedPanes(CChartbookDocument& document)
         considerOptions(floating.window);
         considerPortfolio(floating.window);
         considerPayoff(floating.window);
+        considerLedger(floating.window);
     }
     for (const std::string& window : stale)
     {
@@ -202,6 +218,12 @@ void CChartBook::requestPanelData(PanelKind kind, Store* store, IngestWorker* in
         if (PayoffPanel* panel = focusedPayoffPanel())
         {
             panel->requestData();
+        }
+        break;
+    case PanelKind::Ledger:
+        if (LedgerPanel* panel = focusedLedgerPanel())
+        {
+            panel->requestData(store, ingest);
         }
         break;
     case PanelKind::None:
@@ -373,6 +395,18 @@ void CChartBook::addPayoff()
     layout_request_ = true;
 }
 
+void CChartBook::addLedger()
+{
+    auto panel = std::make_unique<LedgerPanel>(next_ledger_id_);
+    panel->setWindowScope(runtime_id_);
+    focused_ledger_id_ = next_ledger_id_;
+    panel->requestFocus();
+    chartbookInsertLedger(layout_, next_ledger_id_);
+    ++next_ledger_id_;
+    ledgers_.push_back(std::move(panel));
+    layout_request_ = true;
+}
+
 void CChartBook::closeFocused()
 {
     if (CChartPane* pane = focused())
@@ -413,6 +447,14 @@ void CChartBook::closeFocusedPayoff()
     }
 }
 
+void CChartBook::closeFocusedLedger()
+{
+    if (LedgerPanel* panel = focusedLedgerPanel())
+    {
+        panel->closeWindow();
+    }
+}
+
 void CChartBook::openFocusedSettings()
 {
     if (CChartPane* pane = focused())
@@ -438,6 +480,7 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     options_.clear();
     portfolios_.clear();
     payoffs_.clear();
+    ledgers_.clear();
     name_ = document.name;
     data_ = document.data;
     layout_ = document.layout;
@@ -452,6 +495,8 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     focused_portfolio_id_ = document.focused_portfolio;
     next_payoff_id_ = std::max(document.next_payoff_id, 1);
     focused_payoff_id_ = document.focused_payoff;
+    next_ledger_id_ = std::max(document.next_ledger_id, 1);
+    focused_ledger_id_ = document.focused_ledger;
     for (const ChartbookFinancials& record : document.financials)
     {
         if (!chartbookFinancialsIsOpen(document, record.id))
@@ -532,6 +577,25 @@ void CChartBook::loadDocument(const CChartbookDocument& document)
     {
         focused_payoff_id_ = payoffs_.empty() ? 0 : payoffs_.front()->id();
     }
+    for (const ChartbookLedger& record : document.ledgers)
+    {
+        if (!chartbookLedgerIsOpen(document, record.id))
+        {
+            continue;
+        }
+        auto panel = std::make_unique<LedgerPanel>(record.id);
+        panel->setWindowScope(runtime_id_);
+        panel->importState(record);
+        if (record.id == focused_ledger_id_)
+        {
+            panel->requestFocus();
+        }
+        ledgers_.push_back(std::move(panel));
+    }
+    if (findLedger(focused_ledger_id_) == nullptr)
+    {
+        focused_ledger_id_ = ledgers_.empty() ? 0 : ledgers_.front()->id();
+    }
     for (const ChartbookPane& record : document.panes)
     {
         if (!chartbookPaneIsOpen(document, record.id))
@@ -569,6 +633,8 @@ CChartbookDocument CChartBook::exportDocument() const
     document.next_portfolio_id = next_portfolio_id_;
     document.focused_payoff = focused_payoff_id_;
     document.next_payoff_id = next_payoff_id_;
+    document.focused_ledger = focused_ledger_id_;
+    document.next_ledger_id = next_ledger_id_;
     document.data = data_;
     document.layout = layout_;
     document.floating = floating_;
@@ -605,6 +671,13 @@ CChartbookDocument CChartBook::exportDocument() const
         if (panel->windowOpen())
         {
             document.payoffs.push_back(panel->exportState());
+        }
+    }
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        if (panel->windowOpen())
+        {
+            document.ledgers.push_back(panel->exportState());
         }
     }
     dropClosedPanes(document);
@@ -682,6 +755,10 @@ void CChartBook::setWindowScope(int runtime_id)
     {
         panel->setWindowScope(runtime_id_);
     }
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        panel->setWindowScope(runtime_id_);
+    }
     for (const std::unique_ptr<CChartPane>& pane : panes_)
     {
         pane->setWindowScope(runtime_id_);
@@ -722,6 +799,11 @@ bool CChartBook::containsPortfolio(int portfolio_id) const
 bool CChartBook::containsPayoff(int payoff_id) const
 {
     return findPayoff(payoff_id) != nullptr;
+}
+
+bool CChartBook::containsLedger(int ledger_id) const
+{
+    return findLedger(ledger_id) != nullptr;
 }
 
 void CChartBook::drawFinancials(Store* store, std::string_view store_error, IngestWorker* ingest)
@@ -966,6 +1048,80 @@ void CChartBook::placePayoff(int payoff_id, bool force, bool floating, ImGuiID d
     for (const std::unique_ptr<PayoffPanel>& panel : payoffs_)
     {
         if (panel->id() == payoff_id)
+        {
+            panel->setPlacement(force, floating, dock, pos, size);
+        }
+    }
+}
+
+void CChartBook::eraseClosedLedgers()
+{
+    const auto removed = std::ranges::remove_if(ledgers_, [](const std::unique_ptr<LedgerPanel>& panel) {
+        return !panel->windowOpen();
+    });
+    ledgers_.erase(removed.begin(), removed.end());
+    if (focusedLedgerPanel() == nullptr)
+    {
+        focused_ledger_id_ = 0;
+    }
+}
+
+LedgerPanel* CChartBook::focusedLedgerPanel()
+{
+    if (focused_ledger_id_ == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        if (panel->id() == focused_ledger_id_ && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+const LedgerPanel* CChartBook::focusedLedger() const
+{
+    return findLedger(focused_ledger_id_);
+}
+
+const LedgerPanel* CChartBook::findLedger(int ledger_id) const
+{
+    if (ledger_id == 0)
+    {
+        return nullptr;
+    }
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        if (panel->id() == ledger_id && panel->windowOpen())
+        {
+            return panel.get();
+        }
+    }
+    return nullptr;
+}
+
+void CChartBook::drawLedgers(Store* store, std::string_view store_error, IngestWorker* ingest)
+{
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        panel->setWindowScope(runtime_id_);
+        if (panel->draw(store, store_error, ingest))
+        {
+            focused_ledger_id_ = panel->id();
+            frame_focus_ = PanelKind::Ledger;
+        }
+    }
+    eraseClosedLedgers();
+}
+
+void CChartBook::placeLedger(int ledger_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size)
+{
+    for (const std::unique_ptr<LedgerPanel>& panel : ledgers_)
+    {
+        if (panel->id() == ledger_id)
         {
             panel->setPlacement(force, floating, dock, pos, size);
         }

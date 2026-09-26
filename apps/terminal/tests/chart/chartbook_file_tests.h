@@ -803,6 +803,79 @@ TEST_CASE("portfolio windows round trip and a book without them still opens")
     CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
 }
 
+TEST_CASE("ledger windows round trip and a layout naming a missing ledger is refused")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertLedger(document.layout, 2);
+    CHECK(terminal::chartbookLedgerIsOpen(document, 2));
+    terminal::ChartbookLedger panel;
+    panel.id = 2;
+    panel.ledger_id = 7;
+    panel.tab = "fills";
+    document.ledgers.push_back(panel);
+    document.focused_ledger = 2;
+    document.next_ledger_id = 3;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.ledgers.size() == 1);
+    CHECK(loaded.document.ledgers[0].id == 2);
+    CHECK(loaded.document.ledgers[0].ledger_id == 7);
+    CHECK(loaded.document.ledgers[0].tab == "fills");
+    CHECK(loaded.document.focused_ledger == 2);
+    CHECK(loaded.document.next_ledger_id == 3);
+    CHECK(terminal::chartbookLedgerIsOpen(loaded.document, 2));
+
+    int ledger_id = 0;
+    CHECK(terminal::ledgerIdFromWindow("ledger:12", ledger_id));
+    CHECK(ledger_id == 12);
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledger:0", ledger_id));
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledger:x", ledger_id));
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledgers:1", ledger_id));
+
+    const char* missing = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_ledger_id": 2,
+        "data": {},
+        "ledgers": [{"id": 1, "ledger": 3}],
+        "layout": {"windows": ["ledger:9"], "selected": "ledger:9"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(missing);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "layout names a missing ledger panel");
+
+    const char* bad_tab = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_ledger_id": 2,
+        "data": {},
+        "ledgers": [{"id": 1, "ledger": 3, "tab": "charts"}],
+        "layout": {"windows": ["ledger:1"], "selected": "ledger:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult tab_refused = terminal::chartbookFromJson(bad_tab);
+    CHECK_FALSE(tab_refused.ok);
+    CHECK(tab_refused.error == "ledger tab is invalid");
+
+    const char* no_next = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "data": {},
+        "ledgers": [{"id": 1}],
+        "layout": {"windows": ["data"], "selected": "data"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(no_next).ok);
+}
+
 TEST_CASE("portfolio risk view round trips and a book without it keeps the defaults")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");

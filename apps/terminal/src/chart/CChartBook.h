@@ -6,6 +6,7 @@
 #include "chart/CChartbookDocument.h"
 #include "chart/CSymbolLink.h"
 #include "ui/FinancialsPanel.h"
+#include "ui/LedgerPanel.h"
 #include "ui/OptionsChainPanel.h"
 #include "ui/PortfolioPanel.h"
 #include "ui/PayoffPanel.h"
@@ -34,6 +35,7 @@ enum class PanelKind : std::uint8_t
     Options,
     Portfolio,
     Payoff,
+    Ledger,
 };
 
 class CChartBook
@@ -56,25 +58,30 @@ public:
     void drawOptions(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawPortfolios(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawPayoffs(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void drawLedgers(Store* store, std::string_view store_error, IngestWorker* ingest);
     void placeFinancials(int financials_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placeOptions(int options_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placePortfolio(int portfolio_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placePayoff(int payoff_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    void placeLedger(int ledger_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] const CChartPane* focusedPane() const;
     [[nodiscard]] const FinancialsPanel* focusedFinancials() const;
     [[nodiscard]] const OptionsChainPanel* focusedOptions() const;
     [[nodiscard]] const PortfolioPanel* focusedPortfolio() const;
     [[nodiscard]] const PayoffPanel* focusedPayoff() const;
+    [[nodiscard]] const LedgerPanel* focusedLedger() const;
     void addPane();
     void addFinancials();
     void addOptions();
     void addPortfolio();
     void addPayoff();
+    void addLedger();
     void closeFocused();
     void closeFocusedFinancials();
     void closeFocusedOptions();
     void closeFocusedPortfolio();
     void closeFocusedPayoff();
+    void closeFocusedLedger();
     void openFocusedSettings();
     void openFocusedStudies();
 
@@ -97,6 +104,7 @@ public:
     [[nodiscard]] bool containsOptions(int options_id) const;
     [[nodiscard]] bool containsPortfolio(int portfolio_id) const;
     [[nodiscard]] bool containsPayoff(int payoff_id) const;
+    [[nodiscard]] bool containsLedger(int ledger_id) const;
 
 private:
     void eraseClosed();
@@ -104,6 +112,7 @@ private:
     void eraseClosedOptions();
     void eraseClosedPortfolios();
     void eraseClosedPayoffs();
+    void eraseClosedLedgers();
     [[nodiscard]] CChartPane* focused();
     [[nodiscard]] const CChartPane* findPane(int pane_id) const;
     [[nodiscard]] FinancialsPanel* focusedFinancialsPanel();
@@ -114,6 +123,8 @@ private:
     [[nodiscard]] PayoffPanel* focusedPayoffPanel();
     [[nodiscard]] const PortfolioPanel* findPortfolio(int portfolio_id) const;
     [[nodiscard]] const PayoffPanel* findPayoff(int payoff_id) const;
+    [[nodiscard]] LedgerPanel* focusedLedgerPanel();
+    [[nodiscard]] const LedgerPanel* findLedger(int ledger_id) const;
 
     int runtime_id_{0};
     PanelKind frame_focus_{PanelKind::None};
@@ -128,6 +139,7 @@ private:
     std::vector<std::unique_ptr<OptionsChainPanel>> options_;
     std::vector<std::unique_ptr<PortfolioPanel>> portfolios_;
     std::vector<std::unique_ptr<PayoffPanel>> payoffs_;
+    std::vector<std::unique_ptr<LedgerPanel>> ledgers_;
     int next_id_{1};
     int focused_id_{0};
     int next_financials_id_{1};
@@ -138,6 +150,8 @@ private:
     int focused_portfolio_id_{0};
     int next_payoff_id_{1};
     int focused_payoff_id_{0};
+    int next_ledger_id_{1};
+    int focused_ledger_id_{0};
     bool layout_request_{false};
 };
 
