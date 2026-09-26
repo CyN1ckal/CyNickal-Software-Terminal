@@ -102,6 +102,55 @@ TEST_CASE("an option mark is the stored chain's last print for that contract")
     CHECK_FALSE(terminal::latestOptionMark(store, key).has_value());
 }
 
+TEST_CASE("an option that has not printed is marked at its mid, or not at all")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.testingInsertInstrument("AAPL");
+    terminal::OptionQuote quote;
+    quote.instrument_id = id;
+    quote.expiration = 20261016;
+    quote.expiration_type = terminal::OptionExpirationType::Monthly;
+    quote.vendor_symbol = "AAPL|20261016|200C";
+    quote.strike = 200;
+    quote.right = terminal::OptionRight::Call;
+    quote.bid = 2.90;
+    quote.ask = 3.10;
+    quote.mid = 3.00;
+    quote.last = 0.0;
+    quote.fetched_at = 1'790'000'000;
+    terminal::OptionQuote dead = quote;
+    dead.vendor_symbol = "AAPL|20261016|200P";
+    dead.right = terminal::OptionRight::Put;
+    dead.bid = 0.0;
+    dead.ask = 0.0;
+    dead.mid = 0.0;
+    terminal::OptionQuoteBatch batch;
+    batch.expiration = quote.expiration;
+    batch.expiration_type = quote.expiration_type;
+    batch.quotes = {quote, dead};
+    terminal::OptionChainWrite write;
+    write.instrument_id = id;
+    write.fetched_at = quote.fetched_at;
+    write.batches = {batch};
+    store.replaceOptionChain(write);
+
+    terminal::PositionKey key;
+    key.instrument_id = id;
+    key.kind = terminal::TradeAssetKind::Option;
+    key.expiration = 20261016;
+    key.expiration_type = terminal::OptionExpirationType::Monthly;
+    key.strike = 200;
+    key.right = terminal::OptionRight::Call;
+    const auto mark = terminal::latestOptionMark(store, key);
+    REQUIRE(mark.has_value());
+    CHECK(mark->price == 3.00);
+
+    // No print and no market: held at cost rather than marked at zero.
+    key.right = terminal::OptionRight::Put;
+    CHECK_FALSE(terminal::latestOptionMark(store, key).has_value());
+}
+
 TEST_CASE("open ledger positions plan the same fetches as holdings")
 {
     TempDb tmp;

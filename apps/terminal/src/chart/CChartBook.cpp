@@ -1294,6 +1294,20 @@ void CChartBook::placeLedger(int ledger_id, bool force, bool floating, ImGuiID d
 
 void CChartBook::eraseClosedBacktests()
 {
+    for (const std::unique_ptr<BacktestPanel>& panel : backtests_)
+    {
+        if (panel->windowOpen())
+        {
+            continue;
+        }
+        // Destroying a busy worker would join its thread on the GUI thread.
+        if (std::unique_ptr<BacktestWorker> worker = panel->releaseWorker(); worker != nullptr && !worker->idle())
+        {
+            retired_backtest_workers_.push_back(std::move(worker));
+        }
+    }
+    std::erase_if(retired_backtest_workers_,
+                  [](const std::unique_ptr<BacktestWorker>& worker) { return worker->idle(); });
     const auto removed = std::ranges::remove_if(backtests_, [](const std::unique_ptr<BacktestPanel>& panel) {
         return !panel->windowOpen();
     });

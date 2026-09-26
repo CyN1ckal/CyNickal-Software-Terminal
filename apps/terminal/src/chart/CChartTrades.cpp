@@ -3,20 +3,15 @@
 
 #include "chart/CChartTrades.h"
 
+#include "market_data/Adjust.h"
+#include "market_data/Time.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <span>
 #include <vector>
 
 namespace terminal {
-namespace {
-
-[[nodiscard]] UnixSeconds closeOf(const Bar& bar) noexcept
-{
-    return bar.timeframe_s == kTimeframe1d ? bar.ts + kUsRthDurationS : bar.ts + bar.timeframe_s;
-}
-
-}  // namespace
 
 std::vector<ChartTradeMarker> chartTradeMarkers(std::span<const Bar> bars,
                                                std::span<const TradeFill> fills,
@@ -42,20 +37,11 @@ std::vector<ChartTradeMarker> chartTradeMarkers(std::span<const Bar> bars,
             continue;
         }
         const auto index = static_cast<std::size_t>(std::distance(bars.begin(), after) - 1);
-        if (fill.ts > closeOf(bars[index]))
+        if (fill.ts > barCloseTime(bars[index]))
         {
             continue;
         }
-        double factor = 1.0;
-        for (const CorporateAction& action : actions)
-        {
-            if (action.type == CorporateActionType::Split && action.instrument_id == instrument_id &&
-                action.split_ratio.has_value() && *action.split_ratio > 0.0 && action.ex_ts > fill.ts &&
-                action.ex_ts <= last_ts)
-            {
-                factor *= *action.split_ratio;
-            }
-        }
+        const double factor = splitFactorBetween(actions, instrument_id, fill.ts, last_ts);
         ChartTradeMarker marker;
         marker.bar_index = static_cast<int>(index);
         marker.price = fill.price / factor;

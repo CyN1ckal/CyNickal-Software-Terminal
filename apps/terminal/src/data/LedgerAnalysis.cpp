@@ -40,6 +40,11 @@ LedgerAnalysis analyzeLedger(const Store& store,
                              CurveStatsSpec spec)
 {
     LedgerAnalysis analysis;
+    // A backtest ends where its run ended; days after that are not part of its record.
+    if (const std::optional<BacktestRun> run = store.findBacktestRunForLedger(id); run.has_value())
+    {
+        now = std::min(now, run->ts_end);
+    }
     const std::vector<TradeFill> fills = store.queryFills(id);
     const std::vector<LedgerCashFlow> flows = store.queryCashFlows(id);
 

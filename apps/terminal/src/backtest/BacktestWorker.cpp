@@ -52,6 +52,12 @@ BacktestWorker::Snapshot BacktestWorker::snapshot() const
     return snap;
 }
 
+bool BacktestWorker::idle() const
+{
+    const std::scoped_lock lock(mu_);
+    return !running_ && jobs_.empty();
+}
+
 std::optional<BacktestOutcome> BacktestWorker::outcome(std::uint64_t serial) const
 {
     const std::scoped_lock lock(mu_);

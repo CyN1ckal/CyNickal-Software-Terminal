@@ -33,8 +33,9 @@ struct LedgerAnalysis
 };
 
 // Evaluates the ledger at every stored daily close of the shares it traded, from its
-// first fill or cash flow through now. A ledger whose shares have no closes is
-// evaluated at its own fill and cash-flow times instead. benchmark is optional.
+// first fill or cash flow through now, or through its run's ts_end for a backtest
+// ledger. A ledger whose shares have no closes is evaluated at its own fill and
+// cash-flow times instead. benchmark is optional and measured over the same span.
 [[nodiscard]] LedgerAnalysis analyzeLedger(const Store& store,
                                            LedgerId id,
                                            std::optional<InstrumentId> benchmark,

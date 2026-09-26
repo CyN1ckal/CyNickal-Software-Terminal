@@ -5,6 +5,8 @@
 
 #include "trading/Ledger.h"
 
+#include "market_data/Time.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -70,8 +72,7 @@ MarkSeries closeMarks(InstrumentId instrument_id, std::span<const Bar> bars)
         {
             continue;
         }
-        const UnixSeconds known = bar.timeframe_s == kTimeframe1d ? bar.ts + kUsRthDurationS : bar.ts + bar.timeframe_s;
-        series.marks.push_back(Mark{.ts = known, .price = bar.close});
+        series.marks.push_back(Mark{.ts = barCloseTime(bar), .price = bar.close});
     }
     return series;
 }

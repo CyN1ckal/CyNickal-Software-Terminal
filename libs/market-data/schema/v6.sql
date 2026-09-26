@@ -14,9 +14,11 @@
 -- quantity is shares. Option quantity is contracts. Fees are never negative.
 -- Cash is USD. Starting capital is a cash flow, not a column.
 -- A backtest ledger is written once with its backtest_run row.
+-- ledger.id is AUTOINCREMENT because chartbooks keep ledger ids: a deleted
+-- ledger's id must never name a later ledger.
 
 CREATE TABLE IF NOT EXISTS ledger (
-    id         INTEGER PRIMARY KEY,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT    NOT NULL COLLATE NOCASE
                  CHECK (length(name) > 0 AND name = trim(name)),
     kind       TEXT    NOT NULL

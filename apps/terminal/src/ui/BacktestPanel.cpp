@@ -19,6 +19,8 @@
 #include <chrono>
 #include <exception>
 #include <optional>
+#include <set>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -84,6 +86,29 @@ void copyInto(char* buffer, std::size_t size, std::string_view text)
         }
     }
     return "?";
+}
+
+// Every NYSE session in [from, to] that has ended has a Complete coverage row, as the
+// ingest's own check requires, so fetching the range would add nothing. A session that
+// is still open or has not started yet is not required.
+[[nodiscard]] bool rangeComplete(std::span<const CoverageDay> days,
+                                 const Instrument& instrument,
+                                 SessionDate from,
+                                 SessionDate to,
+                                 UnixSeconds now)
+{
+    std::set<SessionDate> complete;
+    for (const CoverageDay& day : days)
+    {
+        if (day.status == CoverageStatus::Complete)
+        {
+            complete.insert(day.session_date);
+        }
+    }
+    const SessionDate today = utcToSessionDate(instrument.timezone, now);
+    return std::ranges::all_of(nyseSessions(from, to), [&](SessionDate date) {
+        return date > today || sessionStillOpen(instrument.timezone, date, now) || complete.contains(date);
+    });
 }
 
 [[nodiscard]] std::string ledgerDate(UnixSeconds ts)
@@ -224,6 +249,12 @@ std::optional<BacktestOpenRequest> BacktestPanel::takeOpenRequest()
     return request;
 }
 
+std::unique_ptr<BacktestWorker> BacktestPanel::releaseWorker() noexcept
+{
+    run_serial_ = 0;
+    return std::move(worker_);
+}
+
 std::optional<BacktestRequest> BacktestPanel::buildRequest()
 {
     const auto fail = [this](std::string message) {
@@ -301,23 +332,24 @@ void BacktestPanel::startRun(const Store& store, IngestWorker* ingest)
     const int timeframe_s = request->period == ChartBarPeriod::Day1 ? kTimeframe1d : kTimeframe1m;
     const std::optional<Instrument> instrument = store.resolveSymbol(request->symbol);
     bool has_bars = false;
+    bool complete = false;
     if (instrument.has_value())
     {
-        for (const CoverageDay& day : store.queryCoverageDays(instrument->id, timeframe_s))
-        {
-            if (day.bar_count > 0 && day.session_date >= request->from && day.session_date <= request->to)
-            {
-                has_bars = true;
-                break;
-            }
-        }
+        const std::vector<CoverageDay> days = store.queryCoverageDays(instrument->id, timeframe_s);
+        has_bars = std::ranges::any_of(days, [&](const CoverageDay& day) {
+            return day.bar_count > 0 && day.session_date >= request->from && day.session_date <= request->to;
+        });
+        complete = rangeComplete(days, *instrument, request->from, request->to, nowUtc());
     }
-    if (has_bars)
+    // Run now only when an ingest would add nothing. A partly stored range is fetched
+    // first, unless it cannot be (no ingest, or a delisted symbol); then it runs on what is stored.
+    const bool can_fetch = ingest != nullptr && (!instrument.has_value() || instrument->listing_open);
+    if (has_bars && (complete || !can_fetch))
     {
         enqueueRun(store, std::move(*request));
         return;
     }
-    if (ingest == nullptr || (instrument.has_value() && !instrument->listing_open))
+    if (!can_fetch)
     {
         error_ = "no " + std::string(chartPeriodCode(request->period)) + " bars for " + request->symbol +
                  " in that range";

@@ -113,15 +113,75 @@ TEST_CASE("a fill on split-adjusted bars goes back to as-traded terms")
     before.ts = 500;
     before.price = 25.0;
     before.quantity = 40.0;
-    const auto traded = terminal::unadjustFill(before, actions);
+    const auto traded = terminal::unadjustFill(before, actions, 2'000);
     CHECK(traded.price == 100.0);
     CHECK(traded.quantity == 10.0);
 
     terminal::TradeFill after = before;
     after.ts = 1'000;
-    const auto same = terminal::unadjustFill(after, actions);
+    const auto same = terminal::unadjustFill(after, actions, 2'000);
     CHECK(same.price == 25.0);
     CHECK(same.quantity == 40.0);
+
+    // Bars adjusted only through 900 never saw the split, so neither did the fill.
+    const auto unsplit = terminal::unadjustFill(before, actions, 900);
+    CHECK(unsplit.price == 25.0);
+    CHECK(unsplit.quantity == 40.0);
+}
+
+TEST_CASE("a split after the tested range leaves the recorded fills as traded")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.testingInsertInstrument("AAPL");
+    // As-traded closes rise 100..119, then a 2-for-1 split goes ex on day 30, after the run.
+    std::vector<double> traded;
+    for (int day = 0; day < 20; ++day)
+    {
+        traded.push_back(100.0 + day);
+    }
+    seedJobBars(store, id, traded);
+    terminal::CorporateAction split;
+    split.instrument_id = id;
+    split.ex_ts = kJobStart + (30 * kJobDay);
+    split.type = terminal::CorporateActionType::Split;
+    split.split_ratio = 2.0;
+    store.upsertCorporateAction(split);
+
+    const auto outcome = terminal::runAndRecordBacktest(store, risingRequest("AAPL", 20));
+    REQUIRE(outcome.ok);
+    const auto fills = store.queryFills(outcome.recorded.ledger_id);
+    REQUIRE(fills.size() == 2);
+    CHECK(fills[0].quantity == Catch::Approx(99.0));
+    CHECK(fills[0].price == Catch::Approx(102.0));
+    CHECK(fills[1].quantity == Catch::Approx(-99.0));
+    CHECK(fills[1].price == Catch::Approx(119.0));
+}
+
+TEST_CASE("a backtest ledger is measured only through the end of its run")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.testingInsertInstrument("AAPL");
+    // 40 days of closes are stored, but the run covers only the first 20.
+    std::vector<double> closes;
+    for (int day = 0; day < 40; ++day)
+    {
+        closes.push_back(100.0 + day);
+    }
+    seedJobBars(store, id, closes);
+
+    const auto outcome = terminal::runAndRecordBacktest(store, risingRequest("AAPL", 20));
+    REQUIRE(outcome.ok);
+    const auto run = store.findBacktestRun(outcome.recorded.run_id);
+    REQUIRE(run.has_value());
+    const auto analysis =
+        terminal::analyzeLedger(store, outcome.recorded.ledger_id, id, kJobStart + (400 * kJobDay));
+    REQUIRE_FALSE(analysis.curve.empty());
+    CHECK(analysis.curve.back().ts == run->ts_end);
+    CHECK(analysis.curve.size() == 20);
+    REQUIRE_FALSE(analysis.benchmark_marks.empty());
+    CHECK(analysis.benchmark_marks.back().ts == run->ts_end);
 }
 
 TEST_CASE("a recorded backtest across a split measures the same equity as the engine")
@@ -227,6 +287,7 @@ TEST_CASE("the backtest worker runs a request on its own connection")
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     REQUIRE(worker.snapshot().finished_serial == serial);
+    CHECK(worker.idle());
     const auto outcome = worker.outcome(serial);
     REQUIRE(outcome.has_value());
     CHECK(outcome->ok);

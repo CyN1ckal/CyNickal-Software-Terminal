@@ -4,6 +4,7 @@
 #pragma once
 
 #include "backtest/Strategy.h"
+#include "market_data/Time.h"
 #include "market_data/Types.h"
 
 #include <cstdint>
@@ -83,8 +84,5 @@ struct BacktestResult
                                          const BacktestConfig& config,
                                          InstrumentId instrument_id,
                                          TradeAssetKind kind);
-
-// The close of a bar is known at ts + timeframe_s, or at the end of its RTH session for a daily bar.
-[[nodiscard]] UnixSeconds barCloseTime(const Bar& bar) noexcept;
 
 }  // namespace terminal

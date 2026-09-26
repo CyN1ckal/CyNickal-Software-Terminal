@@ -38,6 +38,8 @@ public:
     // The serial Snapshot::finished_serial reaches when this request is done.
     std::uint64_t enqueue(BacktestRequest request);
     [[nodiscard]] Snapshot snapshot() const;
+    // Nothing running and nothing queued: destroying the worker now does not wait.
+    [[nodiscard]] bool idle() const;
     // The outcome of `serial` once it has finished. Only the newest outcome is kept.
     [[nodiscard]] std::optional<BacktestOutcome> outcome(std::uint64_t serial) const;
 

@@ -12,7 +12,6 @@
 
 #include <cmath>
 #include <exception>
-#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -20,8 +19,6 @@
 
 namespace terminal {
 namespace {
-
-constexpr UnixSeconds kAllTime = std::numeric_limits<UnixSeconds>::max();
 
 [[nodiscard]] const char* sizingToken(BacktestSizing sizing) noexcept
 {
@@ -176,22 +173,13 @@ std::optional<BacktestConfig> backtestConfigFromJson(std::string_view json)
     return config;
 }
 
-TradeFill unadjustFill(TradeFill fill, std::span<const CorporateAction> actions)
+TradeFill unadjustFill(TradeFill fill, std::span<const CorporateAction> actions, UnixSeconds through)
 {
-    double factor = 1.0;
-    for (const CorporateAction& action : actions)
+    if (!fill.instrument_id.has_value())
     {
-        if (action.type != CorporateActionType::Split || !action.split_ratio.has_value() ||
-            !(*action.split_ratio > 0.0) || action.ex_ts <= fill.ts)
-        {
-            continue;
-        }
-        if (fill.instrument_id.has_value() && action.instrument_id != *fill.instrument_id)
-        {
-            continue;
-        }
-        factor *= *action.split_ratio;
+        return fill;
     }
+    const double factor = splitFactorBetween(actions, *fill.instrument_id, fill.ts, through);
     fill.price *= factor;
     fill.quantity /= factor;
     return fill;
@@ -264,27 +252,33 @@ BacktestOutcome runAndRecordBacktest(Store& writer, const BacktestRequest& reque
         const TradeAssetKind kind =
             instrument->asset_class == AssetClass::Etf ? TradeAssetKind::Etf : TradeAssetKind::Equity;
         const std::vector<int> options = clampStrategyOptions(*strategy, request.options);
-        const BacktestResult result = runBacktest(bars, *strategy, options, request.config, instrument->id, kind);
+        // Sessions end where the bars were composited, in the instrument's timezone.
+        BacktestConfig config = request.config;
+        config.timezone = instrument->timezone;
+        const BacktestResult result = runBacktest(bars, *strategy, options, config, instrument->id, kind);
 
+        // The bars were adjusted only for splits through the last bar (backtestBars), so
+        // only those are undone; a later split never touched these prices.
+        const UnixSeconds adjusted_through = bars.back().ts;
         const std::vector<CorporateAction> actions =
-            writer.queryCorporateActions(instrument->id, 0, kAllTime);
+            writer.queryCorporateActions(instrument->id, 0, adjusted_through);
         std::vector<TradeFill> fills;
         fills.reserve(result.fills.size());
         for (const TradeFill& fill : result.fills)
         {
-            TradeFill traded = unadjustFill(fill, actions);
+            TradeFill traded = unadjustFill(fill, actions, adjusted_through);
             traded.figi = instrument->figi;
             fills.push_back(std::move(traded));
         }
         LedgerCashFlow start;
         start.ts = bars.front().ts;
-        start.amount = request.config.initial_cash;
+        start.amount = config.initial_cash;
         start.note = "starting capital";
 
         BacktestRun run;
         run.strategy_id = strategy->id;
         run.params_json = strategyParamsJson(*strategy, options);
-        run.config_json = backtestConfigJson(request.config);
+        run.config_json = backtestConfigJson(config);
         run.figi = instrument->figi;
         run.timeframe_s = timeframeSeconds(request.period);
         run.ts_begin = bars.front().ts;
@@ -293,12 +287,11 @@ BacktestOutcome runAndRecordBacktest(Store& writer, const BacktestRequest& reque
 
         outcome.ledger_name = std::string(strategy->display_name) + " " + instrument->symbol + " " +
                               chartPeriodCode(request.period);
-        const std::span<const LedgerCashFlow> cash(&start, request.config.initial_cash != 0.0 ? 1 : 0);
+        const std::span<const LedgerCashFlow> cash(&start, config.initial_cash != 0.0 ? 1 : 0);
         outcome.recorded = writer.recordBacktestRun(outcome.ledger_name, run, fills, cash);
         outcome.fills = fills.size();
         outcome.final_equity = result.equity.back();
-        outcome.total_return =
-            request.config.initial_cash != 0.0 ? (outcome.final_equity / request.config.initial_cash) - 1.0 : 0.0;
+        outcome.total_return = config.initial_cash != 0.0 ? (outcome.final_equity / config.initial_cash) - 1.0 : 0.0;
         outcome.ok = true;
     }
     catch (const std::exception& ex)

@@ -166,11 +166,6 @@ private:
 
 }  // namespace
 
-UnixSeconds barCloseTime(const Bar& bar) noexcept
-{
-    return bar.timeframe_s == kTimeframe1d ? bar.ts + kUsRthDurationS : bar.ts + bar.timeframe_s;
-}
-
 BacktestResult runTargets(std::span<const Bar> bars,
                           std::span<const double> targets,
                           const BacktestConfig& config,

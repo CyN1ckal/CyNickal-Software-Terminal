@@ -59,6 +59,9 @@ public:
     void requestData(Store* store, IngestWorker* ingest);
     // A window the user asked for this frame, once.
     [[nodiscard]] std::optional<BacktestOpenRequest> takeOpenRequest();
+    // Hands over the worker so a closed panel can be destroyed without waiting for its
+    // run; the run still finishes and records. nullptr when no run was ever started.
+    [[nodiscard]] std::unique_ptr<BacktestWorker> releaseWorker() noexcept;
 
 private:
     [[nodiscard]] const StrategyType* strategy() const noexcept;

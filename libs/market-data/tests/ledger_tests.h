@@ -491,3 +491,44 @@ TEST_CASE("deleteLedger cascades its rows and fills restrict the instrument")
     terminal::Store::testingDeleteInstrument(tmp.path(), aapl);
     CHECK_FALSE(store.findInstrumentById(aapl).has_value());
 }
+
+TEST_CASE("a deleted ledger's id is never given to a later ledger")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    (void)store.createLedger("First");
+    const auto newest = store.createLedger("Second");
+    store.deleteLedger(newest);
+    const auto next = store.createLedger("Third");
+    CHECK(next > newest);
+}
+
+TEST_CASE("findLatestCoverage returns the newest session with bars")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.testingInsertInstrument("AAPL");
+    CHECK_FALSE(store.findLatestCoverage(id, terminal::kTimeframe1d).has_value());
+    const auto day = [&](terminal::SessionDate date, int bars, terminal::UnixSeconds last_ts) {
+        terminal::CoverageDay row;
+        row.instrument_id = id;
+        row.timeframe_s = terminal::kTimeframe1d;
+        row.session_date = date;
+        row.bar_count = bars;
+        if (bars > 0)
+        {
+            row.first_ts = last_ts;
+            row.last_ts = last_ts;
+        }
+        row.status = terminal::CoverageStatus::Complete;
+        store.upsertCoverage(row);
+    };
+    day(20260921, 1, 1'790'000'000);
+    day(20260922, 1, 1'790'086'400);
+    day(20260923, 0, 0);
+    const auto latest = store.findLatestCoverage(id, terminal::kTimeframe1d);
+    REQUIRE(latest.has_value());
+    CHECK(latest->session_date == 20260922);
+    CHECK(latest->last_ts == 1'790'086'400);
+    CHECK_FALSE(store.findLatestCoverage(id, terminal::kTimeframe1m).has_value());
+}

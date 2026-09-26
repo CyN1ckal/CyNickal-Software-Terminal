@@ -131,6 +131,8 @@ public:
     [[nodiscard]] std::optional<CoverageDay> findCoverage(InstrumentId id,
                                                           int timeframe_s,
                                                           SessionDate session_date) const;
+    // The newest session that has bars and a last_ts, without reading the rest.
+    [[nodiscard]] std::optional<CoverageDay> findLatestCoverage(InstrumentId id, int timeframe_s) const;
 
     CoverageDay refreshCoverageFromBars(InstrumentId id,
                                         int timeframe_s,

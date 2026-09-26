@@ -789,6 +789,7 @@ struct Store::Impl
     mutable SqliteStmt sel_coverage_days;
     mutable SqliteStmt sel_coverage_summary;
     mutable SqliteStmt sel_coverage_one;
+    mutable SqliteStmt sel_coverage_latest;
     mutable SqliteStmt sel_bar_stats;
     SqliteStmt sel_corp;
     SqliteStmt ins_corp;
@@ -1046,6 +1047,12 @@ struct Store::Impl
             "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
             "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
             "WHERE instrument_id = ? AND timeframe_s = ? AND session_date = ?");
+        sel_coverage_latest.prepare(
+            h,
+            "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
+            "WHERE instrument_id = ? AND timeframe_s = ? AND bar_count > 0 AND last_ts IS NOT NULL "
+            "ORDER BY session_date DESC LIMIT 1");
         sel_bar_stats.prepare(
             h,
             "SELECT MIN(ts), MAX(ts), COUNT(*) FROM bar "
@@ -1982,6 +1989,21 @@ std::optional<CoverageDay> Store::findCoverage(InstrumentId id,
     sel.bindInt64(1, id);
     sel.bindInt(2, timeframe_s);
     sel.bindInt(3, session_date);
+    std::optional<CoverageDay> row;
+    if (sel.stepRow())
+    {
+        row = coverageFromStmt(sel);
+    }
+    sel.reset();
+    return row;
+}
+
+std::optional<CoverageDay> Store::findLatestCoverage(InstrumentId id, int timeframe_s) const
+{
+    auto& sel = impl_->sel_coverage_latest;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
     std::optional<CoverageDay> row;
     if (sel.stepRow())
     {

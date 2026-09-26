@@ -25,7 +25,8 @@ struct LedgerMark
 // The as-traded close of the newest stored bar, daily or 1-minute, whichever is later.
 [[nodiscard]] std::optional<LedgerMark> latestShareMark(const Store& store, InstrumentId id);
 
-// The stored chain's last print for this contract. nullopt for a share key or an unquoted contract.
+// The stored chain's last print for this contract, or its mid when it has not printed.
+// nullopt for a share key, an unquoted contract, or one with neither a print nor a mid.
 [[nodiscard]] std::optional<LedgerMark> latestOptionMark(const Store& store, const PositionKey& key);
 
 // Open positions as holdings, so portfolioFetchJobs can plan their prices. The

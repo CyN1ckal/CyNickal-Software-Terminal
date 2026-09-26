@@ -163,6 +163,8 @@ private:
     std::vector<std::unique_ptr<PayoffPanel>> payoffs_;
     std::vector<std::unique_ptr<LedgerPanel>> ledgers_;
     std::vector<std::unique_ptr<BacktestPanel>> backtests_;
+    // Workers of closed backtest panels whose run had not finished; dropped once idle.
+    std::vector<std::unique_ptr<BacktestWorker>> retired_backtest_workers_;
     std::vector<std::unique_ptr<StatsPanel>> stats_;
     int next_id_{1};
     int focused_id_{0};

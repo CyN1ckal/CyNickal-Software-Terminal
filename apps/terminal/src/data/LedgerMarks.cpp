@@ -16,26 +16,12 @@ namespace {
 
 [[nodiscard]] std::optional<LedgerMark> latestClose(const Store& store, InstrumentId id, int timeframe_s)
 {
-    const std::vector<CoverageDay> days = store.queryCoverageDays(id, timeframe_s);
-    const CoverageDay* best = nullptr;
-    UnixSeconds latest = 0;
-    for (const CoverageDay& day : days)
-    {
-        if (day.bar_count <= 0 || !day.last_ts.has_value())
-        {
-            continue;
-        }
-        const UnixSeconds last_ts = *day.last_ts;
-        if (best == nullptr || last_ts > latest)
-        {
-            best = &day;
-            latest = last_ts;
-        }
-    }
-    if (best == nullptr)
+    const std::optional<CoverageDay> best = store.findLatestCoverage(id, timeframe_s);
+    if (!best.has_value() || !best->last_ts.has_value())
     {
         return std::nullopt;
     }
+    const UnixSeconds latest = *best->last_ts;
     const std::vector<Bar> bars = store.queryBars(id, timeframe_s, latest, latest + 1);
     if (bars.empty())
     {
@@ -79,8 +65,15 @@ std::optional<LedgerMark> latestOptionMark(const Store& store, const PositionKey
         {
             continue;
         }
+        // A contract that has not printed stores last as 0; value it at the mid instead,
+        // and leave it unmarked (held at cost) when there is no market either.
+        const double price = quote.last > 0.0 ? quote.last : quote.mid;
+        if (!std::isfinite(price) || !(price > 0.0))
+        {
+            return std::nullopt;
+        }
         LedgerMark mark;
-        mark.price = quote.last;
+        mark.price = price;
         mark.as_of = quote.fetched_at;
         mark.received_at = quote.fetched_at;
         return mark;
