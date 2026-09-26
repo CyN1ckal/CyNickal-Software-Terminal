@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft. PR 1 (schema v6 and the Store ledger API) implemented 2026-09-25. |
+| Status | Draft. PR 1 (schema v6 and the Store ledger API) and PR 2 (lot matching) implemented 2026-09-25. |
 | Date | 2026-09-25 |
 | Audience | First-party C++ in `libs/market-data` and `apps/terminal/` |
 | Related | `docs/market-data-store.md` (schema and `Store`), `docs/composite-figi-identity.md` (FIGI identity), `docs/chart-panes.md` (panels, studies), `docs/design.md` (visual tokens) |
@@ -92,7 +92,7 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_core` and is tested 
 
 | File | Role |
 |---|---|
-| `apps/terminal/src/trading/Ledger.{h,cpp}` | `matchLots(fills, splits)`: FIFO lots, round trips, realized P&L, fees. Partial closes, a fill that flips long to short, shorts, splits applied to open lots, a 100 multiplier on options. |
+| `apps/terminal/src/trading/Ledger.{h,cpp}` | `LotBook` steps through time: `advanceTo(ts)` applies splits, `apply(fill)` matches FIFO. `matchLots(fills, actions, as_of)` runs one to a date. Round trips carry allocated fees and net P&L. Partial closes, a fill that flips long to short, shorts, splits applied to open share lots (not options), a 100 multiplier on options. `fillCashFlow` and `unrealizedPnl` feed the equity curve. |
 | `apps/terminal/src/trading/EquityCurve.{h,cpp}` | Cash, market value, equity, and drawdown at each session close. Intraday ledgers are grouped into sessions before any annualized figure. |
 | `apps/terminal/src/trading/TradeStats.{h,cpp}` | Trade statistics: count, win rate, average win and loss, payoff ratio, profit factor, expectancy, largest win and loss, streaks, average holding time, MAE/MFE when bars are given. Curve statistics: total return, CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, exposure, buy-and-hold benchmark. VaR and CVaR reuse `valueAtRisk` from `risk/HistoricalRisk.h`. |
 | `apps/terminal/src/backtest/Engine.{h,cpp}` | `runBacktest(bars, strategy, options, config)` returns fills, equity, and diagnostics. Deterministic. |

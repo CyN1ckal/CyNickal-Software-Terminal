@@ -38,6 +38,7 @@ add_library(terminal_core OBJECT
     src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
     src/risk/HistoricalRisk.cpp
+    src/trading/Ledger.cpp
     src/options/OptionPayoff.cpp
     src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp
@@ -195,6 +196,7 @@ if(CYN_TESTING)
         src/data/StatementLineLabel.cpp
         src/data/PortfolioFetch.cpp
         src/risk/HistoricalRisk.cpp
+        src/trading/Ledger.cpp
         src/options/OptionPayoff.cpp
         src/options/OptionStrategy.cpp
         tests/chart/chart_command_tests.h
