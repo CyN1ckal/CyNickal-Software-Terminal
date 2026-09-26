@@ -5,6 +5,7 @@
 
 #include "chart/CChartLoad.h"
 #include "chart/CChartSettings.h"
+#include "chart/CChartTrades.h"
 #include "chart/CChartView.h"
 #include "chart/CChartbookDocument.h"
 #include "chart/CStudy.h"
@@ -84,7 +85,9 @@ private:
     void reload(Store* store, std::string_view store_error);
     void drawStrip(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawStripScalePopup();
-    void drawChartMenu(ImVec2 origin, ImVec2 size);
+    void drawChartMenu(ImVec2 origin, ImVec2 size, const Store* store);
+    // Places settings_.trades_ledger's fills on the loaded bars.
+    void refreshTrades(const Store& store);
     void drawStudyLegend(ImVec2 cursor, float width);
     void showEnabledStudyTooltip() const;
     void drawPlotBody();
@@ -126,6 +129,8 @@ private:
     std::vector<CStudyInstance> studies_;
     std::vector<CStudyInstance> study_draft_;
     std::vector<CStudySeries> computed_;
+    std::vector<ChartTradeMarker> trades_;
+    bool trades_stale_{true};
     int next_study_id_{1};
     int study_draft_selected_{-1};
     bool studies_open_{false};

@@ -876,6 +876,19 @@ TEST_CASE("ledger windows round trip and a layout naming a missing ledger is ref
     CHECK_FALSE(terminal::chartbookFromJson(no_next).ok);
 }
 
+TEST_CASE("a chart pane round trips the ledger it marks")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    REQUIRE_FALSE(document.panes.empty());
+    CHECK(document.panes[0].settings.trades_ledger == 0);
+    CHECK(terminal::chartbookToJson(document).find("trades_ledger") == std::string::npos);
+    document.panes[0].settings.trades_ledger = 12;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    CHECK(loaded.document.panes[0].settings.trades_ledger == 12);
+}
+
 TEST_CASE("statistics windows round trip their ledger and benchmark")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");

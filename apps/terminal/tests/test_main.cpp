@@ -12,6 +12,7 @@
 #include "chart/moving_average_tests.h"
 #include "chart/bollinger_tests.h"
 #include "chart/n_bar_percent_change_tests.h"
+#include "chart/chart_trades_tests.h"
 #include "chart/chart_transform_tests.h"
 #include "chart/chart_view_tests.h"
 #include "data/statement_sheet_tests.h"

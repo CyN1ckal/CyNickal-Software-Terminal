@@ -435,6 +435,10 @@ void writeLinkGroup(json& object, int link_group)
     {
         object["horizontal_grid_spacing"] = settings.horizontal_grid_spacing;
     }
+    if (settings.trades_ledger != 0)
+    {
+        object["trades_ledger"] = settings.trades_ledger;
+    }
     return object;
 }
 
@@ -533,6 +537,16 @@ void writeLinkGroup(json& object, int link_group)
             return fail(error, "horizontal_grid_spacing is not a number");
         }
         settings.horizontal_grid_spacing = field.get<double>();
+    }
+    settings.trades_ledger = 0;
+    if (object->contains("trades_ledger"))
+    {
+        const json& field = object->at("trades_ledger");
+        if (!field.is_number_integer() || field.get<std::int64_t>() < 0)
+        {
+            return fail(error, "trades_ledger is invalid");
+        }
+        settings.trades_ledger = field.get<std::int64_t>();
     }
     return true;
 }

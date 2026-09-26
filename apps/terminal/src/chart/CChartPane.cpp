@@ -480,6 +480,33 @@ void CChartPane::reload(Store* store, std::string_view store_error)
         resetChartScale(view_);
     }
     computed_ = studiesForLoad(loaded_, studies_);
+    refreshTrades(*store);
+}
+
+void CChartPane::refreshTrades(const Store& store)
+{
+    trades_stale_ = false;
+    trades_.clear();
+    if (settings_.trades_ledger == 0 || loaded_.bars.empty() || !loaded_.instrument.has_value())
+    {
+        return;
+    }
+    try
+    {
+        if (!store.findLedger(settings_.trades_ledger).has_value())
+        {
+            return;
+        }
+        const InstrumentId instrument = loaded_.instrument.value().id;
+        const std::vector<TradeFill> fills = store.queryFills(settings_.trades_ledger);
+        const std::vector<CorporateAction> actions =
+            store.queryCorporateActions(instrument, 0, loaded_.bars.back().ts);
+        trades_ = chartTradeMarkers(loaded_.bars, fills, instrument, actions);
+    }
+    catch (const std::exception&)
+    {
+        trades_.clear();
+    }
 }
 
 void CChartPane::adoptResolvedIdentity(const ChartLoadResult& incoming)
@@ -1354,7 +1381,7 @@ void CChartPane::drawStripScalePopup()
     ImGui::EndPopup();
 }
 
-void CChartPane::drawChartMenu(ImVec2 origin, ImVec2 size)
+void CChartPane::drawChartMenu(ImVec2 origin, ImVec2 size, const Store* store)
 {
     const ImVec2 mouse = ImGui::GetIO().MousePos;
     const bool in_chart = size.x > 0.0f && size.y > 0.0f && mouse.x >= origin.x && mouse.y >= origin.y &&
@@ -1370,6 +1397,36 @@ void CChartPane::drawChartMenu(ImVec2 origin, ImVec2 size)
     if (ImGui::BeginPopup("##chart_menu"))
     {
         ImGui::Checkbox("Crosshair", &view_.crosshair);
+        if (store != nullptr && ImGui::BeginMenu("Show Trades"))
+        {
+            if (ImGui::MenuItem("None", nullptr, settings_.trades_ledger == 0))
+            {
+                settings_.trades_ledger = 0;
+                trades_stale_ = true;
+            }
+            std::vector<Ledger> ledgers;
+            try
+            {
+                ledgers = store->listLedgers();
+            }
+            catch (const std::exception&)
+            {
+                ledgers.clear();
+            }
+            for (const Ledger& ledger : ledgers)
+            {
+                ImGui::PushID(static_cast<int>(ledger.id));
+                const std::string label =
+                    ledger.kind == LedgerKind::Backtest ? ledger.name + " (backtest)" : ledger.name;
+                if (ImGui::MenuItem(label.c_str(), nullptr, settings_.trades_ledger == ledger.id))
+                {
+                    settings_.trades_ledger = ledger.id;
+                    trades_stale_ = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndMenu();
+        }
         ImGui::Separator();
         const float button_w = std::max(buttonWidth("Chart Settings"), buttonWidth("Study Settings"));
         ImGui::BeginDisabled(studies_open_);
@@ -1589,7 +1646,7 @@ void CChartPane::drawPlotBody()
                 tz = zone;
             }
         }
-        drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_);
+        drawCandlesticks(loaded_.bars, settings_, view_, tz, computed_, trades_);
     }
     else
     {
@@ -1760,9 +1817,13 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     view_.y_axis_hovered = false;
     const ImVec2 chart_origin = ImGui::GetCursorScreenPos();
     const ImVec2 chart_size = ImGui::GetContentRegionAvail();
+    if (trades_stale_ && store != nullptr)
+    {
+        refreshTrades(*store);
+    }
     drawStrip(store, store_error, ingest);
     drawPlotBody();
-    drawChartMenu(chart_origin, chart_size);
+    drawChartMenu(chart_origin, chart_size, store);
     drawStripScalePopup();
     drawSettingsPopup(store, store_error, ingest);
     drawStudiesPopup();

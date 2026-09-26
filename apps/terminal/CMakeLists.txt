@@ -58,6 +58,7 @@ add_library(terminal_core OBJECT
     src/chart/CChartLoad.cpp
     src/chart/CSymbolLink.cpp
     src/chart/CChartTransform.cpp
+    src/chart/CChartTrades.cpp
     src/chart/CChartbookDocument.cpp
     src/chart/CChartbookFile.cpp
     src/chart/CStudyCompute.cpp
@@ -200,6 +201,7 @@ if(CYN_TESTING)
         src/chart/CChartLoad.cpp
         src/chart/CSymbolLink.cpp
         src/chart/CChartTransform.cpp
+        src/chart/CChartTrades.cpp
         src/chart/CChartbookDocument.cpp
         src/chart/CChartbookFile.cpp
         src/chart/CStudyCompute.cpp
