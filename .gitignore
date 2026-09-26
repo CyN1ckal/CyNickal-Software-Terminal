@@ -49,6 +49,9 @@ imgui.ini
 .cache/
 .clangd/
 
+# Python bytecode (agent-data, research scripts)
+__pycache__/
+
 # Editor / OS
 *~
 *.swp

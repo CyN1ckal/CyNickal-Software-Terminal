@@ -30,6 +30,8 @@ Ingest needs a MBoum key at the repo root (gitignored):
 
 Bars land in `data/market-data.sqlite`. Pull them from DATA (TF / SYMBOL / FROM / TO / GO) or `./build/ingest AAPL` / `./build/ingest --timeframe 1d AAPL`. Default 1m range is the last 14 New York session dates; daily defaults to five years.
 
+Agents and scripts read the store through [`agent-data/mdq.py`](agent-data/README.md) (read-only, split-adjusted, NYSE-calendar aware) instead of raw SQL.
+
 On a focused chart, type a symbol or a bar period and press Enter (`QQQ`, `15m`, `1h`, `1d`). A symbol that is not in the database is downloaded for that chart's days-to-load window.
 
 First-party code is [PolyForm Noncommercial 1.0.0](LICENSE.md).
