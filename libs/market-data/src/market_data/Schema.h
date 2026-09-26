@@ -13,4 +13,7 @@ namespace terminal {
 // schema/v5.sql, portfolio tables only. Does not modify the v4 baseline.
 [[nodiscard]] std::string_view schemaV5();
 
+// schema/v6.sql, ledger and backtest tables only. Does not modify v4 or v5.
+[[nodiscard]] std::string_view schemaV6();
+
 }  // namespace terminal

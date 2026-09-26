@@ -66,6 +66,8 @@ public:
     [[nodiscard]] static std::vector<std::string> testingTableNames(const std::filesystem::path& path);
     // Applies schemaV4() to a user_version 0 file and stamps 4. Does not run schemaV5().
     static void testingCreateSchemaV4(const std::filesystem::path& path);
+    // Applies schemaV5() to a bare version-4 file and stamps 5. Does not run schemaV6().
+    static void testingUpgradeSchemaV4ToV5(const std::filesystem::path& path);
     // One equity (testingFigiFor(symbol)) and an open listing on a version-4 file
     // that has no portfolio table. Leaves user_version at 4.
     static void testingSeedV4Instrument(const std::filesystem::path& path, std::string_view symbol);
@@ -191,7 +193,50 @@ public:
     [[nodiscard]] std::vector<PortfolioHolding> queryHoldings(PortfolioId id) const;
     void deletePortfolio(PortfolioId id);
 
+    // A manual ledger. Manual names are unique ignoring case.
+    LedgerId createLedger(std::string_view name);
+    // Manual ledgers only. A backtest ledger keeps the name its run gave it.
+    void renameLedger(LedgerId id, std::string_view name);
+    // Manual ledgers first, then backtest ledgers; each by name, then id.
+    [[nodiscard]] std::vector<Ledger> listLedgers() const;
+    [[nodiscard]] std::optional<Ledger> findLedger(LedgerId id) const;
+    // Deletes the fills, cash flows, and backtest run with it.
+    void deleteLedger(LedgerId id);
+
+    // Manual ledgers only. The whole span is checked before anything is written;
+    // one invalid row writes nothing. A row whose external_id is already in the
+    // ledger, or earlier in the span, is skipped. Bumps updated_at.
+    LedgerAppendResult appendFills(LedgerId id, std::span<const TradeFill> fills);
+    void deleteFill(LedgerId id, TradeFillId fill_id);
+    // Ordered by ts, then id.
+    [[nodiscard]] std::vector<TradeFill> queryFills(LedgerId id) const;
+
+    // Same rules as appendFills.
+    LedgerAppendResult appendCashFlows(LedgerId id, std::span<const LedgerCashFlow> flows);
+    void deleteCashFlow(LedgerId id, LedgerCashFlowId flow_id);
+    // Ordered by ts, then id.
+    [[nodiscard]] std::vector<LedgerCashFlow> queryCashFlows(LedgerId id) const;
+
+    // Creates a backtest ledger named name, its fills, its cash flows, and the
+    // run row in one transaction. Every fill must be on the run's instrument.
+    RecordedBacktest recordBacktestRun(std::string_view name,
+                                       const BacktestRun& run,
+                                       std::span<const TradeFill> fills,
+                                       std::span<const LedgerCashFlow> cash_flows);
+    // Newest first.
+    [[nodiscard]] std::vector<BacktestRun> listBacktestRuns() const;
+    [[nodiscard]] std::optional<BacktestRun> findBacktestRun(BacktestRunId id) const;
+    [[nodiscard]] std::optional<BacktestRun> findBacktestRunForLedger(LedgerId id) const;
+
 private:
+    void insertFillsUnlocked(LedgerId id,
+                             std::span<const TradeFill> fills,
+                             std::span<const InstrumentId> instrument_ids,
+                             LedgerAppendResult& result);
+    void insertCashFlowsUnlocked(LedgerId id,
+                                 std::span<const LedgerCashFlow> flows,
+                                 LedgerAppendResult& result);
+    void touchLedgerUnlocked(LedgerId id);
     UpsertBarsResult upsertBarsUnlocked(std::span<const Bar> bars,
                                         UnixSeconds now,
                                         const Instrument* session_filter,
