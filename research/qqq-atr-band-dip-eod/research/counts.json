@@ -1,0 +1,4730 @@
+{
+ "coverage": {
+  "QQQ": {
+   "symbol": "QQQ",
+   "timeframe": "1m",
+   "sessions_recorded": 1305,
+   "sessions_with_bars": 1254,
+   "first_session": "2021-09-27",
+   "last_session": "2026-09-25",
+   "by_status": {
+    "complete": 1294,
+    "partial": 10,
+    "missing": 1
+   },
+   "needs_attention": [
+    {
+     "session": "2021-12-31",
+     "status": "complete",
+     "bar_count": 0,
+     "expected_count": 0,
+     "note": "never fetched: the terminal's calendar treats this session as a holiday"
+    }
+   ],
+   "sessions_not_recorded": []
+  },
+  "SPY": {
+   "symbol": "SPY",
+   "timeframe": "1m",
+   "sessions_recorded": 1305,
+   "sessions_with_bars": 1254,
+   "first_session": "2021-09-27",
+   "last_session": "2026-09-25",
+   "by_status": {
+    "complete": 1293,
+    "partial": 11,
+    "missing": 1
+   },
+   "needs_attention": [
+    {
+     "session": "2021-12-31",
+     "status": "complete",
+     "bar_count": 0,
+     "expected_count": 0,
+     "note": "never fetched: the terminal's calendar treats this session as a holiday"
+    },
+    {
+     "session": "2026-03-03",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    }
+   ],
+   "sessions_not_recorded": []
+  },
+  "IGV": {
+   "symbol": "IGV",
+   "timeframe": "1m",
+   "sessions_recorded": 1305,
+   "sessions_with_bars": 1254,
+   "first_session": "2021-09-27",
+   "last_session": "2026-09-25",
+   "by_status": {
+    "partial": 647,
+    "complete": 657,
+    "missing": 1
+   },
+   "needs_attention": [
+    {
+     "session": "2021-09-27",
+     "status": "partial",
+     "bar_count": 349,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-09-28",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-09-29",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-09-30",
+     "status": "partial",
+     "bar_count": 344,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-01",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-04",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-05",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-06",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-07",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-08",
+     "status": "partial",
+     "bar_count": 307,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-11",
+     "status": "partial",
+     "bar_count": 307,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-12",
+     "status": "partial",
+     "bar_count": 334,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-13",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-14",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-15",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-18",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-19",
+     "status": "partial",
+     "bar_count": 356,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-20",
+     "status": "partial",
+     "bar_count": 318,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-21",
+     "status": "partial",
+     "bar_count": 327,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-22",
+     "status": "partial",
+     "bar_count": 322,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-25",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-26",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-27",
+     "status": "partial",
+     "bar_count": 353,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-28",
+     "status": "partial",
+     "bar_count": 305,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-10-29",
+     "status": "partial",
+     "bar_count": 356,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-01",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-02",
+     "status": "partial",
+     "bar_count": 312,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-03",
+     "status": "partial",
+     "bar_count": 312,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-04",
+     "status": "partial",
+     "bar_count": 326,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-05",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-08",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-09",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-10",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-11",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-12",
+     "status": "partial",
+     "bar_count": 316,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-15",
+     "status": "partial",
+     "bar_count": 302,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-16",
+     "status": "partial",
+     "bar_count": 348,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-17",
+     "status": "partial",
+     "bar_count": 300,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-18",
+     "status": "partial",
+     "bar_count": 334,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-19",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-22",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-26",
+     "status": "partial",
+     "bar_count": 210,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-29",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-11-30",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-02",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-08",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-09",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-10",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-15",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-16",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-20",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-21",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-22",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-23",
+     "status": "partial",
+     "bar_count": 282,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-27",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-28",
+     "status": "partial",
+     "bar_count": 327,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-29",
+     "status": "partial",
+     "bar_count": 311,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-30",
+     "status": "partial",
+     "bar_count": 330,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2021-12-31",
+     "status": "complete",
+     "bar_count": 0,
+     "expected_count": 0,
+     "note": "never fetched: the terminal's calendar treats this session as a holiday"
+    },
+    {
+     "session": "2022-01-03",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-07",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-13",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-14",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-18",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-19",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-20",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-21",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-25",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-27",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-01-31",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-01",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-02",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-03",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-04",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-07",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-08",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-09",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-11",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-14",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-15",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-16",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-17",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-18",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-22",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-23",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-25",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-02-28",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-01",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-02",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-03",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-04",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-07",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-08",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-09",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-10",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-11",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-15",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-16",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-18",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-21",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-22",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-23",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-24",
+     "status": "partial",
+     "bar_count": 359,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-25",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-28",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-29",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-30",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-03-31",
+     "status": "partial",
+     "bar_count": 340,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-01",
+     "status": "partial",
+     "bar_count": 359,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-04",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-05",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-06",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-07",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-08",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-11",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-12",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-13",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-14",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-18",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-19",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-20",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-21",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-22",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-25",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-26",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-27",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-28",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-04-29",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-02",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-03",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-04",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-05",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-06",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-09",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-10",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-11",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-13",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-16",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-17",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-18",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-19",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-20",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-23",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-24",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-25",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-26",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-27",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-05-31",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-01",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-02",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-03",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-06",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-07",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-08",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-09",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-10",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-13",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-14",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-15",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-16",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-17",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-21",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-22",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-24",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-28",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-29",
+     "status": "partial",
+     "bar_count": 349,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-06-30",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-01",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-05",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-06",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-07",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-08",
+     "status": "partial",
+     "bar_count": 349,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-11",
+     "status": "partial",
+     "bar_count": 326,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-12",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-14",
+     "status": "partial",
+     "bar_count": 362,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-15",
+     "status": "partial",
+     "bar_count": 350,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-18",
+     "status": "partial",
+     "bar_count": 344,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-19",
+     "status": "partial",
+     "bar_count": 352,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-20",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-21",
+     "status": "partial",
+     "bar_count": 338,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-22",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-25",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-26",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-27",
+     "status": "partial",
+     "bar_count": 328,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-28",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-07-29",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-01",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-02",
+     "status": "partial",
+     "bar_count": 344,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-03",
+     "status": "partial",
+     "bar_count": 359,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-04",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-05",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-09",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-10",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-11",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-12",
+     "status": "partial",
+     "bar_count": 329,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-15",
+     "status": "partial",
+     "bar_count": 309,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-16",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-17",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-18",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-19",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-22",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-23",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-24",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-25",
+     "status": "partial",
+     "bar_count": 353,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-26",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-29",
+     "status": "partial",
+     "bar_count": 352,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-30",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-08-31",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-01",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-02",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-06",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-07",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-08",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-09",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-12",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-13",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-14",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-16",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-19",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-20",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-21",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-22",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-23",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-26",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-27",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-28",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-29",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-09-30",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-03",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-04",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-05",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-06",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-07",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-10",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-11",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-13",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-14",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-17",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-18",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-19",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-20",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-21",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-24",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-25",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-26",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-27",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-28",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-10-31",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-01",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-02",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-03",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-07",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-08",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-09",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-11",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-14",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-16",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-17",
+     "status": "partial",
+     "bar_count": 362,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-18",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-21",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-22",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-23",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-25",
+     "status": "partial",
+     "bar_count": 208,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-28",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-29",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-11-30",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-01",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-02",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-05",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-06",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-07",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-08",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-09",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-12",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-13",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-14",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-15",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-16",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-19",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-20",
+     "status": "partial",
+     "bar_count": 336,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-21",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-22",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-23",
+     "status": "partial",
+     "bar_count": 331,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-27",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-28",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-29",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2022-12-30",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-03",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-04",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-05",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-06",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-09",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-10",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-11",
+     "status": "partial",
+     "bar_count": 355,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-12",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-13",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-17",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-18",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-19",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-20",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-23",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-24",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-25",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-26",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-27",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-01-31",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-01",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-07",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-08",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-09",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-10",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-13",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-14",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-15",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-16",
+     "status": "partial",
+     "bar_count": 380,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-17",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-21",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-22",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-23",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-24",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-27",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-02-28",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-01",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-02",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-03",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-07",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-08",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-09",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-10",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-13",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-14",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-15",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-16",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-17",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-20",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-21",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-22",
+     "status": "partial",
+     "bar_count": 297,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-23",
+     "status": "partial",
+     "bar_count": 330,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-24",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-27",
+     "status": "partial",
+     "bar_count": 357,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-28",
+     "status": "partial",
+     "bar_count": 331,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-29",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-30",
+     "status": "partial",
+     "bar_count": 324,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-03-31",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-03",
+     "status": "partial",
+     "bar_count": 342,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-04",
+     "status": "partial",
+     "bar_count": 339,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-05",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-06",
+     "status": "partial",
+     "bar_count": 332,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-10",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-11",
+     "status": "partial",
+     "bar_count": 319,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-12",
+     "status": "partial",
+     "bar_count": 346,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-13",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-14",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-17",
+     "status": "partial",
+     "bar_count": 335,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-18",
+     "status": "partial",
+     "bar_count": 254,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-19",
+     "status": "partial",
+     "bar_count": 265,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-20",
+     "status": "partial",
+     "bar_count": 335,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-21",
+     "status": "partial",
+     "bar_count": 289,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-24",
+     "status": "partial",
+     "bar_count": 320,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-25",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-26",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-27",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-04-28",
+     "status": "partial",
+     "bar_count": 351,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-02",
+     "status": "partial",
+     "bar_count": 337,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-03",
+     "status": "partial",
+     "bar_count": 356,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-04",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-05",
+     "status": "partial",
+     "bar_count": 332,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-08",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-09",
+     "status": "partial",
+     "bar_count": 311,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-10",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-11",
+     "status": "partial",
+     "bar_count": 323,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-12",
+     "status": "partial",
+     "bar_count": 307,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-15",
+     "status": "partial",
+     "bar_count": 289,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-16",
+     "status": "partial",
+     "bar_count": 324,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-17",
+     "status": "partial",
+     "bar_count": 333,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-18",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-19",
+     "status": "partial",
+     "bar_count": 328,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-22",
+     "status": "partial",
+     "bar_count": 368,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-23",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-24",
+     "status": "partial",
+     "bar_count": 336,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-25",
+     "status": "partial",
+     "bar_count": 346,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-26",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-30",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-05-31",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-01",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-02",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-05",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-06",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-07",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-08",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-09",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-12",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-13",
+     "status": "partial",
+     "bar_count": 362,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-14",
+     "status": "partial",
+     "bar_count": 326,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-15",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-16",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-20",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-21",
+     "status": "partial",
+     "bar_count": 359,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-22",
+     "status": "partial",
+     "bar_count": 370,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-23",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-26",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-27",
+     "status": "partial",
+     "bar_count": 329,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-28",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-29",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-06-30",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-03",
+     "status": "partial",
+     "bar_count": 176,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-05",
+     "status": "partial",
+     "bar_count": 302,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-06",
+     "status": "partial",
+     "bar_count": 302,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-07",
+     "status": "partial",
+     "bar_count": 324,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-10",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-11",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-12",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-13",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-17",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-18",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-19",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-21",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-24",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-25",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-26",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-27",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-28",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-07-31",
+     "status": "partial",
+     "bar_count": 352,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-01",
+     "status": "partial",
+     "bar_count": 351,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-03",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-04",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-07",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-08",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-09",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-10",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-11",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-14",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-15",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-16",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-17",
+     "status": "partial",
+     "bar_count": 350,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-18",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-21",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-22",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-23",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-24",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-25",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-28",
+     "status": "partial",
+     "bar_count": 319,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-29",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-30",
+     "status": "partial",
+     "bar_count": 346,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-08-31",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-01",
+     "status": "partial",
+     "bar_count": 340,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-05",
+     "status": "partial",
+     "bar_count": 379,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-06",
+     "status": "partial",
+     "bar_count": 343,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-07",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-08",
+     "status": "partial",
+     "bar_count": 373,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-11",
+     "status": "partial",
+     "bar_count": 318,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-12",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-13",
+     "status": "partial",
+     "bar_count": 325,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-14",
+     "status": "partial",
+     "bar_count": 336,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-15",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-18",
+     "status": "partial",
+     "bar_count": 350,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-19",
+     "status": "partial",
+     "bar_count": 284,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-20",
+     "status": "partial",
+     "bar_count": 284,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-21",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-22",
+     "status": "partial",
+     "bar_count": 351,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-25",
+     "status": "partial",
+     "bar_count": 318,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-26",
+     "status": "partial",
+     "bar_count": 348,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-27",
+     "status": "partial",
+     "bar_count": 343,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-28",
+     "status": "partial",
+     "bar_count": 335,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-09-29",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-02",
+     "status": "partial",
+     "bar_count": 361,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-03",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-04",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-05",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-06",
+     "status": "partial",
+     "bar_count": 357,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-09",
+     "status": "partial",
+     "bar_count": 363,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-10",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-11",
+     "status": "partial",
+     "bar_count": 308,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-12",
+     "status": "partial",
+     "bar_count": 326,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-13",
+     "status": "partial",
+     "bar_count": 303,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-16",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-17",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-18",
+     "status": "partial",
+     "bar_count": 331,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-19",
+     "status": "partial",
+     "bar_count": 344,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-20",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-23",
+     "status": "partial",
+     "bar_count": 377,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-24",
+     "status": "partial",
+     "bar_count": 351,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-25",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-26",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-27",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-30",
+     "status": "partial",
+     "bar_count": 343,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-10-31",
+     "status": "partial",
+     "bar_count": 369,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-01",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-02",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-03",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-06",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-07",
+     "status": "partial",
+     "bar_count": 371,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-08",
+     "status": "partial",
+     "bar_count": 306,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-09",
+     "status": "partial",
+     "bar_count": 352,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-10",
+     "status": "partial",
+     "bar_count": 349,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-13",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-14",
+     "status": "partial",
+     "bar_count": 367,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-15",
+     "status": "partial",
+     "bar_count": 365,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-16",
+     "status": "partial",
+     "bar_count": 324,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-17",
+     "status": "partial",
+     "bar_count": 297,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-20",
+     "status": "partial",
+     "bar_count": 360,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-21",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-22",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-24",
+     "status": "partial",
+     "bar_count": 172,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-27",
+     "status": "partial",
+     "bar_count": 382,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-28",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-29",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-11-30",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-01",
+     "status": "partial",
+     "bar_count": 381,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-04",
+     "status": "partial",
+     "bar_count": 351,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-05",
+     "status": "partial",
+     "bar_count": 300,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-06",
+     "status": "partial",
+     "bar_count": 284,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-07",
+     "status": "partial",
+     "bar_count": 344,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-08",
+     "status": "partial",
+     "bar_count": 283,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-11",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-12",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-13",
+     "status": "partial",
+     "bar_count": 362,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-14",
+     "status": "partial",
+     "bar_count": 362,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-15",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-18",
+     "status": "partial",
+     "bar_count": 328,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-19",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-20",
+     "status": "partial",
+     "bar_count": 326,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-21",
+     "status": "partial",
+     "bar_count": 308,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-22",
+     "status": "partial",
+     "bar_count": 290,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-26",
+     "status": "partial",
+     "bar_count": 256,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-27",
+     "status": "partial",
+     "bar_count": 280,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-28",
+     "status": "partial",
+     "bar_count": 287,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2023-12-29",
+     "status": "partial",
+     "bar_count": 283,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-02",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-03",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-04",
+     "status": "partial",
+     "bar_count": 319,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-05",
+     "status": "partial",
+     "bar_count": 341,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-08",
+     "status": "partial",
+     "bar_count": 332,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-09",
+     "status": "partial",
+     "bar_count": 311,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-10",
+     "status": "partial",
+     "bar_count": 331,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-11",
+     "status": "partial",
+     "bar_count": 330,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-12",
+     "status": "partial",
+     "bar_count": 298,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-16",
+     "status": "partial",
+     "bar_count": 292,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-17",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-18",
+     "status": "partial",
+     "bar_count": 327,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-19",
+     "status": "partial",
+     "bar_count": 319,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-22",
+     "status": "partial",
+     "bar_count": 359,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-23",
+     "status": "partial",
+     "bar_count": 350,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-24",
+     "status": "partial",
+     "bar_count": 375,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-25",
+     "status": "partial",
+     "bar_count": 322,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-26",
+     "status": "partial",
+     "bar_count": 290,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-29",
+     "status": "partial",
+     "bar_count": 324,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-30",
+     "status": "partial",
+     "bar_count": 374,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-01-31",
+     "status": "partial",
+     "bar_count": 357,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-01",
+     "status": "partial",
+     "bar_count": 345,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-02",
+     "status": "partial",
+     "bar_count": 336,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-05",
+     "status": "partial",
+     "bar_count": 298,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-06",
+     "status": "partial",
+     "bar_count": 290,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-07",
+     "status": "partial",
+     "bar_count": 292,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-08",
+     "status": "partial",
+     "bar_count": 333,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-09",
+     "status": "partial",
+     "bar_count": 342,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-12",
+     "status": "partial",
+     "bar_count": 321,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-13",
+     "status": "partial",
+     "bar_count": 358,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-14",
+     "status": "partial",
+     "bar_count": 310,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-15",
+     "status": "partial",
+     "bar_count": 301,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-16",
+     "status": "partial",
+     "bar_count": 364,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-20",
+     "status": "partial",
+     "bar_count": 372,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-21",
+     "status": "partial",
+     "bar_count": 378,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-22",
+     "status": "partial",
+     "bar_count": 366,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-23",
+     "status": "partial",
+     "bar_count": 348,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-26",
+     "status": "partial",
+     "bar_count": 347,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-27",
+     "status": "partial",
+     "bar_count": 321,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-28",
+     "status": "partial",
+     "bar_count": 306,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-02-29",
+     "status": "partial",
+     "bar_count": 338,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-01",
+     "status": "partial",
+     "bar_count": 354,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-04",
+     "status": "partial",
+     "bar_count": 284,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-05",
+     "status": "partial",
+     "bar_count": 376,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-06",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-07",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-08",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-22",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-03-25",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-04-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-04-02",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-04-03",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-04-11",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-04-17",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-05-07",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-05-17",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-05-23",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-06-25",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-06-26",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-07-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-07-12",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-07-15",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-06",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-08",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-09",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-12",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-13",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-14",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-16",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-19",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-20",
+     "status": "partial",
+     "bar_count": 383,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-22",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-27",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-08-28",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-03",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-13",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-17",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-18",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-23",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-25",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-26",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-27",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-09-30",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-07",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-14",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-15",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-16",
+     "status": "partial",
+     "bar_count": 387,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-17",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-18",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-22",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-24",
+     "status": "partial",
+     "bar_count": 384,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-10-28",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-11-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-11-04",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-12-24",
+     "status": "partial",
+     "bar_count": 210,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2024-12-26",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-01-03",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-01-17",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-02-14",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-04-22",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-05-16",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-06-03",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-06-04",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-06-17",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-07-25",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-10-01",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-10-21",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-10-28",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-11-18",
+     "status": "partial",
+     "bar_count": 389,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-12-23",
+     "status": "partial",
+     "bar_count": 385,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-12-24",
+     "status": "partial",
+     "bar_count": 210,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-12-26",
+     "status": "partial",
+     "bar_count": 388,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    },
+    {
+     "session": "2025-12-31",
+     "status": "partial",
+     "bar_count": 386,
+     "expected_count": 390,
+     "note": "fewer minutes than expected: untraded minutes (thin names) or a gap"
+    }
+   ],
+   "sessions_not_recorded": []
+  }
+ },
+ "coverage_1d": {
+  "QQQ": {
+   "symbol": "QQQ",
+   "timeframe": "1d",
+   "sessions_recorded": 1310,
+   "sessions_with_bars": 1260,
+   "first_session": "2021-09-16",
+   "last_session": "2026-09-23",
+   "by_status": {
+    "complete": 1308,
+    "partial": 1,
+    "missing": 1
+   },
+   "needs_attention": [],
+   "sessions_not_recorded": []
+  },
+  "SPY": {
+   "symbol": "SPY",
+   "timeframe": "1d",
+   "sessions_recorded": 1312,
+   "sessions_with_bars": 1262,
+   "first_session": "2021-09-16",
+   "last_session": "2026-09-25",
+   "by_status": {
+    "complete": 1310,
+    "partial": 1,
+    "missing": 1
+   },
+   "needs_attention": [],
+   "sessions_not_recorded": []
+  },
+  "IGV": {
+   "symbol": "IGV",
+   "timeframe": "1d",
+   "sessions_recorded": 1309,
+   "sessions_with_bars": 1259,
+   "first_session": "2021-09-17",
+   "last_session": "2026-09-23",
+   "by_status": {
+    "complete": 1307,
+    "partial": 1,
+    "missing": 1
+   },
+   "needs_attention": [],
+   "sessions_not_recorded": []
+  }
+ },
+ "actions": {
+  "QQQ": [],
+  "SPY": [],
+  "IGV": [
+   {
+    "ex_ts": 1709821800,
+    "type": "split",
+    "split_ratio": 5.0,
+    "amount": null,
+    "currency": null,
+    "source": "mboum",
+    "ex_date": "2024-03-07"
+   }
+  ]
+ },
+ "qqq": {
+  "eval_sessions": 1247,
+  "is_sessions": 685,
+  "oos_sessions": 562,
+  "tapeless_sessions": [
+   "2021-12-31"
+  ],
+  "sessions_without_prior_atr": [],
+  "early_closes_in_window": [
+   "2021-11-26",
+   "2022-11-25",
+   "2023-07-03",
+   "2023-11-24",
+   "2024-07-03",
+   "2024-11-29",
+   "2024-12-24",
+   "2025-07-03",
+   "2025-11-28",
+   "2025-12-24"
+  ],
+  "atr_last_fixed": "2026-09-23",
+  "touch_sessions_by_k": {
+   "0.5": {
+    "IS": 239,
+    "OOS": 184
+   },
+   "0.75": {
+    "IS": 130,
+    "OOS": 97
+   },
+   "1": {
+    "IS": 68,
+    "OOS": 56
+   },
+   "1.25": {
+    "IS": 35,
+    "OOS": 29
+   },
+   "1.5": {
+    "IS": 14,
+    "OOS": 17
+   }
+  },
+  "sessions_390_bars": 1236,
+  "sessions_other_bar_counts": [
+   [
+    "2021-11-26",
+    211
+   ],
+   [
+    "2022-11-25",
+    211
+   ],
+   [
+    "2023-07-03",
+    211
+   ],
+   [
+    "2023-11-24",
+    211
+   ],
+   [
+    "2024-07-03",
+    211
+   ],
+   [
+    "2024-11-29",
+    211
+   ],
+   [
+    "2024-12-24",
+    211
+   ],
+   [
+    "2025-07-03",
+    211
+   ],
+   [
+    "2025-11-28",
+    211
+   ],
+   [
+    "2025-12-24",
+    211
+   ]
+  ]
+ }
+}
