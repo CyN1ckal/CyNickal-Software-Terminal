@@ -40,14 +40,14 @@ inline constexpr int kStudyMaxPerPane = 16;
     return region;
 }
 
-// Packed IM_COL32 (AABBGGRR). Byte-identical to Theme::kAccent / kWarn / kOk / kDanger.
+// Packed IM_COL32 (AABBGGRR). Byte-identical to the Stratum dark accent, warn, ok, and danger.
 // Literals so this header does not include Theme.h or imgui.h.
 inline constexpr std::uint32_t kStudyDefaultColor = 0xFFC9976Fu;
 inline constexpr std::uint32_t kStudyPalette[] = {
-    0xFFC9976Fu,  // Theme::kAccent  #6f97c9
-    0xFF5285C0u,  // Theme::kWarn    #c08552
-    0xFF638A5Fu,  // Theme::kOk      #5f8a63
-    0xFF4E54B5u,  // Theme::kDanger  #b5544e
+    0xFFC9976Fu,  // accent  #6f97c9
+    0xFF5285C0u,  // warn    #c08552
+    0xFF638A5Fu,  // ok      #5f8a63
+    0xFF4E54B5u,  // danger  #b5544e
 };
 inline constexpr int kStudyPaletteCount = 4;
 

@@ -1523,7 +1523,7 @@ void CChartBook::drawMenu()
         {
             pane->goToEnd();
         }
-        ImGui::TextColored(Theme::kTextDim, "Shift+wheel keeps the bar under the pointer.");
+        ImGui::TextColored(Theme::textDim(), "Shift+wheel keeps the bar under the pointer.");
         if (ImGui::MenuItem("Reset Study Scales", nullptr, false, keys_enabled) && pane != nullptr)
         {
             pane->resetStudyScales();

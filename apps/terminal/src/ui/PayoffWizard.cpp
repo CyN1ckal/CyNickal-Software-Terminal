@@ -142,7 +142,7 @@ public:
         const ImGuiStyle& style = ImGui::GetStyle();
         next(ImGui::CalcTextSize(label).x + style.ItemSpacing.x + value_w);
         ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(Theme::kMuted, "%s", label);
+        ImGui::TextColored(Theme::muted(), "%s", label);
         ImGui::SameLine();
         if (mono != nullptr)
         {
@@ -162,10 +162,10 @@ private:
 
 [[nodiscard]] bool primaryButton(const char* label)
 {
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     const bool clicked = ImGui::Button(label);
     ImGui::PopStyleColor(4);
     return clicked;
@@ -547,11 +547,14 @@ void PayoffWizard::drawLegRow(std::span<const OptionQuote> chain, SessionDate ex
 void PayoffWizard::drawLegTable()
 {
     constexpr ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-                                      ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollY |
-                                      ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
+                                      ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollX |
+                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
+                                      ImGuiTableFlags_NoSavedSettings;
     const float clear_w = ImGui::CalcTextSize("CLEAR").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
     const float remove_w = std::max(clear_w, ImGui::GetFrameHeight());
-    if (!ImGui::BeginTable("payoff_legs", 7, flags))
+    // Below this the cost and price figures would clip; the table scrolls sideways instead.
+    const float inner_width = std::max(Theme::px(560.0f), ImGui::GetContentRegionAvail().x);
+    if (!ImGui::BeginTable("payoff_legs", 7, flags, ImVec2(0.0f, 0.0f), inner_width))
     {
         return;
     }
@@ -629,7 +632,7 @@ void PayoffWizard::drawLegTable()
         }
         else
         {
-            ImGui::TextColored(Theme::kMuted, "%s", isOption(leg) ? "no date" : "-");
+            ImGui::TextColored(Theme::muted(), "%s", isOption(leg) ? "no date" : "-");
         }
 
         ImGui::TableNextColumn();
@@ -661,12 +664,13 @@ void PayoffWizard::drawLegTable()
         }
 
         ImGui::TableNextColumn();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::cancel());
         if (ImGui::SmallButton("x"))
         {
             remove = index;
         }
         ImGui::PopStyleColor();
+        ImGui::SetItemTooltip("Remove this leg");
         ImGui::PopID();
     }
     ImGui::EndTable();
@@ -710,18 +714,18 @@ void PayoffWizard::drawSummary(const PayoffSummary& summary)
 
     if (const std::optional<std::int32_t> expires = strategyExpiration(legs_); expires.has_value() && *expires != 0)
     {
-        row.fact("EXPIRES", formatSessionDate(*expires), Theme::kText, true);
+        row.fact("EXPIRES", formatSessionDate(*expires), Theme::text(), true);
     }
     const bool credit = summary.net_cost < 0.0;
-    row.fact(credit ? "NET CREDIT" : "NET DEBIT", formatDollars(std::fabs(summary.net_cost), false), Theme::kText,
+    row.fact(credit ? "NET CREDIT" : "NET DEBIT", formatDollars(std::fabs(summary.net_cost), false), Theme::text(),
              true);
     const bool profit_known = summary.max_profit.has_value();
     row.fact("MAX PROFIT",
              profit_known ? formatDollars(*summary.max_profit, true) : std::string("unlimited"),
-             profit_known && *summary.max_profit <= 0.0 ? Theme::kDown : Theme::kUp, profit_known);
+             profit_known && *summary.max_profit <= 0.0 ? Theme::down() : Theme::up(), profit_known);
     const bool loss_known = summary.max_loss.has_value();
     row.fact("MAX LOSS", loss_known ? formatDollars(*summary.max_loss, true) : std::string("unlimited"),
-             loss_known && *summary.max_loss >= 0.0 ? Theme::kUp : Theme::kDown, loss_known);
+             loss_known && *summary.max_loss >= 0.0 ? Theme::up() : Theme::down(), loss_known);
     std::string breakevens;
     for (const double breakeven : summary.breakevens)
     {
@@ -732,11 +736,11 @@ void PayoffWizard::drawSummary(const PayoffSummary& summary)
         breakevens += formatStrike(breakeven);
     }
     const bool has_breakeven = !breakevens.empty();
-    row.fact("BREAKEVEN", has_breakeven ? breakevens : std::string("none"), Theme::kText, has_breakeven);
+    row.fact("BREAKEVEN", has_breakeven ? breakevens : std::string("none"), Theme::text(), has_breakeven);
     if (spot_ > 0.0)
     {
         const double here = strategyPayoff(legs_, spot_);
-        row.fact("AT SPOT", formatDollars(here, true), here < 0.0 ? Theme::kDown : Theme::kUp, true);
+        row.fact("AT SPOT", formatDollars(here, true), here < 0.0 ? Theme::down() : Theme::up(), true);
     }
 }
 
@@ -785,17 +789,17 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
         std::ranges::transform(path.profits, losses.begin(), [](double profit) { return std::min(profit, 0.0); });
 
         ImPlotSpec gain_fill;
-        gain_fill.FillColor = Theme::kUp;
+        gain_fill.FillColor = Theme::up();
         gain_fill.FillAlpha = 0.22f;
         ImPlot::PlotShaded("##gain", path.spots.data(), gains.data(), count, 0.0, gain_fill);
 
         ImPlotSpec loss_fill;
-        loss_fill.FillColor = Theme::kDown;
+        loss_fill.FillColor = Theme::down();
         loss_fill.FillAlpha = 0.22f;
         ImPlot::PlotShaded("##loss", path.spots.data(), losses.data(), count, 0.0, loss_fill);
 
         ImPlotSpec line;
-        line.LineColor = Theme::kAccent;
+        line.LineColor = Theme::accent();
         line.LineWeight = 2.0f;
         ImPlot::PlotLine("##payoff", path.spots.data(), path.profits.data(), count, line);
     }
@@ -806,7 +810,7 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
         const double zero_xs[] = {path.spots.front(), path.spots.back()};
         const double zero_ys[] = {0.0, 0.0};
         ImPlotSpec zero_line;
-        zero_line.LineColor = Theme::kLine2;
+        zero_line.LineColor = Theme::line2();
         ImPlot::PlotLine("##zero", zero_xs, zero_ys, 2, zero_line);
     }
 
@@ -814,16 +818,16 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
     if (!strikes.empty())
     {
         ImPlotSpec strike_lines;
-        strike_lines.LineColor = Theme::WithAlpha(Theme::kTextFaint, 0.8f);
+        strike_lines.LineColor = Theme::WithAlpha(Theme::textFaint(), 0.8f);
         ImPlot::PlotInfLines("##strikes", strikes.data(), static_cast<int>(strikes.size()), strike_lines);
     }
 
     if (spot_ > 0.0)
     {
         ImPlotSpec spot_line;
-        spot_line.LineColor = Theme::WithAlpha(Theme::kAccent, 0.6f);
+        spot_line.LineColor = Theme::WithAlpha(Theme::accent(), 0.6f);
         ImPlot::PlotInfLines("##spot", &spot_, 1, spot_line);
-        ImPlot::TagX(spot_, Theme::kAccent, "%.2f", spot_);
+        ImPlot::TagX(spot_, Theme::accent(), "%.2f", spot_);
     }
 
     if (!summary.breakevens.empty())
@@ -832,8 +836,8 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
         ImPlotSpec marks;
         marks.Marker = ImPlotMarker_Diamond;
         marks.MarkerSize = 4.0f;
-        marks.MarkerFillColor = Theme::kText;
-        marks.MarkerLineColor = Theme::kText;
+        marks.MarkerFillColor = Theme::text();
+        marks.MarkerLineColor = Theme::text();
         ImPlot::PlotScatter("##breakevens", summary.breakevens.data(), zeros.data(),
                             static_cast<int>(summary.breakevens.size()), marks);
     }
@@ -847,12 +851,12 @@ void PayoffWizard::drawPlot(const PayoffSummary& summary)
             ImPlotSpec dot;
             dot.Marker = ImPlotMarker_Circle;
             dot.MarkerSize = 3.5f;
-            dot.MarkerFillColor = Theme::kText;
-            dot.MarkerLineColor = Theme::kText;
+            dot.MarkerFillColor = Theme::text();
+            dot.MarkerLineColor = Theme::text();
             ImPlot::PlotScatter("##hover", &mouse.x, &profit, 1, dot);
-            ImPlot::TagX(mouse.x, Theme::kAccent, "%.2f", mouse.x);
+            ImPlot::TagX(mouse.x, Theme::accent(), "%.2f", mouse.x);
             const std::string label = formatDollars(profit, true);
-            ImPlot::TagY(profit, profit < 0.0 ? Theme::kDown : Theme::kUp, "%s", label.c_str());
+            ImPlot::TagY(profit, profit < 0.0 ? Theme::down() : Theme::up(), "%s", label.c_str());
         }
     }
     ImPlot::EndPlot();
@@ -870,7 +874,7 @@ void PayoffWizard::drawGraph()
     ImGui::Separator();
     if (legs_.empty())
     {
-        ImGui::TextColored(Theme::kMuted, "Add legs below to draw the payoff at expiration.");
+        ImGui::TextColored(Theme::muted(), "Add legs below to draw the payoff at expiration.");
         return;
     }
     drawPlot(summary);
@@ -882,13 +886,13 @@ void PayoffWizard::drawEntry(std::span<const OptionQuote> chain, SessionDate exp
     drawLegRow(chain, expiration);
     if (!status_.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, status_error_ ? Theme::kDown : Theme::kMuted);
+        ImGui::PushStyleColor(ImGuiCol_Text, status_error_ ? Theme::danger() : Theme::muted());
         ImGui::TextWrapped("%s", status_.c_str());
         ImGui::PopStyleColor();
     }
     if (legs_.empty())
     {
-        ImGui::TextColored(Theme::kMuted,
+        ImGui::TextColored(Theme::muted(),
                            "Pick a strategy and press ADD STRATEGY, or build one leg at a time with ADD LEG.");
         return;
     }

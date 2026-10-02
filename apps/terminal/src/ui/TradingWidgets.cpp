@@ -34,24 +34,24 @@ void drawRightText(const std::string& text, const ImVec4& color)
 
 void drawMoneyCell(double amount, bool signed_color)
 {
-    ImVec4 color = Theme::kText;
+    ImVec4 color = Theme::text();
     if (amount < 0.0)
     {
-        color = Theme::kDown;
+        color = Theme::down();
     }
     else if (signed_color && amount > 0.0)
     {
-        color = Theme::kUp;
+        color = Theme::up();
     }
     drawRightText(formatMoney(amount), color);
 }
 
 bool primaryButton(const char* label)
 {
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     const bool pressed = ImGui::Button(label);
     ImGui::PopStyleColor(4);
     return pressed;

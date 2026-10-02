@@ -23,6 +23,16 @@ Desktop financial terminal. It stores 1-minute and daily US equity OHLCV, financ
 
 A Vulkan and Dear ImGui desktop app with a custom title bar, dockable windows, and a status rail.
 
+- **Command palette.** Ctrl+K lists every File, View, Chart, and settings action. Type part of a name, press Enter. F1 lists the keyboard shortcuts.
+- **Keyboard.** Ctrl+N new chartbook, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+R refresh the focused panel, Ctrl+Tab cycle windows.
+- **Preferences.** File > Preferences (Ctrl+,), saved in `data/terminal.json`:
+  - Theme: Stratum Dark, Stratum Light, or High Contrast.
+  - Gains and losses: green/red, color-blind-safe blue/orange, or red-up/green-down.
+  - Density: Compact, Standard, or Comfortable.
+  - Text size 10–22 px, also Ctrl+= / Ctrl+- / Ctrl+0. Layout scales with it and with the monitor's DPI.
+  - An optional frame-time readout on the status rail.
+- **Tables never cut a figure.** A panel too narrow for its numbers scrolls sideways instead.
+
 - **Chartbooks.** A chartbook is a saved layout of charts and panels. You can create, open, save, save as, save all, and close chartbooks, and choose which ones open at startup. Each panel's inputs are saved with its chartbook.
 - **DATA.** Lists stored instruments and their coverage. Its toolbar (TF / SYMBOL / FROM / TO / GO) queues downloads.
 - **Charts.**

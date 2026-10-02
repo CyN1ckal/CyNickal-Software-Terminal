@@ -185,8 +185,8 @@ void drawStudyValueLabels(ImDrawList* draw_list, std::span<const CStudySeries> s
         const ImVec2 box_max(box_min.x + box_w, box_min.y + box_h);
         const float inner_w = box_w - (2.0f * kPadX);
         const std::string shown = ellipsizeLabel(text, inner_w);
-        const ImU32 fill = ImGui::ColorConvertFloat4ToU32(Theme::kBg1);
-        const ImU32 border = ImGui::ColorConvertFloat4ToU32(Theme::kHairline);
+        const ImU32 fill = ImGui::ColorConvertFloat4ToU32(Theme::bg1());
+        const ImU32 border = ImGui::ColorConvertFloat4ToU32(Theme::hairline());
         draw_list->AddRectFilled(box_min, box_max, fill, kRounding);
         draw_list->AddRect(box_min, box_max, border, kRounding);
         if (!shown.empty())

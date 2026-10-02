@@ -6,6 +6,7 @@
 #include "platform/vulkan/VulkanContext.h"
 #include "platform/vulkan/VulkanSwapchain.h"
 #include "platform/vulkan/VulkanUtils.h"
+#include "ui/Appearance.h"
 #include "ui/Theme.h"
 
 #include "imgui_impl_glfw.h"
@@ -28,26 +29,11 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window, const VulkanContext& vulkan, const Vu
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-    ImGuiStyle& style = ImGui::GetStyle();
-    Theme::ApplyStratumStyle(style);
     Theme::LoadFonts(io);
-    ImPlot::StyleColorsAuto();
-    ImPlot::GetStyle().Colors[ImPlotCol_PlotBg] = Theme::kBg0;
-    ImPlot::GetStyle().Colors[ImPlotCol_FrameBg] = Theme::kBg1;
-    ImPlot::GetStyle().Colors[ImPlotCol_PlotBorder] = Theme::kLine;
-    ImPlot::GetStyle().Colors[ImPlotCol_AxisText] = Theme::kTextDim;
-    ImPlot::GetStyle().Colors[ImPlotCol_AxisGrid] = Theme::kLine;
-    ImPlot::GetStyle().Colors[ImPlotCol_Crosshairs] = Theme::kAccent;
-    style.ScaleAllSizes(main_scale);
-    style.FontScaleDpi = main_scale;
+    // Theme, density, and font zoom come from data/terminal.json; the monitor scale multiplies them.
+    Appearance::applyNow(main_scale);
     io.ConfigDpiScaleFonts = true;
     io.ConfigDpiScaleViewports = true;
-
-    if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0)
-    {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    }
 
     ImGui_ImplGlfw_InitForVulkan(window, true);
 

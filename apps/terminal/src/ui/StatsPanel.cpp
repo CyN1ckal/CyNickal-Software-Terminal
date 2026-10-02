@@ -74,39 +74,39 @@ void sectionRow(const char* title)
 {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextColored(Theme::kAccent, "%s", title);
+    ImGui::TextColored(Theme::accent(), "%s", title);
 }
 
 void valueRow(const char* label, const std::string& value, const ImVec4& color)
 {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextColored(Theme::kTextDim, "%s", label);
+    ImGui::TextColored(Theme::textDim(), "%s", label);
     ImGui::TableSetColumnIndex(1);
     drawRightText(value, color);
 }
 
 void valueRow(const char* label, const std::string& value)
 {
-    valueRow(label, value, Theme::kText);
+    valueRow(label, value, Theme::text());
 }
 
 [[nodiscard]] ImVec4 signColor(double value)
 {
     if (value > 0.0)
     {
-        return Theme::kUp;
+        return Theme::up();
     }
     if (value < 0.0)
     {
-        return Theme::kDown;
+        return Theme::down();
     }
-    return Theme::kText;
+    return Theme::text();
 }
 
 void moneyRow(const char* label, double amount, bool signed_color)
 {
-    valueRow(label, formatMoney(amount), signed_color ? signColor(amount) : Theme::kText);
+    valueRow(label, formatMoney(amount), signed_color ? signColor(amount) : Theme::text());
 }
 
 }  // namespace
@@ -312,7 +312,7 @@ void StatsPanel::drawHeader()
     {
         preview += " (backtest)";
     }
-    ImGui::SetNextItemWidth(220.f);
+    ImGui::SetNextItemWidth(Theme::px(220.f));
     if (ImGui::BeginCombo("##ledger", preview.c_str()))
     {
         for (const Ledger& ledger : ledgers_)
@@ -332,9 +332,9 @@ void StatsPanel::drawHeader()
         ImGui::EndCombo();
     }
     ImGui::SameLine();
-    ImGui::TextColored(Theme::kTextDim, "Benchmark");
+    ImGui::TextColored(Theme::textDim(), "Benchmark");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.f);
+    ImGui::SetNextItemWidth(Theme::px(70.f));
     ImGui::InputTextWithHint("##benchmark", "none", benchmark_, sizeof(benchmark_));
     if (ImGui::IsItemDeactivated())
     {
@@ -363,7 +363,7 @@ void StatsPanel::drawTable() const
         return;
     }
     ImGui::TableSetupColumn("Measure", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 110.f);
+    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, Theme::px(110.f));
     const CurveStats& curve = analysis_.curve_stats;
     const TradeStats& trades = analysis_.trade_stats;
 
@@ -383,7 +383,7 @@ void StatsPanel::drawTable() const
     valueRow("Sharpe", ratioText(curve.sharpe));
     valueRow("Sortino", ratioText(curve.sortino));
     valueRow("Calmar", ratioText(curve.calmar));
-    valueRow("Max drawdown", formatPercent(curve.max_drawdown), curve.max_drawdown < 0.0 ? Theme::kDown : Theme::kText);
+    valueRow("Max drawdown", formatPercent(curve.max_drawdown), curve.max_drawdown < 0.0 ? Theme::down() : Theme::text());
     valueRow("Longest drawdown", curve.max_drawdown_seconds > 0 ? formatDuration(curve.max_drawdown_seconds)
                                                                  : std::string(kNoValue));
     if (curve.var.has_value())
@@ -444,13 +444,13 @@ void StatsPanel::drawCharts() const
             if (!benchmark_pct_.empty())
             {
                 ImPlotSpec spec;
-                spec.LineColor = Theme::kTextDim;
+                spec.LineColor = Theme::textDim();
                 const std::string label = benchmark_applied_ + " buy and hold";
                 ImPlot::PlotLine(label.c_str(), benchmark_times_.data(), benchmark_pct_.data(),
                                  static_cast<int>(benchmark_pct_.size()), spec);
             }
             ImPlotSpec spec;
-            spec.LineColor = Theme::kAccent;
+            spec.LineColor = Theme::accent();
             spec.LineWeight = 1.5f;
             ImPlot::PlotLine("Ledger", times_.data(), return_pct_.data(), static_cast<int>(times_.size()), spec);
             ImPlot::EndPlot();
@@ -460,12 +460,12 @@ void StatsPanel::drawCharts() const
             ImPlot::SetupAxes(nullptr, "Drawdown %", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
             ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
             ImPlotSpec fill;
-            fill.FillColor = Theme::kDown;
+            fill.FillColor = Theme::down();
             fill.FillAlpha = 0.35f;
             ImPlot::PlotShaded("Drawdown", times_.data(), drawdown_pct_.data(), static_cast<int>(times_.size()), 0.0,
                                fill);
             ImPlotSpec line;
-            line.LineColor = Theme::kDown;
+            line.LineColor = Theme::down();
             ImPlot::PlotLine("Drawdown", times_.data(), drawdown_pct_.data(), static_cast<int>(times_.size()), line);
             ImPlot::EndPlot();
         }
@@ -482,12 +482,12 @@ void StatsPanel::drawCharts() const
         }
         ImPlot::SetupAxisFormat(ImAxis_X1, "%.0f");
         ImPlotSpec win;
-        win.FillColor = Theme::kUp;
-        win.LineColor = Theme::kUp;
+        win.FillColor = Theme::up();
+        win.LineColor = Theme::up();
         ImPlot::PlotBars("Win", win_x_.data(), win_y_.data(), static_cast<int>(win_x_.size()), 0.7, win);
         ImPlotSpec loss;
-        loss.FillColor = Theme::kDown;
-        loss.LineColor = Theme::kDown;
+        loss.FillColor = Theme::down();
+        loss.LineColor = Theme::down();
         ImPlot::PlotBars("Loss", loss_x_.data(), loss_y_.data(), static_cast<int>(loss_x_.size()), 0.7, loss);
         ImPlot::EndPlot();
     }
@@ -529,7 +529,7 @@ bool StatsPanel::draw(Store* store, std::string_view store_error, IngestWorker* 
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -566,24 +566,24 @@ bool StatsPanel::draw(Store* store, std::string_view store_error, IngestWorker* 
 
     drawHeader();
     ImGui::Separator();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (refresh_serial_ != 0)
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (!error_.empty())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     ImGui::TextColored(status_color, "%s", status_.c_str());
     drawReceivedStamp(analysis_.received_at);
     if (ledger_id_ == 0)
     {
-        ImGui::TextColored(Theme::kTextFaint, "Pick a ledger to measure.");
+        ImGui::TextColored(Theme::textFaint(), "Pick a ledger to measure.");
     }
     else if (analysis_.curve.empty())
     {
-        ImGui::TextColored(Theme::kTextFaint, "This ledger has no fills or cash flows yet.");
+        ImGui::TextColored(Theme::textFaint(), "This ledger has no fills or cash flows yet.");
     }
     else
     {
@@ -594,10 +594,10 @@ bool StatsPanel::draw(Store* store, std::string_view store_error, IngestWorker* 
             {
                 names += names.empty() ? symbol : ", " + symbol;
             }
-            ImGui::TextColored(Theme::kMuted, "No daily closes for %s; held at cost. Ctrl+R fetches them.",
+            ImGui::TextColored(Theme::muted(), "No daily closes for %s; held at cost. Ctrl+R fetches them.",
                                names.c_str());
         }
-        if (ImGui::BeginChild("stats_left", ImVec2(300.f, 0.f), ImGuiChildFlags_Borders))
+        if (ImGui::BeginChild("stats_left", ImVec2(Theme::px(300.f), 0.f), ImGuiChildFlags_Borders))
         {
             drawTable();
         }

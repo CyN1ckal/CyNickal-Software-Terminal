@@ -37,10 +37,10 @@ Charts never talk to MBoum. They only read the existing Store.
 | Piece | Location | What it does today |
 |---|---|---|
 | App loop | `apps/terminal/src/terminal/Application.{h,cpp}` | Owns `Workspace workspace_`. `run()`: poll → `workspace_.draw()` → render. |
-| Dock host | `apps/terminal/src/ui/Workspace.{h,cpp}` | Fullscreen `WorkspaceDock` on `Theme::kCanvas`. First-run `DockBuilder` split: DATA left 30%, remainder empty. Owns `InventoryPanel`. No menu bar. |
+| Dock host | `apps/terminal/src/ui/Workspace.{h,cpp}` | Fullscreen `WorkspaceDock` on `Theme::canvas()`. First-run `DockBuilder` split: DATA left 30%, remainder empty. Owns `InventoryPanel`. No menu bar. |
 | DATA | `apps/terminal/src/ui/InventoryPanel.{h,cpp}` | GUI `Store(path, StoreMode::Reader)` after a one-shot Writer migrate. Sortable `queryCoverageSummaries` for 1m plus 1d rows that have coverage. TF combo 1m/1d; GO enqueues `IngestWorker` with that grain. Default FROM = **today minus 14 calendar days** (1m) or **minus 5 years** (1d) in `America/New_York`. Reader `busy_timeout=0`: keep last snapshot unless the error is not busy. `refreshSummaries` / `refreshDays` only search `ex.what()` for `"busy"`; SQLite’s `SQLITE_BUSY` errmsg is actually `"database is locked"` (`SqliteStmt::stepRow` → `sqlite3_step: ` + `sqlite3_errmsg`). Charts must match **both** (see D10). |
 | Ingest | `apps/terminal/src/data/IngestWorker.{h,cpp}` | Background Writer + shared `apps/common/CurlClient`. MBoum 1-minute RTH. |
-| Theme | `apps/terminal/src/ui/Theme.{h,cpp}` | Stratum dark palette. `kAccent` focus, `kCanvas` background, `kPanel` child fill. `kUp` / `kDown` are Stratum ok / danger. |
+| Theme | `apps/terminal/src/ui/Theme.{h,cpp}` | Runtime palette (Stratum Dark by default). `accent()` focus, `canvas()` background, `panel()` child fill. `up()` / `down()` follow the gains/losses setting; errors use `danger()`. |
 | Docking | `apps/terminal/src/ui/ImGuiLayer.cpp` | `ImGuiConfigFlags_DockingEnable` and `ViewportsEnable`. `imgui.ini` gitignored; relative to CWD. |
 | Tests | `apps/terminal/tests/test_main.cpp`, `tests/data/bar_loading_tests.h` | Catch2 target `terminal_tests` links `market-data` only (no ImGui). `bar_loading_tests.h` is a stub `CHECK(true)`. |
 
@@ -514,7 +514,7 @@ CChartBook::CChartBook()
 }
 ```
 
-If `store_` is null, panes still exist. Every `CChartPane::draw` is called with `store_.get()` (null) and `open_error_`. Toolbar shows `kDown` + that string. **Apply / OK / 2 s poll do not call `loadChartBars`** (`reload` takes the null-store branch). Settings can still open so the user can type; they cannot load.
+If `store_` is null, panes still exist. Every `CChartPane::draw` is called with `store_.get()` (null) and `open_error_`. Toolbar shows `Theme::danger()` + that string. **Apply / OK / 2 s poll do not call `loadChartBars`** (`reload` takes the null-store branch). Settings can still open so the user can type; they cannot load.
 
 ### Create, focus, close
 
@@ -642,7 +642,7 @@ sequenceDiagram
 2. **Bar Period** — combo: `1 Minute`, `5 Minute`, `15 Minute`, `1 Hour`, `Daily`. 5m/15m/1h composite from 1-minute bars at load. Daily queries the stored daily series.
 3. **Bar Type** — combo containing only `Candlestick`. Muted text: `v1: candlesticks only`.
 4. **Data Limiting** — two `InputInt`s: `Intraday Days to Load` (`draft_.intraday_session_count`) and `Historical Days to Load` (`draft_.historical_session_count`). Muted text: `Intraday default 2 weeks. Historical default 5 years.`
-5. Buttons right-aligned: **OK** (`Theme::kGo`), **Apply**, **Cancel** (`Theme::kCancel` text or button).
+5. Buttons right-aligned: **OK** (`Theme::go()`), **Apply**, **Cancel** (`Theme::cancel()` text or button).
 
 Enter in the symbol field = Apply (not OK), so the user can keep the dialog open while scanning symbols.
 
@@ -803,7 +803,7 @@ Studies do not add Store calls and do not change this query. They read `loaded_.
 | `Begin` returned false | Skip SQL. Still `End()`. Covers collapsed windows **and docked inactive tabs** |
 | Incoming `Busy`, **same** `loaded_settings_` and non-empty bars | Keep candles; do not flash Busy |
 | Incoming `Busy`, settings identity changed or no bars | `loaded_ = Busy`, bars empty, toolbar Busy |
-| Incoming `Error`, same identity and non-empty bars | Keep candles; toolbar `kDown` + message |
+| Incoming `Error`, same identity and non-empty bars | Keep candles; toolbar `Theme::danger()` + message |
 | Incoming `Error`, identity changed or no bars | `loaded_ = Error`, bars empty |
 | `store == nullptr` | `Error` + `store_error`; bars empty; no `loadChartBars`; `computed_ = studiesForLoad` → `{}` |
 | Any `reload` path that assigns `loaded_` | `computed_ = studiesForLoad(loaded_, studies_)` |
@@ -839,7 +839,7 @@ Inside the window, a one-line toolbar:
 
 - `Settings` button (disabled while the Studies modal is open)
 - `Studies` button (disabled while Chart Settings is open)
-- Status text in `Theme::kMuted` (or `kDown` on Error / Unknown / Ambiguous)
+- Status text in `Theme::muted()` (or `Theme::danger()` on Error / Unknown / Ambiguous)
 - Enabled study short labels (`MA 20 C`) in each instance’s color, after the status text
 
 Then the plot child fills the rest (`ImGuiChildFlags_Borders`, `Theme` child bg `kPanel`).
@@ -852,20 +852,20 @@ Then the plot child fills the rest (`ImGuiChildFlags_Borders`, `Theme` child bg 
 |---|---|---|
 | Unconfigured | blank | muted: `Type a symbol and press Enter, or open Chart Settings.` |
 | Empty | blank | muted: `no 1m bars for {SYM}`, or `QQQ  downloading 1m  FROM .. TO` while a chart-started job is in flight |
-| UnknownSymbol | blank | `kDown`: `unknown symbol {SYM}` once any chart-started download has finished without creating bars |
-| AmbiguousSymbol | blank | `kDown`: `multiple instruments named {SYM}` |
-| Unsupported | blank | `kDown`: v1 lock message |
+| UnknownSymbol | blank | `Theme::danger()`: `unknown symbol {SYM}` once any chart-started download has finished without creating bars |
+| AmbiguousSymbol | blank | `Theme::danger()`: `multiple instruments named {SYM}` |
+| Unsupported | blank | `Theme::danger()`: v1 lock message |
 | Busy, bars empty | blank | muted: `store busy` |
 | Busy swallowed (same settings, kept bars) | last candles | toolbar stays **Ready**; do not flash Busy |
-| Error, bars empty (incl. `store == nullptr`) | blank | `kDown`: `loaded_.message` / `store_error` |
-| Error, kept bars (same settings, or a finished download / splits error) | last candles | `kDown`: exception text |
+| Error, bars empty (incl. `store == nullptr`) | blank | `Theme::danger()`: `loaded_.message` / `store_error` |
+| Error, kept bars (same settings, or a finished download / splits error) | last candles | `Theme::danger()`: exception text |
 | Ready | candles | range / session / bar counts. While a chart download serial is still open, the toolbar stays on the downloading line and the candles stay |
 
 `draw()` must not throw. `loadChartBars` already caught Store errors.
 
 ### Rendering (`CChartPlot`)
 
-ImPlot is vendored at `deps/implot/` (v1.0). `ImGuiLayer` calls `ImPlot::CreateContext()` after `ImGui::CreateContext()` and `ImPlot::DestroyContext()` before `ImGui::DestroyContext()`. `ImPlot::StyleColorsAuto()` follows the Stratum ImGui theme; override `ImPlotCol_PlotBg` to `Theme::kBg0` and crosshairs to `Theme::kAccent`.
+ImPlot is vendored at `deps/implot/` (v1.0). `ImGuiLayer` calls `ImPlot::CreateContext()` after `ImGui::CreateContext()` and `ImPlot::DestroyContext()` before `ImGui::DestroyContext()`. `ImPlot::StyleColorsAuto()` follows the Stratum ImGui theme; `Theme::apply` overrides `ImPlotCol_PlotBg` to `Theme::bg0()` and crosshairs to `Theme::accent()`.
 
 ImPlot has **no** `PlotCandlestick`. Draw candles on `ImPlot::GetPlotDrawList()` between `BeginPlot` / `EndPlot` (same pattern as `implot_demo.cpp`, without including `implot_internal.h`).
 
@@ -884,7 +884,7 @@ void drawCandlesticks(std::span<const Bar> bars,
 - Viewport: `bar_spacing_px` (default 8) × plot width decides how many bars fit. Last bar stays on the right when spacing increases (Sierra). `kChartRightFillBars` empty slots on the right.
 - Y: Sierra Scale Range — **Automatic** (visible high/low + padding %), **Constant Range** (fixed range centered on the last visible bar), **User Defined** (fixed top/bottom). Price scale on the right (`Opposite`).
 - Interactive scaling (right-click the Y scale): **Range** (drag expands/compresses), **Move** (drag pans), **Locked**. Ctrl inverts Range/Move. Double-click Y or **Reset Scale** clears extras.
-- Slot width 1.0 in plot units. Body width = `bar_width_frac` (Sierra Candlestick Width %). Up (`close >= open`): `Theme::kUp`. Down: `Theme::kDown`. Doji: 1 px body. Stems when spacing < 2 px.
+- Slot width 1.0 in plot units. Body width = `bar_width_frac` (Sierra Candlestick Width %). Up (`close >= open`): `Theme::up()`. Down: `Theme::down()`. Doji: 1 px body. Stems when spacing < 2 px.
 - Crosshair: vertical at the hovered bar, horizontal at the pointer price, axis tags for local date-time and price, plus the OHLC tooltip.
 
 **Hover:** nearest bar. Timestamp is the instrument timezone (fallback `America/New_York`).
@@ -907,9 +907,9 @@ Studies are pane state. They are not fields of `CChartSettings` and they are not
 
 **Studies modal.** Display title `Studies`. ImGui id `Studies###chart_studies_<id>`. Same ID stack as Chart Settings (D8): `openStudies()` copies `studies_` into `study_draft_` and sets `studies_open_`. The pane calls `OpenPopup` inside its own `Begin`/`End`, never from the main menu. `Chart >> Studies` is `openFocusedStudies()` (`requestFocus()`, then `openStudies()`). The two modals are exclusive both ways: `openSettings()` returns immediately when `studies_open_` is set, and `openStudies()` returns when `settings_open_` is set. Toolbar Settings/Studies and the Chart menu items disable to match. `handleChartKeys` returns while either modal is open or `WantTextInput` is set, so arrows do not change spacing while a study field is focused.
 
-`drawStudyDraftBody` (`CStudySettings.cpp`) is a split editor. The left pane lists the studies on the chart (enable checkbox, color swatch, type name, and a short label such as `MA 20 C` or `Vol` when it fits). Clicking a row selects it. The right pane shows that study’s settings. Moving average: Input Data, Length, Method. Volume: muted note that up and down colors match the candles. Every kind then has Chart Region and Color. Chart Region lists `1  Main Price Graph` and `2` through `12`. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. The bottom bar is **Add Study**, **Remove** for the selected row, then OK / Apply / Cancel on the right. **Add Study** opens a modal that lists `kStudyTypes` in alphabetical order. A single click highlights a row. **Add** or a double-click appends that study and closes the modal. **Cancel**, Escape, and the title X close it without adding. At 16 studies, Add Study is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::kGo` and `Theme::kAccentHover` with `Theme::kBg0` text; Cancel uses `Theme::kCancel` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel and the title X discard `study_draft_` and do not recompute. Esc does the same, except while a child popup is open or was open last frame (the Add Study modal, a combo, or the color picker — that press must close the child, not the draft). The title X is not part of that guard. The modal opens at about 800×460 at 13 px type, tracks UI scale, and can be resized. Add cycles `kStudyPalette`: `Theme::kAccent`, `Theme::kWarn`, `Theme::kOk`, `Theme::kDanger`. A new Volume instance starts on `Theme::kOk`. Do not invent hues.
+`drawStudyDraftBody` (`CStudySettings.cpp`) is a split editor. The left pane lists the studies on the chart (enable checkbox, color swatch, type name, and a short label such as `MA 20 C` or `Vol` when it fits). Clicking a row selects it. The right pane shows that study’s settings. Moving average: Input Data, Length, Method. Volume: muted note that up and down colors match the candles. Every kind then has Chart Region and Color. Chart Region lists `1  Main Price Graph` and `2` through `12`. Length is `InputInt` with step 0 and `EnterReturnsTrue`. Enter Applies. There is no `+/-`: those buttons would also return true under `EnterReturnsTrue` and would commit on every click. The bottom bar is **Add Study**, **Remove** for the selected row, then OK / Apply / Cancel on the right. **Add Study** opens a modal that lists `kStudyTypes` in alphabetical order. A single click highlights a row. **Add** or a double-click appends that study and closes the modal. **Cancel**, Escape, and the title X close it without adding. At 16 studies, Add Study is disabled and muted text says `maximum 16 studies`. OK / Apply / Cancel use the Chart Settings colors: OK is `Theme::go()` and `Theme::accentHover()` with `Theme::bg0()` text; Cancel uses `Theme::cancel()` text. Apply and Enter commit and recompute and leave the modal open. OK commits and closes. Cancel and the title X discard `study_draft_` and do not recompute. Esc does the same, except while a child popup is open or was open last frame (the Add Study modal, a combo, or the color picker — that press must close the child, not the draft). The title X is not part of that guard. The modal opens at about 800×460 at 13 px type, tracks UI scale, and can be resized. Add cycles `kStudyPalette`: `Theme::accent()`, `Theme::warn()`, `Theme::ok()`, `Theme::danger()`. A new Volume instance starts on `Theme::ok()`. Do not invent hues.
 
-**Draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. `studyChartRegionCount` is the number of rows: the price plot alone, or `BeginSubplots` rows 1..N with linked bar-index limits (each plot sets the same X; ImPlot's link flag is not used). Inside each `BeginPlot`, `drawStudyRegion` draws that region's series on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine` or `PlotBars`. Moving averages are polylines. NaN breaks the stroke. Volume is a histogram from zero to `values[i]`, width `bar_width_frac`, colored with `Theme::kUp` / `Theme::kDown` from `close >= open`. A zero volume bar is skipped. Dense spacing (`bar_spacing_px < 2`) draws a 1 px stem. A series is skipped unless `chart_region` matches and `values.size()` equals the loaded bar count.
+**Draw.** When the load is Ready, `drawPlotBody` passes `computed_` into `drawCandlesticks`. `studyChartRegionCount` is the number of rows: the price plot alone, or `BeginSubplots` rows 1..N with linked bar-index limits (each plot sets the same X; ImPlot's link flag is not used). Inside each `BeginPlot`, `drawStudyRegion` draws that region's series on `ImPlot::GetPlotDrawList()`. It does not call `ImPlot::PlotLine` or `PlotBars`. Moving averages are polylines. NaN breaks the stroke. Volume is a histogram from zero to `values[i]`, width `bar_width_frac`, colored with `Theme::up()` / `Theme::down()` from `close >= open`. A zero volume bar is skipped. Dense spacing (`bar_spacing_px < 2`) draws a 1 px stem. A series is skipped unless `chart_region` matches and `values.size()` equals the loaded bar count.
 
 Automatic price scale includes finite region-1 samples before padding. Constant Range and User Defined do not expand for those samples. Lower regions scale on their own samples (`computeStudyRegionYLimits`), with the chart's padding percent. A region that contains volume includes zero. Dragging a lower region's Y scale changes that region's pad or offset only. The price scale menu stays on region 1. Wheel, plot drag, and the X axis still change bar spacing and scroll once per frame, from whichever region is hovered. The hover tooltip lists every finite study at the bar. A vertical crosshair is drawn in every region while the pointer is in the shared X column. `NoLegend` stays on. There is still no `implot_internal.h`.
 
@@ -919,17 +919,17 @@ The toolbar, after the status text, shows `studyShortLabel` for each **enabled**
 
 ### Keyboard symbol and bar period
 
-Click the chart so it is focused and no text field is active. Keys collect in a per-pane buffer, shown on the window title and in `Theme::kAccent` on the toolbar. **Enter** submits. **Escape**, focus loss, or 30 seconds without a key clears the buffer. **Backspace** deletes the last character. Chart Settings and Studies, and `WantTextInput`, do not capture these keys.
+Click the chart so it is focused and no text field is active. Keys collect in a per-pane buffer, shown on the window title and in `Theme::accent()` on the toolbar. **Enter** submits. **Escape**, focus loss, or 30 seconds without a key clears the buffer. **Backspace** deletes the last character. Chart Settings and Studies, and `WantTextInput`, do not capture these keys.
 
 Submit rules (`parseChartCommand`):
 
 - `1m`, `5m`, `15m`, `1h`, `1d` change the bar period. Case does not matter. One or more spaces may sit between the number and the unit (`15 m`, `1 day`, `1 hr`, `15 min`).
 - A bare number uses the current family. `15` on a minute chart is 15-minute bars. `1` on a daily chart is `1d`. `5` on a daily chart is rejected (`5d` is not a chart period).
-- `2m`, `10s`, and any other period are rejected. The toolbar shows the message in `Theme::kDown`. The symbol does not change.
+- `2m`, `10s`, and any other period are rejected. The toolbar shows the message in `Theme::danger()`. The symbol does not change.
 - Any other ticker is a symbol. `QQQ` and `qqq` both become `QQQ`. A leading `/` forces a symbol (`/MSFT`). The name is trimmed and uppercased, 1–31 characters, starting with a letter, then letters, digits, `.`, or `-`.
 - Studies, days-to-load, and scale settings stay. Changing symbol or period still resets scroll and scale the same way Chart Settings does.
 
-If the chart cannot draw that symbol yet, it enqueues one ingest job and switches immediately. Intraday periods need 1-minute bars. A daily chart needs stored daily bars. 1-minute rows do not satisfy it, so switching to `1d` queues a historical download even when intraday data is already present. No rows for the required series, including an unknown name, queues a download. Ambiguous names do not. A busy or locked coverage read does not enqueue; the next 2 s reload tries that read again. The window is `chartDownloadWindow`: end date is today in `America/New_York`, and the lookback is `chartDownloadLookbackDays`. Intraday is at least 21 calendar days. Daily walks NYSE sessions back from today so Historical Days to Load fits, including the 2520 cap, and is at least `kIngestDefaultDailyDays` (the same five-year preset as DATA and `ingest`). The toolbar says `QQQ  downloading 1m  FROM .. TO` until that job's serial finishes. Bars committed while the job is still running stay on the plot; Ready does not clear the serial. When the serial finishes in error, the toolbar keeps that job's message until the next symbol or period change, including when a later job has already started and some bars were stored. Stored bars stay on the plot (`Error` with a non-empty series still draws candles; the message is `kDown` on the toolbar). The plot shows the message only when there is nothing to draw. The same request runs from Chart Settings OK / Apply. An identical job already queued or running is not added again.
+If the chart cannot draw that symbol yet, it enqueues one ingest job and switches immediately. Intraday periods need 1-minute bars. A daily chart needs stored daily bars. 1-minute rows do not satisfy it, so switching to `1d` queues a historical download even when intraday data is already present. No rows for the required series, including an unknown name, queues a download. Ambiguous names do not. A busy or locked coverage read does not enqueue; the next 2 s reload tries that read again. The window is `chartDownloadWindow`: end date is today in `America/New_York`, and the lookback is `chartDownloadLookbackDays`. Intraday is at least 21 calendar days. Daily walks NYSE sessions back from today so Historical Days to Load fits, including the 2520 cap, and is at least `kIngestDefaultDailyDays` (the same five-year preset as DATA and `ingest`). The toolbar says `QQQ  downloading 1m  FROM .. TO` until that job's serial finishes. Bars committed while the job is still running stay on the plot; Ready does not clear the serial. When the serial finishes in error, the toolbar keeps that job's message until the next symbol or period change, including when a later job has already started and some bars were stored. Stored bars stay on the plot (`Error` with a non-empty series still draws candles; the message is `Theme::danger()` on the toolbar). The plot shows the message only when there is nothing to draw. The same request runs from Chart Settings OK / Apply. An identical job already queued or running is not added again.
 
 A Ready Day1 chart enqueues one splits-only job per symbol. The symbol is remembered only after that job succeeds, and the next reload applies `adjustBarsForSplits`. A failed splits job leaves the bars on the plot, shows the worker message on the toolbar, and does not remember the symbol, so a later 2 s reload that returns Ready tries again. Changing symbol or period clears that memory. The splits job does not replace the downloading line.
 
@@ -1198,7 +1198,7 @@ If product preference on any of those appears before PR 2, record it here rather
 - `docs/market-data-store.md` — WAL readers, busy_timeout 0, `queryBars` SQL, latency targets
 - `apps/terminal/src/ui/Workspace.cpp` — dock split, DATA 30%
 - `apps/terminal/src/ui/InventoryPanel.cpp` — Reader busy handling, default 14-day window, coverage UI
-- `apps/terminal/src/ui/Theme.h` — `kUp` / `kDown` / `kAccent` / `kWarn` / `kOk` / `kDanger` / `kMuted` / `kCanvas` / `kPanel` / `kGo` / `kBg0`
+- `apps/terminal/src/ui/Theme.h` — `up()` / `down()` / `accent()` / `warn()` / `ok()` / `danger()` / `muted()` / `canvas()` / `panel()` / `go()` / `bg0()`
 - `apps/terminal/src/chart/CStudy.h` — `CStudyInstance`, `MovingAverageParams`, `kStudyPalette`
 - `apps/terminal/src/chart/CStudyCompute.h` — `computeStudies`, `studiesForLoad`
 - `apps/terminal/src/chart/CChartTransform.h` — `transformChartBars`, `isChartSettingsSupported`
@@ -1262,7 +1262,7 @@ Three PRs. Each is independently reviewable and mergeable. No schema change in a
   - `apps/terminal/src/ui/ImGuiLayer.cpp` (ImPlot context; may land with CMake in PR 1/2)
   - `apps/terminal/CMakeLists.txt`
 - **Depends on:** PR 2
-- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::kUp` / `kDown`, 1 px fallback when dense, hover tooltip with instrument-local OHLC (fallback `America/New_York`). Wheel changes bar spacing; drag on the plot pans. Study drawing is specified in **Studies**. Volume uses a chart region under the candles when that study is on region 2 or higher.
+- **Changes:** `BeginPlot` host, index X, right-side price axis, custom `GetPlotDrawList` candles in `Theme::up()` / `Theme::down()`, 1 px fallback when dense, hover tooltip with instrument-local OHLC (fallback `America/New_York`). Wheel changes bar spacing; drag on the plot pans. Study drawing is specified in **Studies**. Volume uses a chart region under the candles when that study is on region 2 or higher.
 
 **Manual check:** Symbol with 1m DATA coverage → green bodies on up minutes, red on down, 1 px doji, hover shows a local `YYYY-MM-DD HH:MM` OHLC line. Wheel changes bar spacing; drag pans. A dense window (raise Days to Load toward 252 on a long series, or shrink the pane) falls back to 1 px high–low stems without crashing. Inactive dock tab does not run the 2 s reload.
 

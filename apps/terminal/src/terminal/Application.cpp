@@ -3,6 +3,8 @@
 
 #include "terminal/Application.h"
 
+#include "ui/Appearance.h"
+
 #include "imgui_impl_glfw.h"
 
 #include <chrono>
@@ -42,11 +44,13 @@ int Application::run()
             continue;
         }
 
+        Appearance::applyPending(scale_);
         ImGuiLayer::newFrame();
         workspace_.draw(window_);
         ImGuiLayer::render(swapchain_, Workspace::clearColor());
     }
 
+    Appearance::flush();
     return 0;
 }
 

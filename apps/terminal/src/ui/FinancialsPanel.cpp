@@ -531,17 +531,17 @@ void FinancialsPanel::refresh(Store* store, IngestWorker* ingest)
 
 void FinancialsPanel::drawToolbar(IngestWorker* ingest)
 {
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::field());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::bg3());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::bg3());
 
-    ImGui::SetNextItemWidth(88.0f);
+    ImGui::SetNextItemWidth(Theme::px(88.0f));
     const bool symbol_go =
         ImGui::InputTextWithHint("##fin_symbol", "Symbol", symbol_, sizeof(symbol_),
                                  ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
     drawSymbolLinkCombo(symbol_link_);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SetNextItemWidth(Theme::px(120.0f));
     if (ImGui::BeginCombo("##fin_statement", statementLabel(statement_)))
     {
         for (const StatementKind kind : kStatements)
@@ -556,7 +556,7 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
         ImGui::EndCombo();
     }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SetNextItemWidth(Theme::px(120.0f));
     if (ImGui::BeginCombo("##fin_period", periodLabel(timeframe_)))
     {
         for (const StatementTimeframe period : kPeriods)
@@ -573,10 +573,10 @@ void FinancialsPanel::drawToolbar(IngestWorker* ingest)
     ImGui::PopStyleColor(3);
 
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     ImGui::BeginDisabled(ingest == nullptr);
     const bool clicked = ImGui::Button("GO");
     ImGui::EndDisabled();
@@ -625,7 +625,42 @@ void FinancialsPanel::drawSheet() const
     {
         line_width = std::max(line_width, ImGui::CalcTextSize(row.label.c_str()).x + pad);
     }
-    if (!ImGui::BeginTable("financials_sheet", kColumns, flags, ImVec2(0.0f, 0.0f)))
+    const auto cellText = [this](const StatementSheetRow& row, int column) -> std::string {
+        const StatementSheetSlot& slot = row.slots[static_cast<std::size_t>(column)];
+        if (!slot.present || column >= sheet_.period_count)
+        {
+            return "—";
+        }
+        const std::string text = formatStatementValue(slot.value);
+        return std::holds_alternative<double>(slot.value) ? padTwoDecimals(text) : text;
+    };
+    // A value column is never narrower than its widest figure. Clipped digits read as a
+    // different number, so a narrow panel scrolls sideways instead.
+    if (mono != nullptr)
+    {
+        ImGui::PushFont(mono);
+    }
+    float value_width = 0.0f;
+    for (int column = 0; column < kStatementSheetPeriods; ++column)
+    {
+        if (column < sheet_.period_count)
+        {
+            const std::string& header = sheet_.periods[static_cast<std::size_t>(column)];
+            value_width = std::max(value_width, ImGui::CalcTextSize(header.c_str()).x);
+        }
+        for (const StatementSheetRow& row : sheet_.rows)
+        {
+            value_width = std::max(value_width, ImGui::CalcTextSize(cellText(row, column).c_str()).x);
+        }
+    }
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
+    const float cell_pad = (ImGui::GetStyle().CellPadding.x * 2.0f) + 1.0f;
+    const float needed = line_width + cell_pad + (static_cast<float>(kStatementSheetPeriods) * (value_width + cell_pad));
+    const float inner_width = std::max(needed, ImGui::GetContentRegionAvail().x);
+    if (!ImGui::BeginTable("financials_sheet", kColumns, flags, ImVec2(0.0f, 0.0f), inner_width))
     {
         return;
     }
@@ -658,7 +693,7 @@ void FinancialsPanel::drawSheet() const
             continue;
         }
         const std::string& label = headers[static_cast<std::size_t>(index)];
-        drawRight(label.c_str(), index >= sheet_.period_count ? Theme::kTextFaint : Theme::kText);
+        drawRight(label.c_str(), index >= sheet_.period_count ? Theme::textFaint() : Theme::text());
     }
     if (mono != nullptr)
     {
@@ -669,7 +704,7 @@ void FinancialsPanel::drawSheet() const
     {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextColored(Theme::kMuted, "%s",
+        ImGui::TextColored(Theme::muted(), "%s",
                            active_symbol_.empty() ? "Enter a symbol and GO."
                                                   : "No values in the last four periods.");
         ImGui::EndTable();
@@ -694,18 +729,14 @@ void FinancialsPanel::drawSheet() const
             {
                 ImGui::TableSetColumnIndex(column + 1);
                 const StatementSheetSlot& slot = row.slots[static_cast<std::size_t>(column)];
+                const std::string text = cellText(row, column);
                 if (!slot.present || column >= sheet_.period_count)
                 {
-                    drawRight("—", Theme::kTextFaint);
+                    drawRight(text.c_str(), Theme::textFaint());
                     continue;
                 }
-                std::string text = formatStatementValue(slot.value);
-                if (std::holds_alternative<double>(slot.value))
-                {
-                    text = padTwoDecimals(text);
-                }
                 const bool negative = !text.empty() && text.front() == '-';
-                drawRight(text.c_str(), negative ? Theme::kDown : Theme::kText);
+                drawRight(text.c_str(), negative ? Theme::down() : Theme::text());
             }
             if (mono != nullptr)
             {
@@ -761,21 +792,21 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
     }
     if (store == nullptr && !store_error.empty())
     {
-        ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+        ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
     }
 
     drawToolbar(ingest);
     refresh(store, ingest);
     ImGui::Separator();
     const bool fetching = inflight_ && inflight_key_ == viewKey();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (fetching)
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (!error_.empty())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     const std::string shown =
         fetching ? std::string("fetching ") + active_symbol_ + " " + statementLabel(statement_) + " " +

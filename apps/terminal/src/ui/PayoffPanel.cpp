@@ -86,14 +86,14 @@ void PayoffPanel::drawEntry(IngestWorker* ingest)
         wizard_.clear();
     }
     ImGui::Separator();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (source_.fetching())
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (source_.failed())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, status_color);
     ImGui::TextWrapped("%s", source_.status().c_str());
@@ -144,7 +144,7 @@ bool PayoffPanel::draw(Store* store, std::string_view store_error, IngestWorker*
     }
     if (store == nullptr && !store_error.empty())
     {
-        ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+        ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
     }
 
     // The picker in the entry section queues its changes; they land on this refresh next frame.
@@ -153,9 +153,9 @@ bool PayoffPanel::draw(Store* store, std::string_view store_error, IngestWorker*
 
     const float avail = ImGui::GetContentRegionAvail().y;
     const float spacing = ImGui::GetStyle().ItemSpacing.y;
-    const float usable = std::max(avail - kDividerHeight - (spacing * 2.0f), 1.0f);
-    const float graph_max = std::max(kMinGraphHeight, usable - kMinEntryHeight);
-    const float graph_h = std::clamp(usable * graph_share_, std::min(kMinGraphHeight, graph_max), graph_max);
+    const float usable = std::max(avail - Theme::px(kDividerHeight) - (spacing * 2.0f), 1.0f);
+    const float graph_max = std::max(Theme::px(kMinGraphHeight), usable - Theme::px(kMinEntryHeight));
+    const float graph_h = std::clamp(usable * graph_share_, std::min(Theme::px(kMinGraphHeight), graph_max), graph_max);
 
     if (ImGui::BeginChild("payoff_graph", ImVec2(0.0f, graph_h), ImGuiChildFlags_Borders))
     {
@@ -163,7 +163,7 @@ bool PayoffPanel::draw(Store* store, std::string_view store_error, IngestWorker*
     }
     ImGui::EndChild();
 
-    ImGui::InvisibleButton("##payoff_divider", ImVec2(-1.0f, kDividerHeight));
+    ImGui::InvisibleButton("##payoff_divider", ImVec2(-1.0f, Theme::px(kDividerHeight)));
     const bool dragging = ImGui::IsItemActive();
     if (dragging || ImGui::IsItemHovered())
     {
@@ -177,7 +177,7 @@ bool PayoffPanel::draw(Store* store, std::string_view store_error, IngestWorker*
     const ImVec2 hi = ImGui::GetItemRectMax();
     const float mid = (lo.y + hi.y) * 0.5f;
     ImGui::GetWindowDrawList()->AddLine(ImVec2(lo.x, mid), ImVec2(hi.x, mid),
-                                        ImGui::GetColorU32(dragging ? Theme::kAccent : Theme::kLine2));
+                                        ImGui::GetColorU32(dragging ? Theme::accent() : Theme::line2()));
 
     if (ImGui::BeginChild("payoff_entry", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders))
     {
