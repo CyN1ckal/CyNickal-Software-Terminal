@@ -20,7 +20,7 @@ It is a single stdlib-only Python 3.10+ file. pandas is optional.
 2. **Start with the CLI to explore, and use the Python API for analysis.** CLI output is capped at 2,000 rows, so large pulls should go to `--out file.csv` or into Python.
 3. **Check coverage before you draw conclusions.** Run `mdq.py coverage SYM --tf 1m` first. A missing session looks the same as a quiet market.
 4. **Use raw SQL only as a last resort,** through `mdq.py sql`, and only after reading [SCHEMA.md](SCHEMA.md). If you need the same query twice, add a method to `mdq.py` with a test instead.
-5. **Put research output in `research/<topic>/`**, not in `data/`. See [Writing research](#writing-research).
+5. **Put research output in `research/<slug>/research/`**, not in `data/`. See [Writing research](#writing-research).
 
 ## Quick start
 
@@ -153,15 +153,17 @@ python agent-data/mdq.py sql "SELECT c.symbol, count(*) AS days FROM coverage_da
 
 ## Writing research
 
-Put each study in `research/<topic>/`, with a script that imports mdq instead of re-deriving the calendar, split factors, and session times:
+Each strategy gets one folder, `research/<slug>/`. Scripts, rules, and raw output go in `research/<slug>/research/`, and the report goes in `research/<slug>/report/`. [The research protocol](../.claude/skills/quant-research/SKILL.md) has the full layout. Scripts import mdq instead of re-deriving the calendar, split factors, and session times:
 
 ```python
 import sys
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]   # research/<slug>/research/script.py
 sys.path.insert(0, str(ROOT / "agent-data"))
 from mdq import MarketData, nyse_sessions, rth_minutes
 ```
+
+The protocol's lock and run-log steps (`RULES.lock`, `RUNLOG.md`) are required for new studies. Studies that predate the protocol do not have them.
 
 In the write-up, record the session range you used and any coverage gaps you excluded.
 

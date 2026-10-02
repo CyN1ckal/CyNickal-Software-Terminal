@@ -11,3 +11,7 @@ python agent-data/mdq.py coverage SPY --tf 1m
 ```
 
 Read [agent-data/README.md](agent-data/README.md) before any data analysis. Never write to the store, and do not run `ingest` (a paid API) unless asked.
+
+## Researching strategies
+
+Research on a trading strategy follows [.claude/skills/quant-research/SKILL.md](.claude/skills/quant-research/SKILL.md) (`/quant-research <idea>` in Claude Code). Rules are pre-registered and locked before any return is computed, every run is logged, and the verdict comes from acceptance criteria fixed in advance. Every strategy gets one folder, `research/<slug>/`, with the rules, code, and raw output nested in `research/<slug>/research/` and the final report in `research/<slug>/report/`.

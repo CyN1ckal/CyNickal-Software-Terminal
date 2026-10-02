@@ -54,6 +54,7 @@ add_library(terminal_logic OBJECT
     src/backtest/strategies/MaCross.cpp
     src/backtest/strategies/BollingerRevert.cpp
     src/backtest/strategies/Momentum.cpp
+    src/backtest/strategies/ShockRevert.cpp
     src/options/OptionPayoff.cpp
     src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp

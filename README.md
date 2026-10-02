@@ -59,6 +59,28 @@ A Vulkan and Dear ImGui desktop app with a custom title bar, dockable windows, a
   - Missing bars in the run's range are downloaded before the run.
 - **Refresh.** Ctrl+R refetches the focused panel's data. Each panel shows when its data was received.
 
+## AI-supported research
+
+Agents such as Claude Code research strategies against the same store the terminal uses, and they never change it. [`AGENTS.md`](AGENTS.md) and [`agent-data/README.md`](agent-data/README.md) are their instructions.
+
+1. **Read the data with `mdq.py`.** [`agent-data/mdq.py`](agent-data/mdq.py) is a single stdlib-only Python file with a CLI and a Python API. It follows the terminal's conventions for symbol lookup, split adjustment, 09:30-anchored resampling, the NYSE calendar with early closes, and FIFO ledger matching. So an agent's numbers match the charts and STATISTICS. It opens the store read-only and can run while the terminal or `ingest` is running. `ingest` is a paid API, and agents never run it unless asked.
+2. **Check coverage first.** `mdq.py coverage SYM --tf 1m` lists missing and partial sessions and labels the known harmless ones, so they can be excluded before any result is read.
+3. **Write the rules before the first run.** Each strategy gets one folder, `research/<slug>/`. Its `research/` subfolder holds the code and raw output, and its `RULES.md` fixes the data, the rules, the in-sample and out-of-sample split, the checks, and the pass criteria before any result exists. Results may not change that file. Anything added after seeing results goes in `posthoc.py` and is labelled post hoc.
+4. **Test whether the result is real.** Study scripts import mdq and write their raw output (JSON and CSV) next to themselves. The standard checks are:
+   - cost and latency sensitivity;
+   - a randomized-direction placebo;
+   - a block-bootstrap confidence interval on Sharpe;
+   - a parameter grid to show the defaults sit on a plateau, not a spike;
+   - the same rules on other symbols;
+   - buy-and-hold benchmarks.
+5. **Write a report.** `research/<slug>/report/REPORT.md` covers the summary, method, results, robustness, where the profit comes from, the pass/fail test against the pre-registered criteria, risks, a paper-trading proposal, and steps to reproduce. Its figures are in `figures/`.
+
+```
+python agent-data/mdq.py instruments
+python agent-data/mdq.py coverage QQQ --tf 1m
+python agent-data/test_mdq.py
+```
+
 ## Setup
 
 Needs CMake 4.0+, a C++20 compiler, Vulkan (SDK and working drivers), GLFW 3.3, libcurl, and clang-tidy. clang-tidy is on by default; pass `-DTERMINAL_ENABLE_CLANG_TIDY=OFF` to skip it.
