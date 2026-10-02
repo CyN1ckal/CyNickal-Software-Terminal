@@ -1,0 +1,171 @@
+{
+  "label": "post hoc",
+  "unit_conversion": {
+    "mean_close_to_open_bp": 2.55145164835713,
+    "mean_open_to_close_bp": 2.5464895240500747,
+    "mean_difference_bp": 0.004962124307055166
+  },
+  "concentration": {
+    "sum_strategy_net": 0.21826456241975248,
+    "best_days": [
+      {
+        "date": "2020-03-13",
+        "strategy_net": 0.06017644593123992,
+        "bh_c2c": 0.08548627624843808,
+        "open_to_close": 0.023680109468242838
+      },
+      {
+        "date": "2020-03-24",
+        "strategy_net": 0.05124651267100242,
+        "bh_c2c": 0.09060327427674375,
+        "open_to_close": 0.03724084975684683
+      },
+      {
+        "date": "2020-11-09",
+        "strategy_net": 0.039239113548092265,
+        "bh_c2c": 0.012565684258624588,
+        "open_to_close": -0.02585377915762299
+      },
+      {
+        "date": "2020-04-06",
+        "strategy_net": 0.03868150207502306,
+        "bh_c2c": 0.0671662838954028,
+        "open_to_close": 0.027226186782500994
+      },
+      {
+        "date": "2020-03-10",
+        "strategy_net": 0.03776083579477072,
+        "bh_c2c": 0.05174488567990365,
+        "open_to_close": 0.013279932546374384
+      }
+    ],
+    "worst_days": [
+      {
+        "date": "2020-03-16",
+        "strategy_net": -0.10468537056289909,
+        "bh_c2c": -0.10942373384821036,
+        "open_to_close": -0.0055145534455594
+      },
+      {
+        "date": "2020-03-09",
+        "strategy_net": -0.074697411416661,
+        "bh_c2c": -0.07809453371881925,
+        "open_to_close": -0.0038866690882672916
+      },
+      {
+        "date": "2020-03-12",
+        "strategy_net": -0.06711937600233278,
+        "bh_c2c": -0.09567721242163585,
+        "open_to_close": -0.030820312499999947
+      },
+      {
+        "date": "2020-03-18",
+        "strategy_net": -0.06566677215189878,
+        "bh_c2c": -0.05063291139240511,
+        "open_to_close": 0.015873015873015817
+      },
+      {
+        "date": "2015-08-24",
+        "strategy_net": -0.05150799979760148,
+        "bh_c2c": -0.040884481101047365,
+        "open_to_close": 0.010987252653474888
+      }
+    ],
+    "best_10": {
+      "n": 10,
+      "sum": 0.3862039230384225,
+      "share_of_sum": 1.7694302673637865,
+      "zeroed": {
+        "return": -0.2190539199803766,
+        "sharpe": -0.10705315817040335
+      }
+    },
+    "best_20": {
+      "n": 20,
+      "sum": 0.6299084981874322,
+      "share_of_sum": 2.885986122548068,
+      "zeroed": {
+        "return": -0.3861542313619055,
+        "sharpe": -0.26759235746526944
+      }
+    }
+  },
+  "rolling_252": {
+    "strategy": {
+      "windows": 3707,
+      "min": -1.813813633469426,
+      "max": 3.311577928860738,
+      "frac_positive": 0.6007553277582951,
+      "last": -0.5440935441208435,
+      "last_date": "2026-10-01"
+    },
+    "bh_c2c": {
+      "windows": 3707,
+      "min": -0.8560820958406344,
+      "max": 3.301955828689377,
+      "frac_positive": 0.8885891556514702,
+      "last": 1.1151310110836896,
+      "last_date": "2026-10-01"
+    },
+    "open_to_close": {
+      "windows": 3707,
+      "min": -1.6370541524958206,
+      "max": 2.705776200661323,
+      "frac_positive": 0.8227677367143242,
+      "last": 1.039275036046443,
+      "last_date": "2026-10-01"
+    }
+  },
+  "negative_compound_years": [
+    2011,
+    2012,
+    2015,
+    2016,
+    2022,
+    2023,
+    2025,
+    2026
+  ],
+  "daily_vs_minute": {
+    "SPY": {
+      "compared": 1254,
+      "no_minute": 5,
+      "open_gt_20bp": 224,
+      "close_gt_20bp": 111,
+      "first_open_gt_20bp": "2024-11-18",
+      "first_close_gt_20bp": "2024-11-20",
+      "mean_abs_open_bp": 10.167841444555664,
+      "mean_abs_close_bp": 7.050104184800047,
+      "max_abs_open_bp": {
+        "bp": 229.7627911924264,
+        "date": "2026-03-23"
+      },
+      "max_abs_close_bp": {
+        "bp": 348.7918939984401,
+        "date": "2025-04-02"
+      },
+      "threshold_bp": 20.0,
+      "note": "price discrepancy only; not a strategy return"
+    },
+    "QQQ": {
+      "compared": 1254,
+      "no_minute": 5,
+      "open_gt_20bp": 281,
+      "close_gt_20bp": 169,
+      "first_open_gt_20bp": "2024-11-18",
+      "first_close_gt_20bp": "2024-05-31",
+      "mean_abs_open_bp": 13.74434073708885,
+      "mean_abs_close_bp": 9.010627041789508,
+      "max_abs_open_bp": {
+        "bp": 270.6897338750174,
+        "date": "2025-04-04"
+      },
+      "max_abs_close_bp": {
+        "bp": 439.98739892890876,
+        "date": "2025-04-02"
+      },
+      "threshold_bp": 20.0,
+      "note": "price discrepancy only; not a strategy return"
+    }
+  }
+}

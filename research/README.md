@@ -20,3 +20,8 @@ One folder per strategy. Each folder holds its rules, code, and raw output in `r
 | [index-opening-pop-fade](index-opening-pop-fade/) | Short SPY at 10:00 after an unusually large first-half-hour rise and cover at the close (Grant, Wolf & Yu 2005), with QQQ as the cross-market test | Rejected | 2026-09-26 |
 | [qqq-return-stack](qqq-return-stack/) | Hold QQQ at 1× and stack every in-sample-positive strategy above on top at 5% in-sample volatility each (return stacking); charts show each strategy's impact | Rejected (failed the 2× cost line; OOS Sharpe 1.70 vs QQQ 1.01 at base cost) | 2026-09-26 |
 | [qqq-atr-band-dip-eod](qqq-atr-band-dip-eod/) | Buy QQQ at the session open minus 1× prior-day ATR(14) on a resting limit and hold to the close | Rejected (negative gross; OOS Sharpe −0.40, 4 of 6 lines fail) | 2026-09-30 |
+| [spy-overnight-premium](spy-overnight-premium/) | Buy SPY at every close and sell at the next open | Rejected | 2026-10-02 |
+| [treasury-etf-trend](treasury-etf-trend/) | 12-month time-series momentum on TLT and IEF, equal weight, monthly | Inconclusive | 2026-10-02 |
+| [commodity-etf-momentum](commodity-etf-momentum/) | 12-month cross-sectional momentum on six commodity ETFs, long the top 2 and short the bottom 2 | Inconclusive | 2026-10-02 |
+| [fx-etf-momentum](fx-etf-momentum/) | 63-session time-series momentum on six CurrencyShares ETFs, equal weight, monthly | Rejected | 2026-10-02 |
+| [spdr-sector-momentum](spdr-sector-momentum/) | 12-1 month cross-sectional momentum on the SPDR sector ETFs, long the top 3 and short the bottom 3 | Rejected | 2026-10-02 |

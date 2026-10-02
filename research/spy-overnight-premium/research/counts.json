@@ -1,0 +1,228 @@
+{
+  "window": [
+    "2011-01-04",
+    "2026-10-01"
+  ],
+  "symbols": {
+    "SPY": {
+      "coverage_summary_1d": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "in_window_with_bars": 3959,
+      "in_window_first": "2011-01-04",
+      "in_window_last": "2026-10-01",
+      "in_window_zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "missing_sessions": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05",
+        "2025-01-09"
+      ],
+      "bars_outside_window": [],
+      "duplicate_dates": 0,
+      "missing_vs_nyse_calendar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "extra_vs_nyse_calendar": [],
+      "named_dates_have_bars": {
+        "2012-10-29": false,
+        "2012-10-30": false,
+        "2018-12-05": false,
+        "2021-12-31": true,
+        "2025-01-09": false
+      },
+      "action_types": {},
+      "splits": [],
+      "dividend_count": 0,
+      "dividend_first": null,
+      "dividend_last": null,
+      "dividend_ex_dates_in_window": 0
+    },
+    "QQQ": {
+      "coverage_summary_1d": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "in_window_with_bars": 3959,
+      "in_window_first": "2011-01-04",
+      "in_window_last": "2026-10-01",
+      "in_window_zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "missing_sessions": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05",
+        "2025-01-09"
+      ],
+      "bars_outside_window": [],
+      "duplicate_dates": 0,
+      "missing_vs_nyse_calendar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "extra_vs_nyse_calendar": [],
+      "named_dates_have_bars": {
+        "2012-10-29": false,
+        "2012-10-30": false,
+        "2018-12-05": false,
+        "2021-12-31": true,
+        "2025-01-09": false
+      },
+      "action_types": {},
+      "splits": [],
+      "dividend_count": 0,
+      "dividend_first": null,
+      "dividend_last": null,
+      "dividend_ex_dates_in_window": 0
+    },
+    "IWM": {
+      "coverage_summary_1d": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "in_window_with_bars": 3959,
+      "in_window_first": "2011-01-04",
+      "in_window_last": "2026-10-01",
+      "in_window_zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "missing_sessions": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05",
+        "2025-01-09"
+      ],
+      "bars_outside_window": [],
+      "duplicate_dates": 0,
+      "missing_vs_nyse_calendar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "extra_vs_nyse_calendar": [],
+      "named_dates_have_bars": {
+        "2012-10-29": false,
+        "2012-10-30": false,
+        "2018-12-05": false,
+        "2021-12-31": true,
+        "2025-01-09": false
+      },
+      "action_types": {},
+      "splits": [],
+      "dividend_count": 0,
+      "dividend_first": null,
+      "dividend_last": null,
+      "dividend_ex_dates_in_window": 0
+    }
+  },
+  "nyse_sessions_in_window": 3962
+}

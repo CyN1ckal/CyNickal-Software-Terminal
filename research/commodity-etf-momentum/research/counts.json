@@ -1,0 +1,410 @@
+{
+  "names": {
+    "GLD": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [],
+      "split_continuity": [],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    },
+    "SLV": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [],
+      "split_continuity": [],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    },
+    "USO": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [
+        {
+          "ex_date": "2020-04-29",
+          "type": "split",
+          "split_ratio": 0.125,
+          "amount": null
+        }
+      ],
+      "split_continuity": [
+        {
+          "ex_date": "2020-04-29",
+          "stored_ratio": 0.125,
+          "present": true,
+          "prev_session": "2020-04-28",
+          "raw_close_ratio_ex_over_prev": 8.450704225352114,
+          "adjusted_close_ratio_ex_over_prev": 1.0563380281690142,
+          "raw_jump_if_unadjusted_reverse_split": 8.0
+        }
+      ],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    },
+    "UNG": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [
+        {
+          "ex_date": "2018-01-05",
+          "type": "split",
+          "split_ratio": 0.25,
+          "amount": null
+        },
+        {
+          "ex_date": "2024-01-24",
+          "type": "split",
+          "split_ratio": 0.25,
+          "amount": null
+        }
+      ],
+      "split_continuity": [
+        {
+          "ex_date": "2018-01-05",
+          "stored_ratio": 0.25,
+          "present": true,
+          "prev_session": "2018-01-04",
+          "raw_close_ratio_ex_over_prev": 3.894179894179894,
+          "adjusted_close_ratio_ex_over_prev": 0.9735449735449735,
+          "raw_jump_if_unadjusted_reverse_split": 4.0
+        },
+        {
+          "ex_date": "2024-01-24",
+          "stored_ratio": 0.25,
+          "present": true,
+          "prev_session": "2024-01-23",
+          "raw_close_ratio_ex_over_prev": 4.186878727634195,
+          "adjusted_close_ratio_ex_over_prev": 1.0467196819085487,
+          "raw_jump_if_unadjusted_reverse_split": 4.0
+        }
+      ],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    },
+    "DBA": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [],
+      "split_continuity": [],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    },
+    "DBB": {
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention_n": 3,
+        "needs_attention_head": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "bar_count": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": 0,
+      "zero_volume": 0,
+      "missing_vs_spy_in_window_n": 0,
+      "missing_vs_spy_in_window_head": [],
+      "extra_vs_spy_in_window_n": 0,
+      "extra_vs_spy_in_window": [],
+      "actions": [],
+      "split_continuity": [],
+      "bars_through_index": {
+        "253rd_session": "2012-01-04"
+      }
+    }
+  },
+  "spy": {
+    "bars_in_window": 3959,
+    "first": "2011-01-04",
+    "last": "2026-10-01",
+    "duplicate_sessions": [],
+    "nonpositive_ohlc": 0
+  },
+  "calendar": {
+    "nyse_sessions_2011-01-01_to_2026-10-01": 3963,
+    "skip_dates_in_nyse_calendar": [
+      "2012-10-29",
+      "2012-10-30",
+      "2018-12-05"
+    ],
+    "skip_dates_absent_from_nyse_calendar": []
+  },
+  "signal_calendar_count_only": {
+    "spy_month_ends_in_window": 190,
+    "first_spy_month_end": "2011-01-31",
+    "last_spy_month_end": "2026-10-01",
+    "session_when_each_name_has_253_bars": {
+      "GLD": "2012-01-04",
+      "SLV": "2012-01-04",
+      "USO": "2012-01-04",
+      "UNG": "2012-01-04",
+      "DBA": "2012-01-04",
+      "DBB": "2012-01-04"
+    },
+    "first_month_end_on_or_after_all_names_have_253_bars": "2012-01-31",
+    "month_ends_from_that_date_through_2026-10-01": 178,
+    "oos_start_is_spy_session": true,
+    "last_spy_session_before_2024-07-01": "2024-06-28"
+  }
+}
