@@ -313,6 +313,11 @@ MboumV3Page parseMboumV3Historical(std::string_view json)
         }
 
         page.no_data = messageIsNoData(root);
+        if (const auto message = root.find("message"); message != root.end() && message->is_string())
+        {
+            const auto& text = message->get_ref<const std::string&>();
+            page.fetch_failed = text.find("Failed to fetch") != std::string::npos;
+        }
         return page;
     }
     catch (const nlohmann::json::exception& ex)
@@ -324,6 +329,16 @@ MboumV3Page parseMboumV3Historical(std::string_view json)
 namespace {
 
 // Tickers go into query strings: $SPX becomes %24SPX. MBoum accepts either form.
+void appendYmdHms(std::string& url, SessionDate session_date, const char* hms)
+{
+    const int y = session_date / 10000;
+    const int m = (session_date / 100) % 100;
+    const int d = session_date % 100;
+    char stamp[32]{};
+    std::snprintf(stamp, sizeof(stamp), "%04d%02d%02d%s", y, m, d, hms);
+    url += stamp;
+}
+
 void appendEncodedQuery(std::string& url, std::string_view value)
 {
     constexpr char hex[] = "0123456789ABCDEF";
@@ -343,24 +358,25 @@ void appendEncodedQuery(std::string& url, std::string_view value)
 
 }  // namespace
 
-std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_date)
+std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate from, SessionDate to, int limit)
 {
-    const int y = session_date / 10000;
-    const int m = (session_date / 100) % 100;
-    const int d = session_date % 100;
-    char start[32]{};
-    char end[32]{};
-    std::snprintf(start, sizeof(start), "%04d%02d%02d093000", y, m, d);
-    std::snprintf(end, sizeof(end), "%04d%02d%02d160000", y, m, d);
     std::string url = "https://api.mboum.com/v3/markets/historical?ticker=";
     appendEncodedQuery(url, ticker);
-    url += "&interval=1min&limit=400&startDate=";
-    url += start;
+    url += "&interval=1min&limit=";
+    url += std::to_string(limit);
+    url += "&startDate=";
+    appendYmdHms(url, from, "093000");
     url += "&endDate=";
-    url += end;
+    appendYmdHms(url, to, "160000");
     // Laravel boolean rules accept 0/1, not the strings "false"/"true".
     url += "&splits=0&dividends=0&order=asc";
     return url;
+}
+
+std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_date)
+{
+    // 400 leaves slack over the 390 regular-hours minutes in one session.
+    return mboumV3HistoricalUrl(ticker, session_date, session_date, 400);
 }
 
 MboumV3DailyPage parseMboumV3Daily(std::string_view json)

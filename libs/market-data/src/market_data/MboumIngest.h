@@ -36,16 +36,17 @@ struct IngestSymbolResult
     std::string identity_notice;
 };
 
-// Walks NYSE sessions in [from, to]. Holidays are written complete 0/0.
-// Complete coverage rows are skipped. HTTP failures become status=error.
-// 401/403 throw. Inject get(); the CLI uses libcurl and retries 0/429/5xx.
+// Pages GET /v3/markets/historical?interval=1min, newest 4000 bars per call.
+// A full page's oldest session is requested again so a truncated open is not stored short.
+// Holidays are written complete 0/0. Complete coverage rows are skipped.
+// HTTP failures become status=error. 401/403 throw. Inject get(); the CLI retries 0/429/5xx.
 [[nodiscard]] IngestSymbolResult ingestSymbol(Store& store,
                                               const HttpGet& get,
                                               OpenFigiClient& figi,
                                               std::string_view symbol,
                                               SessionDate from,
                                               SessionDate to,
-                                              IngestDayCallback on_day = {});
+                                              const IngestDayCallback& on_day = {});
 
 // Pages GET /v3/markets/historical?interval=daily (newest-N, limit 4000).
 // Coverage is written per NYSE weekday in each received page span.

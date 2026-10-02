@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <map>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -230,6 +232,238 @@ void emitCoverageDays(const std::vector<CoverageDay>& rows,
     return *std::move(instrument);
 }
 
+void emitIngestDay(IngestSymbolResult& result,
+                   const IngestDayCallback& on_day,
+                   SessionDate session_date,
+                   CoverageStatus status,
+                   int bar_count,
+                   int http_status)
+{
+    IngestDayResult day;
+    day.session_date = session_date;
+    day.status = status;
+    day.bar_count = bar_count;
+    day.http_status = http_status;
+    result.days.push_back(day);
+    if (on_day)
+    {
+        on_day(day);
+    }
+}
+
+[[nodiscard]] bool minuteCoverageComplete(const Store& store, InstrumentId id, SessionDate session_date)
+{
+    const std::optional<CoverageDay> existing = store.findCoverage(id, kTimeframe1m, session_date);
+    if (!existing.has_value())
+    {
+        return false;
+    }
+    const CoverageDay& row = existing.value();
+    return row.status == CoverageStatus::Complete;
+}
+
+void emitStoredMinute(const Store& store,
+                      IngestSymbolResult& result,
+                      const IngestDayCallback& on_day,
+                      SessionDate session_date,
+                      int http_status)
+{
+    const std::optional<CoverageDay> existing = store.findCoverage(result.instrument_id, kTimeframe1m, session_date);
+    if (!existing.has_value())
+    {
+        return;
+    }
+    const CoverageDay& row = existing.value();
+    emitIngestDay(result, on_day, session_date, row.status, row.bar_count, http_status);
+}
+
+void commitMinuteSession(Store& store,
+                         const Instrument& inst,
+                         IngestSymbolResult& result,
+                         const IngestDayCallback& on_day,
+                         SessionDate session_date,
+                         const std::vector<Bar>& bars,
+                         int http_status)
+{
+    const bool still_open = sessionStillOpen(inst.timezone, session_date, nowUtc());
+    if (!still_open && minuteCoverageComplete(store, result.instrument_id, session_date))
+    {
+        emitStoredMinute(store, result, on_day, session_date, http_status);
+        return;
+    }
+    const auto ingested = store.ingestSession(
+        bars, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
+    emitIngestDay(result, on_day, session_date, ingested.coverage.status, ingested.coverage.bar_count, http_status);
+}
+
+void failMinuteWindow(Store& store,
+                      const Instrument& inst,
+                      IngestSymbolResult& result,
+                      const IngestDayCallback& on_day,
+                      SessionDate from,
+                      SessionDate to,
+                      int http_status)
+{
+    for (const SessionDate session_date : nyseSessions(from, to))
+    {
+        if (!sessionStillOpen(inst.timezone, session_date, nowUtc()) &&
+            minuteCoverageComplete(store, result.instrument_id, session_date))
+        {
+            emitStoredMinute(store, result, on_day, session_date, http_status);
+            continue;
+        }
+        writeHttpError(store, result.instrument_id, session_date);
+        emitIngestDay(result, on_day, session_date, CoverageStatus::Error, 0, http_status);
+    }
+}
+
+// Oldest raw minute in the page. A full page cuts this session when the first
+// bar is after 09:30 local, so that session is fetched again as the next end.
+struct MinutePageEdge
+{
+    bool parsed{false};
+    bool full{false};
+    bool cut{false};
+    SessionDate oldest{};
+};
+
+[[nodiscard]] MinutePageEdge minutePageEdge(const Instrument& inst, const MboumV3Page& page)
+{
+    MinutePageEdge edge;
+    edge.full = page.bars.size() >= static_cast<std::size_t>(kMboumIntradayPageLimit);
+    UnixSeconds oldest_ts = 0;
+    for (const MboumV3BarRow& row : page.bars)
+    {
+        const std::optional<UnixSeconds> parsed = naiveLocalToUtc(inst.timezone, row.datetime);
+        if (!parsed.has_value())
+        {
+            continue;
+        }
+        const UnixSeconds ts = parsed.value();
+        if (!edge.parsed || ts < oldest_ts)
+        {
+            oldest_ts = ts;
+            edge.oldest = utcToSessionDate(inst.timezone, ts);
+            edge.parsed = true;
+        }
+    }
+    if (edge.parsed && edge.full)
+    {
+        const UtcWindow rth = usRthUtcWindow(inst.timezone, edge.oldest);
+        edge.cut = oldest_ts > rth.start;
+    }
+    return edge;
+}
+
+[[nodiscard]] std::map<SessionDate, std::vector<Bar>> groupRthBars(const Instrument& inst, const MboumV3Page& page)
+{
+    std::map<SessionDate, std::vector<Bar>> grouped;
+    const UnixSeconds now = nowUtc();
+    for (const MboumV3BarRow& row : page.bars)
+    {
+        const std::optional<Bar> mapped = mapV3Bar(inst, row, now);
+        if (!mapped.has_value())
+        {
+            continue;
+        }
+        const Bar bar = mapped.value();
+        grouped[utcToSessionDate(inst.timezone, bar.ts)].push_back(bar);
+    }
+    return grouped;
+}
+
+void commitMinuteSpan(Store& store,
+                      const Instrument& inst,
+                      IngestSymbolResult& result,
+                      const IngestDayCallback& on_day,
+                      SessionDate from,
+                      SessionDate to,
+                      const MinutePageEdge& edge,
+                      const std::map<SessionDate, std::vector<Bar>>& grouped,
+                      int http_status)
+{
+    const std::vector<Bar> empty;
+    for (const SessionDate session_date : nyseSessions(from, to))
+    {
+        if (edge.full && edge.parsed && edge.cut && session_date <= edge.oldest)
+        {
+            continue;
+        }
+        if (edge.full && edge.parsed && !edge.cut && session_date < edge.oldest)
+        {
+            continue;
+        }
+        const auto found = grouped.find(session_date);
+        const std::vector<Bar>& bars = found == grouped.end() ? empty : found->second;
+        commitMinuteSession(store, inst, result, on_day, session_date, bars, http_status);
+    }
+}
+
+// Four inclusive calendar dates. Extended hours are under 1000 bars a day, so a
+// chunk stays near one 4000-bar page and the vendor is not asked to scan years.
+[[nodiscard]] SessionDate minuteChunkStart(SessionDate from, SessionDate end)
+{
+    constexpr int kChunkSpanDays = 3;
+    const SessionDate back =
+        toSessionDate(year_month_day{sys_days{sessionDateToYmd(end)} - days{kChunkSpanDays}});
+    return back < from ? from : back;
+}
+
+[[nodiscard]] bool minuteSpanComplete(const Store& store, InstrumentId id, SessionDate from, SessionDate to)
+{
+    return std::ranges::all_of(nyseSessions(from, to), [&](SessionDate session_date) {
+        return minuteCoverageComplete(store, id, session_date);
+    });
+}
+
+struct MinuteFetch
+{
+    HttpResponse http;
+    MboumV3Page page;
+    bool parsed{false};
+    bool transport_error{false};
+};
+
+[[nodiscard]] MinuteFetch fetchMinutePage(const HttpGet& get, std::string_view url)
+{
+    MinuteFetch out;
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        out = MinuteFetch{};
+        try
+        {
+            out.http = get(url);
+        }
+        catch (const std::exception&)
+        {
+            out.transport_error = true;
+            continue;
+        }
+        if (out.http.status == 401 || out.http.status == 403)
+        {
+            throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(out.http.status) +
+                                     ")");
+        }
+        try
+        {
+            out.page = parseMboumV3Historical(out.http.body);
+            out.parsed = true;
+        }
+        catch (const std::exception&)
+        {
+            out.parsed = false;
+        }
+        const bool empty_history =
+            out.http.status == 404 || (out.parsed && out.page.no_data && !out.page.fetch_failed);
+        const bool retry = out.transport_error || !out.parsed || out.page.fetch_failed || empty_history;
+        if (!retry)
+        {
+            return out;
+        }
+    }
+    return out;
+}
+
 }  // namespace
 
 IngestSymbolResult ingestSymbol(Store& store,
@@ -238,24 +472,19 @@ IngestSymbolResult ingestSymbol(Store& store,
                                 std::string_view symbol,
                                 SessionDate from,
                                 SessionDate to,
-                                IngestDayCallback on_day)
+                                const IngestDayCallback& on_day)
 {
     if (symbol.empty())
     {
         throw std::runtime_error("ingest symbol is empty");
     }
+    if (from > to)
+    {
+        throw std::runtime_error("ingest from is after to");
+    }
     IngestSymbolResult result;
-    const Instrument resolved = resolveForIngest(store, figi, symbol, result.identity_notice);
-    const Instrument* const inst = &resolved;
-    result.instrument_id = resolved.id;
-
-    auto emit = [&](const IngestDayResult& day) {
-        result.days.push_back(day);
-        if (on_day)
-        {
-            on_day(day);
-        }
-    };
+    const Instrument inst = resolveForIngest(store, figi, symbol, result.identity_notice);
+    result.instrument_id = inst.id;
 
     sys_days cursor{sessionDateToYmd(from)};
     const sys_days last{sessionDateToYmd(to)};
@@ -263,127 +492,122 @@ IngestSymbolResult ingestSymbol(Store& store,
     {
         const year_month_day ymd{cursor};
         const weekday wd{cursor};
-        if (wd == Saturday || wd == Sunday)
+        if (wd == Saturday || wd == Sunday || !isNyseHoliday(ymd))
         {
             continue;
         }
         const SessionDate session_date = toSessionDate(ymd);
-        IngestDayResult day;
-        day.session_date = session_date;
+        writeHolidayComplete(store, result.instrument_id, session_date);
+        emitIngestDay(result, on_day, session_date, CoverageStatus::Complete, 0, 0);
+    }
 
-        if (isNyseHoliday(ymd))
+    const std::vector<SessionDate> sessions = nyseSessions(from, to);
+    SessionDate end = 0;
+    for (const SessionDate session_date : sessions)
+    {
+        if (!minuteCoverageComplete(store, result.instrument_id, session_date))
         {
-            writeHolidayComplete(store, result.instrument_id, session_date);
-            day.status = CoverageStatus::Complete;
-            day.bar_count = 0;
-            emit(day);
-            continue;
+            end = session_date;
         }
-
-        if (const auto existing = store.findCoverage(result.instrument_id, kTimeframe1m, session_date))
+    }
+    if (end == 0)
+    {
+        for (const SessionDate session_date : sessions)
         {
-            if (existing->status == CoverageStatus::Complete)
+            emitStoredMinute(store, result, on_day, session_date, 0);
+        }
+        return result;
+    }
+
+    // One symbol-year is a few hundred chunks. Stop rather than spin if a page never moves.
+    // One empty vendor chunk is not the end of history; stop after three in a row.
+    constexpr int kMaxMinutePages = 2000;
+    int empty_streak = 0;
+    for (int page_index = 0; page_index < kMaxMinutePages && end >= from; ++page_index)
+    {
+        const SessionDate start = minuteChunkStart(from, end);
+        if (minuteSpanComplete(store, result.instrument_id, start, end))
+        {
+            if (start <= from)
             {
-                day.status = CoverageStatus::Complete;
-                day.bar_count = existing->bar_count;
-                emit(day);
-                continue;
+                break;
             }
-        }
-
-        const bool still_open = sessionStillOpen(inst->timezone, session_date, nowUtc());
-        const std::string url = mboumV3HistoricalUrl(inst->symbol, session_date);
-        HttpResponse http;
-        try
-        {
-            http = get(url);
-        }
-        catch (const std::exception& ex)
-        {
-            writeHttpError(store, result.instrument_id, session_date);
-            day.status = CoverageStatus::Error;
-            emit(day);
-            continue;
-        }
-        day.http_status = http.status;
-
-        if (http.status == 401 || http.status == 403)
-        {
-            throw std::runtime_error("MBoum authentication failed (HTTP " + std::to_string(http.status) + ")");
-        }
-
-        if (http.status != 200)
-        {
-            bool no_data = false;
-            try
+            const SessionDate next = dayBefore(start);
+            if (next >= end)
             {
-                no_data = parseMboumV3Historical(http.body).no_data;
+                break;
             }
-            catch (const std::exception&)
+            end = next;
+            continue;
+        }
+
+        const std::string url = mboumV3HistoricalUrl(inst.symbol, start, end, kMboumIntradayPageLimit);
+        const MinuteFetch fetched = fetchMinutePage(get, url);
+        const bool no_history =
+            fetched.http.status == 404 || (fetched.parsed && fetched.page.no_data && !fetched.page.fetch_failed);
+        if (no_history)
+        {
+            ++empty_streak;
+            if (empty_streak >= 3 || start <= from)
             {
-                no_data = false;
+                break;
             }
-            if (no_data)
+            const SessionDate next = dayBefore(start);
+            if (next >= end)
             {
-                const auto ingested = store.ingestSession(
-                    {}, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
-                day.status = ingested.coverage.status;
-                day.bar_count = ingested.coverage.bar_count;
-                emit(day);
-                continue;
+                break;
             }
-            writeHttpError(store, result.instrument_id, session_date);
-            day.status = CoverageStatus::Error;
-            emit(day);
+            end = next;
             continue;
         }
-
-        MboumV3Page page;
-        try
+        empty_streak = 0;
+        const bool bad = fetched.transport_error || !fetched.parsed || fetched.http.status != 200 ||
+                         fetched.page.splits || fetched.page.fetch_failed;
+        if (bad)
         {
-            page = parseMboumV3Historical(http.body);
-        }
-        catch (const std::exception&)
-        {
-            writeHttpError(store, result.instrument_id, session_date);
-            day.status = CoverageStatus::Error;
-            emit(day);
-            continue;
-        }
-
-        if (page.splits)
-        {
-            writeHttpError(store, result.instrument_id, session_date);
-            day.status = CoverageStatus::Error;
-            emit(day);
-            continue;
-        }
-
-        if (page.no_data)
-        {
-            const auto ingested = store.ingestSession(
-                {}, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
-            day.status = ingested.coverage.status;
-            day.bar_count = ingested.coverage.bar_count;
-            emit(day);
-            continue;
-        }
-
-        std::vector<Bar> bars;
-        bars.reserve(page.bars.size());
-        const UnixSeconds now = nowUtc();
-        for (const auto& row : page.bars)
-        {
-            if (auto mapped = mapV3Bar(*inst, row, now))
+            failMinuteWindow(store, inst, result, on_day, start, end, fetched.http.status);
+            if (start <= from)
             {
-                bars.push_back(*mapped);
+                break;
             }
+            const SessionDate next = dayBefore(start);
+            if (next >= end)
+            {
+                break;
+            }
+            end = next;
+            continue;
         }
-        const auto ingested = store.ingestSession(
-            bars, result.instrument_id, kTimeframe1m, session_date, kUsRthExpected1m, still_open);
-        day.status = ingested.coverage.status;
-        day.bar_count = ingested.coverage.bar_count;
-        emit(day);
+
+        const MinutePageEdge edge = minutePageEdge(inst, fetched.page);
+        const std::map<SessionDate, std::vector<Bar>> grouped = groupRthBars(inst, fetched.page);
+        if (!edge.full)
+        {
+            commitMinuteSpan(store, inst, result, on_day, start, end, edge, grouped, fetched.http.status);
+            if (start <= from)
+            {
+                break;
+            }
+            const SessionDate next = dayBefore(start);
+            if (next >= end)
+            {
+                break;
+            }
+            end = next;
+            continue;
+        }
+        if (!edge.parsed)
+        {
+            throw std::runtime_error("1-minute ingest page did not move backward");
+        }
+        commitMinuteSpan(store, inst, result, on_day, start, end, edge, grouped, fetched.http.status);
+
+        const SessionDate next = edge.cut ? edge.oldest : dayBefore(edge.oldest);
+        if (next >= end)
+        {
+            throw std::runtime_error("1-minute ingest page did not move backward");
+        }
+        end = next;
     }
     return result;
 }

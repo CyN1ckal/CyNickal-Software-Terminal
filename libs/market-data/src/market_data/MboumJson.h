@@ -15,6 +15,8 @@ struct MboumV3Page
 {
     bool splits{false};
     bool no_data{false};
+    // "Failed to fetch historical data" is a vendor error, not an empty window.
+    bool fetch_failed{false};
     std::vector<MboumV3BarRow> bars;
 };
 
@@ -29,6 +31,14 @@ struct MboumV3DailyPage
 [[nodiscard]] MboumV3DailyPage parseMboumV3Daily(std::string_view json);
 
 [[nodiscard]] std::string mboumV3HistoricalUrl(std::string_view ticker, SessionDate session_date);
+
+// 1-minute window. startDate and endDate are YYYYMMDDHHMMSS at 09:30 and 16:00.
+// limit is newest-N inside that clock range. Extended-hours minutes between the
+// two timestamps are included in the page; callers keep regular hours only.
+[[nodiscard]] std::string mboumV3HistoricalUrl(std::string_view ticker,
+                                               SessionDate from,
+                                               SessionDate to,
+                                               int limit = kMboumIntradayPageLimit);
 [[nodiscard]] std::string mboumV3DailyUrl(std::string_view ticker,
                                           SessionDate from,
                                           SessionDate to,

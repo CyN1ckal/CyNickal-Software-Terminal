@@ -24,6 +24,9 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
+// Newest-N cap on GET /v3/markets/historical?interval=1min. One RTH session is
+// 390 bars; the vendor also returns extended hours, so a full page is several days.
+inline constexpr int kMboumIntradayPageLimit = 4000;
 inline constexpr int kSchemaUserVersion = 6;
 
 enum class AssetClass : std::uint8_t
