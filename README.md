@@ -4,6 +4,8 @@ Desktop financial terminal. It stores 1-minute and daily US equity OHLCV, financ
 
 ![terminal](media/terminal.png)
 
+![stats](media/stats.png)
+
 ## Features
 
 ### Market data
