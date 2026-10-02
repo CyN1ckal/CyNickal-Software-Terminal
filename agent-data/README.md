@@ -153,17 +153,21 @@ python agent-data/mdq.py sql "SELECT c.symbol, count(*) AS days FROM coverage_da
 
 ## Writing research
 
-Each strategy gets one folder, `research/<slug>/`. Scripts, rules, and raw output go in `research/<slug>/research/`, and the report goes in `research/<slug>/report/`. [The research protocol](../.claude/skills/quant-research/SKILL.md) has the full layout. Scripts import mdq instead of re-deriving the calendar, split factors, and session times:
+Each strategy gets one folder, `research/<slug>/`. Scripts, rules, and raw output go in `research/<slug>/research/`, and the report goes in `research/<slug>/report/`. [The research protocol](../.claude/skills/quant-research/SKILL.md) has the full layout. Scripts import mdq instead of re-deriving the calendar, split factors, and session times. A new study also imports the shared kit for the lock, the result files, and the figures. mdq stays a stdlib-only module; the kit is the piece that uses NumPy.
 
 ```python
 import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]   # research/<slug>/research/script.py
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "agent-data"))
 from mdq import MarketData, nyse_sessions, rth_minutes
+from research.kit import assemble, assert_lock, write_results
 ```
 
-The protocol's lock and run-log steps (`RULES.lock`, `RUNLOG.md`) are required for new studies. Studies that predate the protocol do not have them.
+`write_daily` writes `session,strategy_net,benchmark`, plus `held` when the study records exposure. `write_trades` writes `session,side,entry_time,entry_price,exit_time,exit_price,gross,net,exit_reason`, then any extra fields in sorted order. `gross` and `net` are simple account returns.
+
+The protocol's lock and run-log steps (`RULES.lock`, `RUNLOG.md`) are required for new studies. Studies that predate the protocol do not have them, and they keep their own result files.
 
 In the write-up, record the session range you used and any coverage gaps you excluded.
 
