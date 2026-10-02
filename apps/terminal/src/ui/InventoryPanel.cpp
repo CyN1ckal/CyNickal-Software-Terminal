@@ -64,15 +64,15 @@ constexpr int kColLast = 10;
     switch (status)
     {
     case CoverageStatus::Complete:
-        return Theme::kUp;
+        return Theme::ok();
     case CoverageStatus::Partial:
-        return Theme::kWarn;
+        return Theme::warn();
     case CoverageStatus::Missing:
-        return Theme::kMuted;
+        return Theme::muted();
     case CoverageStatus::Error:
-        return Theme::kDown;
+        return Theme::danger();
     }
-    return Theme::kMuted;
+    return Theme::muted();
 }
 
 void cellRight(const char* text)
@@ -121,7 +121,7 @@ void cellInt(int value)
 void dimLabel(const char* text)
 {
     ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(Theme::kTextDim, "%s", text);
+    ImGui::TextColored(Theme::textDim(), "%s", text);
 }
 
 [[nodiscard]] std::string formatUtcMinute(UnixSeconds ts)
@@ -597,7 +597,7 @@ bool InventoryPanel::draw()
 
     if (!open_error_.empty() && store_ == nullptr)
     {
-        ImGui::TextColored(Theme::kDown, "%s", open_error_.c_str());
+        ImGui::TextColored(Theme::danger(), "%s", open_error_.c_str());
         focused_ = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
         ImGui::End();
         return open;
@@ -607,7 +607,7 @@ bool InventoryPanel::draw()
     resolveSelection();
     drawToolbar();
     ImGui::Separator();
-    ImGui::TextColored(Theme::kMuted, "%s", status_.c_str());
+    ImGui::TextColored(Theme::muted(), "%s", status_.c_str());
     drawReceivedStamp(receivedAt());
 
     const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -629,20 +629,20 @@ bool InventoryPanel::draw()
 
 void InventoryPanel::drawToolbar()
 {
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::field());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::bg3());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::bg3());
 
     dimLabel("Symbol");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(72.0f);
+    ImGui::SetNextItemWidth(Theme::px(72.0f));
     const bool symbol_go =
         ImGui::InputText("##symbol", symbol_, sizeof(symbol_),
                          ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     dimLabel("Tf");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(52.0f);
+    ImGui::SetNextItemWidth(Theme::px(52.0f));
     const char* tf_label = ingest_timeframe_s_ == kTimeframe1d ? "1d" : "1m";
     if (ImGui::BeginCombo("##ingest_tf", tf_label))
     {
@@ -679,23 +679,23 @@ void InventoryPanel::drawToolbar()
     ImGui::SameLine();
     dimLabel("From");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(88.0f);
+    ImGui::SetNextItemWidth(Theme::px(88.0f));
     const bool from_go = ImGui::InputText("##from", from_, sizeof(from_),
                                           ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     dimLabel("To");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(88.0f);
+    ImGui::SetNextItemWidth(Theme::px(88.0f));
     const bool to_go =
         ImGui::InputText("##to", to_, sizeof(to_), ImGuiInputTextFlags_EnterReturnsTrue);
 
     ImGui::PopStyleColor(3);
 
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     const bool clicked = ImGui::Button("GO");
     ImGui::PopStyleColor(4);
 
@@ -773,23 +773,35 @@ void InventoryPanel::drawSummaryTable()
     constexpr ImGuiTableFlags flags =
         ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable |
         ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-        ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
-        ImGuiTableFlags_SortTristate;
+        ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+        ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_SortTristate;
 
-    if (!ImGui::BeginTable("inventory", 11, flags, ImVec2(0.0f, 0.0f)))
+    // The fixed columns at full width, plus room for a symbol and two dates. A narrower
+    // panel scrolls sideways rather than squeezing the stretch columns to nothing.
+    const ImFont* const mono = pushMono();
+    const float date_w = ImGui::CalcTextSize("0000-00-00").x;
+    if (mono != nullptr)
+    {
+        ImGui::PopFont();
+    }
+    const float cell_pad = (ImGui::GetStyle().CellPadding.x * 2.0f) + 1.0f;
+    const float fixed_w = Theme::px(96.0f + 36.0f + 64.0f + 72.0f + 40.0f + 64.0f + 68.0f + 40.0f);
+    const float min_w = fixed_w + Theme::px(64.0f) + (date_w * 2.0f) + (cell_pad * 11.0f);
+    const float inner_width = std::max(min_w, ImGui::GetContentRegionAvail().x);
+    if (!ImGui::BeginTable("inventory", 11, flags, ImVec2(0.0f, 0.0f), inner_width))
     {
         return;
     }
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("SYMBOL", ImGuiTableColumnFlags_DefaultSort);
-    ImGui::TableSetupColumn("FIGI", ImGuiTableColumnFlags_WidthFixed, 96.0f);
-    ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed, 36.0f);
-    ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 64.0f);
-    ImGui::TableSetupColumn("Sessions", ImGuiTableColumnFlags_WidthFixed, 72.0f);
-    ImGui::TableSetupColumn("OK", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-    ImGui::TableSetupColumn("Partial", ImGuiTableColumnFlags_WidthFixed, 64.0f);
-    ImGui::TableSetupColumn("Missing", ImGuiTableColumnFlags_WidthFixed, 68.0f);
-    ImGui::TableSetupColumn("ERR", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+    ImGui::TableSetupColumn("FIGI", ImGuiTableColumnFlags_WidthFixed, Theme::px(96.0f));
+    ImGui::TableSetupColumn("TF", ImGuiTableColumnFlags_WidthFixed, Theme::px(36.0f));
+    ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, Theme::px(64.0f));
+    ImGui::TableSetupColumn("Sessions", ImGuiTableColumnFlags_WidthFixed, Theme::px(72.0f));
+    ImGui::TableSetupColumn("OK", ImGuiTableColumnFlags_WidthFixed, Theme::px(40.0f));
+    ImGui::TableSetupColumn("Partial", ImGuiTableColumnFlags_WidthFixed, Theme::px(64.0f));
+    ImGui::TableSetupColumn("Missing", ImGuiTableColumnFlags_WidthFixed, Theme::px(68.0f));
+    ImGui::TableSetupColumn("ERR", ImGuiTableColumnFlags_WidthFixed, Theme::px(40.0f));
     ImGui::TableSetupColumn("FIRST");
     ImGui::TableSetupColumn("LAST");
     if (apply_columns_)
@@ -804,7 +816,7 @@ void InventoryPanel::drawSummaryTable()
     {
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        ImGui::TextColored(Theme::kMuted, "No names yet. Enter a symbol and GO.");
+        ImGui::TextColored(Theme::muted(), "No names yet. Enter a symbol and GO.");
         noteColumnEdits();
         ImGui::EndTable();
         return;
@@ -848,20 +860,20 @@ void InventoryPanel::drawSummaryTable()
             ImGui::TableNextColumn();
             cellInt(row.session_count);
             ImGui::TableNextColumn();
-            ImGui::PushStyleColor(ImGuiCol_Text, row.complete_count > 0 ? Theme::kUp : Theme::kMuted);
+            ImGui::PushStyleColor(ImGuiCol_Text, row.complete_count > 0 ? Theme::ok() : Theme::muted());
             cellInt(row.complete_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
             ImGui::PushStyleColor(ImGuiCol_Text,
-                                  row.partial_count > 0 ? Theme::kWarn : Theme::kMuted);
+                                  row.partial_count > 0 ? Theme::warn() : Theme::muted());
             cellInt(row.partial_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
-            ImGui::PushStyleColor(ImGuiCol_Text, row.missing_count > 0 ? Theme::kWarn : Theme::kMuted);
+            ImGui::PushStyleColor(ImGuiCol_Text, row.missing_count > 0 ? Theme::warn() : Theme::muted());
             cellInt(row.missing_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
-            ImGui::PushStyleColor(ImGuiCol_Text, row.error_count > 0 ? Theme::kDown : Theme::kMuted);
+            ImGui::PushStyleColor(ImGuiCol_Text, row.error_count > 0 ? Theme::danger() : Theme::muted());
             cellInt(row.error_count);
             ImGui::PopStyleColor();
             ImGui::TableNextColumn();
@@ -884,7 +896,7 @@ void InventoryPanel::drawDayTable()
 {
     if (!selected_id_.has_value())
     {
-        ImGui::TextColored(Theme::kMuted, "Select a name to see session coverage.");
+        ImGui::TextColored(Theme::muted(), "Select a name to see session coverage.");
         return;
     }
 
@@ -923,9 +935,9 @@ void InventoryPanel::drawDayTable()
     }
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("DATE");
-    ImGui::TableSetupColumn("STATUS", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-    ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-    ImGui::TableSetupColumn("Expected", ImGuiTableColumnFlags_WidthFixed, 72.0f);
+    ImGui::TableSetupColumn("STATUS", ImGuiTableColumnFlags_WidthFixed, Theme::px(80.0f));
+    ImGui::TableSetupColumn("BARS", ImGuiTableColumnFlags_WidthFixed, Theme::px(56.0f));
+    ImGui::TableSetupColumn("Expected", ImGuiTableColumnFlags_WidthFixed, Theme::px(72.0f));
     ImGui::TableSetupColumn("FIRST TS");
     ImGui::TableSetupColumn("INGESTED");
     ImGui::TableHeadersRow();

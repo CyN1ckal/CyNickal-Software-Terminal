@@ -1,8 +1,85 @@
 # terminal
 
-Desktop financial terminal. It stores 1-minute and daily US equity OHLCV in local SQLite, ingests from MBoum, lists coverage in a DATA panel, and charts candlesticks (1m, 5m, 15m, 1h, 1d) with overlay studies.
+Desktop financial terminal. It stores 1-minute and daily US equity OHLCV, financial statements, option chains, portfolios, and trade ledgers in local SQLite, ingests from MBoum, and charts, analyzes, and backtests from that store. Agents do research against the same store through a read-only query tool.
 
 ![terminal](media/terminal.png)
+
+## Features
+
+### Market data
+
+- One SQLite store, `data/market-data.sqlite`, with a versioned schema (v6). It holds bars, splits, coverage, statements, option chains, portfolios, ledgers, and backtest runs.
+- 1-minute regular-hours bars and daily bars. Intraday periods above 1m are built from 1m bars, in buckets anchored at the 09:30 ET open.
+- Split adjustment on read. Stored prices stay as traded.
+- NYSE session calendar and `America/New_York` session dates, including DST.
+- Per-session coverage: `complete`, `partial`, `missing`, or `error`, with bar counts, so a gap is never mistaken for a quiet market.
+- Instrument identity by FIGI. Every symbol is confirmed with OpenFIGI before it is written, and ticker renames and delistings are tracked as listing history.
+- `ingest` command-line tool:
+  - `ingest AAPL` or `ingest --timeframe 1d --from YYYYMMDD --to YYYYMMDD AAPL MSFT` downloads bars.
+  - `ingest --verify [--all]` re-checks stored tickers and applies renames and delistings.
+  - `ingest --delist SYMBOL` closes a listing by hand.
+
+### Terminal (GUI)
+
+A Vulkan and Dear ImGui desktop app with a custom title bar, dockable windows, and a status rail.
+
+- **Command palette.** Ctrl+K lists every File, View, Chart, and settings action. Type part of a name, press Enter. F1 lists the keyboard shortcuts.
+- **Keyboard.** Ctrl+N new chartbook, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+R refresh the focused panel, Ctrl+Tab cycle windows.
+- **Preferences.** File > Preferences (Ctrl+,), saved in `data/terminal.json`:
+  - Theme: Stratum Dark, Stratum Light, or High Contrast.
+  - Gains and losses: green/red, color-blind-safe blue/orange, or red-up/green-down.
+  - Density: Compact, Standard, or Comfortable.
+  - Text size 10–22 px, also Ctrl+= / Ctrl+- / Ctrl+0. Layout scales with it and with the monitor's DPI.
+  - An optional frame-time readout on the status rail.
+- **Tables never cut a figure.** A panel too narrow for its numbers scrolls sideways instead.
+
+- **Chartbooks.** A chartbook is a saved layout of charts and panels. You can create, open, save, save as, save all, and close chartbooks, and choose which ones open at startup. Each panel's inputs are saved with its chartbook.
+- **DATA.** Lists stored instruments and their coverage. Its toolbar (TF / SYMBOL / FROM / TO / GO) queues downloads.
+- **Charts.**
+  - Candlesticks at 1m, 5m, 15m, 1h, and 1d, with a hover readout.
+  - Type a symbol or period and press Enter to change the chart. A symbol that is not stored is downloaded first.
+  - Keyboard zoom and scroll (arrows, Home, End), Chart Settings (F5), and Studies (F6).
+  - Studies: moving average, Bollinger Bands, N-bar percent change, and volume. Each study has its own settings and scale.
+  - Symbol link groups #1–#4 change the symbol of every linked chart at once.
+  - **Show Trades** draws a ledger's buys and sells on the chart, with a tooltip for each fill.
+- **FINANCIALS.** A spreadsheet of income statement, balance sheet, or cash flow, annual or quarterly, for the last four periods.
+- **OPTIONS CHAIN.** Calls left of the strike and puts right. The Columns menu picks which fields are shown.
+- **PORTFOLIO.** A hand-edited book of hypothetical holdings: shares, options, and cash. Each line shows value and one-day historical VaR and CVaR. Share risk comes from daily closes, and option risk from delta.
+- **PAYOFF WIZARD.** Expiration payoff graph for a multi-leg option position. Legs come from the stored chain or are typed by hand. Recipes: long or short call or put, covered call, protective put, collar, debit and credit spreads, strangle, butterfly, iron butterfly, and iron condor.
+- **LEDGER.** An account made of fills and cash flows. Positions, round trips, and P&L are matched first-in first-out. Splits and the ×100 option multiplier are applied. Tabs show Positions, Closed, Fills, and Cash. On a manual ledger you enter fills and cash yourself.
+- **STATISTICS.** For any ledger, manual or backtest:
+  - Returns: net profit, total return, CAGR, a buy-and-hold benchmark, and exposure.
+  - Risk: volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, and VaR/CVaR.
+  - Trades: win rate, profit factor, payoff ratio, expectancy, streaks, and holding time.
+  - Charts: time-weighted return against the benchmark, drawdown, and P&L per trade.
+- **BACKTEST.** Runs a registered C++ strategy on stored bars and records the result as a ledger, which you can open in STATISTICS, LEDGER, or on a chart.
+  - Strategies: MA crossover, Bollinger mean reversion, and N-bar momentum. They call the same study code the charts draw.
+  - Settings: sizing (fixed shares, fixed notional, or a percent of equity), commission, slippage, stop-loss, take-profit, flat at each session end, and close at the end of the run.
+  - Orders fill at the next bar's open. A test checks that no strategy uses future bars.
+  - Missing bars in the run's range are downloaded before the run.
+- **Refresh.** Ctrl+R refetches the focused panel's data. Each panel shows when its data was received.
+
+## AI-supported research
+
+Agents such as Claude Code research strategies against the same store the terminal uses, and they never change it. [`AGENTS.md`](AGENTS.md) and [`agent-data/README.md`](agent-data/README.md) are their instructions.
+
+1. **Read the data with `mdq.py`.** [`agent-data/mdq.py`](agent-data/mdq.py) is a single stdlib-only Python file with a CLI and a Python API. It follows the terminal's conventions for symbol lookup, split adjustment, 09:30-anchored resampling, the NYSE calendar with early closes, and FIFO ledger matching. So an agent's numbers match the charts and STATISTICS. It opens the store read-only and can run while the terminal or `ingest` is running. `ingest` is a paid API, and agents never run it unless asked.
+2. **Check coverage first.** `mdq.py coverage SYM --tf 1m` lists missing and partial sessions and labels the known harmless ones, so they can be excluded before any result is read.
+3. **Write the rules before the first run.** Each strategy gets one folder, `research/<slug>/`. Its `research/` subfolder holds the code and raw output, and its `RULES.md` fixes the data, the rules, the in-sample and out-of-sample split, the checks, and the pass criteria before any result exists. Results may not change that file. Anything added after seeing results goes in `posthoc.py` and is labelled post hoc.
+4. **Test whether the result is real.** Study scripts import mdq and write their raw output (JSON and CSV) next to themselves. The standard checks are:
+   - cost and latency sensitivity;
+   - a randomized-direction placebo;
+   - a block-bootstrap confidence interval on Sharpe;
+   - a parameter grid to show the defaults sit on a plateau, not a spike;
+   - the same rules on other symbols;
+   - buy-and-hold benchmarks.
+5. **Write a report.** `research/<slug>/report/REPORT.md` covers the summary, method, results, robustness, where the profit comes from, the pass/fail test against the pre-registered criteria, risks, a paper-trading proposal, and steps to reproduce. Its figures are in `figures/`.
+
+```
+python agent-data/mdq.py instruments
+python agent-data/mdq.py coverage QQQ --tf 1m
+python agent-data/test_mdq.py
+```
 
 ## Setup
 

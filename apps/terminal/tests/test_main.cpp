@@ -28,6 +28,8 @@
 #include "ui/frame_chrome_tests.h"
 #include "ui/received_stamp_tests.h"
 #include "ui/trading_format_tests.h"
+#include "ui/appearance_settings_tests.h"
+#include "ui/command_match_tests.h"
 #include "chart/chartbook_file_tests.h"
 #include "chart/symbol_link_tests.h"
 #include "options/payoff_chartbook_tests.h"

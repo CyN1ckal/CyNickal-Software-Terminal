@@ -26,7 +26,7 @@ void drawReceivedStamp(std::optional<UnixSeconds> received)
     {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + avail - stamp_w);
     }
-    ImGui::TextColored(Theme::kTextDim, "%s", text.c_str());
+    ImGui::TextColored(Theme::textDim(), "%s", text.c_str());
     if (ImGui::IsItemHovered())
     {
         ImGui::SetTooltip("Data received");

@@ -1,0 +1,296 @@
+{
+  "spacing": 0.5,
+  "atr_n": 14,
+  "bar_seconds": 300,
+  "symbols": {
+    "QQQ": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "sessions_recorded": 1305,
+        "sessions_with_bars": 1254,
+        "by_status": {
+          "complete": 1294,
+          "partial": 10,
+          "missing": 1
+        },
+        "needs_attention_count": 1,
+        "needs_attention_notes": {
+          "never fetched: the terminal's calendar treats this session as a holiday": 1
+        },
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "daily_first": "2021-09-16",
+      "daily_last": "2026-09-23",
+      "daily_bars": 1260,
+      "intraday_first": "2021-09-27",
+      "intraday_last": "2026-09-25",
+      "one_minute_bars": 487270,
+      "five_minute_bars": 97462,
+      "atr_seed_session": "2021-10-06",
+      "sessions_with_usable_prior_atr": 1246,
+      "signals": {
+        "symbol": "QQQ",
+        "first_session_with_prior_atr": "2021-10-07",
+        "last_evaluated_session": "2026-09-25",
+        "evaluated_sessions": {
+          "full": 1246,
+          "is": 684,
+          "oos": 562
+        },
+        "five_minute_bar_count_histogram": {
+          "43": 10,
+          "78": 1236
+        },
+        "skipped_no_0930_bar": 0,
+        "skipped_last_bar_too_early": 0,
+        "decision_bars_with_no_contiguous_fill_bar": 0,
+        "closes_at_or_beyond_level": {
+          "1": {
+            "full": 19278,
+            "is": 11084,
+            "oos": 8194
+          },
+          "2": {
+            "full": 2819,
+            "is": 1528,
+            "oos": 1291
+          },
+          "3": {
+            "full": 558,
+            "is": 277,
+            "oos": 281
+          }
+        },
+        "sessions_with_a_legal_close_at_or_beyond_level": {
+          "1": {
+            "full": 702,
+            "is": 418,
+            "oos": 284
+          },
+          "2": {
+            "full": 150,
+            "is": 89,
+            "oos": 61
+          },
+          "3": {
+            "full": 31,
+            "is": 15,
+            "oos": 16
+          }
+        },
+        "sessions_with_a_legal_level1_close_by_side": {
+          "long": {
+            "full": 365,
+            "is": 205,
+            "oos": 160
+          },
+          "short": {
+            "full": 350,
+            "is": 221,
+            "oos": 129
+          }
+        },
+        "note": "A level-k count is a same-bar comparison of that bar's close with the session open and the prior-close ATR. No later price is read. Sessions with a legal level-1 close are a lower bound on campaigns, because each session starts flat and the first such close schedules an entry. This script does not apply the one-position rule, so the close counts overstate entries."
+      }
+    },
+    "SPY": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "sessions_recorded": 1305,
+        "sessions_with_bars": 1254,
+        "by_status": {
+          "complete": 1293,
+          "partial": 11,
+          "missing": 1
+        },
+        "needs_attention_count": 2,
+        "needs_attention_notes": {
+          "never fetched: the terminal's calendar treats this session as a holiday": 1,
+          "fewer minutes than expected: untraded minutes (thin names) or a gap": 1
+        },
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "daily_first": "2021-09-16",
+      "daily_last": "2026-09-25",
+      "daily_bars": 1262,
+      "intraday_first": "2021-09-27",
+      "intraday_last": "2026-09-25",
+      "one_minute_bars": 487269,
+      "five_minute_bars": 97462,
+      "atr_seed_session": "2021-10-06",
+      "sessions_with_usable_prior_atr": 1246,
+      "signals": {
+        "symbol": "SPY",
+        "first_session_with_prior_atr": "2021-10-07",
+        "last_evaluated_session": "2026-09-25",
+        "evaluated_sessions": {
+          "full": 1246,
+          "is": 684,
+          "oos": 562
+        },
+        "five_minute_bar_count_histogram": {
+          "43": 10,
+          "78": 1236
+        },
+        "skipped_no_0930_bar": 0,
+        "skipped_last_bar_too_early": 0,
+        "decision_bars_with_no_contiguous_fill_bar": 0,
+        "closes_at_or_beyond_level": {
+          "1": {
+            "full": 15982,
+            "is": 9199,
+            "oos": 6783
+          },
+          "2": {
+            "full": 2328,
+            "is": 1241,
+            "oos": 1087
+          },
+          "3": {
+            "full": 451,
+            "is": 207,
+            "oos": 244
+          }
+        },
+        "sessions_with_a_legal_close_at_or_beyond_level": {
+          "1": {
+            "full": 651,
+            "is": 382,
+            "oos": 269
+          },
+          "2": {
+            "full": 136,
+            "is": 79,
+            "oos": 57
+          },
+          "3": {
+            "full": 32,
+            "is": 16,
+            "oos": 16
+          }
+        },
+        "sessions_with_a_legal_level1_close_by_side": {
+          "long": {
+            "full": 342,
+            "is": 191,
+            "oos": 151
+          },
+          "short": {
+            "full": 325,
+            "is": 202,
+            "oos": 123
+          }
+        },
+        "note": "A level-k count is a same-bar comparison of that bar's close with the session open and the prior-close ATR. No later price is read. Sessions with a legal level-1 close are a lower bound on campaigns, because each session starts flat and the first such close schedules an entry. This script does not apply the one-position rule, so the close counts overstate entries."
+      }
+    },
+    "IGV": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "sessions_recorded": 1305,
+        "sessions_with_bars": 1254,
+        "by_status": {
+          "partial": 647,
+          "complete": 657,
+          "missing": 1
+        },
+        "needs_attention_count": 644,
+        "needs_attention_notes": {
+          "fewer minutes than expected: untraded minutes (thin names) or a gap": 643,
+          "never fetched: the terminal's calendar treats this session as a holiday": 1
+        },
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1709821800,
+          "type": "split",
+          "split_ratio": 5.0,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2024-03-07"
+        }
+      ],
+      "daily_first": "2021-09-17",
+      "daily_last": "2026-09-23",
+      "daily_bars": 1259,
+      "intraday_first": "2021-09-27",
+      "intraday_last": "2026-09-25",
+      "one_minute_bars": 471094,
+      "five_minute_bars": 97447,
+      "atr_seed_session": "2021-10-07",
+      "sessions_with_usable_prior_atr": 1245,
+      "signals": {
+        "symbol": "IGV",
+        "first_session_with_prior_atr": "2021-10-08",
+        "last_evaluated_session": "2026-09-25",
+        "evaluated_sessions": {
+          "full": 1245,
+          "is": 683,
+          "oos": 562
+        },
+        "five_minute_bar_count_histogram": {
+          "43": 10,
+          "77": 15,
+          "78": 1220
+        },
+        "skipped_no_0930_bar": 0,
+        "skipped_last_bar_too_early": 0,
+        "decision_bars_with_no_contiguous_fill_bar": 15,
+        "closes_at_or_beyond_level": {
+          "1": {
+            "full": 23612,
+            "is": 13345,
+            "oos": 10267
+          },
+          "2": {
+            "full": 3787,
+            "is": 2093,
+            "oos": 1694
+          },
+          "3": {
+            "full": 747,
+            "is": 473,
+            "oos": 274
+          }
+        },
+        "sessions_with_a_legal_close_at_or_beyond_level": {
+          "1": {
+            "full": 757,
+            "is": 445,
+            "oos": 312
+          },
+          "2": {
+            "full": 161,
+            "is": 93,
+            "oos": 68
+          },
+          "3": {
+            "full": 36,
+            "is": 20,
+            "oos": 16
+          }
+        },
+        "sessions_with_a_legal_level1_close_by_side": {
+          "long": {
+            "full": 385,
+            "is": 215,
+            "oos": 170
+          },
+          "short": {
+            "full": 384,
+            "is": 235,
+            "oos": 149
+          }
+        },
+        "note": "A level-k count is a same-bar comparison of that bar's close with the session open and the prior-close ATR. No later price is read. Sessions with a legal level-1 close are a lower bound on campaigns, because each session starts flat and the first such close schedules an entry. This script does not apply the one-position rule, so the close counts overstate entries."
+      }
+    }
+  }
+}

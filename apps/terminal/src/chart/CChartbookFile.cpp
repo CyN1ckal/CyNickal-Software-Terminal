@@ -3007,6 +3007,50 @@ namespace {
     return {};
 }
 
+// terminal.json holds several sections. Each writer replaces its own key and keeps the rest.
+// A file that does not parse is replaced rather than blocking the save.
+template <typename Mutate>
+[[nodiscard]] std::string updateTerminalSettings(const std::filesystem::path& path, std::string_view what,
+                                                 Mutate&& mutate)
+{
+    std::error_code error;
+    std::filesystem::create_directories(path.parent_path(), error);
+    if (error)
+    {
+        return "cannot create settings directory";
+    }
+    json root = json::object();
+    if (std::ifstream in(path); in)
+    {
+        try
+        {
+            json existing = json::parse(in);
+            if (existing.is_object())
+            {
+                root = std::move(existing);
+            }
+        }
+        catch (const json::exception&)
+        {
+            root = json::object();
+        }
+    }
+    root["version"] = 1;
+    // loadStartupSettings requires the list, so a file first written for another section still loads.
+    if (!root.contains("open_on_startup") || !root.at("open_on_startup").is_array())
+    {
+        root["open_on_startup"] = json::array();
+    }
+    std::forward<Mutate>(mutate)(root);
+    const std::filesystem::path temporary = path.string() + ".tmp";
+    if (!writeTextFile(temporary, root.dump(2)))
+    {
+        return "cannot write " + std::string(what);
+    }
+    return replaceKeepingBackup(temporary, path, "cannot back up " + std::string(what),
+                                "cannot replace " + std::string(what));
+}
+
 }  // namespace
 
 std::string saveChartbook(const std::filesystem::path& path, const CChartbookDocument& document)
@@ -3086,26 +3130,84 @@ StartupLoadResult loadStartupSettings(const std::filesystem::path& path)
 
 std::string saveStartupSettings(const std::filesystem::path& path, const StartupSettings& settings)
 {
-    std::error_code error;
-    std::filesystem::create_directories(path.parent_path(), error);
-    if (error)
-    {
-        return "cannot create settings directory";
-    }
     json paths = json::array();
     for (const std::string& item : settings.open_on_startup)
     {
         paths.push_back(item);
     }
-    json root = json::object();
-    root["version"] = 1;
-    root["open_on_startup"] = std::move(paths);
-    const std::filesystem::path temporary = path.string() + ".tmp";
-    if (!writeTextFile(temporary, root.dump(2)))
+    return updateTerminalSettings(path, "startup settings", [&paths](json& root) {
+        root["open_on_startup"] = std::move(paths);
+    });
+}
+
+AppearanceLoadResult loadAppearanceSettings(const std::filesystem::path& path)
+{
+    AppearanceLoadResult result;
+    result.ok = true;
+    if (!std::filesystem::exists(path))
     {
-        return "cannot write startup settings";
+        return result;
     }
-    return replaceKeepingBackup(temporary, path, "cannot back up startup settings", "cannot replace startup settings");
+    std::ifstream in(path);
+    if (!in)
+    {
+        result.ok = false;
+        result.error = "cannot open appearance settings";
+        return result;
+    }
+    json root;
+    try
+    {
+        root = json::parse(in);
+    }
+    catch (const json::exception& ex)
+    {
+        result.ok = false;
+        result.error = ex.what();
+        return result;
+    }
+    if (!root.is_object() || !root.contains("appearance"))
+    {
+        return result;
+    }
+    const json& section = root.at("appearance");
+    if (!section.is_object())
+    {
+        result.ok = false;
+        result.error = "appearance settings are invalid";
+        return result;
+    }
+    // Unknown tokens keep the default for that field, so a newer file still opens.
+    AppearanceSettings& out = result.settings;
+    const auto token = [&section](const char* key) -> std::string {
+        const auto found = section.find(key);
+        return found != section.end() && found->is_string() ? found->get<std::string>() : std::string{};
+    };
+    (void)themeFromToken(token("theme"), out.theme);
+    (void)marketColorsFromToken(token("market_colors"), out.market);
+    (void)densityFromToken(token("density"), out.density);
+    if (const auto font = section.find("font_px"); font != section.end() && font->is_number_integer())
+    {
+        out.font_px = clampFontPx(font->get<int>());
+    }
+    if (const auto stats = section.find("frame_stats"); stats != section.end() && stats->is_boolean())
+    {
+        out.frame_stats = stats->get<bool>();
+    }
+    return result;
+}
+
+std::string saveAppearanceSettings(const std::filesystem::path& path, const AppearanceSettings& settings)
+{
+    json section = json::object();
+    section["theme"] = std::string(themeToken(settings.theme));
+    section["market_colors"] = std::string(marketColorsToken(settings.market));
+    section["density"] = std::string(densityToken(settings.density));
+    section["font_px"] = clampFontPx(settings.font_px);
+    section["frame_stats"] = settings.frame_stats;
+    return updateTerminalSettings(path, "appearance settings", [&section](json& root) {
+        root["appearance"] = std::move(section);
+    });
 }
 
 StartupOpenResult openStartupChartbooks(const StartupSettings& settings)

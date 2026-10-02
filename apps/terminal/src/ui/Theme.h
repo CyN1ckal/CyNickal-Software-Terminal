@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ui/AppearanceSettings.h"
+
 #include "imgui.h"
 
 namespace terminal::Theme {
@@ -24,49 +26,82 @@ constexpr ImVec4 Mix(const ImVec4& a, const ImVec4& b, float t)
             a.w + (b.w - a.w) * t};
 }
 
-// Stratum dark palette. Byte-identical to kPalDark in
-// CyNickal-Software-Monorepo shared/GUI/StratumPalette.h.
-// The website generator reads that header; do not invent a second set of hex values.
+// One theme's tokens. Stratum Dark and Light come from kPalDark and kPalLight in
+// CyNickal-Software-Monorepo shared/GUI/StratumPalette.h. The website generator reads
+// that header, so do not invent hex values for them. High Contrast is derived from
+// Stratum Dark in paletteFor.
+struct Palette
+{
+    // Surfaces, darkest (dark themes) or brightest (light) first.
+    ImVec4 bg0;    // wells, title, fields
+    ImVec4 bg1;    // window body
+    ImVec4 bg2;    // cards, child panels
+    ImVec4 bg3;    // hover / active
+    ImVec4 line;   // hairline
+    ImVec4 line2;  // stronger hairline
 
-// Surfaces
-constexpr ImVec4 kBg0 = FromRgb(0x0D, 0x11, 0x16);  // #0d1116 wells, title, fields
-constexpr ImVec4 kBg1 = FromRgb(0x12, 0x17, 0x1E);  // #12171e window body
-constexpr ImVec4 kBg2 = FromRgb(0x17, 0x1D, 0x26);  // #171d26 cards, child panels
-constexpr ImVec4 kBg3 = FromRgb(0x1E, 0x25, 0x30);  // #1e2530 hover / active
-constexpr ImVec4 kLine = FromRgb(0x26, 0x2E, 0x3A);  // #262e3a hairline
-constexpr ImVec4 kLine2 = FromRgb(0x31, 0x38, 0x48);  // #313848 stronger hairline
+    ImVec4 text;        // body
+    ImVec4 text_dim;    // labels
+    ImVec4 text_faint;  // disabled, placeholders
 
-// Text
-constexpr ImVec4 kText = FromRgb(0xCC, 0xD3, 0xDD);      // #ccd3dd body
-constexpr ImVec4 kTextDim = FromRgb(0x82, 0x8C, 0x9B);   // #828c9b labels
-constexpr ImVec4 kTextFaint = FromRgb(0x58, 0x62, 0x73); // #586273 disabled
+    // Stratum's `amber` field is the warning hue, not the text color.
+    ImVec4 accent;
+    ImVec4 warn;
+    ImVec4 danger;
+    ImVec4 ok;
 
-// Accent and status. Stratum's `amber` field is the warning hue, not the text color.
-constexpr ImVec4 kAccent = FromRgb(0x6F, 0x97, 0xC9);  // #6f97c9
-constexpr ImVec4 kWarn = FromRgb(0xC0, 0x85, 0x52);    // #c08552
-constexpr ImVec4 kDanger = FromRgb(0xB5, 0x54, 0x4E);  // #b5544e
-constexpr ImVec4 kOk = FromRgb(0x5F, 0x8A, 0x63);      // #5f8a63
+    // Gains and losses. Follows the market color setting, not the status hues.
+    ImVec4 up;
+    ImVec4 down;
 
-constexpr float kAccentWashAlpha = 0.16f;
-constexpr ImVec4 kAccentWash = WithAlpha(kAccent, kAccentWashAlpha);
-constexpr ImVec4 kAccentHover = Mix(kAccent, FromRgb(0xFF, 0xFF, 0xFF), 0.18f);
-constexpr ImVec4 kAccentPressed = Mix(kAccent, kBg0, 0.22f);
+    // Stratum accbgAlpha: the selection and header wash.
+    float accent_wash_alpha;
+};
 
-// Workstation roles. Same hex as the tokens above.
-constexpr ImVec4 kCanvas = kBg0;
-constexpr ImVec4 kPanel = kBg2;
-constexpr ImVec4 kField = kBg0;
-constexpr ImVec4 kHairline = kLine;
-constexpr ImVec4 kMuted = kTextDim;
-constexpr ImVec4 kUp = kOk;
-constexpr ImVec4 kDown = kDanger;
-constexpr ImVec4 kGo = kAccent;
-constexpr ImVec4 kCancel = kDanger;
+[[nodiscard]] Palette paletteFor(ThemeChoice theme, MarketColors market) noexcept;
+[[nodiscard]] const Palette& palette() noexcept;
 
-void ApplyStratumStyle(ImGuiStyle& style);
+// Tokens of the active palette.
+[[nodiscard]] inline const ImVec4& bg0() noexcept { return palette().bg0; }
+[[nodiscard]] inline const ImVec4& bg1() noexcept { return palette().bg1; }
+[[nodiscard]] inline const ImVec4& bg2() noexcept { return palette().bg2; }
+[[nodiscard]] inline const ImVec4& bg3() noexcept { return palette().bg3; }
+[[nodiscard]] inline const ImVec4& line() noexcept { return palette().line; }
+[[nodiscard]] inline const ImVec4& line2() noexcept { return palette().line2; }
+[[nodiscard]] inline const ImVec4& text() noexcept { return palette().text; }
+[[nodiscard]] inline const ImVec4& textDim() noexcept { return palette().text_dim; }
+[[nodiscard]] inline const ImVec4& textFaint() noexcept { return palette().text_faint; }
+[[nodiscard]] inline const ImVec4& accent() noexcept { return palette().accent; }
+[[nodiscard]] inline const ImVec4& warn() noexcept { return palette().warn; }
+[[nodiscard]] inline const ImVec4& danger() noexcept { return palette().danger; }
+[[nodiscard]] inline const ImVec4& ok() noexcept { return palette().ok; }
+
+[[nodiscard]] inline ImVec4 accentWash() noexcept { return WithAlpha(accent(), palette().accent_wash_alpha); }
+[[nodiscard]] inline ImVec4 accentHover() noexcept { return Mix(accent(), FromRgb(0xFF, 0xFF, 0xFF), 0.18f); }
+[[nodiscard]] inline ImVec4 accentPressed() noexcept { return Mix(accent(), bg0(), 0.22f); }
+
+// Workstation roles.
+[[nodiscard]] inline const ImVec4& canvas() noexcept { return bg0(); }
+[[nodiscard]] inline const ImVec4& panel() noexcept { return bg2(); }
+[[nodiscard]] inline const ImVec4& field() noexcept { return bg0(); }
+[[nodiscard]] inline const ImVec4& hairline() noexcept { return line(); }
+[[nodiscard]] inline const ImVec4& muted() noexcept { return textDim(); }
+[[nodiscard]] inline const ImVec4& up() noexcept { return palette().up; }
+[[nodiscard]] inline const ImVec4& down() noexcept { return palette().down; }
+[[nodiscard]] inline const ImVec4& go() noexcept { return accent(); }
+[[nodiscard]] inline const ImVec4& cancel() noexcept { return danger(); }
+
+// Rebuilds the ImGui and ImPlot styles from the settings. Call between frames.
+// dpi_scale is the monitor content scale; the font setting multiplies it.
+void apply(const AppearanceSettings& settings, float dpi_scale);
 void LoadFonts(ImGuiIO& io);
 
 [[nodiscard]] ImFont* sansFont() noexcept;
 [[nodiscard]] ImFont* monoFont() noexcept;
+
+// Display scale times the font zoom. Layout constants written for a 13 px font at
+// 100% scaling go through px() so they grow with the text.
+[[nodiscard]] float scale() noexcept;
+[[nodiscard]] inline float px(float value) noexcept { return value * scale(); }
 
 }  // namespace terminal::Theme

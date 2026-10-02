@@ -119,13 +119,13 @@ void copyInto(char* buffer, std::size_t size, std::string_view text)
 void sectionHeading(const char* title)
 {
     ImGui::Spacing();
-    ImGui::TextColored(Theme::kAccent, "%s", title);
+    ImGui::TextColored(Theme::accent(), "%s", title);
 }
 
 // A labeled double input that keeps the value when the text does not parse.
 bool inputNumber(const char* label, double& value, const char* format)
 {
-    ImGui::TextColored(Theme::kTextDim, "%s", label);
+    ImGui::TextColored(Theme::textDim(), "%s", label);
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     const std::string id = std::string("##") + label;
@@ -498,7 +498,7 @@ void BacktestPanel::drawInputs(const Store& store, IngestWorker* ingest)
     {
         if (current->note != nullptr)
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+            ImGui::PushStyleColor(ImGuiCol_Text, Theme::textDim());
             ImGui::TextWrapped("%s", current->note);
             ImGui::PopStyleColor();
         }
@@ -511,7 +511,7 @@ void BacktestPanel::drawInputs(const Store& store, IngestWorker* ingest)
                 continue;
             }
             ImGui::PushID(static_cast<int>(index));
-            ImGui::TextColored(Theme::kTextDim, "%s", option.label);
+            ImGui::TextColored(Theme::textDim(), "%s", option.label);
             ImGui::SameLine(150.f);
             ImGui::SetNextItemWidth(-1.f);
             int& value = options_[index];
@@ -536,11 +536,11 @@ void BacktestPanel::drawInputs(const Store& store, IngestWorker* ingest)
     }
 
     sectionHeading("Market");
-    ImGui::TextColored(Theme::kTextDim, "Symbol");
+    ImGui::TextColored(Theme::textDim(), "Symbol");
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     ImGui::InputTextWithHint("##symbol", "AAPL", symbol_, sizeof(symbol_));
-    ImGui::TextColored(Theme::kTextDim, "Bar period");
+    ImGui::TextColored(Theme::textDim(), "Bar period");
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     if (ImGui::BeginCombo("##period", chartPeriodCode(static_cast<ChartBarPeriod>(period_))))
@@ -555,18 +555,18 @@ void BacktestPanel::drawInputs(const Store& store, IngestWorker* ingest)
         ImGui::EndCombo();
     }
     const bool daily = static_cast<ChartBarPeriod>(period_) == ChartBarPeriod::Day1;
-    ImGui::TextColored(Theme::kTextDim, "From");
+    ImGui::TextColored(Theme::textDim(), "From");
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     ImGui::InputTextWithHint("##from", daily ? "two years back" : "20 days back", from_, sizeof(from_));
-    ImGui::TextColored(Theme::kTextDim, "To");
+    ImGui::TextColored(Theme::textDim(), "To");
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     ImGui::InputTextWithHint("##to", "today", to_, sizeof(to_));
 
     sectionHeading("Sizing and costs");
     inputNumber("Starting cash", config_.initial_cash, "%.2f");
-    ImGui::TextColored(Theme::kTextDim, "Size by");
+    ImGui::TextColored(Theme::textDim(), "Size by");
     ImGui::SameLine(150.f);
     ImGui::SetNextItemWidth(-1.f);
     int sizing = static_cast<int>(config_.sizing);
@@ -613,9 +613,9 @@ void BacktestPanel::drawRuns(const Store& store)
     {
         ImGui::TextUnformatted(outcome_->ledger_name.c_str());
         ImGui::SameLine();
-        ImGui::TextColored(Theme::kTextDim, "%zu bars, %zu fills, final equity", outcome_->bars, outcome_->fills);
+        ImGui::TextColored(Theme::textDim(), "%zu bars, %zu fills, final equity", outcome_->bars, outcome_->fills);
         ImGui::SameLine();
-        ImGui::TextColored(outcome_->total_return < 0.0 ? Theme::kDown : Theme::kUp, "%s (%s)",
+        ImGui::TextColored(outcome_->total_return < 0.0 ? Theme::down() : Theme::up(), "%s (%s)",
                            formatMoney(outcome_->final_equity).c_str(), formatPercent(outcome_->total_return).c_str());
         ImGui::SameLine();
         if (primaryButton("Open in Statistics"))
@@ -631,7 +631,7 @@ void BacktestPanel::drawRuns(const Store& store)
     }
     if (runs_.empty())
     {
-        ImGui::TextColored(Theme::kTextFaint, "No recorded runs yet.");
+        ImGui::TextColored(Theme::textFaint(), "No recorded runs yet.");
         return;
     }
     constexpr ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
@@ -693,9 +693,9 @@ void BacktestPanel::drawRuns(const Store& store)
         ImGui::TableSetColumnIndex(4);
         ImGui::TextUnformatted(ledgerDate(run.ts_end).c_str());
         ImGui::TableSetColumnIndex(5);
-        ImGui::TextColored(Theme::kTextDim, "%s", run.params_json.c_str());
+        ImGui::TextColored(Theme::textDim(), "%s", run.params_json.c_str());
         ImGui::TableSetColumnIndex(6);
-        ImGui::TextColored(Theme::kTextDim, "%s", formatLedgerTime(run.created_at).c_str());
+        ImGui::TextColored(Theme::textDim(), "%s", formatLedgerTime(run.created_at).c_str());
         ImGui::PopID();
     }
     ImGui::EndTable();
@@ -707,7 +707,7 @@ void BacktestPanel::drawRuns(const Store& store)
     }
     if (const ImGuiViewport* viewport = ImGui::GetMainViewport(); viewport != nullptr)
     {
-        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
     }
     if (ImGui::BeginPopupModal("Delete run", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
@@ -721,7 +721,7 @@ void BacktestPanel::drawRuns(const Store& store)
         }
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::cancel());
         if (ImGui::Button("Delete"))
         {
             deleteRun(store, delete_ledger_);
@@ -767,7 +767,7 @@ bool BacktestPanel::draw(Store* store, std::string_view store_error, IngestWorke
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -789,18 +789,18 @@ bool BacktestPanel::draw(Store* store, std::string_view store_error, IngestWorke
         runs_loaded_at_ = ImGui::GetTime();
     }
 
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (run_serial_ != 0 || fetch_serial_ != 0)
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (!error_.empty())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     if (status_.empty())
     {
-        ImGui::TextColored(Theme::kTextFaint, "%s",
+        ImGui::TextColored(Theme::textFaint(), "%s",
                            std::string_view(symbol_).empty() ? "Pick a strategy and a symbol, then Run Backtest."
                                                : "Ready. Missing bars are downloaded before the run.");
     }
@@ -809,7 +809,7 @@ bool BacktestPanel::draw(Store* store, std::string_view store_error, IngestWorke
         ImGui::TextColored(status_color, "%s", status_.c_str());
     }
     ImGui::Separator();
-    if (ImGui::BeginChild("backtest_inputs", ImVec2(340.f, 0.f), ImGuiChildFlags_Borders))
+    if (ImGui::BeginChild("backtest_inputs", ImVec2(Theme::px(340.f), 0.f), ImGuiChildFlags_Borders))
     {
         drawInputs(*store, ingest);
     }

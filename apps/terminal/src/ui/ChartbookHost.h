@@ -5,6 +5,7 @@
 
 #include "chart/CChartBook.h"
 #include "market_data/Store.h"
+#include "ui/Commands.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -29,7 +30,11 @@ class ChartbookHost
 public:
     ChartbookHost();
 
-    void drawTitleMenus(InventoryPanel& inventory, float tabs_right);
+    void drawTitleMenus(InventoryPanel& inventory, float tabs_right, ShellRequests& shell);
+    // Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S.
+    void handleShortcuts(InventoryPanel& inventory);
+    // File, View, and Chart actions for the command palette. Run them in the same frame.
+    void appendCommands(CommandList& out, InventoryPanel& inventory);
     [[nodiscard]] WorkspaceClose drawChrome(InventoryPanel& inventory, bool close_requested);
     void drawSpace(InventoryPanel& inventory);
     [[nodiscard]] const CChartBook& activeBook() const;
@@ -55,8 +60,16 @@ private:
     [[nodiscard]] int findPath(const std::filesystem::path& path) const;
     [[nodiscard]] std::string nextName();
 
-    void drawFileMenu(InventoryPanel& inventory);
-    void drawViewMenu();
+    void drawFileMenu(InventoryPanel& inventory, ShellRequests& shell);
+    void drawViewMenu(ShellRequests& shell);
+    void newBook();
+    void requestOpenBook();
+    void saveActive(InventoryPanel& inventory);
+    void requestSaveAs();
+    void saveAllBooks(InventoryPanel& inventory);
+    void closeActive();
+    void requestStartupEditor();
+    [[nodiscard]] static bool fileChordsAllowed();
     void dispatchRefresh(InventoryPanel& inventory);
     void drawTabs(float tabs_right);
     void drawModals(InventoryPanel& inventory);

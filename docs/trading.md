@@ -97,7 +97,7 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_logic` and is tested
 | `apps/terminal/src/trading/TradeStats.{h,cpp}` | `tradeStats(round_trips)`: count, win rate, gross profit and loss, fees, average trade (expectancy), average win and loss, payoff ratio, profit factor, largest win and loss, streaks, average holding time. `curveStats(curve)`: total return, net P&L, CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, exposure, and VaR/CVaR of period P&L through `valueAtRisk` from `risk/HistoricalRisk.h`. `buyAndHoldReturn` is the benchmark. MAE/MFE is deferred to the backtest PRs, where bars and entries share a split basis. |
 | `apps/terminal/src/backtest/Engine.{h,cpp}` | `runBacktest(bars, strategy, options, config)` returns fills, equity, and diagnostics. Deterministic. |
 | `apps/terminal/src/backtest/StrategyRegistry.{h,cpp}` | `StrategyType`: id, display name, `StudyOption` inputs, and a `process` callback. Static registration, first id wins. |
-| `apps/terminal/src/backtest/strategies/` | MA crossover, Bollinger mean reversion, N-bar momentum. Each calls the matching study's `process`. |
+| `apps/terminal/src/backtest/strategies/` | MA crossover, Bollinger mean reversion, N-bar momentum. Each calls the matching study's `process`. Intraday shock reversion (`shock_revert`, 1-minute bars) keeps its own time-of-day volatility profile instead; its rules and QQQ results are in `reports/qqq-intraday-reversion/REPORT.md`. |
 
 ### Engine rules
 

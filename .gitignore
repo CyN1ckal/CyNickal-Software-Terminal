@@ -52,6 +52,12 @@ imgui.ini
 # Python bytecode (agent-data, research scripts)
 __pycache__/
 
+# Strategy studies are tracked (rules, reports, scripts, result tables).
+# Figures are not: each study's charts.py redraws them from those tables.
+# Fetch logs are request traces, not findings.
+research/**/*.svg
+research/**/*.log
+
 # Editor / OS
 *~
 *.swp

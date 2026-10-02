@@ -30,10 +30,10 @@ constexpr int kCaptionButtonCount = 3;
 
 enum class CaptionButton : unsigned char { Minimize, Maximize, Close };
 
+// Display scale times the text-size setting, so the caption grows with the menus.
 [[nodiscard]] float uiScale()
 {
-    const float dpi = ImGui::GetStyle().FontScaleDpi;
-    return dpi > 0.0f ? dpi : 1.0f;
+    return Theme::scale();
 }
 
 [[nodiscard]] ImVec2 titleBarFramePadding()
@@ -184,7 +184,7 @@ void handleCaptionDrag(Window& window, ImVec2 drag_min, ImVec2 drag_max, ImGuiWi
     if (text_right > text_x)
     {
         ImGui::PushClipRect(ImVec2(text_x, origin.y), ImVec2(text_right, origin.y + height), true);
-        draw_list->AddText(ImVec2(text_x, text_y), ImGui::GetColorU32(Theme::kTextDim), kWindowTitle);
+        draw_list->AddText(ImVec2(text_x, text_y), ImGui::GetColorU32(Theme::textDim()), kWindowTitle);
         ImGui::PopClipRect();
     }
     return text_right + (kTitleMenuGap * scale);
@@ -251,11 +251,11 @@ void drawCaptionButtons(ImDrawList* draw_list, ImVec2 origin, ImVec2 size, float
 
         if (hovered)
         {
-            const ImVec4 fill = buttons[i] == CaptionButton::Close ? Theme::kDanger : Theme::kBg3;
+            const ImVec4 fill = buttons[i] == CaptionButton::Close ? Theme::danger() : Theme::bg3();
             draw_list->AddRectFilled(bmin, bmax, ImGui::GetColorU32(fill));
         }
         const ImVec4 glyph =
-            (hovered && buttons[i] == CaptionButton::Close) ? Theme::kBg0 : Theme::kTextDim;
+            (hovered && buttons[i] == CaptionButton::Close) ? Theme::bg0() : Theme::textDim();
         const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
         drawCaptionGlyph(draw_list, buttons[i], center, scale, ImGui::GetColorU32(glyph), maximized);
 
@@ -343,7 +343,7 @@ void endTitleMenu()
     ImGui::EndMenu();
 }
 
-void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventory)
+void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventory, ShellRequests& shell)
 {
     ImGuiWindow* previous_focus = ImGui::GetCurrentContext()->NavWindow;
     if (previous_focus != nullptr && previous_focus->Name != nullptr &&
@@ -365,7 +365,7 @@ void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventor
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, frame_padding);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, Theme::bg0());
     const bool open = ImGui::BeginViewportSideBar("##TitleBar", viewport, ImGuiDir_Up, height, flags);
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
@@ -383,15 +383,15 @@ void drawTitleBar(Window& window, ChartbookHost& books, InventoryPanel& inventor
 
     // The sidebar is only as tall as its menu bar, so the content clip is empty
     // until BeginMenuBar replaces it. Buttons drawn earlier never appear.
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, Theme::bg0());
     if (ImGui::BeginMenuBar())
     {
         const float menu_x = drawBrand(draw_list, origin, size.y, scale, buttons_left);
         ImGui::SetCursorScreenPos(ImVec2(menu_x, origin.y));
-        books.drawTitleMenus(inventory, buttons_left);
+        books.drawTitleMenus(inventory, buttons_left, shell);
         drawCaptionButtons(draw_list, origin, size, scale, window, previous_focus);
         draw_list->AddLine(ImVec2(origin.x, origin.y + size.y - 1.0f),
-                           ImVec2(origin.x + size.x, origin.y + size.y - 1.0f), ImGui::GetColorU32(Theme::kLine));
+                           ImVec2(origin.x + size.x, origin.y + size.y - 1.0f), ImGui::GetColorU32(Theme::line()));
         ImGui::EndMenuBar();
     }
     ImGui::PopStyleColor();

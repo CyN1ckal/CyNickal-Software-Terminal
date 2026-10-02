@@ -1,0 +1,161 @@
+{
+  "SPY": {
+    "daily_first": "2021-09-16",
+    "daily_last": "2026-09-25",
+    "daily_n": 1262,
+    "minute_sessions": 1254,
+    "minute_first": "2021-09-27",
+    "minute_last": "2026-09-25",
+    "sessions_1m_without_1d": [],
+    "sessions_1d_without_1m": [
+      "2021-09-16",
+      "2021-09-17",
+      "2021-09-20",
+      "2021-09-21",
+      "2021-09-22",
+      "2021-09-23",
+      "2021-09-24",
+      "2021-12-31"
+    ],
+    "decision_bar_fallback": [],
+    "decision_bar_missing": [],
+    "daily_vs_last_minute_close_gt_5bp": 363,
+    "daily_vs_last_minute_close_gt_5bp_by_year": {
+      "2021": 4,
+      "2022": 22,
+      "2023": 3,
+      "2024": 25,
+      "2025": 172,
+      "2026": 137
+    },
+    "daily_vs_last_minute_close_gt_20bp": 111,
+    "daily_vs_last_minute_close_gt_20bp_first": "2024-11-20",
+    "first_evaluable_session": "2021-10-25",
+    "sma200_first_session": "2022-07-14",
+    "proxy_rsi_fires": {
+      "lt10": {
+        "IS": 83,
+        "OOS": 48
+      },
+      "lt5": {
+        "IS": 34,
+        "OOS": 19
+      },
+      "lt10_above_sma200": {
+        "IS": 26,
+        "OOS": 39
+      }
+    },
+    "splits": []
+  },
+  "QQQ": {
+    "daily_first": "2021-09-16",
+    "daily_last": "2026-09-23",
+    "daily_n": 1260,
+    "minute_sessions": 1254,
+    "minute_first": "2021-09-27",
+    "minute_last": "2026-09-25",
+    "sessions_1m_without_1d": [
+      "2026-09-24",
+      "2026-09-25"
+    ],
+    "sessions_1d_without_1m": [
+      "2021-09-16",
+      "2021-09-17",
+      "2021-09-20",
+      "2021-09-21",
+      "2021-09-22",
+      "2021-09-23",
+      "2021-09-24",
+      "2021-12-31"
+    ],
+    "decision_bar_fallback": [],
+    "decision_bar_missing": [],
+    "daily_vs_last_minute_close_gt_5bp": 358,
+    "daily_vs_last_minute_close_gt_5bp_by_year": {
+      "2024": 24,
+      "2025": 193,
+      "2026": 141
+    },
+    "daily_vs_last_minute_close_gt_20bp": 168,
+    "daily_vs_last_minute_close_gt_20bp_first": "2024-05-31",
+    "first_evaluable_session": "2021-10-25",
+    "sma200_first_session": "2022-07-14",
+    "proxy_rsi_fires": {
+      "lt10": {
+        "IS": 71,
+        "OOS": 54
+      },
+      "lt5": {
+        "IS": 33,
+        "OOS": 25
+      },
+      "lt10_above_sma200": {
+        "IS": 28,
+        "OOS": 44
+      }
+    },
+    "splits": []
+  },
+  "IGV": {
+    "daily_first": "2021-09-17",
+    "daily_last": "2026-09-23",
+    "daily_n": 1259,
+    "minute_sessions": 1254,
+    "minute_first": "2021-09-27",
+    "minute_last": "2026-09-25",
+    "sessions_1m_without_1d": [
+      "2026-09-24",
+      "2026-09-25"
+    ],
+    "sessions_1d_without_1m": [
+      "2021-09-17",
+      "2021-09-20",
+      "2021-09-21",
+      "2021-09-22",
+      "2021-09-23",
+      "2021-09-24",
+      "2021-12-31"
+    ],
+    "decision_bar_fallback": [],
+    "decision_bar_missing": [],
+    "daily_vs_last_minute_close_gt_5bp": 382,
+    "daily_vs_last_minute_close_gt_5bp_by_year": {
+      "2021": 2,
+      "2022": 3,
+      "2023": 1,
+      "2024": 25,
+      "2025": 200,
+      "2026": 151
+    },
+    "daily_vs_last_minute_close_gt_20bp": 249,
+    "daily_vs_last_minute_close_gt_20bp_first": "2021-12-01",
+    "first_evaluable_session": "2021-10-25",
+    "sma200_first_session": "2022-07-14",
+    "proxy_rsi_fires": {
+      "lt10": {
+        "IS": 81,
+        "OOS": 69
+      },
+      "lt5": {
+        "IS": 43,
+        "OOS": 43
+      },
+      "lt10_above_sma200": {
+        "IS": 31,
+        "OOS": 26
+      }
+    },
+    "splits": [
+      {
+        "ex_ts": 1709821800,
+        "type": "split",
+        "split_ratio": 5.0,
+        "amount": null,
+        "currency": null,
+        "source": "mboum",
+        "ex_date": "2024-03-07"
+      }
+    ]
+  }
+}

@@ -1,0 +1,248 @@
+{
+  "n": 20,
+  "k": 2.0,
+  "bar_seconds": 300,
+  "symbols": {
+    "QQQ": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "by_status": {
+          "complete": 1294,
+          "partial": 10,
+          "missing": 1
+        },
+        "needs_attention_notes": {
+          "never fetched: the terminal's calendar treats this session a": 1
+        }
+      },
+      "corporate_actions": [],
+      "one_minute_bars": 487270,
+      "five_minute_bars": 97462,
+      "sessions_with_bars": 1254,
+      "signals": {
+        "tradable_sessions": {
+          "is": 692,
+          "oos": 562
+        },
+        "not_tradable": [],
+        "five_minute_bar_histogram": {
+          "43": 10,
+          "78": 1244
+        },
+        "first_decision_close_ny_minute": {
+          "11:10": 1254
+        },
+        "decision_bars_without_next_bucket": 0,
+        "legal_closes_with_abs_z_above": {
+          "2.0": {
+            "is": 3579,
+            "oos": 2528
+          },
+          "3.0": {
+            "is": 166,
+            "oos": 131
+          },
+          "4.0": {
+            "is": 3,
+            "oos": 3
+          }
+        },
+        "sessions_with_a_legal_close_abs_z_above": {
+          "2.0": {
+            "is": 678,
+            "oos": 541
+          },
+          "3.0": {
+            "is": 129,
+            "oos": 103
+          },
+          "4.0": {
+            "is": 3,
+            "oos": 3
+          }
+        },
+        "sessions_with_a_legal_2sigma_break_by_side": {
+          "long": {
+            "is": 481,
+            "oos": 402
+          },
+          "short": {
+            "is": 500,
+            "oos": 366
+          }
+        },
+        "median_band_halfwidth_bp_at_2sigma_breaks": {
+          "is": 28.83,
+          "oos": 23.01
+        },
+        "max_abs_z_possible": 4.2485
+      }
+    },
+    "SPY": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "by_status": {
+          "complete": 1293,
+          "partial": 11,
+          "missing": 1
+        },
+        "needs_attention_notes": {
+          "never fetched: the terminal's calendar treats this session a": 1,
+          "fewer minutes than expected: untraded minutes (thin names) o": 1
+        }
+      },
+      "corporate_actions": [],
+      "one_minute_bars": 487269,
+      "five_minute_bars": 97462,
+      "sessions_with_bars": 1254,
+      "signals": {
+        "tradable_sessions": {
+          "is": 692,
+          "oos": 562
+        },
+        "not_tradable": [],
+        "five_minute_bar_histogram": {
+          "43": 10,
+          "78": 1244
+        },
+        "first_decision_close_ny_minute": {
+          "11:10": 1254
+        },
+        "decision_bars_without_next_bucket": 0,
+        "legal_closes_with_abs_z_above": {
+          "2.0": {
+            "is": 3684,
+            "oos": 2549
+          },
+          "3.0": {
+            "is": 173,
+            "oos": 132
+          },
+          "4.0": {
+            "is": 5,
+            "oos": 2
+          }
+        },
+        "sessions_with_a_legal_close_abs_z_above": {
+          "2.0": {
+            "is": 682,
+            "oos": 543
+          },
+          "3.0": {
+            "is": 131,
+            "oos": 100
+          },
+          "4.0": {
+            "is": 5,
+            "oos": 2
+          }
+        },
+        "sessions_with_a_legal_2sigma_break_by_side": {
+          "long": {
+            "is": 494,
+            "oos": 386
+          },
+          "short": {
+            "is": 510,
+            "oos": 368
+          }
+        },
+        "median_band_halfwidth_bp_at_2sigma_breaks": {
+          "is": 21.87,
+          "oos": 16.95
+        },
+        "max_abs_z_possible": 4.2485
+      }
+    },
+    "IGV": {
+      "coverage_1m": {
+        "first": "2021-09-27",
+        "last": "2026-09-25",
+        "by_status": {
+          "partial": 647,
+          "complete": 657,
+          "missing": 1
+        },
+        "needs_attention_notes": {
+          "fewer minutes than expected: untraded minutes (thin names) o": 643,
+          "never fetched: the terminal's calendar treats this session a": 1
+        }
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1709821800,
+          "type": "split",
+          "split_ratio": 5.0,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2024-03-07"
+        }
+      ],
+      "one_minute_bars": 471094,
+      "five_minute_bars": 97447,
+      "sessions_with_bars": 1254,
+      "signals": {
+        "tradable_sessions": {
+          "is": 692,
+          "oos": 562
+        },
+        "not_tradable": [],
+        "five_minute_bar_histogram": {
+          "43": 10,
+          "77": 15,
+          "78": 1229
+        },
+        "first_decision_close_ny_minute": {
+          "11:10": 1254
+        },
+        "decision_bars_without_next_bucket": 15,
+        "legal_closes_with_abs_z_above": {
+          "2.0": {
+            "is": 3316,
+            "oos": 2517
+          },
+          "3.0": {
+            "is": 127,
+            "oos": 111
+          },
+          "4.0": {
+            "is": 2,
+            "oos": 2
+          }
+        },
+        "sessions_with_a_legal_close_abs_z_above": {
+          "2.0": {
+            "is": 679,
+            "oos": 545
+          },
+          "3.0": {
+            "is": 99,
+            "oos": 84
+          },
+          "4.0": {
+            "is": 2,
+            "oos": 2
+          }
+        },
+        "sessions_with_a_legal_2sigma_break_by_side": {
+          "long": {
+            "is": 477,
+            "oos": 396
+          },
+          "short": {
+            "is": 492,
+            "oos": 368
+          }
+        },
+        "median_band_halfwidth_bp_at_2sigma_breaks": {
+          "is": 32.14,
+          "oos": 29.81
+        },
+        "max_abs_z_possible": 4.2485
+      }
+    }
+  }
+}

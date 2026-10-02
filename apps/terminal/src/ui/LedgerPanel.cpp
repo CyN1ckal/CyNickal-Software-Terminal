@@ -98,12 +98,12 @@ void setupColumns(std::initializer_list<const char*> headers)
 
 void drawMono(const std::string& text)
 {
-    drawRightText(text, Theme::kText);
+    drawRightText(text, Theme::text());
 }
 
 void drawDim(const char* text)
 {
-    ImGui::TextColored(Theme::kTextFaint, "%s", text);
+    ImGui::TextColored(Theme::textFaint(), "%s", text);
 }
 
 [[nodiscard]] IngestWorker::Job dailyJob(std::string symbol)
@@ -454,7 +454,7 @@ void LedgerPanel::drawHeader(Store& store)
     {
         preview += " (backtest)";
     }
-    ImGui::SetNextItemWidth(220.f);
+    ImGui::SetNextItemWidth(Theme::px(220.f));
     if (ImGui::BeginCombo("##ledger", preview.c_str()))
     {
         for (const Ledger& ledger : ledgers_)
@@ -474,7 +474,7 @@ void LedgerPanel::drawHeader(Store& store)
     ImGui::SameLine();
     if (ImGui::BeginMenu("Ledger"))
     {
-        ImGui::SetNextItemWidth(160.f);
+        ImGui::SetNextItemWidth(Theme::px(160.f));
         ImGui::InputTextWithHint("##new", "new ledger name", new_name_, sizeof(new_name_));
         ImGui::SameLine();
         if (ImGui::Button("New"))
@@ -482,7 +482,7 @@ void LedgerPanel::drawHeader(Store& store)
             createLedger(store);
         }
         ImGui::BeginDisabled(!editable());
-        ImGui::SetNextItemWidth(160.f);
+        ImGui::SetNextItemWidth(Theme::px(160.f));
         ImGui::InputText("##rename", rename_, sizeof(rename_));
         ImGui::SameLine();
         if (ImGui::Button("Rename"))
@@ -521,7 +521,7 @@ void LedgerPanel::drawHeader(Store& store)
         }
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::cancel());
         if (ImGui::Button("Delete"))
         {
             deleteLedger(store);
@@ -594,7 +594,7 @@ void LedgerPanel::drawPositions()
         ImGui::TableSetColumnIndex(1);
         ImGui::TextUnformatted(contractLabel(position.key).c_str());
         ImGui::TableSetColumnIndex(2);
-        drawRightText(formatQuantity(position.quantity), position.quantity < 0.0 ? Theme::kDown : Theme::kText);
+        drawRightText(formatQuantity(position.quantity), position.quantity < 0.0 ? Theme::down() : Theme::text());
         ImGui::TableSetColumnIndex(3);
         drawMono(formatPrice(position.average_price));
         ImGui::TableSetColumnIndex(4);
@@ -608,11 +608,11 @@ void LedgerPanel::drawPositions()
         }
         else
         {
-            drawRightText(kNoValue, Theme::kTextFaint);
+            drawRightText(kNoValue, Theme::textFaint());
             ImGui::TableSetColumnIndex(5);
-            drawRightText(kNoValue, Theme::kTextFaint);
+            drawRightText(kNoValue, Theme::textFaint());
             ImGui::TableSetColumnIndex(6);
-            drawRightText(kNoValue, Theme::kTextFaint);
+            drawRightText(kNoValue, Theme::textFaint());
         }
         ImGui::TableSetColumnIndex(7);
         drawMoneyCell(position.cost_basis);
@@ -661,7 +661,7 @@ void LedgerPanel::drawClosed()
         ImGui::TableSetColumnIndex(4);
         drawMono(formatDuration(trip->closed_at - trip->opened_at));
         ImGui::TableSetColumnIndex(5);
-        drawRightText(formatQuantity(trip->quantity), trip->quantity < 0.0 ? Theme::kDown : Theme::kText);
+        drawRightText(formatQuantity(trip->quantity), trip->quantity < 0.0 ? Theme::down() : Theme::text());
         ImGui::TableSetColumnIndex(6);
         drawMono(formatPrice(trip->entry_price));
         ImGui::TableSetColumnIndex(7);
@@ -713,7 +713,7 @@ void LedgerPanel::drawFills(Store& store)
         ImGui::TextUnformatted(key.has_value() ? contractLabel(*key).c_str() : "");
         ImGui::TableSetColumnIndex(3);
         const bool buy = fill->quantity > 0.0;
-        ImGui::TextColored(buy ? Theme::kUp : Theme::kDown, "%s", buy ? "Buy" : "Sell");
+        ImGui::TextColored(buy ? Theme::up() : Theme::down(), "%s", buy ? "Buy" : "Sell");
         ImGui::TableSetColumnIndex(4);
         drawMono(formatQuantity(std::abs(fill->quantity)));
         ImGui::TableSetColumnIndex(5);
@@ -778,32 +778,32 @@ void LedgerPanel::drawCash(Store& store)
 
 void LedgerPanel::drawAddFill(Store& store, IngestWorker* ingest)
 {
-    ImGui::SetNextItemWidth(80.f);
+    ImGui::SetNextItemWidth(Theme::px(80.f));
     ImGui::InputTextWithHint("##symbol", "symbol", symbol_, sizeof(symbol_));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.f);
+    ImGui::SetNextItemWidth(Theme::px(80.f));
     ImGui::Combo("##kind", &kind_, kShareOrOption, 2);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(60.f);
+    ImGui::SetNextItemWidth(Theme::px(60.f));
     ImGui::Combo("##side", &side_, kSides, 2);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.f);
+    ImGui::SetNextItemWidth(Theme::px(80.f));
     ImGui::InputTextWithHint("##quantity", "quantity", quantity_, sizeof(quantity_));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.f);
+    ImGui::SetNextItemWidth(Theme::px(80.f));
     ImGui::InputTextWithHint("##price", "price", price_, sizeof(price_));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(60.f);
+    ImGui::SetNextItemWidth(Theme::px(60.f));
     ImGui::InputTextWithHint("##fees", "fees", fees_, sizeof(fees_));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(130.f);
+    ImGui::SetNextItemWidth(Theme::px(130.f));
     ImGui::InputTextWithHint("##when", "YYYY-MM-DD HH:MM", when_, sizeof(when_));
     if (ImGui::IsItemHovered())
     {
         ImGui::SetTooltip("New York time. A date alone is the 16:00 close. Empty is now.");
     }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.f);
+    ImGui::SetNextItemWidth(Theme::px(120.f));
     ImGui::InputTextWithHint("##note", "note", note_, sizeof(note_));
     ImGui::SameLine();
     ImGui::BeginDisabled(pending_);
@@ -812,16 +812,16 @@ void LedgerPanel::drawAddFill(Store& store, IngestWorker* ingest)
     const bool option = kind_ == 1;
     if (option)
     {
-        ImGui::SetNextItemWidth(90.f);
+        ImGui::SetNextItemWidth(Theme::px(90.f));
         ImGui::InputTextWithHint("##expiration", "YYYYMMDD", expiration_, sizeof(expiration_));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.f);
+        ImGui::SetNextItemWidth(Theme::px(80.f));
         ImGui::Combo("##expiration_type", &expiration_type_, kExpirationTypes, 2);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(70.f);
+        ImGui::SetNextItemWidth(Theme::px(70.f));
         ImGui::InputTextWithHint("##strike", "strike", strike_, sizeof(strike_));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(60.f);
+        ImGui::SetNextItemWidth(Theme::px(60.f));
         ImGui::Combo("##right", &right_, kRights, 2);
     }
     if (!add || pending_)
@@ -918,17 +918,17 @@ void LedgerPanel::drawAddFill(Store& store, IngestWorker* ingest)
 
 void LedgerPanel::drawAddCash(Store& store)
 {
-    ImGui::SetNextItemWidth(110.f);
+    ImGui::SetNextItemWidth(Theme::px(110.f));
     ImGui::InputTextWithHint("##cash_amount", "amount (+/-)", cash_amount_, sizeof(cash_amount_));
     if (ImGui::IsItemHovered())
     {
         ImGui::SetTooltip("A deposit is positive, a withdrawal negative.");
     }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(130.f);
+    ImGui::SetNextItemWidth(Theme::px(130.f));
     ImGui::InputTextWithHint("##cash_when", "YYYY-MM-DD HH:MM", cash_when_, sizeof(cash_when_));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(160.f);
+    ImGui::SetNextItemWidth(Theme::px(160.f));
     ImGui::InputTextWithHint("##cash_note", "note", cash_note_, sizeof(cash_note_));
     ImGui::SameLine();
     if (!primaryButton("Add Cash"))
@@ -1006,7 +1006,7 @@ bool LedgerPanel::draw(Store* store, std::string_view store_error, IngestWorker*
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -1055,14 +1055,14 @@ bool LedgerPanel::draw(Store* store, std::string_view store_error, IngestWorker*
 
     drawHeader(*store);
     ImGui::Separator();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (pending_ || refresh_serial_ != 0)
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (!error_.empty())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     ImGui::TextColored(status_color, "%s", status_.c_str());
     drawReceivedStamp(received_at_);

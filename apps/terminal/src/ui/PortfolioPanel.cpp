@@ -391,10 +391,10 @@ void drawRight(const char* text, const ImVec4& color)
 
 [[nodiscard]] bool accentButton(const char* label)
 {
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     const bool pressed = ImGui::Button(label);
     ImGui::PopStyleColor(4);
     return pressed;
@@ -408,7 +408,7 @@ void drawMoney(double amount, int decimals)
     {
         ImGui::PushFont(mono);
     }
-    drawRight(text.c_str(), amount < 0.0 ? Theme::kDown : Theme::kText);
+    drawRight(text.c_str(), amount < 0.0 ? Theme::down() : Theme::text());
     if (mono != nullptr)
     {
         ImGui::PopFont();
@@ -488,16 +488,11 @@ struct HoldingsColumns
     int count{0};
 };
 
-void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
+// Calls add(name, flags, width) for each column in order. Widths are unscaled pixels.
+template <typename Add>
+void listHoldingsColumns(HoldingsColumns& columns, bool position, bool unit, const Add& add)
 {
     constexpr ImGuiTableColumnFlags kFixed = ImGuiTableColumnFlags_WidthFixed;
-    int next = 0;
-    const auto add = [&](const char* name, ImGuiTableColumnFlags flags, float width) {
-        ImGui::TableSetupColumn(name, flags, width);
-        const int index = next;
-        ++next;
-        return index;
-    };
     add("Kind", kFixed, 72.f);
     add("Symbol", ImGuiTableColumnFlags_WidthStretch, 1.f);
     add("FIGI", kFixed, 136.f);
@@ -518,7 +513,37 @@ void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
     columns.expiry_type = add("Expiry", kFixed, 84.f);
     columns.strike = add("Strike", kFixed, 120.f);
     columns.right = add("Right", kFixed, 136.f);
+}
+
+// Narrowest the symbol column may get before the table scrolls sideways instead.
+constexpr float kHoldingsSymbolMinWidth = 96.f;
+
+void setupHoldingsColumns(HoldingsColumns& columns, bool position, bool unit)
+{
+    int next = 0;
+    listHoldingsColumns(columns, position, unit, [&next](const char* name, ImGuiTableColumnFlags flags, float width) {
+        const bool stretch = (flags & ImGuiTableColumnFlags_WidthStretch) != 0;
+        ImGui::TableSetupColumn(name, flags, stretch ? width : Theme::px(width));
+        const int index = next;
+        ++next;
+        return index;
+    });
     columns.count = next;
+}
+
+// Every fixed column at full width plus a readable symbol column. A narrower panel scrolls.
+[[nodiscard]] float holdingsMinWidth(bool position, bool unit)
+{
+    HoldingsColumns scratch;
+    float total = 0.f;
+    int count = 0;
+    listHoldingsColumns(scratch, position, unit, [&](const char*, ImGuiTableColumnFlags flags, float width) {
+        const bool stretch = (flags & ImGuiTableColumnFlags_WidthStretch) != 0;
+        total += Theme::px(stretch ? kHoldingsSymbolMinWidth : width);
+        return count++;
+    });
+    const ImGuiStyle& style = ImGui::GetStyle();
+    return total + (static_cast<float>(count) * ((style.CellPadding.x * 2.f) + 1.f));
 }
 
 void drawHoldingsHeaders(const HoldingsColumns& columns, int confidence_pct)
@@ -878,7 +903,7 @@ void PortfolioPanel::apply(Store& store, IngestWorker* ingest)
 void PortfolioPanel::drawBooks([[maybe_unused]] Store& store)
 {
     const char* preview = book_name_.empty() ? "select a portfolio" : book_name_.c_str();
-    ImGui::SetNextItemWidth(180.f);
+    ImGui::SetNextItemWidth(Theme::px(180.f));
     if (ImGui::BeginCombo("##book", preview))
     {
         for (const Portfolio& book : books_)
@@ -1011,7 +1036,7 @@ void PortfolioPanel::drawHoldings(const Store& store)
     ImGui::SameLine();
     ImGui::Checkbox("Per unit", &show_unit_var_);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(168.f);
+    ImGui::SetNextItemWidth(Theme::px(168.f));
     ImGui::SliderInt("##var_confidence", &var_confidence_pct_, 50, 99, "Confidence %d%%");
 
     const int risk_columns = (show_position_var_ ? 1 : 0) + (show_unit_var_ ? 2 : 0) + 1;
@@ -1021,7 +1046,7 @@ void PortfolioPanel::drawHoldings(const Store& store)
                                   ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoSavedSettings;
     const float inner_width =
-        std::max(1160.f + (160.f * static_cast<float>(risk_columns)), ImGui::GetContentRegionAvail().x);
+        std::max(holdingsMinWidth(show_position_var_, show_unit_var_), ImGui::GetContentRegionAvail().x);
     if (!ImGui::BeginTable("holdings", column_count, flags, ImVec2(0.f, 0.f), inner_width))
     {
         return;
@@ -1136,7 +1161,7 @@ void PortfolioPanel::drawHoldings(const Store& store)
         else
         {
             const std::string shown = formatQuantity(row.quantity);
-            drawRight(shown.c_str(), Theme::kText);
+            drawRight(shown.c_str(), Theme::text());
             if (ImGui::IsItemClicked())
             {
                 std::snprintf(quantity_edit_buf_, sizeof(quantity_edit_buf_), "%s", shown.c_str());
@@ -1257,13 +1282,13 @@ void PortfolioPanel::drawHoldings(const Store& store)
         total += lineValue(drafts_[index], last.value());
     }
     ImGui::TableNextRow();
-    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(Theme::kAccentWash));
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(Theme::accentWash()));
     ImGui::TableSetColumnIndex(0);
     ImGui::TextUnformatted("Total");
     ImGui::TableSetColumnIndex(4);
     if (unpriced > 0)
     {
-        ImGui::TextColored(Theme::kWarn, "%d unpriced", unpriced);
+        ImGui::TextColored(Theme::warn(), "%d unpriced", unpriced);
     }
     ImGui::TableSetColumnIndex(5);
     drawMoney(total, 2);
@@ -1311,24 +1336,24 @@ void PortfolioPanel::drawAllocation() const
 
     if (labels.empty())
     {
-        ImGui::TextColored(Theme::kMuted, "no priced positions");
+        ImGui::TextColored(Theme::muted(), "no priced positions");
         if (unpriced > 0)
         {
-            ImGui::TextColored(Theme::kWarn, "%d unpriced", unpriced);
+            ImGui::TextColored(Theme::warn(), "%d unpriced", unpriced);
         }
         return;
     }
 
-    ImGui::TextColored(Theme::kMuted, "Positions");
+    ImGui::TextColored(Theme::muted(), "Positions");
     ImGui::SameLine();
     drawMoney(gross, 2);
     if (shorts > 0)
     {
-        ImGui::TextColored(Theme::kMuted, "short positions use absolute value");
+        ImGui::TextColored(Theme::muted(), "short positions use absolute value");
     }
     if (unpriced > 0)
     {
-        ImGui::TextColored(Theme::kWarn, "%d unpriced", unpriced);
+        ImGui::TextColored(Theme::warn(), "%d unpriced", unpriced);
     }
 
     std::vector<const char*> label_ptrs;
@@ -1339,27 +1364,48 @@ void PortfolioPanel::drawAllocation() const
     }
     SliceLabel slice;
     slice.sum = gross;
-    constexpr ImPlotFlags plot_flags = ImPlotFlags_Equal | ImPlotFlags_NoMouseText | ImPlotFlags_NoMenus |
-                                       ImPlotFlags_NoBoxSelect | ImPlotFlags_NoInputs;
+    constexpr ImPlotFlags plot_flags =
+        ImPlotFlags_NoMouseText | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoInputs;
     constexpr ImPlotAxisFlags axis_flags =
         ImPlotAxisFlags_NoDecorations | ImPlotAxisFlags_Lock | ImPlotAxisFlags_NoHighlight;
     ImPlotSpec spec;
     spec.Flags = ImPlotPieChartFlags_Normalize | ImPlotPieChartFlags_Exploding;
-    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(6.f, 6.f));
-    ImPlot::PushStyleVar(ImPlotStyleVar_LegendPadding, ImVec2(8.f, 8.f));
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(Theme::px(6.f), Theme::px(6.f)));
+    ImPlot::PushStyleVar(ImPlotStyleVar_LegendPadding, ImVec2(Theme::px(8.f), Theme::px(8.f)));
     ImFont* const mono = Theme::monoFont();
     if (mono != nullptr)
     {
         ImGui::PushFont(mono);
     }
+    // Locked axes cannot honor ImPlotFlags_Equal, so the limits carry the plot area's aspect
+    // ratio and the pie stays round in any panel shape. The area is last frame's; the
+    // first frame assumes a square.
+    ImGuiStorage* const storage = ImGui::GetStateStorage();
+    const ImGuiID aspect_id = ImGui::GetID("##positions_aspect");
+    const auto aspect = static_cast<double>(storage->GetFloat(aspect_id, 1.f));
+    const double half_x = aspect > 1.0 ? 0.5 * aspect : 0.5;
+    const double half_y = aspect > 1.0 ? 0.5 : 0.5 / aspect;
+    // A tall, narrow panel puts the legend under the pie. Beside it, the names would run
+    // off the panel. The panel's shape decides, not the plot area, so it cannot flip-flop.
+    const ImVec2 panel = ImGui::GetContentRegionAvail();
+    const bool legend_below = panel.x < panel.y;
+    const ImPlotLocation legend_at = legend_below ? ImPlotLocation_South : ImPlotLocation_East;
+    // Stacked, not horizontal: ImPlot does not wrap a horizontal legend.
+    constexpr ImPlotLegendFlags legend_flags = ImPlotLegendFlags_Outside | ImPlotLegendFlags_NoMenus;
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotMinSize, ImVec2(Theme::px(48.f), Theme::px(48.f)));
     if (ImPlot::BeginPlot("##positions", ImVec2(-1.f, -1.f), plot_flags))
     {
         ImPlot::SetupAxes(nullptr, nullptr, axis_flags, axis_flags);
-        ImPlot::SetupAxesLimits(0.0, 1.0, 0.0, 1.0, ImPlotCond_Always);
-        ImPlot::SetupLegend(ImPlotLocation_East, ImPlotLegendFlags_Outside | ImPlotLegendFlags_NoMenus);
+        ImPlot::SetupAxesLimits(0.5 - half_x, 0.5 + half_x, 0.5 - half_y, 0.5 + half_y, ImPlotCond_Always);
+        ImPlot::SetupLegend(legend_at, legend_flags);
         const auto count = static_cast<int>(weights.size());
         ImPlot::PlotPieChart(label_ptrs.data(), weights.data(), count, 0.5, 0.5, 0.4, formatSliceShare, &slice, 90.0,
                              spec);
+        const ImVec2 area = ImPlot::GetPlotSize();
+        if (area.x > 1.f && area.y > 1.f)
+        {
+            storage->SetFloat(aspect_id, area.x / area.y);
+        }
         for (std::size_t index = 0; index < label_ptrs.size(); ++index)
         {
             if (!ImPlot::IsLegendEntryHovered(label_ptrs[index]))
@@ -1378,7 +1424,7 @@ void PortfolioPanel::drawAllocation() const
     {
         ImGui::PopFont();
     }
-    ImPlot::PopStyleVar(2);
+    ImPlot::PopStyleVar(3);
 }
 
 void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
@@ -1390,29 +1436,29 @@ void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
     const bool cash = kindAt(kind_) == PortfolioAssetKind::Cash;
     if (!cash)
     {
-        ImGui::SetNextItemWidth(90.f);
+        ImGui::SetNextItemWidth(Theme::px(90.f));
         ImGui::InputTextWithHint("##symbol", "symbol", symbol_, sizeof(symbol_));
         ImGui::SameLine();
     }
-    ImGui::SetNextItemWidth(90.f);
+    ImGui::SetNextItemWidth(Theme::px(90.f));
     ImGui::Combo("##kind", &kind_, kKinds, 4);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.f);
+    ImGui::SetNextItemWidth(Theme::px(80.f));
     ImGui::InputTextWithHint("##add_qty", "quantity", quantity_, sizeof(quantity_));
     ImGui::SameLine();
     const bool add = accentButton("Add");
     if (kindAt(kind_) == PortfolioAssetKind::Option)
     {
-        ImGui::SetNextItemWidth(90.f);
+        ImGui::SetNextItemWidth(Theme::px(90.f));
         ImGui::InputTextWithHint("##expiration", "YYYYMMDD", expiration_, sizeof(expiration_));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(80.f);
+        ImGui::SetNextItemWidth(Theme::px(80.f));
         ImGui::Combo("##expiry_type", &expiration_type_, kExpirationTypes, 2);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(70.f);
+        ImGui::SetNextItemWidth(Theme::px(70.f));
         ImGui::InputTextWithHint("##strike", "strike", strike_, sizeof(strike_));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(70.f);
+        ImGui::SetNextItemWidth(Theme::px(70.f));
         ImGui::Combo("##right", &right_, kRights, 2);
     }
     if (!add || pending_)
@@ -1523,7 +1569,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -1554,7 +1600,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
             apply(*store, ingest);
         }
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::cancel());
         if (ImGui::Button("Revert"))
         {
             dirty_ = false;
@@ -1566,14 +1612,14 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     ImGui::SameLine();
     if (ImGui::BeginMenu("Book"))
     {
-        ImGui::SetNextItemWidth(140.f);
+        ImGui::SetNextItemWidth(Theme::px(140.f));
         ImGui::InputTextWithHint("##new", "new name", new_name_, sizeof(new_name_));
         ImGui::SameLine();
         if (ImGui::Button("New"))
         {
             createBook(*store);
         }
-        ImGui::SetNextItemWidth(140.f);
+        ImGui::SetNextItemWidth(Theme::px(140.f));
         ImGui::InputText("##rename", rename_, sizeof(rename_));
         ImGui::SameLine();
         if (ImGui::Button("Rename") && portfolio_id_ != 0)
@@ -1594,7 +1640,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     }
     if (const ImGuiViewport* viewport = ImGui::GetMainViewport(); viewport != nullptr)
     {
-        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
     }
     if (ImGui::BeginPopupModal("Delete portfolio", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
@@ -1607,7 +1653,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         }
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kCancel);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::cancel());
         if (ImGui::Button("Delete"))
         {
             deleteBook(*store);
@@ -1617,18 +1663,18 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         ImGui::EndPopup();
     }
     ImGui::Separator();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (pending_ || refresh_serial_ != 0)
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (!error_.empty())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     else if (dirty_)
     {
-        status_color = Theme::kWarn;
+        status_color = Theme::warn();
     }
     if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {

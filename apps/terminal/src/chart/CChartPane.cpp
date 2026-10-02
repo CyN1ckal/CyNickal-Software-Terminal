@@ -104,14 +104,14 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
     case ChartLoadStatus::Error:
     case ChartLoadStatus::UnknownSymbol:
     case ChartLoadStatus::Unsupported:
-        return Theme::kDown;
+        return Theme::danger();
     case ChartLoadStatus::Ready:
     case ChartLoadStatus::Unconfigured:
     case ChartLoadStatus::Empty:
     case ChartLoadStatus::Busy:
-        return Theme::kMuted;
+        return Theme::muted();
     }
-    return Theme::kMuted;
+    return Theme::muted();
 }
 
 [[nodiscard]] float buttonWidth(const char* label)
@@ -123,8 +123,8 @@ void formatChartTitle(char* title, std::size_t title_n, int runtime_id, int id,
 {
     const ImVec4 clear(0.0f, 0.0f, 0.0f, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, clear);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBg3);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::bg3());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::bg3());
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     const bool pressed = ImGui::Button(label, ImVec2(width, 0.0f));
     ImGui::PopStyleVar();
@@ -201,7 +201,7 @@ void drawEmptyStatus(std::string_view text, ChartLoadStatus status)
         return;
     }
     const bool downloading = text.find("downloading") != std::string_view::npos;
-    const ImVec4 color = downloading ? Theme::kAccent : statusColor(status);
+    const ImVec4 color = downloading ? Theme::accent() : statusColor(status);
     constexpr float kPad = 12.0f;
     const char* const begin = text.data();
     const char* const end = begin + text.size();
@@ -249,7 +249,7 @@ constexpr const char* kHintGrid =
 
 void drawSettingsSection(const char* title)
 {
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::textDim());
     ImGui::TextUnformatted(title);
     ImGui::PopStyleColor();
 }
@@ -259,17 +259,17 @@ void drawSettingsLabel(const char* label)
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::AlignTextToFramePadding();
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextDim);
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::textDim());
     ImGui::TextUnformatted(label);
     ImGui::PopStyleColor();
     ImGui::TableNextColumn();
-    ImGui::SetNextItemWidth(kSettingsValueWidth);
+    ImGui::SetNextItemWidth(Theme::px(kSettingsValueWidth));
 }
 
 void drawSettingsHint(const char* hint)
 {
     ImGui::SameLine();
-    ImGui::TextColored(Theme::kTextDim, "%s", hint);
+    ImGui::TextColored(Theme::textDim(), "%s", hint);
 }
 
 [[nodiscard]] bool beginSettingsColumns(const char* table_id, float label_w)
@@ -298,7 +298,7 @@ void drawSettingsHint(const char* hint)
     const float text_y = origin.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
     ImDrawList* list = ImGui::GetWindowDrawList();
     list->PushClipRect(origin, ImVec2(origin.x + width, origin.y + row_h), true);
-    list->AddText(ImVec2(origin.x, text_y), ImGui::GetColorU32(Theme::kTextDim), begin, end);
+    list->AddText(ImVec2(origin.x, text_y), ImGui::GetColorU32(Theme::textDim()), begin, end);
     list->PopClipRect();
     return std::min(text_w, width);
 }
@@ -801,7 +801,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
     const float hint_w = settingsHintLane();
     const float chrome = (style.WindowPadding.x * 4.0f) + (style.CellPadding.x * 4.0f) +
                          (style.ChildBorderSize * 2.0f) + style.ScrollbarSize + 16.0f;
-    const float min_w = label_w + kSettingsValueWidth + chrome;
+    const float min_w = label_w + Theme::px(kSettingsValueWidth) + chrome;
     const float width = min_w + style.ItemSpacing.x + hint_w;
     const float height = row * 22.0f;
     ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Appearing);
@@ -812,7 +812,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
     {
         const float footer_h = ImGui::GetFrameHeightWithSpacing();
         bool enter = false;
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::field());
         ImGui::BeginChild("##chart_settings_form", ImVec2(0.0f, -footer_h), ImGuiChildFlags_None);
 
         drawSettingsSection("Series");
@@ -982,7 +982,7 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
         {
             ImGui::Spacing();
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextColored(Theme::kDown, "candlestick bars and Days to Load only.");
+            ImGui::TextColored(Theme::danger(), "candlestick bars and Days to Load only.");
             ImGui::PopTextWrapPos();
         }
 
@@ -999,17 +999,17 @@ void CChartPane::drawSettingsPopup(Store* store, std::string_view store_error, I
             ImGui::SetCursorPosX(align_x);
         }
 
-        ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+        ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
         const bool ok = ImGui::Button("OK", ImVec2(button_w, 0.0f));
         ImGui::SetItemDefaultFocus();
         ImGui::PopStyleColor(4);
         ImGui::SameLine();
         const bool apply = ImGui::Button("Apply", ImVec2(button_w, 0.0f));
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Theme::kText);
+        ImGui::PushStyleColor(ImGuiCol_Text, Theme::text());
         const bool cancel = ImGui::Button("Cancel", ImVec2(button_w, 0.0f));
         ImGui::PopStyleColor();
 
@@ -1216,10 +1216,10 @@ void CChartPane::drawStudyLegend(ImVec2 cursor, float width)
         const bool hovered = ImGui::IsItemHovered();
         if (hovered)
         {
-            list->AddRectFilled(min, max, ImGui::GetColorU32(Theme::kBg3));
+            list->AddRectFilled(min, max, ImGui::GetColorU32(Theme::bg3()));
         }
         const float text_y = min.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
-        const ImVec4 ink = (hovered || studies_open_) ? name.color : Theme::kTextDim;
+        const ImVec4 ink = (hovered || studies_open_) ? name.color : Theme::textDim();
         list->AddText(ImVec2(min.x, text_y), ImGui::GetColorU32(ink), name.label.c_str());
         if (ImGui::IsItemClicked())
         {
@@ -1237,7 +1237,7 @@ void CChartPane::drawStudyLegend(ImVec2 cursor, float width)
             const ImVec2 mark = ImGui::GetCursorScreenPos();
             const float text_y = mark.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
             ImGui::GetWindowDrawList()->AddText(ImVec2(mark.x, text_y),
-                                                ImGui::GetColorU32(Theme::kTextDim), "...");
+                                                ImGui::GetColorU32(Theme::textDim()), "...");
         }
     }
     ImGui::PopClipRect();
@@ -1265,10 +1265,10 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     const ImVec2 origin = ImGui::GetCursorScreenPos();
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImU32 chrome = ImGui::GetColorU32(Theme::kBg1);
+    const ImU32 chrome = ImGui::GetColorU32(Theme::bg1());
     draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + row_h), chrome);
     draw->AddLine(ImVec2(origin.x, origin.y + row_h), ImVec2(origin.x + width, origin.y + row_h),
-                  ImGui::GetColorU32(Theme::kLine));
+                  ImGui::GetColorU32(Theme::line()));
 
     const char* period_label = chartPeriodCode(settings_.period);
     const char* scale_label = chartScaleStripLabel(settings_.scale_range);
@@ -1308,7 +1308,7 @@ void CChartPane::drawStrip(Store* store, std::string_view store_error, IngestWor
     {
         const float text_y = origin.y + ((row_h - ImGui::GetTextLineHeight()) * 0.5f);
         const ImVec2 stamp_pos(origin.x + (received_x - row_x), text_y);
-        draw->AddText(stamp_pos, ImGui::GetColorU32(Theme::kTextDim), received.c_str());
+        draw->AddText(stamp_pos, ImGui::GetColorU32(Theme::textDim()), received.c_str());
         const ImVec2 stamp_min(stamp_pos.x, origin.y);
         const ImVec2 stamp_max(stamp_pos.x + received_w, origin.y + row_h);
         const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
@@ -1392,8 +1392,8 @@ void CChartPane::drawChartMenu(ImVec2 origin, ImVec2 size, const Store* store)
         ImGui::OpenPopup("##chart_menu");
     }
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 2.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(Theme::px(8.0f), Theme::px(6.0f)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(Theme::px(8.0f), Theme::px(2.0f)));
     if (ImGui::BeginPopup("##chart_menu"))
     {
         ImGui::Checkbox("Crosshair", &view_.crosshair);
@@ -1628,7 +1628,7 @@ void CChartPane::drawPlotBody()
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     if (avail.x > 0.0f && avail.y > 0.0f)
     {
-        const ImU32 well = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
+        const ImU32 well = ImGui::ColorConvertFloat4ToU32(Theme::bg0());
         ImGui::GetWindowDrawList()->AddRectFilled(origin,
                                                   ImVec2(origin.x + avail.x, origin.y + avail.y), well);
     }
@@ -1780,7 +1780,7 @@ bool CChartPane::draw(Store* store, std::string_view store_error, IngestWorker* 
     // No scrollbar: the series fills the client, and a bar would open a gap on the edge.
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoSavedSettings |
                                    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(Theme::px(0.0f), Theme::px(0.0f)));
     if (!ImGui::Begin(title, &window_open_, flags))
     {
         ImGui::End();

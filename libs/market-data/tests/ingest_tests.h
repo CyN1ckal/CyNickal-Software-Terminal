@@ -13,10 +13,13 @@
 #include "market_data/Store.h"
 #include "market_data/Time.h"
 
+#include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 TEST_CASE("loadMboumApiKey reads mboum from secrets.json")
 {
@@ -114,7 +117,20 @@ TEST_CASE("v3 URL uses Laravel 0/1 booleans and 1min")
     CHECK(url.find("dividends=0") != std::string::npos);
     CHECK(url.find("startDate=20250115093000") != std::string::npos);
     CHECK(url.find("endDate=20250115160000") != std::string::npos);
+    CHECK(url.find("limit=400") != std::string::npos);
     CHECK(url.find("false") == std::string::npos);
+}
+
+TEST_CASE("v3 1-minute range URL requests 4000 bars across days")
+{
+    const auto url = terminal::mboumV3HistoricalUrl("QQQ", 20210925, 20260925);
+    CHECK(url.find("interval=1min") != std::string::npos);
+    CHECK(url.find("limit=4000") != std::string::npos);
+    CHECK(url.find("startDate=20210925093000") != std::string::npos);
+    CHECK(url.find("endDate=20260925160000") != std::string::npos);
+    CHECK(url.find("splits=0") != std::string::npos);
+    CHECK(url.find("dividends=0") != std::string::npos);
+    CHECK(url.find("order=asc") != std::string::npos);
 }
 
 TEST_CASE("parse v3 daily page from live shape")
@@ -261,6 +277,143 @@ TEST_CASE("ingestSymbol reuses a verified open listing without calling OpenFIGI"
     CHECK(result.instrument_id == id);
     CHECK(store.listInstruments().size() == 1);
     CHECK(figi.fake.requests == 0);
+}
+
+namespace {
+
+[[nodiscard]] std::string minuteBarsJson(int year, int month, int day, int hour, int minute, int count)
+{
+    using namespace std::chrono;
+    auto cursor = local_days{std::chrono::year{year} / std::chrono::month{static_cast<unsigned>(month)} /
+                             std::chrono::day{static_cast<unsigned>(day)}} +
+                  hours{hour} + minutes{minute};
+    std::string json = R"({"meta":{"splits":"0","status":200},"body":[)";
+    for (int i = 0; i < count; ++i)
+    {
+        if (i != 0)
+        {
+            json += ',';
+        }
+        const auto dp = floor<days>(cursor);
+        const year_month_day ymd{dp};
+        const hh_mm_ss<seconds> tod{cursor - dp};
+        char stamp[160]{};
+        std::snprintf(
+            stamp,
+            sizeof(stamp),
+            R"({"datetime":"%04d-%02u-%02u %02d:%02d","open":10,"high":11,"low":9,"close":10,"volume":100})",
+            static_cast<int>(ymd.year()),
+            static_cast<unsigned>(ymd.month()),
+            static_cast<unsigned>(ymd.day()),
+            static_cast<int>(tod.hours().count()),
+            static_cast<int>(tod.minutes().count()));
+        json += stamp;
+        cursor += minutes{1};
+    }
+    json += "]}";
+    return json;
+}
+
+}  // namespace
+
+TEST_CASE("ingestSymbol pages a full 4000-bar window and refetches the cut session")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
+    // 4000 clock minutes ending 2025-01-17 15:59 begin 2025-01-14 21:20, so Jan 14 RTH is cut.
+    const std::string full = minuteBarsJson(2025, 1, 14, 21, 20, terminal::kMboumIntradayPageLimit);
+    const std::string tail = minuteBarsJson(2025, 1, 14, 9, 30, 2);
+    std::vector<std::string> urls;
+    auto get = [&](std::string_view url) {
+        urls.emplace_back(url);
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = url.find("endDate=20250114160000") != std::string::npos ? tail : full;
+        return response;
+    };
+    const auto result = terminal::ingestSymbol(store, get, figi.client, "QQQ", 20250114, 20250117);
+    REQUIRE(urls.size() == 2);
+    CHECK(urls[0].find("limit=4000") != std::string::npos);
+    CHECK(urls[0].find("startDate=20250114093000") != std::string::npos);
+    CHECK(urls[0].find("endDate=20250117160000") != std::string::npos);
+    CHECK(urls[1].find("endDate=20250114160000") != std::string::npos);
+
+    const auto coverage = [&](terminal::SessionDate session) {
+        const auto row = store.findCoverage(result.instrument_id, terminal::kTimeframe1m, session);
+        REQUIRE(row.has_value());
+        return row.value();
+    };
+    CHECK(coverage(20250115).status == terminal::CoverageStatus::Complete);
+    CHECK(coverage(20250115).bar_count == terminal::kUsRthExpected1m);
+    CHECK(coverage(20250116).status == terminal::CoverageStatus::Complete);
+    CHECK(coverage(20250116).bar_count == terminal::kUsRthExpected1m);
+    CHECK(coverage(20250117).status == terminal::CoverageStatus::Complete);
+    CHECK(coverage(20250117).bar_count == terminal::kUsRthExpected1m);
+    CHECK(coverage(20250114).status == terminal::CoverageStatus::Partial);
+    CHECK(coverage(20250114).bar_count == 2);
+}
+
+TEST_CASE("ingestSymbol continues after a failed 1-minute chunk")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
+    const std::string failed = R"({"message":"Failed to fetch historical data"})";
+    const std::string ok = minuteBarsJson(2025, 1, 6, 9, 30, 2);
+    std::vector<std::string> urls;
+    auto get = [&](std::string_view url) {
+        urls.emplace_back(url);
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = url.find("endDate=20250110160000") != std::string::npos ? failed : ok;
+        return response;
+    };
+    const auto result = terminal::ingestSymbol(store, get, figi.client, "QQQ", 20250102, 20250110);
+    CHECK(urls.size() >= 4);
+    bool older = false;
+    for (const std::string& url : urls)
+    {
+        if (url.find("endDate=20250106160000") != std::string::npos)
+        {
+            older = true;
+        }
+    }
+    CHECK(older);
+    const auto row = store.findCoverage(result.instrument_id, terminal::kTimeframe1m, 20250106);
+    REQUIRE(row.has_value());
+    CHECK(row.value().bar_count == 2);
+    CHECK(row.value().status == terminal::CoverageStatus::Partial);
+}
+
+TEST_CASE("ingestSymbol continues when one 1-minute chunk reports no data")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    FakeOpenFigiClient figi(true);
+    const std::string none = R"({"message":"No historical data found for the specified criteria"})";
+    const std::string ok = minuteBarsJson(2025, 1, 6, 9, 30, 2);
+    std::vector<std::string> urls;
+    auto get = [&](std::string_view url) {
+        urls.emplace_back(url);
+        terminal::HttpResponse response;
+        response.status = 200;
+        response.body = url.find("endDate=20250110160000") != std::string::npos ? none : ok;
+        return response;
+    };
+    const auto result = terminal::ingestSymbol(store, get, figi.client, "QQQ", 20250102, 20250110);
+    bool older = false;
+    for (const std::string& url : urls)
+    {
+        if (url.find("endDate=20250106160000") != std::string::npos)
+        {
+            older = true;
+        }
+    }
+    CHECK(older);
+    const auto row = store.findCoverage(result.instrument_id, terminal::kTimeframe1m, 20250106);
+    REQUIRE(row.has_value());
+    CHECK(row.value().bar_count == 2);
 }
 
 namespace {

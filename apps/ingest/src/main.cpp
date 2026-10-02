@@ -210,6 +210,8 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
                     std::this_thread::sleep_for(std::chrono::milliseconds(80));
                 }
                 first = false;
+                std::clog << "  get " << url << '\n';
+                std::clog.flush();
                 return http.getWithRetry(url);
             };
             const auto result = timeframe == terminal::kTimeframe1d
@@ -223,6 +225,7 @@ int main(int argc, char** argv) // NOLINT(bugprone-exception-escape)
             {
                 std::clog << "  " << day.session_date << " " << terminal::toSql(day.status)
                           << " bars=" << day.bar_count << " http=" << day.http_status << '\n';
+                std::clog.flush();
             }
         }
         return 0;

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartbookDocument.h"
+#include "ui/AppearanceSettings.h"
 
 #include <filesystem>
 #include <string>
@@ -29,6 +30,13 @@ struct StartupLoadResult
     bool ok{false};
     std::string error;
     StartupSettings settings{};
+};
+
+struct AppearanceLoadResult
+{
+    bool ok{false};
+    std::string error;
+    AppearanceSettings settings{};
 };
 
 struct StartupOpenResult
@@ -64,7 +72,11 @@ struct StartupOpenResult
 [[nodiscard]] ChartbookLoadResult loadChartbook(const std::filesystem::path& path);
 
 [[nodiscard]] StartupLoadResult loadStartupSettings(const std::filesystem::path& path);
+// Both savers rewrite only their own section of terminal.json and keep the other.
 [[nodiscard]] std::string saveStartupSettings(const std::filesystem::path& path, const StartupSettings& settings);
+// A missing file or section is ok and yields defaults.
+[[nodiscard]] AppearanceLoadResult loadAppearanceSettings(const std::filesystem::path& path);
+[[nodiscard]] std::string saveAppearanceSettings(const std::filesystem::path& path, const AppearanceSettings& settings);
 [[nodiscard]] StartupOpenResult openStartupChartbooks(const StartupSettings& settings);
 
 }  // namespace terminal

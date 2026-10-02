@@ -1,0 +1,160 @@
+{
+  "side_vs_day_direction": {
+    "against_day": {
+      "campaigns": 1387,
+      "share": 0.6256202074875958,
+      "mean_gross_bp_unit": -2.107507570295602,
+      "net_dollars": -0.7244537324,
+      "session_exits": 282,
+      "mean_units": 1.56957462148522
+    },
+    "with_day": {
+      "campaigns": 830,
+      "share": 0.37437979251240416,
+      "mean_gross_bp_unit": 16.990359156626507,
+      "net_dollars": 0.3730391358,
+      "session_exits": 68,
+      "mean_units": 1.3204819277108433
+    },
+    "flat_day": {
+      "campaigns": 0,
+      "share": 0.0,
+      "mean_gross_bp_unit": null,
+      "net_dollars": 0.0,
+      "session_exits": 0,
+      "mean_units": null
+    }
+  },
+  "middle_exits": {
+    "count": 1867,
+    "gross_negative": 368,
+    "share_gross_negative": 0.19710765934654526,
+    "net_negative": 416
+  },
+  "zero_worst_20": {
+    "sharpe": -0.23281841007636847,
+    "total_return": -0.046006718297669225
+  },
+  "zero_best_20": {
+    "sharpe": -2.081551068002077,
+    "total_return": -0.43127162560749244
+  },
+  "worst_20_days": [
+    {
+      "session": "2025-04-09",
+      "return": -0.04453893,
+      "open_to_close": 0.1213513969
+    },
+    {
+      "session": "2024-12-18",
+      "return": -0.0319297265,
+      "open_to_close": -0.0349061011
+    },
+    {
+      "session": "2022-11-30",
+      "return": -0.0301637498,
+      "open_to_close": 0.0445805441
+    },
+    {
+      "session": "2024-04-04",
+      "return": -0.0241506852,
+      "open_to_close": -0.0246230368
+    },
+    {
+      "session": "2021-12-15",
+      "return": -0.0230478801,
+      "open_to_close": 0.0234830128
+    },
+    {
+      "session": "2021-12-01",
+      "return": -0.0200665084,
+      "open_to_close": -0.0280204881
+    },
+    {
+      "session": "2022-01-05",
+      "return": -0.0186628204,
+      "open_to_close": -0.0264731215
+    },
+    {
+      "session": "2025-04-08",
+      "return": -0.0177653362,
+      "open_to_close": -0.0504381961
+    },
+    {
+      "session": "2022-02-24",
+      "return": -0.0175500272,
+      "open_to_close": 0.0679023962
+    },
+    {
+      "session": "2023-03-09",
+      "return": -0.0169804769,
+      "open_to_close": -0.0190057989
+    },
+    {
+      "session": "2022-02-11",
+      "return": -0.0165550227,
+      "open_to_close": -0.0317216751
+    },
+    {
+      "session": "2025-02-27",
+      "return": -0.0144826224,
+      "open_to_close": -0.0344701137
+    },
+    {
+      "session": "2024-09-11",
+      "return": -0.014122294,
+      "open_to_close": 0.0185905938
+    },
+    {
+      "session": "2022-09-02",
+      "return": -0.0141118257,
+      "open_to_close": -0.0237150228
+    },
+    {
+      "session": "2022-06-09",
+      "return": -0.0140369294,
+      "open_to_close": -0.0212807689
+    },
+    {
+      "session": "2022-07-18",
+      "return": -0.0135188266,
+      "open_to_close": -0.0180510315
+    },
+    {
+      "session": "2022-09-01",
+      "return": -0.0134833224,
+      "open_to_close": 0.0090320841
+    },
+    {
+      "session": "2023-12-20",
+      "return": -0.013433406,
+      "open_to_close": -0.0129055957
+    },
+    {
+      "session": "2025-11-20",
+      "return": -0.0118480262,
+      "open_to_close": -0.0424283052
+    },
+    {
+      "session": "2022-10-26",
+      "return": -0.0110468135,
+      "open_to_close": -0.0019033254
+    }
+  ],
+  "rolling_252": {
+    "min": -2.5994055060182673,
+    "max": 0.27531029649441263,
+    "share_positive": 0.02888446215139442,
+    "trailing_sharpe": -0.20112556647612576,
+    "trailing_return": -0.006047562334236534,
+    "trailing_from": "2025-09-25"
+  },
+  "corr_qqq_intraday_trend_p1": {
+    "sessions": 1239,
+    "corr": -0.4103642828987943
+  },
+  "corr_qqq_atr_scale_in": {
+    "sessions": 1247,
+    "corr": 0.5222521558861788
+  }
+}

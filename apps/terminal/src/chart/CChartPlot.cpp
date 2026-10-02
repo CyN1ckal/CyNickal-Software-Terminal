@@ -43,7 +43,7 @@ void drawChartScaleMenuItems(CChartSettings& settings,
     {
         view.interactive = ChartInteractiveScale::Locked;
     }
-    ImGui::TextColored(Theme::kTextDim, "Ctrl swaps Range and Move while dragging.");
+    ImGui::TextColored(Theme::textDim(), "Ctrl swaps Range and Move while dragging.");
     ImGui::Separator();
     if (ImGui::MenuItem("Scale Range: Automatic", nullptr,
                         settings.scale_range == ChartScaleRange::Automatic))
@@ -140,10 +140,20 @@ void buildTimeTicks(std::span<const Bar> bars,
         view.tick_xs.push_back(tick.x);
         view.tick_labels.push_back(tick.label);
     }
+    // A label centred on a tick near either edge would be cut in half ("-07-29"). Its grid
+    // line stays; its text is left off the axis. The crosshair tag still uses tick_labels.
+    const double span = win.x_max - win.x_min;
+    const double px_per_x = span > 0.0 && view.last_plot_w > 0.0f
+                                ? static_cast<double>(view.last_plot_w) / span
+                                : static_cast<double>(spacing_px);
     view.tick_ptrs.reserve(view.tick_labels.size());
-    for (const std::string& label : view.tick_labels)
+    for (std::size_t i = 0; i < view.tick_labels.size(); ++i)
     {
-        view.tick_ptrs.push_back(label.c_str());
+        const std::string& label = view.tick_labels[i];
+        const double half = static_cast<double>(ImGui::CalcTextSize(label.c_str()).x) * 0.5;
+        const double left = (view.tick_xs[i] - win.x_min) * px_per_x;
+        const double right = (win.x_max - view.tick_xs[i]) * px_per_x;
+        view.tick_ptrs.push_back(left < half || right < half ? "" : label.c_str());
     }
 }
 
@@ -450,8 +460,8 @@ void drawAxisValueMark(ImDrawList* draw, ImVec2 text_pos, const char* text)
     shiftMarkIntoWindow(text_pos, text_size);
     const ImVec2 box_min(text_pos.x - kAxisMarkPadX, text_pos.y);
     const ImVec2 box_max(text_pos.x + text_size.x + kAxisMarkPadX, text_pos.y + text_size.y);
-    draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(Theme::kAccent));
-    draw->AddText(text_pos, ImGui::GetColorU32(Theme::kBg0), text);
+    draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(Theme::accent()));
+    draw->AddText(text_pos, ImGui::GetColorU32(Theme::bg0()), text);
 }
 
 void drawCrosshairMarks(const CrosshairMarks& marks)
@@ -522,7 +532,7 @@ CrosshairMarks drawCrosshair(std::span<const Bar> bars,
     const Bar& bar = bars[static_cast<std::size_t>(idx)];
 
     ImDrawList* draw_list = ImPlot::GetPlotDrawList();
-    const ImU32 color = ImGui::ColorConvertFloat4ToU32(Theme::kAccent);
+    const ImU32 color = ImGui::ColorConvertFloat4ToU32(Theme::accent());
     ImPlot::PushPlotClipRect();
     const ImVec2 top = ImPlot::PlotToPixels(static_cast<double>(idx), ylim.max);
     const ImVec2 bot = ImPlot::PlotToPixels(static_cast<double>(idx), ylim.min);
@@ -658,9 +668,9 @@ void drawTradeMarkers(std::span<const ChartTradeMarker> trades, const ChartVisib
     }
     ImDrawList* draw_list = ImPlot::GetPlotDrawList();
     ImPlot::PushPlotClipRect();
-    const ImU32 buy = ImGui::ColorConvertFloat4ToU32(Theme::kUp);
-    const ImU32 sell = ImGui::ColorConvertFloat4ToU32(Theme::kDown);
-    const ImU32 edge = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
+    const ImU32 buy = ImGui::ColorConvertFloat4ToU32(Theme::up());
+    const ImU32 sell = ImGui::ColorConvertFloat4ToU32(Theme::down());
+    const ImU32 edge = ImGui::ColorConvertFloat4ToU32(Theme::bg0());
     const float half = std::clamp(bar_spacing_px * 0.45f, 3.0f, 7.0f);
     const float height = half * 1.6f;
     const ImVec2 mouse = ImGui::GetIO().MousePos;
@@ -693,12 +703,12 @@ void drawTradeMarkers(std::span<const ChartTradeMarker> trades, const ChartVisib
     {
         ImGui::BeginTooltip();
         const bool bought = hovered->quantity > 0.0;
-        ImGui::TextColored(bought ? Theme::kUp : Theme::kDown, "%s %s at %s", bought ? "Buy" : "Sell",
+        ImGui::TextColored(bought ? Theme::up() : Theme::down(), "%s %s at %s", bought ? "Buy" : "Sell",
                            formatQuantity(std::abs(hovered->quantity)).c_str(), formatPrice(hovered->price).c_str());
-        ImGui::TextColored(Theme::kTextDim, "%s", formatLedgerTime(hovered->ts).c_str());
+        ImGui::TextColored(Theme::textDim(), "%s", formatLedgerTime(hovered->ts).c_str());
         if (!hovered->note.empty())
         {
-            ImGui::TextColored(Theme::kTextDim, "%s", hovered->note.c_str());
+            ImGui::TextColored(Theme::textDim(), "%s", hovered->note.c_str());
         }
         ImGui::EndTooltip();
     }
@@ -880,8 +890,8 @@ void drawChartRegion(std::span<const Bar> bars,
     {
         ImDrawList* draw_list = ImPlot::GetPlotDrawList();
         ImPlot::PushPlotClipRect();
-        const ImU32 up = ImGui::ColorConvertFloat4ToU32(Theme::kUp);
-        const ImU32 down = ImGui::ColorConvertFloat4ToU32(Theme::kDown);
+        const ImU32 up = ImGui::ColorConvertFloat4ToU32(Theme::up());
+        const ImU32 down = ImGui::ColorConvertFloat4ToU32(Theme::down());
         const double half_width = 0.5 * static_cast<double>(settings.bar_width_frac);
         const int draw_first = std::max(0, win.first);
         const int draw_last = std::min(bar_count - 1, win.last);

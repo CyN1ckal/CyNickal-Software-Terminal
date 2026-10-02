@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -99,7 +100,7 @@ void paintInTheMoney(bool itm)
     {
         return;
     }
-    const ImVec4 wash = Theme::WithAlpha(Theme::kAccent, 0.16f);
+    const ImVec4 wash = Theme::WithAlpha(Theme::accent(), 0.16f);
     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(wash));
 }
 
@@ -109,12 +110,12 @@ void drawSigned(const char* text, double sign)
     ImVec4 tint{};
     if (sign > 0.0)
     {
-        tint = Theme::kUp;
+        tint = Theme::up();
         color = &tint;
     }
     else if (sign < 0.0)
     {
-        tint = Theme::kDown;
+        tint = Theme::down();
         color = &tint;
     }
     drawAligned(text, color);
@@ -135,6 +136,70 @@ void drawTip(const OptionQuote& quote);
     return false;
 }
 
+struct FieldText
+{
+    std::string text;
+    // Colors the text up or down when nonzero.
+    double sign{0.0};
+};
+
+[[nodiscard]] FieldText formatQuoteField(ChainField field, const OptionQuote& quote)
+{
+    char buf[32];
+    switch (field)
+    {
+    case ChainField::Bid:
+        writePremium(buf, sizeof(buf), quote.bid);
+        return {.text = buf};
+    case ChainField::Ask:
+        writePremium(buf, sizeof(buf), quote.ask);
+        return {.text = buf};
+    case ChainField::Last:
+        writePremium(buf, sizeof(buf), quote.last);
+        return {.text = buf, .sign = quote.price_change};
+    case ChainField::Change:
+        std::snprintf(buf, sizeof(buf), "%+.2f", quote.price_change);
+        return {.text = buf, .sign = quote.price_change};
+    case ChainField::Percent:
+        std::snprintf(buf, sizeof(buf), "%+.1f", quote.percent_change * 100.0);
+        return {.text = buf, .sign = quote.percent_change};
+    case ChainField::Mid:
+        writePremium(buf, sizeof(buf), quote.mid);
+        return {.text = buf};
+    case ChainField::Iv:
+        std::snprintf(buf, sizeof(buf), "%.1f", quote.implied_vol * 100.0);
+        return {.text = buf};
+    case ChainField::Delta:
+        std::snprintf(buf, sizeof(buf), "%.3f", quote.delta);
+        return {.text = buf};
+    case ChainField::Theta:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote.theta);
+        return {.text = buf};
+    case ChainField::Vega:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote.vega);
+        return {.text = buf};
+    case ChainField::Rho:
+        std::snprintf(buf, sizeof(buf), "%.4f", quote.rho);
+        return {.text = buf};
+    case ChainField::Volume:
+        return {.text = formatGrouped(quote.volume)};
+    case ChainField::OpenInterest:
+        return {.text = formatGrouped(quote.open_interest)};
+    case ChainField::OpenInterestChange:
+    {
+        std::string text = formatGrouped(quote.open_interest_change);
+        if (quote.open_interest_change > 0)
+        {
+            text.insert(text.begin(), '+');
+        }
+        return {.text = std::move(text), .sign = static_cast<double>(quote.open_interest_change)};
+    }
+    case ChainField::Count:
+        break;
+    }
+    return {};
+}
+
 void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
 {
     paintInTheMoney(itm);
@@ -143,80 +208,22 @@ void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
     {
         return;
     }
-    char buf[32];
-    switch (field)
-    {
-    case ChainField::Bid:
-        writePremium(buf, sizeof(buf), quote->bid);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Ask:
-        writePremium(buf, sizeof(buf), quote->ask);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Last:
-        writePremium(buf, sizeof(buf), quote->last);
-        drawSigned(buf, quote->price_change);
-        break;
-    case ChainField::Change:
-        std::snprintf(buf, sizeof(buf), "%+.2f", quote->price_change);
-        drawSigned(buf, quote->price_change);
-        break;
-    case ChainField::Percent:
-        std::snprintf(buf, sizeof(buf), "%+.1f", quote->percent_change * 100.0);
-        drawSigned(buf, quote->percent_change);
-        break;
-    case ChainField::Mid:
-        writePremium(buf, sizeof(buf), quote->mid);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Iv:
-        std::snprintf(buf, sizeof(buf), "%.1f", quote->implied_vol * 100.0);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Delta:
-        std::snprintf(buf, sizeof(buf), "%.3f", quote->delta);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Theta:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote->theta);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Vega:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote->vega);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Rho:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote->rho);
-        drawAligned(buf, nullptr);
-        break;
-    case ChainField::Volume:
-        drawAligned(formatGrouped(quote->volume).c_str(), nullptr);
-        break;
-    case ChainField::OpenInterest:
-        drawAligned(formatGrouped(quote->open_interest).c_str(), nullptr);
-        break;
-    case ChainField::OpenInterestChange:
-    {
-        std::string text = formatGrouped(quote->open_interest_change);
-        if (quote->open_interest_change > 0)
-        {
-            text.insert(text.begin(), '+');
-        }
-        drawSigned(text.c_str(), static_cast<double>(quote->open_interest_change));
-        break;
-    }
-    case ChainField::Count:
-        return;
-    }
+    const FieldText cell = formatQuoteField(field, *quote);
+    drawSigned(cell.text.c_str(), cell.sign);
     drawTip(*quote);
 }
 
-void setupChainColumn(const char* side, std::string_view id)
+void writeChainHeader(char* header, std::size_t size, const char* side, std::string_view id)
+{
+    std::snprintf(header, size, "%s %s", side, optionChainColumnLabel(id));
+}
+
+void setupChainColumn(const char* side, std::string_view id, float min_width)
 {
     char header[32];
-    std::snprintf(header, sizeof(header), "%s %s", side, optionChainColumnLabel(id));
-    ImGui::TableSetupColumn(header);
+    writeChainHeader(header, sizeof(header), side, id);
+    // Equal weights over a table at least as wide as every column's minimum, so no figure clips.
+    ImGui::TableSetupColumn(header, ImGuiTableColumnFlags_WidthStretch, min_width);
 }
 
 void drawTip(const OptionQuote& quote)
@@ -342,7 +349,7 @@ void OptionsChainPanel::drawColumnMenu()
     }
     if (ImGui::BeginPopup("columns"))
     {
-        ImGui::TextColored(Theme::kMuted, "Strike stays in the middle. Puts mirror these.");
+        ImGui::TextColored(Theme::muted(), "Strike stays in the middle. Puts mirror these.");
         for (int index = 0; index < kOptionChainColumnCount; ++index)
         {
             if (index % 2 == 1)
@@ -411,31 +418,11 @@ void OptionsChainPanel::drawChain() const
         }
         if (!facts.empty())
         {
-            ImGui::TextColored(Theme::kMuted, "%s", facts.c_str());
+            ImGui::TextColored(Theme::muted(), "%s", facts.c_str());
         }
     }
 
     const int side_count = static_cast<int>(columns_.size());
-    constexpr ImGuiTableFlags flags =
-        ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter |
-        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
-        ImGuiTableFlags_NoSavedSettings;
-    if (!ImGui::BeginTable("options_chain", (side_count * 2) + 1, flags, ImVec2(0.0f, 0.0f)))
-    {
-        return;
-    }
-    for (const std::string& id : columns_)
-    {
-        setupChainColumn("C", id);
-    }
-    ImGui::TableSetupColumn("Strike");
-    for (int index = side_count - 1; index >= 0; --index)
-    {
-        setupChainColumn("P", columns_[static_cast<std::size_t>(index)]);
-    }
-    ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableHeadersRow();
-
     std::vector<ChainRow> rows;
     for (const OptionQuote& quote : source_.quotes())
     {
@@ -455,7 +442,81 @@ void OptionsChainPanel::drawChain() const
         }
     }
 
+    // Each column is at least as wide as its header and its widest figure. The figures are
+    // monospaced, so the character count of the longest one fixes its width.
     ImFont* const mono = Theme::monoFont();
+    const float char_w = [mono] {
+        if (mono != nullptr)
+        {
+            ImGui::PushFont(mono);
+        }
+        const float width = ImGui::CalcTextSize("0").x;
+        if (mono != nullptr)
+        {
+            ImGui::PopFont();
+        }
+        return width;
+    }();
+    const float cell_pad = (ImGui::GetStyle().CellPadding.x * 2.0f) + 1.0f;
+    std::vector<float> min_widths(static_cast<std::size_t>(side_count), 0.0f);
+    for (int index = 0; index < side_count; ++index)
+    {
+        const std::string& id = columns_[static_cast<std::size_t>(index)];
+        char header[32];
+        writeChainHeader(header, sizeof(header), "C", id);
+        std::size_t longest = 0;
+        ChainField field{};
+        if (findChainField(id, field))
+        {
+            for (const ChainRow& row : rows)
+            {
+                for (const OptionQuote* quote : {row.call, row.put})
+                {
+                    if (quote != nullptr)
+                    {
+                        longest = std::max(longest, formatQuoteField(field, *quote).text.size());
+                    }
+                }
+            }
+        }
+        min_widths[static_cast<std::size_t>(index)] =
+            std::max(ImGui::CalcTextSize(header).x, char_w * static_cast<float>(longest));
+    }
+    std::size_t strike_chars = 6;
+    for (const ChainRow& row : rows)
+    {
+        char strike[32];
+        std::snprintf(strike, sizeof(strike), "%.2f", row.strike);
+        strike_chars = std::max(strike_chars, std::strlen(strike));
+    }
+    const float strike_width = std::max(ImGui::CalcTextSize("Strike").x, char_w * static_cast<float>(strike_chars));
+    float needed = strike_width + cell_pad;
+    for (const float width : min_widths)
+    {
+        needed += 2.0f * (width + cell_pad);
+    }
+
+    constexpr ImGuiTableFlags flags =
+        ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter |
+        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
+        ImGuiTableFlags_NoSavedSettings;
+    const float inner_width = std::max(needed, ImGui::GetContentRegionAvail().x);
+    if (!ImGui::BeginTable("options_chain", (side_count * 2) + 1, flags, ImVec2(0.0f, 0.0f), inner_width))
+    {
+        return;
+    }
+    for (int index = 0; index < side_count; ++index)
+    {
+        setupChainColumn("C", columns_[static_cast<std::size_t>(index)], min_widths[static_cast<std::size_t>(index)]);
+    }
+    ImGui::TableSetupColumn("Strike", ImGuiTableColumnFlags_WidthStretch, strike_width);
+    for (int index = side_count - 1; index >= 0; --index)
+    {
+        setupChainColumn("P", columns_[static_cast<std::size_t>(index)], min_widths[static_cast<std::size_t>(index)]);
+    }
+    ImGui::TableSetupScrollFreeze(0, 1);
+    ImGui::TableHeadersRow();
+
     if (mono != nullptr)
     {
         ImGui::PushFont(mono);
@@ -466,7 +527,7 @@ void OptionsChainPanel::drawChain() const
         // Hovered row is the previous frame; RowBg1 is the wash this ImGui version stores.
         if (ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex())
         {
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImGui::GetColorU32(Theme::kBg3));
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImGui::GetColorU32(Theme::bg3()));
         }
         const bool call_itm = row.call != nullptr && row.call->moneyness > 0.0;
         const bool put_itm = row.put != nullptr && row.put->moneyness < 0.0;
@@ -476,7 +537,7 @@ void OptionsChainPanel::drawChain() const
             drawQuoteField(id, row.call, call_itm);
         }
         ImGui::TableNextColumn();
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(Theme::kBg2));
+        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::GetColorU32(Theme::bg2()));
         char strike[32];
         std::snprintf(strike, sizeof(strike), "%.2f", row.strike);
         drawAligned(strike, nullptr);
@@ -544,7 +605,7 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
     }
     if (store == nullptr && !store_error.empty())
     {
-        ImGui::TextColored(Theme::kDown, "%s", std::string(store_error).c_str());
+        ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
     }
 
     ImGui::GetStateStorage()->SetVoidPtr(ImGui::GetID(kOptionChainLinkBindingId), &symbol_link_);
@@ -556,14 +617,14 @@ bool OptionsChainPanel::draw(Store* store, std::string_view store_error, IngestW
     }
     source_.refresh(store, ingest);
     ImGui::Separator();
-    ImVec4 status_color = Theme::kMuted;
+    ImVec4 status_color = Theme::muted();
     if (source_.fetching())
     {
-        status_color = Theme::kAccent;
+        status_color = Theme::accent();
     }
     else if (source_.failed())
     {
-        status_color = Theme::kDown;
+        status_color = Theme::danger();
     }
     ImGui::TextColored(status_color, "%s", source_.status().c_str());
     drawReceivedStamp(source_.receivedAt());

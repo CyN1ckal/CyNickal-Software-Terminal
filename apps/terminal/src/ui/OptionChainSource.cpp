@@ -424,14 +424,14 @@ void OptionChainSource::requestData()
 
 bool OptionChainSource::drawPicker(IngestWorker* ingest)
 {
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::kField);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::kBg3);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::kBg3);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, Theme::field());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Theme::bg3());
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Theme::bg3());
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(Theme::kTextDim, "Symbol");
+    ImGui::TextColored(Theme::textDim(), "Symbol");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(96.0f);
+    ImGui::SetNextItemWidth(Theme::px(96.0f));
     const bool symbol_go =
         ImGui::InputText("##opt_symbol", symbol_input_, sizeof(symbol_input_),
                          ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue);
@@ -442,12 +442,12 @@ bool OptionChainSource::drawPicker(IngestWorker* ingest)
     }
     ImGui::SameLine();
     ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(Theme::kTextDim, "Expiration");
+    ImGui::TextColored(Theme::textDim(), "Expiration");
     ImGui::SameLine();
     const OptionExpiry* selected = selectedExpiry();
     const std::string current_label = selected != nullptr ? expiryLabel(*selected) : expirationLabel();
     const char* current = current_label.empty() ? "select" : current_label.c_str();
-    ImGui::SetNextItemWidth(180.0f);
+    ImGui::SetNextItemWidth(Theme::px(180.0f));
     if (ImGui::BeginCombo("##opt_expiration", current))
     {
         for (const OptionExpiry& expiry : expiries_)
@@ -470,10 +470,10 @@ bool OptionChainSource::drawPicker(IngestWorker* ingest)
     ImGui::PopStyleColor(3);
 
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, Theme::kGo);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kAccentHover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kAccentPressed);
-    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kBg0);
+    ImGui::PushStyleColor(ImGuiCol_Button, Theme::go());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::accentHover());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::accentPressed());
+    ImGui::PushStyleColor(ImGuiCol_Text, Theme::bg0());
     ImGui::BeginDisabled(ingest == nullptr);
     const bool clicked = ImGui::Button("GO");
     ImGui::EndDisabled();

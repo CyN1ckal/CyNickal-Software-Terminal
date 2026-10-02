@@ -16,13 +16,13 @@ The terminal is a data workstation. It keeps Stratum's colors and uses tighter m
 | Square | Radius 0. Hairline borders. No pills, no shadows, no gradients. |
 | Quiet status | Up and down are Stratum's muted green and brick, used only for direction and errors. |
 
-The terminal ships the dark palette only. Stratum's light palette stays in the monorepo.
+Stratum Dark is the default. Preferences (Ctrl+,) also offers Stratum Light, which is `kPalLight` unchanged, and High Contrast, which `paletteFor` derives from Stratum Dark: a black base, near-white text, and the same hues at higher lightness and saturation. High Contrast text is at least 6:1 on every surface and at least 7:1 on the window body. See section 9.
 
 ---
 
 ## 2. Color tokens
 
-Names in code are `Theme::kBg0`, `Theme::kAccent`, and so on. `FromRgb` / `WithAlpha` / `Mix` build the `ImVec4`s. Values below are the dark palette only.
+Names in code are `Theme::bg0()`, `Theme::accent()`, and so on. They read the active `Theme::Palette`, so a theme change reaches every panel on the next frame. `FromRgb` / `WithAlpha` / `Mix` build the `ImVec4`s. Values below are Stratum Dark. Tables below keep the short token names (`kBg0` is `Theme::bg0()`).
 
 ### Surfaces
 
@@ -41,7 +41,7 @@ Names in code are `Theme::kBg0`, `Theme::kAccent`, and so on. `FromRgb` / `WithA
 |---|---|---|
 | `kText` | `#ccd3dd` | Default widget text |
 | `kTextDim` | `#828c9b` | Secondary labels, axis text, disabled-looking status |
-| `kTextFaint` | `#586273` | Disabled widgets |
+| `kTextFaint` | `#586273` | Disabled widgets. The monorepo's `kPalDark` has since raised `txf` to `#7d8592`; this value has not followed. |
 
 `kBg0` is also the label color on a solid accent button. Steel text on `#6f97c9` does not pass contrast.
 
@@ -51,8 +51,8 @@ Names in code are `Theme::kBg0`, `Theme::kAccent`, and so on. `FromRgb` / `WithA
 |---|---|---|---|
 | `kAccent` | `#6f97c9` | `acc` | Focus, links, crosshair, slider, primary button |
 | `kWarn` | `#c08552` | `amber` | Partial coverage and other warnings. Not a text color. |
-| `kDanger` | `#b5544e` | `danger` | Price down, errors, Cancel |
-| `kOk` | `#5f8a63` | `ok` | Price up, complete coverage |
+| `kDanger` | `#b5544e` | `danger` | Errors, Cancel, and price down under green/red |
+| `kOk` | `#5f8a63` | `ok` | Complete coverage, and price up under green/red |
 
 Accent wash is `kAccent` at alpha 0.16, matching `accbgAlpha` in `kPalDark`. `kAccentHover` lifts the accent 18% toward white. `kAccentPressed` mixes it 22% toward `kBg0`.
 
@@ -67,8 +67,8 @@ Panels and charts keep short role names. They are the same values, not extra hue
 | `kField` | `kBg0` | Inputs |
 | `kHairline` | `kLine` | Borders and grid |
 | `kMuted` | `kTextDim` | Secondary copy |
-| `kUp` | `kOk` | Up candles and complete rows |
-| `kDown` | `kDanger` | Down candles and errors |
+| `kUp` | `kOk` | Up candles, gains, buys. Follows the gains/losses setting. |
+| `kDown` | `kDanger` | Down candles, losses, sells. Follows the gains/losses setting. |
 | `kGo` | `kAccent` | GO and OK |
 | `kCancel` | `kDanger` | Cancel label |
 
@@ -79,7 +79,7 @@ Panels and charts keep short role names. They are the same values, not extra hue
 1. **Steel** — ordinary information. Labels, quotes, table text.
 2. **Dim / faint** — units, timestamps, empty states, disabled controls.
 3. **Accent blue** — “look here”: selection, crosshair tags, the active tab overline, the primary button, links.
-4. **Green / brick** — direction and health only. Not chrome.
+4. **Green / brick** — direction and health only. Not chrome. Direction (`up()` / `down()`) and health (`ok()` / `danger()`) are separate tokens: with blue/orange or red/green gains, an error must still read as an error.
 5. **Warn** — partial or caution. One hue, used rarely.
 6. **Slate steps** — `kBg0` through `kBg3` separate wells, windows, cards, and hover. No extra grays.
 
@@ -101,7 +101,7 @@ Active titles are the same slate as inactive titles. The accent overline is the 
 
 ## 4. ImGui style
 
-`Theme::ApplyStratumStyle` runs from `ImGuiLayer` after `ImGui::CreateContext()`, instead of `StyleColorsDark`. `style.ScaleAllSizes(main_scale)` stays after it.
+`Theme::apply(settings, dpi_scale)` builds a fresh `ImGuiStyle` and `ImPlotStyle` from the palette and the appearance settings. `ImGuiLayer` calls it once through `Appearance::applyNow`; after that, `Appearance::applyPending` calls it between frames when a setting changes. Sizes are scaled by the monitor scale times the text zoom.
 
 ### Metrics
 
@@ -112,13 +112,14 @@ ScrollbarRounding = GrabRounding = TabRounding = 0
 WindowBorderSize = ChildBorderSize = PopupBorderSize = 1
 FrameBorderSize = TabBorderSize = 0
 
-WindowPadding     = (6, 4)
-FramePadding      = (6, 3)
-ItemSpacing       = (6, 4)
-ItemInnerSpacing  = (4, 3)
-CellPadding       = (4, 2)
+                    Compact   Standard   Comfortable
+WindowPadding     = (4, 3)    (6, 4)     (10, 8)
+FramePadding      = (4, 1)    (6, 3)     (8, 5)
+ItemSpacing       = (4, 2)    (6, 4)     (8, 6)
+ItemInnerSpacing  = (3, 2)    (4, 3)     (6, 4)
+CellPadding       = (3, 1)    (4, 2)     (6, 4)
+ScrollbarSize     = 10        12         14
 IndentSpacing     = 12
-ScrollbarSize     = 12
 GrabMinSize       = 8
 
 WindowTitleAlign  = (0, 0.5)
@@ -134,7 +135,7 @@ Viewports keep `WindowRounding = 0` and an opaque window background.
 | `TextDisabled` | `kTextFaint` |
 | `WindowBg` | `kBg1` |
 | `ChildBg` | `kBg2` |
-| `PopupBg` | `kBg3` |
+| `PopupBg` | `kBg3` (`kBg2`, white, in Light) |
 | `Border` | `kLine` |
 | `FrameBg` | `kBg0` |
 | `FrameBgHovered` / `FrameBgActive` | `kBg3` |
@@ -164,6 +165,7 @@ Viewports keep `WindowRounding = 0` and an opaque window background.
 | `TableBorderLight` | `kBg3` |
 | `TableRowBg` | transparent |
 | `TableRowBgAlt` | `kBg0` |
+| `NavWindowingDimBg` / `ModalWindowDimBg` | `kBg0` at 0.60 (`kText` at 0.30 in Light) |
 | `TextLink` | `kAccent` |
 | `TextSelectedBg` | accent at 0.28 |
 | `NavCursor` | `kAccent` |
@@ -173,7 +175,7 @@ Primary buttons (GO, OK) push `kGo` / `kAccentHover` / `kAccentPressed` and `kBg
 
 ### Plots
 
-`ImPlot::StyleColorsAuto()` runs after the ImGui style, then:
+`ImPlot::StyleColorsAuto()` runs after the ImGui style, then the overrides below. ImPlot's pixel paddings and tick lengths are scaled with the UI because `ScaleAllSizes` does not reach them.
 
 | ImPlot color | Token |
 |---|---|
@@ -183,6 +185,9 @@ Primary buttons (GO, OK) push `kGo` / `kAccentHover` / `kAccentPressed` and `kBg
 | `AxisText` | `kTextDim` |
 | `AxisGrid` | `kLine` |
 | `Crosshairs` | `kAccent` |
+| `LegendBg` | `kBg2` at 0.92 |
+| `LegendBorder` | `kLine` |
+| `LegendText` / `InlayText` / `TitleText` | `kText` |
 
 Candles: `kUp` when close ≥ open, `kDown` otherwise. Axis tags use `kAccent`.
 
@@ -194,7 +199,11 @@ Candles: `kUp` when close ≥ open, `kDown` otherwise. Axis tags use `kAccent`.
 
 ## 5. Typography
 
-Body is 13 px. No display sizes. Numeric columns stay right-aligned.
+Body is 13 px by default; Preferences and Ctrl+= / Ctrl+- / Ctrl+0 set 10 to 22 px. No display sizes. Numeric columns stay right-aligned.
+
+Layout constants are written for 13 px at 100% scaling and pass through `Theme::px()`, which multiplies by the monitor scale and the text zoom. A width that skips `px()` clips at 150% scaling or a larger text size.
+
+A figure is never clipped. A table whose figures do not fit sets `inner_width` to its widest figures and scrolls sideways (Financials, options chain, DATA, holdings, payoff legs). Cut digits read as a different number.
 
 `LoadFonts` takes the first installed face, in order: Noto Sans, Liberation Sans, DejaVu Sans, Ubuntu, with a matching mono for figures. Stratum's product shell ships IBM Plex; this app does not vendor a face.
 
@@ -212,17 +221,22 @@ Hover swaps color immediately. No eased motion. Scrollbars stay thin.
 
 | File | Role |
 |---|---|
-| `apps/terminal/src/ui/Theme.h` | Tokens |
-| `apps/terminal/src/ui/Theme.cpp` | `ApplyStratumStyle`, font load |
-| `apps/terminal/src/ui/ImGuiLayer.cpp` | Applies the style and the ImPlot overrides |
+| `apps/terminal/src/ui/Theme.h` | `Palette`, token accessors, `px()` |
+| `apps/terminal/src/ui/Theme.cpp` | `paletteFor`, `apply`, font load |
+| `apps/terminal/src/ui/AppearanceSettings.{h,cpp}` | Theme, gains/losses, density, and text size as plain data and file tokens |
+| `apps/terminal/src/ui/Appearance.{h,cpp}` | The settings in effect; applies changes between frames and saves them |
+| `apps/terminal/src/ui/Preferences.{h,cpp}` | Preferences and Keyboard Shortcuts windows |
+| `apps/terminal/src/ui/ImGuiLayer.cpp` | Applies the first style |
 
 Do not restyle `deps/imgui/`.
 
-The monorepo palette is `shared/GUI/StratumPalette.h` (`kPalDark` / `kPalLight`). After a palette change there, update these tokens to the new dark values. The website block is regenerated by `Website/tools/gen-stratum-palette.py`; the terminal is not.
+The monorepo palette is `shared/GUI/StratumPalette.h` (`kPalDark` / `kPalLight`). After a palette change there, update `paletteFor` to the new values. The website block is regenerated by `Website/tools/gen-stratum-palette.py`; the terminal is not.
 
 ---
 
 ## 8. Acceptance
+
+With Stratum Dark, green/red gains, Standard density, and 13 px text:
 
 1. The window, empty dock, and plot are `#0d1116`.
 2. Default text is `#ccd3dd`.
@@ -231,3 +245,21 @@ The monorepo palette is `shared/GUI/StratumPalette.h` (`kPalDark` / `kPalLight`)
 5. Padding is tight.
 6. Green and brick appear only on direction, coverage health, errors, and Cancel.
 7. From a distance the screen is cool slate-blue.
+
+---
+
+## 9. Appearance settings
+
+File > Preferences (Ctrl+,) edits these. Every change applies on the next frame. Saving waits until edits pause, then writes the `appearance` object of `data/terminal.json`. The startup list in the same file is kept. A token the terminal does not know keeps that field's default, so an older build opens a newer file.
+
+| Setting | Values | Default |
+|---|---|---|
+| `theme` | `stratum-dark`, `high-contrast`, `light` | `stratum-dark` |
+| `market_colors` | `green-red`, `blue-orange` (color-blind safe), `red-green` (red rises) | `green-red` |
+| `density` | `compact`, `standard`, `comfortable` | `standard` |
+| `font_px` | 10 to 22 | 13 |
+| `frame_stats` | frame time on the status rail | off |
+
+Blue/orange differs in hue and in lightness, so it holds up under red-green color blindness. Each theme has its own pair, and each color is at least 4.5:1 on that theme's surfaces.
+
+Contrast of body text (`kText`) on the window body: Stratum Dark 11.9:1, Light 11.9:1, High Contrast 16.9:1. Stratum Dark `kDanger` is 3.7:1 on the window body, below WCAG AA for small text; High Contrast raises it to 7.1:1.

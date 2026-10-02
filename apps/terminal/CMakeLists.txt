@@ -45,6 +45,8 @@ add_library(terminal_logic OBJECT
     src/trading/EquityCurve.cpp
     src/trading/TradeStats.cpp
     src/ui/TradingFormat.cpp
+    src/ui/AppearanceSettings.cpp
+    src/ui/CommandMatch.cpp
     src/backtest/Strategy.cpp
     src/backtest/Engine.cpp
     src/backtest/BacktestJob.cpp
@@ -52,6 +54,7 @@ add_library(terminal_logic OBJECT
     src/backtest/strategies/MaCross.cpp
     src/backtest/strategies/BollingerRevert.cpp
     src/backtest/strategies/Momentum.cpp
+    src/backtest/strategies/ShockRevert.cpp
     src/options/OptionPayoff.cpp
     src/options/OptionStrategy.cpp
     src/chart/CChartAxis.cpp
@@ -96,8 +99,11 @@ add_library(terminal_gui OBJECT
     src/platform/vulkan/VulkanSwapchain.cpp
     src/ui/ImGuiLayer.cpp
     src/ui/Theme.cpp
+    src/ui/Appearance.cpp
     src/ui/TitleBar.cpp
     src/ui/Workspace.cpp
+    src/ui/CommandPalette.cpp
+    src/ui/Preferences.cpp
     src/ui/ChartbookHost.cpp
     src/ui/StatusRail.cpp
     src/ui/InventoryPanel.cpp
