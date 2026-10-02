@@ -63,6 +63,21 @@ struct BuiltWindow
     {
         return "###cb" + std::to_string(runtime) + "_payoff" + std::to_string(payoff_id);
     }
+    int ledger_id = 0;
+    if (ledgerIdFromWindow(window, ledger_id))
+    {
+        return "###cb" + std::to_string(runtime) + "_ledger" + std::to_string(ledger_id);
+    }
+    int backtest_id = 0;
+    if (backtestIdFromWindow(window, backtest_id))
+    {
+        return "###cb" + std::to_string(runtime) + "_backtest" + std::to_string(backtest_id);
+    }
+    int stats_id = 0;
+    if (statsIdFromWindow(window, stats_id))
+    {
+        return "###cb" + std::to_string(runtime) + "_stats" + std::to_string(stats_id);
+    }
     if (window.starts_with("pane:"))
     {
         return "###cb" + std::to_string(runtime) + "_pane" + std::string(window.substr(5));
@@ -126,6 +141,36 @@ struct BuiltWindow
             return {};
         }
         return "payoff:" + suffix;
+    }
+    constexpr std::string_view ledger_prefix = "ledger";
+    if (rest.starts_with(ledger_prefix))
+    {
+        const std::string suffix = rest.substr(ledger_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "ledger:" + suffix;
+    }
+    constexpr std::string_view backtest_prefix = "backtest";
+    if (rest.starts_with(backtest_prefix))
+    {
+        const std::string suffix = rest.substr(backtest_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "backtest:" + suffix;
+    }
+    constexpr std::string_view stats_prefix = "stats";
+    if (rest.starts_with(stats_prefix))
+    {
+        const std::string suffix = rest.substr(stats_prefix.size());
+        if (suffix.empty() || suffix.find_first_not_of("0123456789") != std::string::npos)
+        {
+            return {};
+        }
+        return "stats:" + suffix;
     }
     if (rest.starts_with("pane"))
     {
@@ -718,6 +763,33 @@ void ChartbookHost::drawViewMenu()
     if (ImGui::MenuItem("Close Payoff Wizard", nullptr, false, close_payoff))
     {
         open.book->closeFocusedPayoff();
+    }
+    if (ImGui::MenuItem("New Ledger"))
+    {
+        open.book->addLedger();
+    }
+    const bool close_ledger = open.book->focusedLedger() != nullptr;
+    if (ImGui::MenuItem("Close Ledger", nullptr, false, close_ledger))
+    {
+        open.book->closeFocusedLedger();
+    }
+    if (ImGui::MenuItem("New Backtest"))
+    {
+        open.book->addBacktest();
+    }
+    const bool close_backtest = open.book->focusedBacktest() != nullptr;
+    if (ImGui::MenuItem("Close Backtest", nullptr, false, close_backtest))
+    {
+        open.book->closeFocusedBacktest();
+    }
+    if (ImGui::MenuItem("New Statistics"))
+    {
+        open.book->addStats();
+    }
+    const bool close_stats = open.book->focusedStats() != nullptr;
+    if (ImGui::MenuItem("Close Statistics", nullptr, false, close_stats))
+    {
+        open.book->closeFocusedStats();
     }
     endTitleMenu();
 }
@@ -1421,6 +1493,9 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         int options_id = 0;
         int portfolio_id = 0;
         int payoff_id = 0;
+        int ledger_id = 0;
+        int backtest_id = 0;
+        int stats_id = 0;
         if (window.window == "data")
         {
             inventory.setPlacement(true, false, window.dock, ImVec2{}, ImVec2{});
@@ -1441,6 +1516,18 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         {
             open.book->placePayoff(payoff_id, true, false, window.dock, ImVec2{}, ImVec2{});
         }
+        else if (ledgerIdFromWindow(window.window, ledger_id))
+        {
+            open.book->placeLedger(ledger_id, true, false, window.dock, ImVec2{}, ImVec2{});
+        }
+        else if (backtestIdFromWindow(window.window, backtest_id))
+        {
+            open.book->placeBacktest(backtest_id, true, false, window.dock, ImVec2{}, ImVec2{});
+        }
+        else if (statsIdFromWindow(window.window, stats_id))
+        {
+            open.book->placeStats(stats_id, true, false, window.dock, ImVec2{}, ImVec2{});
+        }
         else
         {
             open.book->placePane(paneIdOf(window.window), true, false, window.dock, ImVec2{}, ImVec2{});
@@ -1455,6 +1542,9 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         int options_id = 0;
         int portfolio_id = 0;
         int payoff_id = 0;
+        int ledger_id = 0;
+        int backtest_id = 0;
+        int stats_id = 0;
         if (floating.window == "data")
         {
             inventory.setPlacement(true, true, 0, pos, floating_size);
@@ -1474,6 +1564,18 @@ void ChartbookHost::applyLayout(InventoryPanel& inventory, ImGuiID dock_id, ImVe
         else if (payoffIdFromWindow(floating.window, payoff_id))
         {
             open.book->placePayoff(payoff_id, true, true, 0, pos, floating_size);
+        }
+        else if (ledgerIdFromWindow(floating.window, ledger_id))
+        {
+            open.book->placeLedger(ledger_id, true, true, 0, pos, floating_size);
+        }
+        else if (backtestIdFromWindow(floating.window, backtest_id))
+        {
+            open.book->placeBacktest(backtest_id, true, true, 0, pos, floating_size);
+        }
+        else if (statsIdFromWindow(floating.window, stats_id))
+        {
+            open.book->placeStats(stats_id, true, true, 0, pos, floating_size);
         }
         else
         {
@@ -1571,8 +1673,14 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             int payoff_id = 0;
             const bool is_portfolio = portfolioIdFromWindow(id, portfolio_id);
             const bool is_payoff = payoffIdFromWindow(id, payoff_id);
-            if (id != "data" && !is_financials && !is_options && !is_portfolio && !is_payoff &&
-                !open.book->containsPane(paneIdOf(id)))
+            int ledger_id = 0;
+            const bool is_ledger = ledgerIdFromWindow(id, ledger_id);
+            int stats_id = 0;
+            const bool is_stats = statsIdFromWindow(id, stats_id);
+            int backtest_id = 0;
+            const bool is_backtest = backtestIdFromWindow(id, backtest_id);
+            if (id != "data" && !is_financials && !is_options && !is_portfolio && !is_payoff && !is_ledger &&
+                !is_stats && !is_backtest && !open.book->containsPane(paneIdOf(id)))
             {
                 continue;
             }
@@ -1589,6 +1697,18 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
                 continue;
             }
             if (is_payoff && !open.book->containsPayoff(payoff_id))
+            {
+                continue;
+            }
+            if (is_ledger && !open.book->containsLedger(ledger_id))
+            {
+                continue;
+            }
+            if (is_backtest && !open.book->containsBacktest(backtest_id))
+            {
+                continue;
+            }
+            if (is_stats && !open.book->containsStats(stats_id))
             {
                 continue;
             }
@@ -1667,6 +1787,18 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     {
         consider(payoffWindowId(panel.id));
     }
+    for (const ChartbookLedger& panel : exported.ledgers)
+    {
+        consider(ledgerWindowId(panel.id));
+    }
+    for (const ChartbookBacktest& panel : exported.backtests)
+    {
+        consider(backtestWindowId(panel.id));
+    }
+    for (const ChartbookStats& panel : exported.stats)
+    {
+        consider(statsWindowId(panel.id));
+    }
     for (const ChartbookPane& pane : exported.panes)
     {
         consider(paneWindowId(pane.id));
@@ -1704,6 +1836,27 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     for (const ChartbookPayoff& panel : exported.payoffs)
     {
         if (std::ranges::find(seen, payoffWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
+    }
+    for (const ChartbookLedger& panel : exported.ledgers)
+    {
+        if (std::ranges::find(seen, ledgerWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
+    }
+    for (const ChartbookBacktest& panel : exported.backtests)
+    {
+        if (std::ranges::find(seen, backtestWindowId(panel.id)) == seen.end())
+        {
+            complete = false;
+        }
+    }
+    for (const ChartbookStats& panel : exported.stats)
+    {
+        if (std::ranges::find(seen, statsWindowId(panel.id)) == seen.end())
         {
             complete = false;
         }
@@ -1839,6 +1992,9 @@ void ChartbookHost::drawSpace(InventoryPanel& inventory)
     open.book->drawOptions(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawPortfolios(store_.get(), open_error_, inventory.ingestWorker());
     open.book->drawPayoffs(store_.get(), open_error_, inventory.ingestWorker());
+    open.book->drawLedgers(store_.get(), open_error_, inventory.ingestWorker());
+    open.book->drawBacktests(store_.get(), open_error_, inventory.ingestWorker());
+    open.book->drawStats(store_.get(), open_error_, inventory.ingestWorker());
     open.book->draw(store_.get(), open_error_, inventory.ingestWorker());
     if (dataShown(open) && inventory.focused())
     {

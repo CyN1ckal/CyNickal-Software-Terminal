@@ -4,6 +4,7 @@
 #include "ui/PortfolioPanel.h"
 
 #include "IngestDefaults.h"
+#include "data/IngestWorker.h"
 #include "data/PortfolioFetch.h"
 #include "risk/HistoricalRisk.h"
 #include "ui/ReceivedStamp.h"
@@ -859,7 +860,10 @@ void PortfolioPanel::apply(Store& store, IngestWorker* ingest)
             if (ingest != nullptr)
             {
                 const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
-                enqueuePortfolioFetches(*ingest, portfolioFetchJobs(writer, portfolio_id_, today));
+                for (const IngestJob& job : portfolioFetchJobs(writer, portfolio_id_, today))
+                {
+                    ingest->enqueue(job);
+                }
             }
         }))
     {

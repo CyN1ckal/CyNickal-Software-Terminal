@@ -110,6 +110,7 @@ struct CChartSettings
     ChartVerticalGrid vertical_grid{ChartVerticalGrid::Daily};
     ChartHorizontalGrid horizontal_grid{ChartHorizontalGrid::Automatic};
     double horizontal_grid_spacing{kChartDefaultHorizontalGridSpacing};
+    std::int64_t trades_ledger{0};  // ledger whose fills are marked on the chart; 0 = none
 };
 
 [[nodiscard]] inline int timeframeSeconds(ChartBarPeriod period) noexcept

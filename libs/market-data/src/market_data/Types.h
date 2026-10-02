@@ -24,7 +24,7 @@ inline constexpr int kUsRthExpected1m = 390;
 inline constexpr int kUsRthExpected1d = 1;
 inline constexpr int kUsRthDurationS = 23400;  // 09:30–16:00 local; daily forming window
 inline constexpr int kMboumDailyPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 5;
+inline constexpr int kSchemaUserVersion = 6;
 
 enum class AssetClass : std::uint8_t
 {
@@ -312,6 +312,102 @@ struct PortfolioHolding
     double quantity{};
 };
 
+using LedgerId = std::int64_t;
+using TradeFillId = std::int64_t;
+using LedgerCashFlowId = std::int64_t;
+using BacktestRunId = std::int64_t;
+
+// Manual ledgers are edited by hand or imported. A backtest ledger is written
+// once by Store::recordBacktestRun and is read-only after that.
+enum class LedgerKind : std::uint8_t
+{
+    Manual,
+    Backtest
+};
+
+enum class TradeAssetKind : std::uint8_t
+{
+    Equity,
+    Etf,
+    Option
+};
+
+struct Ledger
+{
+    LedgerId id{};
+    std::string name;
+    LedgerKind kind{LedgerKind::Manual};
+    UnixSeconds created_at{};
+    UnixSeconds updated_at{};
+};
+
+// One execution. quantity is signed: positive buys, negative sells. Equity and
+// ETF quantity is shares, option quantity is contracts. fees is never negative.
+// Write path reads figi and the option fields. id, instrument_id, symbol, and
+// listing_open are filled on read and ignored on write.
+struct TradeFill
+{
+    TradeFillId id{};
+    TradeAssetKind kind{TradeAssetKind::Equity};
+    std::optional<std::string> figi;
+    std::optional<InstrumentId> instrument_id;
+    std::optional<std::string> symbol;
+    bool listing_open{false};
+    std::optional<SessionDate> expiration;
+    std::optional<OptionExpirationType> expiration_type;
+    std::optional<double> strike;
+    std::optional<OptionRight> right;
+    UnixSeconds ts{};
+    double quantity{};
+    double price{};
+    double fees{};
+    std::optional<std::string> note;
+    std::optional<std::string> external_id;
+};
+
+// USD deposit (positive) or withdrawal (negative). id is filled on read.
+struct LedgerCashFlow
+{
+    LedgerCashFlowId id{};
+    UnixSeconds ts{};
+    double amount{};
+    std::optional<std::string> note;
+    std::optional<std::string> external_id;
+};
+
+// What a backtest ran on. params_json and config_json are JSON text the store
+// only checks for validity. Write path reads figi. id, ledger_id, instrument_id,
+// symbol, and created_at are filled on read and ignored on write.
+struct BacktestRun
+{
+    BacktestRunId id{};
+    LedgerId ledger_id{};
+    std::string strategy_id;
+    std::string params_json{"{}"};
+    std::string config_json{"{}"};
+    std::optional<std::string> figi;
+    std::optional<InstrumentId> instrument_id;
+    std::optional<std::string> symbol;
+    int timeframe_s{kTimeframe1d};
+    UnixSeconds ts_begin{};
+    UnixSeconds ts_end{};
+    int engine_version{1};
+    UnixSeconds created_at{};
+};
+
+// Rows whose external_id already exists in the ledger are skipped, not written.
+struct LedgerAppendResult
+{
+    int written{};
+    int skipped{};
+};
+
+struct RecordedBacktest
+{
+    BacktestRunId run_id{};
+    LedgerId ledger_id{};
+};
+
 struct UpsertBarsResult
 {
     int written{};
@@ -462,6 +558,32 @@ inline std::string_view toSql(PortfolioAssetKind value)
         return "cash";
     }
     throw std::runtime_error("unknown PortfolioAssetKind");
+}
+
+inline std::string_view toSql(LedgerKind value)
+{
+    switch (value)
+    {
+    case LedgerKind::Manual:
+        return "manual";
+    case LedgerKind::Backtest:
+        return "backtest";
+    }
+    throw std::runtime_error("unknown LedgerKind");
+}
+
+inline std::string_view toSql(TradeAssetKind value)
+{
+    switch (value)
+    {
+    case TradeAssetKind::Equity:
+        return "equity";
+    case TradeAssetKind::Etf:
+        return "etf";
+    case TradeAssetKind::Option:
+        return "option";
+    }
+    throw std::runtime_error("unknown TradeAssetKind");
 }
 
 inline AssetClass assetClassFromSql(std::string_view text)
@@ -631,6 +753,36 @@ inline PortfolioAssetKind portfolioAssetKindFromSql(std::string_view text)
         return PortfolioAssetKind::Cash;
     }
     throw std::runtime_error("unknown portfolio asset_kind");
+}
+
+inline LedgerKind ledgerKindFromSql(std::string_view text)
+{
+    if (text == "manual")
+    {
+        return LedgerKind::Manual;
+    }
+    if (text == "backtest")
+    {
+        return LedgerKind::Backtest;
+    }
+    throw std::runtime_error("unknown ledger kind");
+}
+
+inline TradeAssetKind tradeAssetKindFromSql(std::string_view text)
+{
+    if (text == "equity")
+    {
+        return TradeAssetKind::Equity;
+    }
+    if (text == "etf")
+    {
+        return TradeAssetKind::Etf;
+    }
+    if (text == "option")
+    {
+        return TradeAssetKind::Option;
+    }
+    throw std::runtime_error("unknown trade asset_kind");
 }
 
 inline bool isValidBar(const Bar& b) noexcept

@@ -435,6 +435,10 @@ void writeLinkGroup(json& object, int link_group)
     {
         object["horizontal_grid_spacing"] = settings.horizontal_grid_spacing;
     }
+    if (settings.trades_ledger != 0)
+    {
+        object["trades_ledger"] = settings.trades_ledger;
+    }
     return object;
 }
 
@@ -533,6 +537,16 @@ void writeLinkGroup(json& object, int link_group)
             return fail(error, "horizontal_grid_spacing is not a number");
         }
         settings.horizontal_grid_spacing = field.get<double>();
+    }
+    settings.trades_ledger = 0;
+    if (object->contains("trades_ledger"))
+    {
+        const json& field = object->at("trades_ledger");
+        if (!field.is_number_integer() || field.get<std::int64_t>() < 0)
+        {
+            return fail(error, "trades_ledger is invalid");
+        }
+        settings.trades_ledger = field.get<std::int64_t>();
     }
     return true;
 }
@@ -1446,6 +1460,269 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return true;
 }
 
+[[nodiscard]] bool acceptLedgerId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "ledger id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.ledgers, [id](const ChartbookLedger& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_ledger_id <= id)
+    {
+        return fail(error, "ledger id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json ledgersToJson(const std::vector<ChartbookLedger>& ledgers)
+{
+    json array = json::array();
+    for (const ChartbookLedger& panel : ledgers)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["ledger"] = panel.ledger_id;
+        if (panel.tab != kLedgerTabs[0])
+        {
+            object["tab"] = panel.tab;
+        }
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool ledgersFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                   std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "ledgers is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_ledger_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "ledgers", item, error))
+        {
+            return false;
+        }
+        ChartbookLedger panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "ledger id is missing");
+        }
+        if (item->contains("ledger"))
+        {
+            if (!item->at("ledger").is_number_integer())
+            {
+                return fail(error, "ledger store id is missing");
+            }
+            panel.ledger_id = item->at("ledger").get<std::int64_t>();
+            if (panel.ledger_id < 0)
+            {
+                return fail(error, "ledger store id is invalid");
+            }
+        }
+        if (item->contains("tab"))
+        {
+            if (!item->at("tab").is_string() || !isLedgerTab(item->at("tab").get<std::string>()))
+            {
+                return fail(error, "ledger tab is invalid");
+            }
+            panel.tab = item->at("tab").get<std::string>();
+        }
+        if (!acceptLedgerId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.ledgers.push_back(panel);
+    }
+    return true;
+}
+
+[[nodiscard]] bool acceptBacktestId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "backtest id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.backtests, [id](const ChartbookBacktest& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_backtest_id <= id)
+    {
+        return fail(error, "backtest id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json backtestsToJson(const std::vector<ChartbookBacktest>& panels)
+{
+    json array = json::array();
+    for (const ChartbookBacktest& panel : panels)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["strategy"] = panel.strategy;
+        const json params = json::parse(panel.params, nullptr, false);
+        object["params"] = params.is_object() ? params : json::object();
+        object["symbol"] = panel.symbol;
+        object["period"] = panel.period;
+        object["from"] = panel.from;
+        object["to"] = panel.to;
+        const json config = json::parse(panel.config, nullptr, false);
+        object["config"] = config.is_object() ? config : json::object();
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool backtestsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "backtests is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_backtest_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "backtests", item, error))
+        {
+            return false;
+        }
+        ChartbookBacktest panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "backtest id is missing");
+        }
+        const auto readText = [&](const char* key, std::string& out, std::size_t limit) {
+            if (!item->contains(key))
+            {
+                return true;
+            }
+            if (!item->at(key).is_string() || item->at(key).get<std::string>().size() > limit)
+            {
+                return false;
+            }
+            out = item->at(key).get<std::string>();
+            return true;
+        };
+        const auto readObjectText = [&](const char* key, std::string& out) {
+            if (!item->contains(key))
+            {
+                return true;
+            }
+            if (!item->at(key).is_object())
+            {
+                return false;
+            }
+            out = item->at(key).dump();
+            return true;
+        };
+        if (!readText("strategy", panel.strategy, 64) || !readText("symbol", panel.symbol, 32) ||
+            !readText("period", panel.period, 8) || !readText("from", panel.from, 10) ||
+            !readText("to", panel.to, 10) || !readObjectText("params", panel.params) ||
+            !readObjectText("config", panel.config))
+        {
+            return fail(error, "backtest window is invalid");
+        }
+        if (!acceptBacktestId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.backtests.push_back(std::move(panel));
+    }
+    return true;
+}
+
+[[nodiscard]] bool acceptStatsId(const CChartbookDocument& document, int id, std::string& error)
+{
+    if (id <= 0)
+    {
+        return fail(error, "stats id is missing");
+    }
+    const bool duplicate = std::ranges::any_of(document.stats, [id](const ChartbookStats& existing) {
+        return existing.id == id;
+    });
+    if (duplicate || document.next_stats_id <= id)
+    {
+        return fail(error, "stats id is out of range");
+    }
+    return true;
+}
+
+[[nodiscard]] json statsToJson(const std::vector<ChartbookStats>& panels)
+{
+    json array = json::array();
+    for (const ChartbookStats& panel : panels)
+    {
+        json object = json::object();
+        object["id"] = panel.id;
+        object["ledger"] = panel.ledger_id;
+        object["benchmark"] = panel.benchmark;
+        array.push_back(std::move(object));
+    }
+    return array;
+}
+
+[[nodiscard]] bool statsFromJson(const json& value, CChartbookDocument& document, bool next_present,
+                                std::string& error)
+{
+    if (!value.is_array())
+    {
+        return fail(error, "stats is not an array");
+    }
+    if (!next_present)
+    {
+        return fail(error, "next_stats_id is missing");
+    }
+    for (const json& item_value : value)
+    {
+        const json* item = nullptr;
+        if (!readObject(item_value, "stats", item, error))
+        {
+            return false;
+        }
+        ChartbookStats panel;
+        if (!readInt(*item, "id", panel.id, error) || panel.id <= 0)
+        {
+            return fail(error, "stats id is missing");
+        }
+        if (item->contains("ledger"))
+        {
+            if (!item->at("ledger").is_number_integer() || item->at("ledger").get<std::int64_t>() < 0)
+            {
+                return fail(error, "stats ledger is invalid");
+            }
+            panel.ledger_id = item->at("ledger").get<std::int64_t>();
+        }
+        if (item->contains("benchmark"))
+        {
+            if (!item->at("benchmark").is_string() || item->at("benchmark").get<std::string>().size() > 15)
+            {
+                return fail(error, "stats benchmark is invalid");
+            }
+            panel.benchmark = item->at("benchmark").get<std::string>();
+        }
+        if (!acceptStatsId(document, panel.id, error))
+        {
+            return false;
+        }
+        document.stats.push_back(std::move(panel));
+    }
+    return true;
+}
+
 [[nodiscard]] bool optionsFromJson(const json& value, CChartbookDocument& document, bool next_present,
                                    std::string& error)
 {
@@ -1607,9 +1884,13 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     int options_id = 0;
     int portfolio_id = 0;
     int payoff_id = 0;
+    int ledger_id = 0;
+    int stats_id = 0;
+    int backtest_id = 0;
     if (window == "data" || window == "financials" || financialsIdFromWindow(window, financials_id) ||
         optionsIdFromWindow(window, options_id) || portfolioIdFromWindow(window, portfolio_id) ||
-        payoffIdFromWindow(window, payoff_id))
+        payoffIdFromWindow(window, payoff_id) || ledgerIdFromWindow(window, ledger_id) ||
+        statsIdFromWindow(window, stats_id) || backtestIdFromWindow(window, backtest_id))
     {
         return true;
     }
@@ -2006,6 +2287,51 @@ void collectWindows(const ChartbookLayout& layout, int start, std::vector<std::s
             return fail(error, "layout names a missing payoff panel");
         }
     }
+    for (const std::string& window : windows)
+    {
+        int ledger_id = 0;
+        if (!ledgerIdFromWindow(window, ledger_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.ledgers, [&](const ChartbookLedger& panel) {
+            return panel.id == ledger_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing ledger panel");
+        }
+    }
+    for (const std::string& window : windows)
+    {
+        int backtest_id = 0;
+        if (!backtestIdFromWindow(window, backtest_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.backtests, [&](const ChartbookBacktest& panel) {
+            return panel.id == backtest_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing backtest panel");
+        }
+    }
+    for (const std::string& window : windows)
+    {
+        int stats_id = 0;
+        if (!statsIdFromWindow(window, stats_id))
+        {
+            continue;
+        }
+        const bool found = std::ranges::any_of(document.stats, [&](const ChartbookStats& panel) {
+            return panel.id == stats_id;
+        });
+        if (!found)
+        {
+            return fail(error, "layout names a missing stats panel");
+        }
+    }
     return true;
 }
 
@@ -2104,11 +2430,20 @@ void replaceBareFinancials(std::string& window, const std::string& replacement)
     root["next_portfolio_id"] = document.next_portfolio_id;
     root["focused_payoff"] = document.focused_payoff;
     root["next_payoff_id"] = document.next_payoff_id;
+    root["focused_ledger"] = document.focused_ledger;
+    root["next_ledger_id"] = document.next_ledger_id;
+    root["focused_backtest"] = document.focused_backtest;
+    root["next_backtest_id"] = document.next_backtest_id;
+    root["focused_stats"] = document.focused_stats;
+    root["next_stats_id"] = document.next_stats_id;
     root["data"] = dataToJson(document.data);
     root["financials"] = financialsToJson(document.financials);
     root["options"] = optionsToJson(document.options);
     root["portfolios"] = portfoliosToJson(document.portfolios);
     root["payoffs"] = payoffsToJson(document.payoffs);
+    root["ledgers"] = ledgersToJson(document.ledgers);
+    root["backtests"] = backtestsToJson(document.backtests);
+    root["stats"] = statsToJson(document.stats);
     root["layout"] = std::move(layout);
     root["floating"] = std::move(floating);
     root["panes"] = std::move(panes);
@@ -2351,6 +2686,108 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
         if (!focused_ok)
         {
             result.error = "focused payoff is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_ledger_present = false;
+    if (object->contains("next_ledger_id"))
+    {
+        next_ledger_present = true;
+        if (!readInt(*object, "next_ledger_id", result.document.next_ledger_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_ledger") &&
+        !readInt(*object, "focused_ledger", result.document.focused_ledger, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("ledgers") &&
+        !ledgersFromJson(object->at("ledgers"), result.document, next_ledger_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_ledger != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.ledgers, [&](const ChartbookLedger& panel) {
+            return panel.id == result.document.focused_ledger;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused ledger is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_backtest_present = false;
+    if (object->contains("next_backtest_id"))
+    {
+        next_backtest_present = true;
+        if (!readInt(*object, "next_backtest_id", result.document.next_backtest_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_backtest") &&
+        !readInt(*object, "focused_backtest", result.document.focused_backtest, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("backtests") &&
+        !backtestsFromJson(object->at("backtests"), result.document, next_backtest_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_backtest != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.backtests, [&](const ChartbookBacktest& panel) {
+            return panel.id == result.document.focused_backtest;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused backtest is missing";
+            result.document = {};
+            return result;
+        }
+    }
+    bool next_stats_present = false;
+    if (object->contains("next_stats_id"))
+    {
+        next_stats_present = true;
+        if (!readInt(*object, "next_stats_id", result.document.next_stats_id, result.error))
+        {
+            result.document = {};
+            return result;
+        }
+    }
+    if (object->contains("focused_stats") &&
+        !readInt(*object, "focused_stats", result.document.focused_stats, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (object->contains("stats") &&
+        !statsFromJson(object->at("stats"), result.document, next_stats_present, result.error))
+    {
+        result.document = {};
+        return result;
+    }
+    if (result.document.focused_stats != 0)
+    {
+        const bool focused_ok = std::ranges::any_of(result.document.stats, [&](const ChartbookStats& panel) {
+            return panel.id == result.document.focused_stats;
+        });
+        if (!focused_ok)
+        {
+            result.error = "focused stats is missing";
             result.document = {};
             return result;
         }

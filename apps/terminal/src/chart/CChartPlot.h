@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CChartSettings.h"
+#include "chart/CChartTrades.h"
 #include "chart/CChartView.h"
 #include "chart/CStudy.h"
 #include "market_data/Types.h"
@@ -24,6 +25,7 @@ void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
                       std::string_view timezone,
-                      std::span<const CStudySeries> studies = {});
+                      std::span<const CStudySeries> studies = {},
+                      std::span<const ChartTradeMarker> trades = {});
 
 }  // namespace terminal

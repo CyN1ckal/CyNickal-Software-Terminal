@@ -17,4 +17,12 @@ namespace terminal {
 [[nodiscard]] std::vector<Bar> adjustBarsForSplits(std::vector<Bar> bars,
                                                    std::span<const CorporateAction> actions);
 
+// Product of the ratios of instrument_id's splits with after < ex_ts <= through,
+// ignoring non-positive ratios. An as-traded price at time `after` divided by it is
+// in the units of a series adjusted by adjustBarsForSplits with the splits through `through`.
+[[nodiscard]] double splitFactorBetween(std::span<const CorporateAction> actions,
+                                        InstrumentId instrument_id,
+                                        UnixSeconds after,
+                                        UnixSeconds through) noexcept;
+
 }  // namespace terminal

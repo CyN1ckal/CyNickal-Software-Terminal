@@ -74,4 +74,10 @@ SessionDate parseSessionDate(std::string_view text);
 // YYYY-MM-DD. Invalid civil dates still format the numeric fields.
 [[nodiscard]] std::string formatSessionDate(SessionDate date);
 
+// When a bar's close is known: at the end of its RTH session for a daily bar, else ts + timeframe_s.
+[[nodiscard]] constexpr UnixSeconds barCloseTime(const Bar& bar) noexcept
+{
+    return bar.timeframe_s == kTimeframe1d ? bar.ts + kUsRthDurationS : bar.ts + bar.timeframe_s;
+}
+
 }  // namespace terminal

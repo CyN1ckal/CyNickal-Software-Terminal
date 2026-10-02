@@ -8,6 +8,7 @@
 #include "chart/CStudyPlot.h"
 #include "market_data/Time.h"
 #include "ui/Theme.h"
+#include "ui/TradingFormat.h"
 
 #include "imgui.h"
 #include "implot.h"
@@ -648,6 +649,61 @@ void drawInstalledGridLines(const std::vector<double>& xs, const std::vector<dou
     ImPlot::PopPlotClipRect();
 }
 
+void drawTradeMarkers(std::span<const ChartTradeMarker> trades, const ChartVisibleWindow& win, int bar_count,
+                      float bar_spacing_px)
+{
+    if (trades.empty())
+    {
+        return;
+    }
+    ImDrawList* draw_list = ImPlot::GetPlotDrawList();
+    ImPlot::PushPlotClipRect();
+    const ImU32 buy = ImGui::ColorConvertFloat4ToU32(Theme::kUp);
+    const ImU32 sell = ImGui::ColorConvertFloat4ToU32(Theme::kDown);
+    const ImU32 edge = ImGui::ColorConvertFloat4ToU32(Theme::kBg0);
+    const float half = std::clamp(bar_spacing_px * 0.45f, 3.0f, 7.0f);
+    const float height = half * 1.6f;
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const bool hovered_plot = ImPlot::IsPlotHovered();
+    const ChartTradeMarker* hovered = nullptr;
+    const int first = std::max(0, win.first);
+    const int last = std::min(bar_count - 1, win.last);
+    for (const ChartTradeMarker& marker : trades)
+    {
+        if (marker.bar_index < first || marker.bar_index > last)
+        {
+            continue;
+        }
+        // The apex touches the fill price: a buy points up from below, a sell down from above.
+        const ImVec2 apex = ImPlot::PlotToPixels(static_cast<double>(marker.bar_index), marker.price);
+        const bool bought = marker.quantity > 0.0;
+        const float base_y = bought ? apex.y + height : apex.y - height;
+        const ImVec2 left(apex.x - half, base_y);
+        const ImVec2 right(apex.x + half, base_y);
+        draw_list->AddTriangleFilled(apex, left, right, bought ? buy : sell);
+        draw_list->AddTriangle(apex, left, right, edge);
+        const float center_y = (apex.y + base_y) * 0.5f;
+        if (hovered_plot && std::abs(mouse.x - apex.x) <= half + 2.0f && std::abs(mouse.y - center_y) <= height)
+        {
+            hovered = &marker;
+        }
+    }
+    ImPlot::PopPlotClipRect();
+    if (hovered != nullptr)
+    {
+        ImGui::BeginTooltip();
+        const bool bought = hovered->quantity > 0.0;
+        ImGui::TextColored(bought ? Theme::kUp : Theme::kDown, "%s %s at %s", bought ? "Buy" : "Sell",
+                           formatQuantity(std::abs(hovered->quantity)).c_str(), formatPrice(hovered->price).c_str());
+        ImGui::TextColored(Theme::kTextDim, "%s", formatLedgerTime(hovered->ts).c_str());
+        if (!hovered->note.empty())
+        {
+            ImGui::TextColored(Theme::kTextDim, "%s", hovered->note.c_str());
+        }
+        ImGui::EndTooltip();
+    }
+}
+
 void drawChartRegion(std::span<const Bar> bars,
                      CChartSettings& settings,
                      CChartViewState& view,
@@ -658,7 +714,8 @@ void drawChartRegion(std::span<const Bar> bars,
                      int region_count,
                      bool* x_handled,
                      StudyRegionScale* region_scale,
-                     bool clamp_scroll)
+                     bool clamp_scroll,
+                     std::span<const ChartTradeMarker> trades)
 {
     const int bar_count = static_cast<int>(bars.size());
     const bool price = chart_region == kStudyMainChartRegion;
@@ -850,6 +907,7 @@ void drawChartRegion(std::span<const Bar> bars,
             draw_list->AddRectFilled(ImVec2(open_pos.x, y0), ImVec2(close_pos.x, y1), color);
         }
         ImPlot::PopPlotClipRect();
+        drawTradeMarkers(trades, win, bar_count, settings.bar_spacing_px);
     }
 
     drawStudyRegion(studies, chart_region, win, bar_count, bars, settings.bar_width_frac, stems_only);
@@ -877,7 +935,8 @@ void drawCandlesticks(std::span<const Bar> bars,
                       CChartSettings& settings,
                       CChartViewState& view,
                       std::string_view timezone,
-                      std::span<const CStudySeries> studies)
+                      std::span<const CStudySeries> studies,
+                      std::span<const ChartTradeMarker> trades)
 {
     view.price_ylim_valid = false;
     if (bars.empty())
@@ -901,7 +960,7 @@ void drawCandlesticks(std::span<const Bar> bars,
     if (region_count <= 1)
     {
         drawChartRegion(bars, settings, view, timezone, studies, win, kStudyMainChartRegion, 1, nullptr,
-                        nullptr, true);
+                        nullptr, true, trades);
     }
     else
     {
@@ -919,7 +978,7 @@ void drawCandlesticks(std::span<const Bar> bars,
                     scale = &studyRegionScale(view, region);
                 }
                 drawChartRegion(bars, settings, view, timezone, studies, win, region, region_count,
-                                &x_handled, scale, false);
+                                &x_handled, scale, false, trades);
             }
             const ChartVisibleWindow clamped =
                 computeVisibleWindow(bar_count, view.last_plot_w, settings.bar_spacing_px,

@@ -15,6 +15,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <functional>
+#include <map>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -526,6 +528,226 @@ void requireHoldingQuantity(double quantity)
     }
 }
 
+[[nodiscard]] Ledger ledgerFromStmt(SqliteStmt const& stmt)
+{
+    Ledger row;
+    row.id = stmt.columnInt64(0);
+    row.name = stmt.columnText(1);
+    row.kind = ledgerKindFromSql(stmt.columnText(2));
+    row.created_at = stmt.columnInt64(3);
+    row.updated_at = stmt.columnInt64(4);
+    return row;
+}
+
+// Columns: id, asset_kind, figi, instrument_id, symbol, listing_closed_at, expiration,
+// expiration_type, strike, right, ts, quantity, price, fees, note, external_id.
+[[nodiscard]] TradeFill tradeFillFromStmt(SqliteStmt const& stmt)
+{
+    TradeFill row;
+    row.id = stmt.columnInt64(0);
+    row.kind = tradeAssetKindFromSql(stmt.columnText(1));
+    if (!stmt.columnIsNull(2))
+    {
+        row.figi = stmt.columnText(2);
+    }
+    row.instrument_id = stmt.columnInt64(3);
+    row.listing_open = stmt.columnIsNull(5);
+    if (!stmt.columnIsNull(4))
+    {
+        row.symbol = stmt.columnText(4);
+    }
+    if (!stmt.columnIsNull(6))
+    {
+        row.expiration = static_cast<SessionDate>(stmt.columnInt64(6));
+    }
+    if (!stmt.columnIsNull(7))
+    {
+        row.expiration_type = optionExpirationTypeFromSql(stmt.columnText(7));
+    }
+    if (!stmt.columnIsNull(8))
+    {
+        row.strike = stmt.columnDouble(8);
+    }
+    if (!stmt.columnIsNull(9))
+    {
+        row.right = optionRightFromSql(stmt.columnText(9));
+    }
+    row.ts = stmt.columnInt64(10);
+    row.quantity = stmt.columnDouble(11);
+    row.price = stmt.columnDouble(12);
+    row.fees = stmt.columnDouble(13);
+    if (!stmt.columnIsNull(14))
+    {
+        row.note = stmt.columnText(14);
+    }
+    if (!stmt.columnIsNull(15))
+    {
+        row.external_id = stmt.columnText(15);
+    }
+    return row;
+}
+
+// Columns: id, ts, amount, note, external_id.
+[[nodiscard]] LedgerCashFlow cashFlowFromStmt(SqliteStmt const& stmt)
+{
+    LedgerCashFlow row;
+    row.id = stmt.columnInt64(0);
+    row.ts = stmt.columnInt64(1);
+    row.amount = stmt.columnDouble(2);
+    if (!stmt.columnIsNull(3))
+    {
+        row.note = stmt.columnText(3);
+    }
+    if (!stmt.columnIsNull(4))
+    {
+        row.external_id = stmt.columnText(4);
+    }
+    return row;
+}
+
+// Columns: id, ledger_id, strategy_id, params_json, config_json, figi, instrument_id,
+// symbol, timeframe_s, ts_begin, ts_end, engine_version, created_at.
+[[nodiscard]] BacktestRun backtestRunFromStmt(SqliteStmt const& stmt)
+{
+    BacktestRun row;
+    row.id = stmt.columnInt64(0);
+    row.ledger_id = stmt.columnInt64(1);
+    row.strategy_id = stmt.columnText(2);
+    row.params_json = stmt.columnText(3);
+    row.config_json = stmt.columnText(4);
+    if (!stmt.columnIsNull(5))
+    {
+        row.figi = stmt.columnText(5);
+    }
+    row.instrument_id = stmt.columnInt64(6);
+    if (!stmt.columnIsNull(7))
+    {
+        row.symbol = stmt.columnText(7);
+    }
+    row.timeframe_s = static_cast<int>(stmt.columnInt64(8));
+    row.ts_begin = stmt.columnInt64(9);
+    row.ts_end = stmt.columnInt64(10);
+    row.engine_version = static_cast<int>(stmt.columnInt64(11));
+    row.created_at = stmt.columnInt64(12);
+    return row;
+}
+
+[[nodiscard]] bool tradeKindMatches(TradeAssetKind kind, AssetClass asset_class)
+{
+    switch (kind)
+    {
+    case TradeAssetKind::Equity:
+        return asset_class == AssetClass::Equity;
+    case TradeAssetKind::Etf:
+        return asset_class == AssetClass::Etf;
+    case TradeAssetKind::Option:
+        return asset_class == AssetClass::Equity || asset_class == AssetClass::Etf ||
+               asset_class == AssetClass::Index;
+    }
+    throw std::runtime_error("unknown TradeAssetKind");
+}
+
+void requireExternalId(const std::optional<std::string>& external_id, const char* message)
+{
+    if (external_id.has_value() && !isTrimmedNonEmpty(*external_id))
+    {
+        throw std::runtime_error(message);
+    }
+}
+
+// Field checks that need no database. The instrument is checked by resolveFillInstruments.
+void requireFillFields(const TradeFill& fill)
+{
+    if (fill.ts < 0)
+    {
+        throw std::runtime_error("trade fill time is negative");
+    }
+    if (!std::isfinite(fill.quantity) || fill.quantity == 0.0)
+    {
+        throw std::runtime_error("trade fill quantity is zero or not finite");
+    }
+    if (!std::isfinite(fill.price) || fill.price < 0.0)
+    {
+        throw std::runtime_error("trade fill price is negative or not finite");
+    }
+    if (!std::isfinite(fill.fees) || fill.fees < 0.0)
+    {
+        throw std::runtime_error("trade fill fees are negative or not finite");
+    }
+    requireExternalId(fill.external_id, "trade fill external_id is empty or untrimmed");
+    const bool any_option = fill.expiration.has_value() || fill.expiration_type.has_value() ||
+                            fill.strike.has_value() || fill.right.has_value();
+    if (fill.kind != TradeAssetKind::Option)
+    {
+        if (any_option)
+        {
+            throw std::runtime_error("trade fill kind does not match its fields");
+        }
+        return;
+    }
+    if (!fill.expiration.has_value() || !fill.expiration_type.has_value() || !fill.strike.has_value() ||
+        !fill.right.has_value())
+    {
+        throw std::runtime_error("trade fill kind does not match its fields");
+    }
+    if (!isSessionDate(*fill.expiration) || !std::isfinite(*fill.strike) || *fill.strike <= 0.0)
+    {
+        throw std::runtime_error("trade fill option identity is invalid");
+    }
+}
+
+// Checks every fill and returns its instrument id, parallel to fills. Writes nothing.
+[[nodiscard]] std::vector<InstrumentId> resolveFillInstruments(const Store& store, std::span<const TradeFill> fills)
+{
+    std::vector<InstrumentId> ids;
+    ids.reserve(fills.size());
+    std::map<std::string, Instrument, std::less<>> seen;
+    for (const TradeFill& fill : fills)
+    {
+        requireFillFields(fill);
+        if (!fill.figi.has_value())
+        {
+            throw std::runtime_error("trade fill figi is missing");
+        }
+        auto found = seen.find(*fill.figi);
+        if (found == seen.end())
+        {
+            if (!isValidFigi(*fill.figi))
+            {
+                throw std::runtime_error("trade fill figi is invalid");
+            }
+            auto instrument = store.findInstrumentByFigi(*fill.figi);
+            if (!instrument.has_value())
+            {
+                throw std::runtime_error("trade fill figi was not found");
+            }
+            found = seen.emplace(*fill.figi, std::move(*instrument)).first;
+        }
+        if (!tradeKindMatches(fill.kind, found->second.asset_class))
+        {
+            throw std::runtime_error("trade fill kind does not match its instrument");
+        }
+        ids.push_back(found->second.id);
+    }
+    return ids;
+}
+
+void requireCashFlows(std::span<const LedgerCashFlow> flows)
+{
+    for (const LedgerCashFlow& flow : flows)
+    {
+        if (flow.ts < 0)
+        {
+            throw std::runtime_error("cash flow time is negative");
+        }
+        if (!std::isfinite(flow.amount) || flow.amount == 0.0)
+        {
+            throw std::runtime_error("cash flow amount is zero or not finite");
+        }
+        requireExternalId(flow.external_id, "cash flow external_id is empty or untrimmed");
+    }
+}
+
 }  // namespace
 
 std::string canonicalListingSymbol(std::string_view symbol)
@@ -567,6 +789,7 @@ struct Store::Impl
     mutable SqliteStmt sel_coverage_days;
     mutable SqliteStmt sel_coverage_summary;
     mutable SqliteStmt sel_coverage_one;
+    mutable SqliteStmt sel_coverage_latest;
     mutable SqliteStmt sel_bar_stats;
     SqliteStmt sel_corp;
     SqliteStmt ins_corp;
@@ -598,6 +821,28 @@ struct Store::Impl
     SqliteStmt del_portfolio_holdings;
     SqliteStmt ins_portfolio_holding;
     mutable SqliteStmt sel_portfolio_holdings;
+    mutable SqliteStmt sel_ledger_id;
+    SqliteStmt sel_ledger_manual_name;
+    mutable SqliteStmt sel_ledgers;
+    SqliteStmt ins_ledger;
+    SqliteStmt upd_ledger_name;
+    SqliteStmt upd_ledger_updated;
+    SqliteStmt del_ledger;
+    SqliteStmt ins_fill;
+    SqliteStmt sel_fill_external;
+    SqliteStmt sel_fill_exists;
+    SqliteStmt del_fill;
+    mutable SqliteStmt sel_fills;
+    SqliteStmt ins_cash_flow;
+    SqliteStmt sel_cash_flow_external;
+    SqliteStmt sel_cash_flow_exists;
+    SqliteStmt del_cash_flow;
+    mutable SqliteStmt sel_cash_flows;
+    SqliteStmt ins_backtest_run;
+    mutable SqliteStmt sel_backtest_runs;
+    mutable SqliteStmt sel_backtest_run_id;
+    mutable SqliteStmt sel_backtest_run_ledger;
+    SqliteStmt sel_json_valid;
 
     [[nodiscard]] static std::optional<Instrument> oneInstrument(SqliteStmt& sel)
     {
@@ -802,6 +1047,12 @@ struct Store::Impl
             "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
             "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
             "WHERE instrument_id = ? AND timeframe_s = ? AND session_date = ?");
+        sel_coverage_latest.prepare(
+            h,
+            "SELECT instrument_id, timeframe_s, session_date, first_ts, last_ts, "
+            "bar_count, expected_count, status, source, ingested_at FROM coverage_day "
+            "WHERE instrument_id = ? AND timeframe_s = ? AND bar_count > 0 AND last_ts IS NOT NULL "
+            "ORDER BY session_date DESC LIMIT 1");
         sel_bar_stats.prepare(
             h,
             "SELECT MIN(ts), MAX(ts), COUNT(*) FROM bar "
@@ -947,6 +1198,150 @@ struct Store::Impl
             "WHERE h.portfolio_id = ? "
             "ORDER BY h.asset_kind, h.instrument_id, h.expiration, h.expiration_type, "
             "h.strike, h.right");
+
+        sel_ledger_id.prepare(h, "SELECT id, name, kind, created_at, updated_at FROM ledger WHERE id = ?");
+        sel_ledger_manual_name.prepare(h, "SELECT id FROM ledger WHERE kind = 'manual' AND name = ?");
+        sel_ledgers.prepare(h,
+                            "SELECT id, name, kind, created_at, updated_at FROM ledger "
+                            "ORDER BY kind = 'backtest', name COLLATE NOCASE, id");
+        ins_ledger.prepare(h, "INSERT INTO ledger (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?)");
+        upd_ledger_name.prepare(h, "UPDATE ledger SET name = ?, updated_at = ? WHERE id = ?");
+        upd_ledger_updated.prepare(h, "UPDATE ledger SET updated_at = ? WHERE id = ?");
+        del_ledger.prepare(h, "DELETE FROM ledger WHERE id = ?");
+        ins_fill.prepare(h,
+                         "INSERT INTO trade_fill ("
+                         "ledger_id, instrument_id, asset_kind, expiration, expiration_type, strike, right, "
+                         "ts, quantity, price, fees, note, external_id) "
+                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sel_fill_external.prepare(h, "SELECT 1 FROM trade_fill WHERE ledger_id = ? AND external_id = ?");
+        sel_fill_exists.prepare(h, "SELECT 1 FROM trade_fill WHERE ledger_id = ? AND id = ?");
+        del_fill.prepare(h, "DELETE FROM trade_fill WHERE ledger_id = ? AND id = ?");
+        sel_fills.prepare(h,
+                          "SELECT f.id, f.asset_kind, i.figi, f.instrument_id, c.symbol, c.listing_closed_at, "
+                          "f.expiration, f.expiration_type, f.strike, f.right, f.ts, f.quantity, f.price, "
+                          "f.fees, f.note, f.external_id "
+                          "FROM trade_fill AS f "
+                          "JOIN instrument AS i ON i.id = f.instrument_id "
+                          "LEFT JOIN instrument_current AS c ON c.id = f.instrument_id "
+                          "WHERE f.ledger_id = ? "
+                          "ORDER BY f.ts, f.id");
+        ins_cash_flow.prepare(h,
+                              "INSERT INTO ledger_cash_flow (ledger_id, ts, amount, note, external_id) "
+                              "VALUES (?, ?, ?, ?, ?)");
+        sel_cash_flow_external.prepare(
+            h, "SELECT 1 FROM ledger_cash_flow WHERE ledger_id = ? AND external_id = ?");
+        sel_cash_flow_exists.prepare(h, "SELECT 1 FROM ledger_cash_flow WHERE ledger_id = ? AND id = ?");
+        del_cash_flow.prepare(h, "DELETE FROM ledger_cash_flow WHERE ledger_id = ? AND id = ?");
+        sel_cash_flows.prepare(h,
+                               "SELECT id, ts, amount, note, external_id FROM ledger_cash_flow "
+                               "WHERE ledger_id = ? ORDER BY ts, id");
+        ins_backtest_run.prepare(h,
+                                 "INSERT INTO backtest_run ("
+                                 "ledger_id, strategy_id, params_json, config_json, instrument_id, "
+                                 "timeframe_s, ts_begin, ts_end, engine_version, created_at) "
+                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        constexpr std::string_view kRunSelect =
+            "SELECT r.id, r.ledger_id, r.strategy_id, r.params_json, r.config_json, i.figi, "
+            "r.instrument_id, c.symbol, r.timeframe_s, r.ts_begin, r.ts_end, r.engine_version, r.created_at "
+            "FROM backtest_run AS r "
+            "JOIN instrument AS i ON i.id = r.instrument_id "
+            "LEFT JOIN instrument_current AS c ON c.id = r.instrument_id ";
+        sel_backtest_runs.prepare(h, std::string(kRunSelect) + "ORDER BY r.created_at DESC, r.id DESC");
+        sel_backtest_run_id.prepare(h, std::string(kRunSelect) + "WHERE r.id = ?");
+        sel_backtest_run_ledger.prepare(h, std::string(kRunSelect) + "WHERE r.ledger_id = ?");
+        sel_json_valid.prepare(h, "SELECT json_valid(?)");
+    }
+
+    [[nodiscard]] bool jsonValid(std::string_view text)
+    {
+        sel_json_valid.reset();
+        sel_json_valid.bindText(1, text);
+        const bool valid = sel_json_valid.stepRow() && sel_json_valid.columnInt64(0) == 1;
+        sel_json_valid.reset();
+        return valid;
+    }
+
+    [[nodiscard]] static std::optional<BacktestRun> oneBacktestRun(SqliteStmt& sel)
+    {
+        std::optional<BacktestRun> row;
+        if (sel.stepRow())
+        {
+            row = backtestRunFromStmt(sel);
+        }
+        sel.reset();
+        return row;
+    }
+
+    // The ledger, or throws. A backtest ledger throws when editable is set.
+    [[nodiscard]] Ledger requireLedger(LedgerId id, bool editable) const
+    {
+        sel_ledger_id.reset();
+        sel_ledger_id.bindInt64(1, id);
+        std::optional<Ledger> row;
+        if (sel_ledger_id.stepRow())
+        {
+            row = ledgerFromStmt(sel_ledger_id);
+        }
+        sel_ledger_id.reset();
+        if (!row.has_value())
+        {
+            throw std::runtime_error("ledger not found");
+        }
+        if (editable && row->kind != LedgerKind::Manual)
+        {
+            throw std::runtime_error("backtest ledger is read-only");
+        }
+        return *row;
+    }
+
+    [[nodiscard]] static bool rowExists(SqliteStmt& sel, LedgerId ledger, std::int64_t id)
+    {
+        sel.reset();
+        sel.bindInt64(1, ledger);
+        sel.bindInt64(2, id);
+        const bool found = sel.stepRow();
+        sel.reset();
+        return found;
+    }
+
+    [[nodiscard]] static bool externalIdTaken(SqliteStmt& sel, LedgerId ledger, const std::optional<std::string>& external_id)
+    {
+        if (!external_id.has_value())
+        {
+            return false;
+        }
+        sel.reset();
+        sel.bindInt64(1, ledger);
+        sel.bindText(2, *external_id);
+        const bool taken = sel.stepRow();
+        sel.reset();
+        return taken;
+    }
+
+    // Caller holds the transaction.
+    [[nodiscard]] LedgerId insertLedgerUnlocked(std::string_view name, LedgerKind kind)
+    {
+        if (kind == LedgerKind::Manual)
+        {
+            sel_ledger_manual_name.reset();
+            sel_ledger_manual_name.bindText(1, name);
+            const bool taken = sel_ledger_manual_name.stepRow();
+            sel_ledger_manual_name.reset();
+            if (taken)
+            {
+                throw std::runtime_error("ledger name already exists");
+            }
+        }
+        const UnixSeconds now = nowUtc();
+        ins_ledger.reset();
+        ins_ledger.bindText(1, name);
+        ins_ledger.bindText(2, toSql(kind));
+        ins_ledger.bindInt64(3, now);
+        ins_ledger.bindInt64(4, now);
+        ins_ledger.stepDone();
+        const auto id = db.lastInsertRowid();
+        ins_ledger.reset();
+        return id;
     }
 };
 
@@ -978,6 +1373,7 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                "option_underlying",
                                                "statement_cell",
                                                "statement_snapshot",};
+    constexpr std::string_view kV5Tables[] = {"portfolio", "portfolio_holding"};
     constexpr std::string_view kAllViews[] = {"instrument_current"};
     // A damaged version-4 (or newer) file must fail before user_version moves.
     if (version >= 4)
@@ -985,33 +1381,41 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
         requireTables(tableNames(), version, kV4Tables);
         requireTables(viewNames(), version, kAllViews);
     }
-    if (version == 0)
+    if (version >= 5)
+    {
+        requireTables(tableNames(), version, kV5Tables);
+    }
+    if (version == 0 || version == 4 || version == 5)
     {
         SqliteTxn txn(impl_->db.handle());
-        impl_->db.exec(schemaV4());
-        impl_->db.exec(schemaV5());
+        if (version == 0)
+        {
+            impl_->db.exec(schemaV4());
+        }
+        if (version <= 4)
+        {
+            impl_->db.exec(schemaV5());
+        }
+        impl_->db.exec(schemaV6());
         impl_->db.setUserVersion(kSchemaUserVersion);
         txn.commit();
     }
-    else if (version == 4)
-    {
-        SqliteTxn txn(impl_->db.handle());
-        impl_->db.exec(schemaV5());
-        impl_->db.setUserVersion(kSchemaUserVersion);
-        txn.commit();
-    }
-    constexpr std::string_view kAllTables[] = {"bar",
+    constexpr std::string_view kAllTables[] = {"backtest_run",
+                                                "bar",
                                                 "corporate_action",
                                                 "coverage_day",
                                                 "instrument",
                                                 "instrument_listing",
+                                                "ledger",
+                                                "ledger_cash_flow",
                                                 "option_expiry",
                                                 "option_quote",
                                                 "option_underlying",
                                                 "portfolio",
                                                 "portfolio_holding",
                                                 "statement_cell",
-                                                "statement_snapshot",};
+                                                "statement_snapshot",
+                                                "trade_fill",};
     requireTables(tableNames(), userVersion(), kAllTables);
     requireTables(viewNames(), userVersion(), kAllViews);
     impl_->prepare();
@@ -1105,6 +1509,19 @@ void Store::testingCreateSchemaV4(const std::filesystem::path& path)
     SqliteTxn txn(db.handle());
     db.exec(schemaV4());
     db.setUserVersion(4);
+    txn.commit();
+}
+
+void Store::testingUpgradeSchemaV4ToV5(const std::filesystem::path& path)
+{
+    SqliteDb db(path);
+    if (db.userVersion() != 4)
+    {
+        throw std::runtime_error("testingUpgradeSchemaV4ToV5 requires user_version 4");
+    }
+    SqliteTxn txn(db.handle());
+    db.exec(schemaV5());
+    db.setUserVersion(5);
     txn.commit();
 }
 
@@ -1572,6 +1989,21 @@ std::optional<CoverageDay> Store::findCoverage(InstrumentId id,
     sel.bindInt64(1, id);
     sel.bindInt(2, timeframe_s);
     sel.bindInt(3, session_date);
+    std::optional<CoverageDay> row;
+    if (sel.stepRow())
+    {
+        row = coverageFromStmt(sel);
+    }
+    sel.reset();
+    return row;
+}
+
+std::optional<CoverageDay> Store::findLatestCoverage(InstrumentId id, int timeframe_s) const
+{
+    auto& sel = impl_->sel_coverage_latest;
+    sel.reset();
+    sel.bindInt64(1, id);
+    sel.bindInt(2, timeframe_s);
     std::optional<CoverageDay> row;
     if (sel.stepRow())
     {
@@ -2639,6 +3071,359 @@ void Store::deletePortfolio(PortfolioId id)
     del.stepDone();
     del.reset();
     txn.commit();
+}
+
+LedgerId Store::createLedger(std::string_view name)
+{
+    if (!isTrimmedNonEmpty(name))
+    {
+        throw std::runtime_error("ledger name is empty");
+    }
+    SqliteTxn txn(impl_->db.handle());
+    const auto id = impl_->insertLedgerUnlocked(name, LedgerKind::Manual);
+    txn.commit();
+    return id;
+}
+
+void Store::renameLedger(LedgerId id, std::string_view name)
+{
+    if (!isTrimmedNonEmpty(name))
+    {
+        throw std::runtime_error("ledger name is empty");
+    }
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, true);
+    auto& sel = impl_->sel_ledger_manual_name;
+    sel.reset();
+    sel.bindText(1, name);
+    std::optional<LedgerId> owner;
+    if (sel.stepRow())
+    {
+        owner = sel.columnInt64(0);
+    }
+    sel.reset();
+    if (owner.has_value() && *owner != id)
+    {
+        throw std::runtime_error("ledger name already exists");
+    }
+    auto& upd = impl_->upd_ledger_name;
+    upd.reset();
+    upd.bindText(1, name);
+    upd.bindInt64(2, nowUtc());
+    upd.bindInt64(3, id);
+    upd.stepDone();
+    upd.reset();
+    txn.commit();
+}
+
+std::vector<Ledger> Store::listLedgers() const
+{
+    auto& sel = impl_->sel_ledgers;
+    sel.reset();
+    std::vector<Ledger> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(ledgerFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+std::optional<Ledger> Store::findLedger(LedgerId id) const
+{
+    auto& sel = impl_->sel_ledger_id;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::optional<Ledger> row;
+    if (sel.stepRow())
+    {
+        row = ledgerFromStmt(sel);
+    }
+    sel.reset();
+    return row;
+}
+
+void Store::deleteLedger(LedgerId id)
+{
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, false);
+    auto& del = impl_->del_ledger;
+    del.reset();
+    del.bindInt64(1, id);
+    del.stepDone();
+    del.reset();
+    txn.commit();
+}
+
+void Store::touchLedgerUnlocked(LedgerId id)
+{
+    auto& upd = impl_->upd_ledger_updated;
+    upd.reset();
+    upd.bindInt64(1, nowUtc());
+    upd.bindInt64(2, id);
+    upd.stepDone();
+    upd.reset();
+}
+
+void Store::insertFillsUnlocked(LedgerId id,
+                                std::span<const TradeFill> fills,
+                                std::span<const InstrumentId> instrument_ids,
+                                LedgerAppendResult& result)
+{
+    auto& ins = impl_->ins_fill;
+    for (std::size_t i = 0; i < fills.size(); ++i)
+    {
+        const TradeFill& fill = fills[i];
+        if (Impl::externalIdTaken(impl_->sel_fill_external, id, fill.external_id))
+        {
+            ++result.skipped;
+            continue;
+        }
+        ins.reset();
+        ins.bindInt64(1, id);
+        ins.bindInt64(2, instrument_ids[i]);
+        ins.bindText(3, toSql(fill.kind));
+        bindOptionalInt(ins, 4, fill.expiration);
+        if (fill.expiration_type.has_value())
+        {
+            ins.bindText(5, toSql(*fill.expiration_type));
+        }
+        else
+        {
+            ins.bindNull(5);
+        }
+        bindOptionalDouble(ins, 6, fill.strike);
+        if (fill.right.has_value())
+        {
+            ins.bindText(7, toSql(*fill.right));
+        }
+        else
+        {
+            ins.bindNull(7);
+        }
+        ins.bindInt64(8, fill.ts);
+        ins.bindDouble(9, fill.quantity);
+        ins.bindDouble(10, fill.price);
+        ins.bindDouble(11, fill.fees);
+        bindOptionalText(ins, 12, fill.note);
+        bindOptionalText(ins, 13, fill.external_id);
+        ins.stepDone();
+        ins.reset();
+        ++result.written;
+    }
+}
+
+void Store::insertCashFlowsUnlocked(LedgerId id, std::span<const LedgerCashFlow> flows, LedgerAppendResult& result)
+{
+    auto& ins = impl_->ins_cash_flow;
+    for (const LedgerCashFlow& flow : flows)
+    {
+        if (Impl::externalIdTaken(impl_->sel_cash_flow_external, id, flow.external_id))
+        {
+            ++result.skipped;
+            continue;
+        }
+        ins.reset();
+        ins.bindInt64(1, id);
+        ins.bindInt64(2, flow.ts);
+        ins.bindDouble(3, flow.amount);
+        bindOptionalText(ins, 4, flow.note);
+        bindOptionalText(ins, 5, flow.external_id);
+        ins.stepDone();
+        ins.reset();
+        ++result.written;
+    }
+}
+
+LedgerAppendResult Store::appendFills(LedgerId id, std::span<const TradeFill> fills)
+{
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, true);
+    // Every fill is checked before the first insert; a throw rolls back an empty write.
+    const auto instrument_ids = resolveFillInstruments(*this, fills);
+    LedgerAppendResult result;
+    insertFillsUnlocked(id, fills, instrument_ids, result);
+    touchLedgerUnlocked(id);
+    txn.commit();
+    return result;
+}
+
+void Store::deleteFill(LedgerId id, TradeFillId fill_id)
+{
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, true);
+    if (!Impl::rowExists(impl_->sel_fill_exists, id, fill_id))
+    {
+        throw std::runtime_error("trade fill not found");
+    }
+    auto& del = impl_->del_fill;
+    del.reset();
+    del.bindInt64(1, id);
+    del.bindInt64(2, fill_id);
+    del.stepDone();
+    del.reset();
+    touchLedgerUnlocked(id);
+    txn.commit();
+}
+
+std::vector<TradeFill> Store::queryFills(LedgerId id) const
+{
+    (void)impl_->requireLedger(id, false);
+    auto& sel = impl_->sel_fills;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::vector<TradeFill> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(tradeFillFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+LedgerAppendResult Store::appendCashFlows(LedgerId id, std::span<const LedgerCashFlow> flows)
+{
+    requireCashFlows(flows);
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, true);
+    LedgerAppendResult result;
+    insertCashFlowsUnlocked(id, flows, result);
+    touchLedgerUnlocked(id);
+    txn.commit();
+    return result;
+}
+
+void Store::deleteCashFlow(LedgerId id, LedgerCashFlowId flow_id)
+{
+    SqliteTxn txn(impl_->db.handle());
+    (void)impl_->requireLedger(id, true);
+    if (!Impl::rowExists(impl_->sel_cash_flow_exists, id, flow_id))
+    {
+        throw std::runtime_error("cash flow not found");
+    }
+    auto& del = impl_->del_cash_flow;
+    del.reset();
+    del.bindInt64(1, id);
+    del.bindInt64(2, flow_id);
+    del.stepDone();
+    del.reset();
+    touchLedgerUnlocked(id);
+    txn.commit();
+}
+
+std::vector<LedgerCashFlow> Store::queryCashFlows(LedgerId id) const
+{
+    (void)impl_->requireLedger(id, false);
+    auto& sel = impl_->sel_cash_flows;
+    sel.reset();
+    sel.bindInt64(1, id);
+    std::vector<LedgerCashFlow> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(cashFlowFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+RecordedBacktest Store::recordBacktestRun(std::string_view name,
+                                          const BacktestRun& run,
+                                          std::span<const TradeFill> fills,
+                                          std::span<const LedgerCashFlow> cash_flows)
+{
+    if (!isTrimmedNonEmpty(name))
+    {
+        throw std::runtime_error("ledger name is empty");
+    }
+    if (!isTrimmedNonEmpty(run.strategy_id))
+    {
+        throw std::runtime_error("backtest strategy_id is empty or untrimmed");
+    }
+    if (!impl_->jsonValid(run.params_json) || !impl_->jsonValid(run.config_json))
+    {
+        throw std::runtime_error("backtest params or config is not valid JSON");
+    }
+    if (run.timeframe_s <= 0 || run.ts_begin < 0 || run.ts_end <= run.ts_begin || run.engine_version <= 0)
+    {
+        throw std::runtime_error("backtest range, timeframe, or engine version is invalid");
+    }
+    if (!run.figi.has_value() || !isValidFigi(*run.figi))
+    {
+        throw std::runtime_error("backtest figi is missing or invalid");
+    }
+    requireCashFlows(cash_flows);
+
+    SqliteTxn txn(impl_->db.handle());
+    const auto instrument = findInstrumentByFigi(*run.figi);
+    if (!instrument.has_value())
+    {
+        throw std::runtime_error("backtest figi was not found");
+    }
+    if (instrument->asset_class != AssetClass::Equity && instrument->asset_class != AssetClass::Etf)
+    {
+        throw std::runtime_error("backtest instrument is not an equity or ETF");
+    }
+    const auto instrument_ids = resolveFillInstruments(*this, fills);
+    for (std::size_t i = 0; i < fills.size(); ++i)
+    {
+        if (fills[i].kind == TradeAssetKind::Option || instrument_ids[i] != instrument->id)
+        {
+            throw std::runtime_error("backtest fill is not a share of the run's instrument");
+        }
+    }
+
+    RecordedBacktest recorded;
+    recorded.ledger_id = impl_->insertLedgerUnlocked(name, LedgerKind::Backtest);
+    LedgerAppendResult ignored;
+    insertFillsUnlocked(recorded.ledger_id, fills, instrument_ids, ignored);
+    insertCashFlowsUnlocked(recorded.ledger_id, cash_flows, ignored);
+
+    auto& ins = impl_->ins_backtest_run;
+    ins.reset();
+    ins.bindInt64(1, recorded.ledger_id);
+    ins.bindText(2, run.strategy_id);
+    ins.bindText(3, run.params_json);
+    ins.bindText(4, run.config_json);
+    ins.bindInt64(5, instrument->id);
+    ins.bindInt(6, run.timeframe_s);
+    ins.bindInt64(7, run.ts_begin);
+    ins.bindInt64(8, run.ts_end);
+    ins.bindInt(9, run.engine_version);
+    ins.bindInt64(10, nowUtc());
+    ins.stepDone();
+    recorded.run_id = impl_->db.lastInsertRowid();
+    ins.reset();
+    txn.commit();
+    return recorded;
+}
+
+std::vector<BacktestRun> Store::listBacktestRuns() const
+{
+    auto& sel = impl_->sel_backtest_runs;
+    sel.reset();
+    std::vector<BacktestRun> rows;
+    while (sel.stepRow())
+    {
+        rows.push_back(backtestRunFromStmt(sel));
+    }
+    sel.reset();
+    return rows;
+}
+
+std::optional<BacktestRun> Store::findBacktestRun(BacktestRunId id) const
+{
+    auto& sel = impl_->sel_backtest_run_id;
+    sel.reset();
+    sel.bindInt64(1, id);
+    return Impl::oneBacktestRun(sel);
+}
+
+std::optional<BacktestRun> Store::findBacktestRunForLedger(LedgerId id) const
+{
+    auto& sel = impl_->sel_backtest_run_ledger;
+    sel.reset();
+    sel.bindInt64(1, id);
+    return Impl::oneBacktestRun(sel);
 }
 
 }  // namespace terminal

@@ -6,6 +6,9 @@
 #include "chart/CChartbookDocument.h"
 #include "chart/CSymbolLink.h"
 #include "ui/FinancialsPanel.h"
+#include "ui/LedgerPanel.h"
+#include "ui/BacktestPanel.h"
+#include "ui/StatsPanel.h"
 #include "ui/OptionsChainPanel.h"
 #include "ui/PortfolioPanel.h"
 #include "ui/PayoffPanel.h"
@@ -34,6 +37,9 @@ enum class PanelKind : std::uint8_t
     Options,
     Portfolio,
     Payoff,
+    Ledger,
+    Backtest,
+    Stats,
 };
 
 class CChartBook
@@ -56,25 +62,40 @@ public:
     void drawOptions(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawPortfolios(Store* store, std::string_view store_error, IngestWorker* ingest);
     void drawPayoffs(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void drawLedgers(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void drawBacktests(Store* store, std::string_view store_error, IngestWorker* ingest);
+    void drawStats(Store* store, std::string_view store_error, IngestWorker* ingest);
     void placeFinancials(int financials_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placeOptions(int options_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placePortfolio(int portfolio_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     void placePayoff(int payoff_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    void placeLedger(int ledger_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    void placeBacktest(int backtest_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
+    void placeStats(int stats_id, bool force, bool floating, ImGuiID dock, ImVec2 pos, ImVec2 size);
     [[nodiscard]] const CChartPane* focusedPane() const;
     [[nodiscard]] const FinancialsPanel* focusedFinancials() const;
     [[nodiscard]] const OptionsChainPanel* focusedOptions() const;
     [[nodiscard]] const PortfolioPanel* focusedPortfolio() const;
     [[nodiscard]] const PayoffPanel* focusedPayoff() const;
+    [[nodiscard]] const LedgerPanel* focusedLedger() const;
+    [[nodiscard]] const BacktestPanel* focusedBacktest() const;
+    [[nodiscard]] const StatsPanel* focusedStats() const;
     void addPane();
     void addFinancials();
     void addOptions();
     void addPortfolio();
     void addPayoff();
+    void addLedger();
+    void addBacktest();
+    void addStats();
     void closeFocused();
     void closeFocusedFinancials();
     void closeFocusedOptions();
     void closeFocusedPortfolio();
     void closeFocusedPayoff();
+    void closeFocusedLedger();
+    void closeFocusedBacktest();
+    void closeFocusedStats();
     void openFocusedSettings();
     void openFocusedStudies();
 
@@ -97,6 +118,9 @@ public:
     [[nodiscard]] bool containsOptions(int options_id) const;
     [[nodiscard]] bool containsPortfolio(int portfolio_id) const;
     [[nodiscard]] bool containsPayoff(int payoff_id) const;
+    [[nodiscard]] bool containsLedger(int ledger_id) const;
+    [[nodiscard]] bool containsBacktest(int backtest_id) const;
+    [[nodiscard]] bool containsStats(int stats_id) const;
 
 private:
     void eraseClosed();
@@ -104,6 +128,9 @@ private:
     void eraseClosedOptions();
     void eraseClosedPortfolios();
     void eraseClosedPayoffs();
+    void eraseClosedLedgers();
+    void eraseClosedBacktests();
+    void eraseClosedStats();
     [[nodiscard]] CChartPane* focused();
     [[nodiscard]] const CChartPane* findPane(int pane_id) const;
     [[nodiscard]] FinancialsPanel* focusedFinancialsPanel();
@@ -114,6 +141,12 @@ private:
     [[nodiscard]] PayoffPanel* focusedPayoffPanel();
     [[nodiscard]] const PortfolioPanel* findPortfolio(int portfolio_id) const;
     [[nodiscard]] const PayoffPanel* findPayoff(int payoff_id) const;
+    [[nodiscard]] LedgerPanel* focusedLedgerPanel();
+    [[nodiscard]] const LedgerPanel* findLedger(int ledger_id) const;
+    [[nodiscard]] BacktestPanel* focusedBacktestPanel();
+    [[nodiscard]] const BacktestPanel* findBacktest(int backtest_id) const;
+    [[nodiscard]] StatsPanel* focusedStatsPanel();
+    [[nodiscard]] const StatsPanel* findStats(int stats_id) const;
 
     int runtime_id_{0};
     PanelKind frame_focus_{PanelKind::None};
@@ -128,6 +161,11 @@ private:
     std::vector<std::unique_ptr<OptionsChainPanel>> options_;
     std::vector<std::unique_ptr<PortfolioPanel>> portfolios_;
     std::vector<std::unique_ptr<PayoffPanel>> payoffs_;
+    std::vector<std::unique_ptr<LedgerPanel>> ledgers_;
+    std::vector<std::unique_ptr<BacktestPanel>> backtests_;
+    // Workers of closed backtest panels whose run had not finished; dropped once idle.
+    std::vector<std::unique_ptr<BacktestWorker>> retired_backtest_workers_;
+    std::vector<std::unique_ptr<StatsPanel>> stats_;
     int next_id_{1};
     int focused_id_{0};
     int next_financials_id_{1};
@@ -138,6 +176,12 @@ private:
     int focused_portfolio_id_{0};
     int next_payoff_id_{1};
     int focused_payoff_id_{0};
+    int next_ledger_id_{1};
+    int focused_ledger_id_{0};
+    int next_backtest_id_{1};
+    int focused_backtest_id_{0};
+    int next_stats_id_{1};
+    int focused_stats_id_{0};
     bool layout_request_{false};
 };
 

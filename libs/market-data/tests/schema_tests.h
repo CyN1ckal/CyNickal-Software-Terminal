@@ -16,6 +16,8 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace {
 
@@ -33,33 +35,58 @@ namespace {
     return count;
 }
 
+constexpr std::string_view kV6TableNames[] = {
+    "backtest_run",      "bar",           "corporate_action",  "coverage_day",      "instrument",
+    "instrument_listing", "ledger",       "ledger_cash_flow",  "option_expiry",     "option_quote",
+    "option_underlying", "portfolio",     "portfolio_holding", "statement_cell",    "statement_snapshot",
+    "trade_fill",
+};
+
+void checkV6Tables(const std::vector<std::string>& names)
+{
+    REQUIRE(names.size() == std::size(kV6TableNames));
+    for (std::size_t i = 0; i < names.size(); ++i)
+    {
+        CHECK(names[i] == kV6TableNames[i]);
+    }
+}
+
+[[nodiscard]] bool hasTable(const std::vector<std::string>& names, std::string_view table)
+{
+    return std::find(names.begin(), names.end(), table) != names.end();
+}
+
+void checkEmbeddedMatchesFile(std::string_view file_name, std::string_view embedded_sql)
+{
+    const std::filesystem::path sql_path = std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / file_name;
+    std::ifstream in(sql_path, std::ios::binary);
+    REQUIRE(in);
+    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // MSVC drops CR from raw string literals. The SQL text is what must match.
+    file.erase(std::remove(file.begin(), file.end(), '\r'), file.end());
+    std::string embedded(embedded_sql);
+    embedded.erase(std::remove(embedded.begin(), embedded.end(), '\r'), embedded.end());
+    CHECK(file == embedded);
+}
+
 }  // namespace
 
-TEST_CASE("open empty path applies schema v5")
+TEST_CASE("open empty path applies schema v6")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    CHECK(store.userVersion() == 5);
+    CHECK(store.userVersion() == 6);
     CHECK(store.foreignKeysEnabled());
-    const auto names = store.tableNames();
-    REQUIRE(names.size() == 12);
-    CHECK(names[0] == "bar");
-    CHECK(names[1] == "corporate_action");
-    CHECK(names[2] == "coverage_day");
-    CHECK(names[3] == "instrument");
-    CHECK(names[4] == "instrument_listing");
-    CHECK(names[5] == "option_expiry");
-    CHECK(names[6] == "option_quote");
-    CHECK(names[7] == "option_underlying");
-    CHECK(names[8] == "portfolio");
-    CHECK(names[9] == "portfolio_holding");
-    CHECK(names[10] == "statement_cell");
-    CHECK(names[11] == "statement_snapshot");
+    checkV6Tables(store.tableNames());
     const auto views = store.viewNames();
     REQUIRE(views.size() == 1);
     CHECK(views[0] == "instrument_current");
     CHECK(countRows(tmp.path(), "portfolio") == 0);
     CHECK(countRows(tmp.path(), "portfolio_holding") == 0);
+    CHECK(countRows(tmp.path(), "ledger") == 0);
+    CHECK(countRows(tmp.path(), "trade_fill") == 0);
+    CHECK(countRows(tmp.path(), "ledger_cash_flow") == 0);
+    CHECK(countRows(tmp.path(), "backtest_run") == 0);
 }
 
 TEST_CASE("second open does not re-run the baseline")
@@ -67,13 +94,15 @@ TEST_CASE("second open does not re-run the baseline")
     TempDb tmp;
     {
         terminal::Store first(tmp.path());
-        CHECK(first.userVersion() == 5);
+        CHECK(first.userVersion() == 6);
         (void)first.testingInsertInstrument("AAPL");
+        (void)first.createLedger("Account");
     }
     terminal::Store second(tmp.path());
-    CHECK(second.userVersion() == 5);
-    CHECK(second.tableNames().size() == 12);
+    CHECK(second.userVersion() == 6);
+    CHECK(second.tableNames().size() == std::size(kV6TableNames));
     CHECK(second.findOpenListing("AAPL").has_value());
+    CHECK(second.listLedgers().size() == 1);
 }
 
 TEST_CASE("schema v1, v2, and v3 files are refused with the reset message")
@@ -108,7 +137,7 @@ TEST_CASE("user_version 99 is refused")
     TempDb tmp;
     {
         terminal::Store store(tmp.path());
-        CHECK(store.userVersion() == 5);
+        CHECK(store.userVersion() == 6);
     }
     terminal::Store::testingSetUserVersion(tmp.path(), 99);
     try
@@ -153,7 +182,7 @@ TEST_CASE("version 4 file migrates and keeps the seeded instrument")
     CHECK(std::find(before.begin(), before.end(), "portfolio_holding") == before.end());
 
     terminal::Store store(tmp.path());
-    CHECK(store.userVersion() == 5);
+    CHECK(store.userVersion() == 6);
     const std::string figi = terminal::testingFigiFor(symbol);
     const auto by_figi = store.findInstrumentByFigi(figi);
     const auto open = store.findOpenListing(symbol);
@@ -164,12 +193,70 @@ TEST_CASE("version 4 file migrates and keeps the seeded instrument")
     CHECK(open->symbol == symbol);
     CHECK(open->listing_open);
     CHECK(by_figi->asset_class == terminal::AssetClass::Equity);
-    const auto names = store.tableNames();
-    REQUIRE(names.size() == 12);
-    CHECK(names[8] == "portfolio");
-    CHECK(names[9] == "portfolio_holding");
+    checkV6Tables(store.tableNames());
     CHECK(countRows(tmp.path(), "portfolio") == 0);
     CHECK(countRows(tmp.path(), "portfolio_holding") == 0);
+    CHECK(countRows(tmp.path(), "ledger") == 0);
+}
+
+TEST_CASE("version 5 file migrates to v6 and keeps its rows")
+{
+    TempDb tmp;
+    const std::string symbol = "MSFT";
+    terminal::Store::testingCreateSchemaV4(tmp.path());
+    terminal::Store::testingSeedV4Instrument(tmp.path(), symbol);
+    terminal::Store::testingUpgradeSchemaV4ToV5(tmp.path());
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 5);
+    const auto before = terminal::Store::testingTableNames(tmp.path());
+    CHECK(hasTable(before, "portfolio"));
+    CHECK_FALSE(hasTable(before, "ledger"));
+    CHECK_FALSE(hasTable(before, "trade_fill"));
+
+    terminal::Store store(tmp.path());
+    CHECK(store.userVersion() == 6);
+    checkV6Tables(store.tableNames());
+    const auto open = store.findOpenListing(symbol);
+    REQUIRE(open.has_value());
+    CHECK(open->figi == terminal::testingFigiFor(symbol));
+    CHECK(countRows(tmp.path(), "instrument") == 1);
+    CHECK(countRows(tmp.path(), "trade_fill") == 0);
+}
+
+TEST_CASE("user_version 5 missing the portfolio tables is refused")
+{
+    TempDb tmp;
+    terminal::Store::testingCreateSchemaV4(tmp.path());
+    terminal::Store::testingSetUserVersion(tmp.path(), 5);
+    try
+    {
+        terminal::Store store(tmp.path());
+        FAIL("expected missing-table error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        CHECK(std::string(ex.what()).find("missing required table 'portfolio") != std::string::npos);
+    }
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 5);
+    CHECK_FALSE(hasTable(terminal::Store::testingTableNames(tmp.path()), "ledger"));
+}
+
+TEST_CASE("user_version 6 missing the ledger tables is refused")
+{
+    TempDb tmp;
+    terminal::Store::testingCreateSchemaV4(tmp.path());
+    terminal::Store::testingUpgradeSchemaV4ToV5(tmp.path());
+    terminal::Store::testingSetUserVersion(tmp.path(), 6);
+    try
+    {
+        terminal::Store store(tmp.path());
+        FAIL("expected missing-table error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        CHECK(std::string(ex.what()).find("missing required table") != std::string::npos);
+    }
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 6);
+    CHECK_FALSE(hasTable(terminal::Store::testingTableNames(tmp.path()), "ledger"));
 }
 
 TEST_CASE("testing hooks do not restamp a file that is not a bare version 4")
@@ -181,37 +268,25 @@ TEST_CASE("testing hooks do not restamp a file that is not a bare version 4")
     TempDb current;
     {
         terminal::Store store(current.path());
-        CHECK(store.userVersion() == 5);
+        CHECK(store.userVersion() == 6);
     }
     CHECK_THROWS_AS(terminal::Store::testingCreateSchemaV4(current.path()), std::runtime_error);
     CHECK_THROWS_AS(terminal::Store::testingSeedV4Instrument(current.path(), "AAPL"), std::runtime_error);
-    CHECK(terminal::Store::testingUserVersion(current.path()) == 5);
+    CHECK_THROWS_AS(terminal::Store::testingUpgradeSchemaV4ToV5(current.path()), std::runtime_error);
+    CHECK(terminal::Store::testingUserVersion(current.path()) == 6);
 }
 
 TEST_CASE("embedded schema matches v4.sql")
 {
-    const std::filesystem::path sql_path =
-        std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / "v4.sql";
-    std::ifstream in(sql_path, std::ios::binary);
-    REQUIRE(in);
-    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    // MSVC drops CR from raw string literals. The SQL text is what must match.
-    file.erase(std::remove(file.begin(), file.end(), '\r'), file.end());
-    std::string embedded(terminal::schemaV4());
-    embedded.erase(std::remove(embedded.begin(), embedded.end(), '\r'), embedded.end());
-    CHECK(file == embedded);
+    checkEmbeddedMatchesFile("v4.sql", terminal::schemaV4());
 }
 
 TEST_CASE("embedded schema matches v5.sql")
 {
-    const std::filesystem::path sql_path =
-        std::filesystem::path(TERMINAL_MARKET_DATA_SCHEMA_DIR) / "v5.sql";
-    std::ifstream in(sql_path, std::ios::binary);
-    REQUIRE(in);
-    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    // MSVC drops CR from raw string literals. The SQL text is what must match.
-    file.erase(std::remove(file.begin(), file.end(), '\r'), file.end());
-    std::string embedded(terminal::schemaV5());
-    embedded.erase(std::remove(embedded.begin(), embedded.end(), '\r'), embedded.end());
-    CHECK(file == embedded);
+    checkEmbeddedMatchesFile("v5.sql", terminal::schemaV5());
+}
+
+TEST_CASE("embedded schema matches v6.sql")
+{
+    checkEmbeddedMatchesFile("v6.sql", terminal::schemaV6());
 }

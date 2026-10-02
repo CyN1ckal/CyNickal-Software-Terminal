@@ -803,6 +803,176 @@ TEST_CASE("portfolio windows round trip and a book without them still opens")
     CHECK_FALSE(terminal::chartbookFromJson(missing).ok);
 }
 
+TEST_CASE("ledger windows round trip and a layout naming a missing ledger is refused")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertLedger(document.layout, 2);
+    CHECK(terminal::chartbookLedgerIsOpen(document, 2));
+    terminal::ChartbookLedger panel;
+    panel.id = 2;
+    panel.ledger_id = 7;
+    panel.tab = "fills";
+    document.ledgers.push_back(panel);
+    document.focused_ledger = 2;
+    document.next_ledger_id = 3;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.ledgers.size() == 1);
+    CHECK(loaded.document.ledgers[0].id == 2);
+    CHECK(loaded.document.ledgers[0].ledger_id == 7);
+    CHECK(loaded.document.ledgers[0].tab == "fills");
+    CHECK(loaded.document.focused_ledger == 2);
+    CHECK(loaded.document.next_ledger_id == 3);
+    CHECK(terminal::chartbookLedgerIsOpen(loaded.document, 2));
+
+    int ledger_id = 0;
+    CHECK(terminal::ledgerIdFromWindow("ledger:12", ledger_id));
+    CHECK(ledger_id == 12);
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledger:0", ledger_id));
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledger:x", ledger_id));
+    CHECK_FALSE(terminal::ledgerIdFromWindow("ledgers:1", ledger_id));
+
+    const char* missing = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_ledger_id": 2,
+        "data": {},
+        "ledgers": [{"id": 1, "ledger": 3}],
+        "layout": {"windows": ["ledger:9"], "selected": "ledger:9"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(missing);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "layout names a missing ledger panel");
+
+    const char* bad_tab = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_ledger_id": 2,
+        "data": {},
+        "ledgers": [{"id": 1, "ledger": 3, "tab": "charts"}],
+        "layout": {"windows": ["ledger:1"], "selected": "ledger:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult tab_refused = terminal::chartbookFromJson(bad_tab);
+    CHECK_FALSE(tab_refused.ok);
+    CHECK(tab_refused.error == "ledger tab is invalid");
+
+    const char* no_next = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "data": {},
+        "ledgers": [{"id": 1}],
+        "layout": {"windows": ["data"], "selected": "data"},
+        "panes": []
+    })";
+    CHECK_FALSE(terminal::chartbookFromJson(no_next).ok);
+}
+
+TEST_CASE("a chart pane round trips the ledger it marks")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    REQUIRE_FALSE(document.panes.empty());
+    CHECK(document.panes[0].settings.trades_ledger == 0);
+    CHECK(terminal::chartbookToJson(document).find("trades_ledger") == std::string::npos);
+    document.panes[0].settings.trades_ledger = 12;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    CHECK(loaded.document.panes[0].settings.trades_ledger == 12);
+}
+
+TEST_CASE("statistics windows round trip their ledger and benchmark")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertStats(document.layout, 1);
+    CHECK(terminal::chartbookStatsIsOpen(document, 1));
+    terminal::ChartbookStats panel;
+    panel.id = 1;
+    panel.ledger_id = 5;
+    panel.benchmark = "QQQ";
+    document.stats.push_back(panel);
+    document.focused_stats = 1;
+    document.next_stats_id = 2;
+    const terminal::ChartbookLoadResult loaded =
+        terminal::chartbookFromJson(terminal::chartbookToJson(document));
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.stats.size() == 1);
+    CHECK(loaded.document.stats[0].ledger_id == 5);
+    CHECK(loaded.document.stats[0].benchmark == "QQQ");
+    CHECK(loaded.document.focused_stats == 1);
+    CHECK(terminal::chartbookStatsIsOpen(loaded.document, 1));
+
+    const char* bad = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_stats_id": 2,
+        "data": {},
+        "stats": [{"id": 1, "ledger": 2, "benchmark": "WAY-TOO-LONG-SYMBOL"}],
+        "layout": {"windows": ["stats:1"], "selected": "stats:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(bad);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "stats benchmark is invalid");
+}
+
+TEST_CASE("backtest windows round trip their inputs as JSON objects")
+{
+    terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");
+    terminal::chartbookInsertBacktest(document.layout, 1);
+    terminal::ChartbookBacktest panel;
+    panel.id = 1;
+    panel.strategy = "bollinger_revert";
+    panel.params = R"({"length":20,"deviations":2,"direction":"long"})";
+    panel.symbol = "MSFT";
+    panel.period = "1h";
+    panel.from = "2026-01-02";
+    panel.to = "2026-06-30";
+    panel.config = R"({"initial_cash":5000.0})";
+    document.backtests.push_back(panel);
+    document.focused_backtest = 1;
+    document.next_backtest_id = 2;
+    const std::string text = terminal::chartbookToJson(document);
+    CHECK(text.find(R"("deviations": 2)") != std::string::npos);
+    const terminal::ChartbookLoadResult loaded = terminal::chartbookFromJson(text);
+    REQUIRE(loaded.ok);
+    REQUIRE(loaded.document.backtests.size() == 1);
+    const auto& back = loaded.document.backtests[0];
+    CHECK(back.strategy == "bollinger_revert");
+    CHECK(back.symbol == "MSFT");
+    CHECK(back.period == "1h");
+    CHECK(back.from == "2026-01-02");
+    CHECK(back.to == "2026-06-30");
+    CHECK(back.params.find("\"deviations\":2") != std::string::npos);
+    CHECK(back.config == R"({"initial_cash":5000.0})");
+    CHECK(terminal::chartbookBacktestIsOpen(loaded.document, 1));
+
+    const char* bad = R"({
+        "format": 1,
+        "name": "bad",
+        "focused_pane": 0,
+        "next_pane_id": 1,
+        "next_backtest_id": 2,
+        "data": {},
+        "backtests": [{"id": 1, "params": [1, 2]}],
+        "layout": {"windows": ["backtest:1"], "selected": "backtest:1"},
+        "panes": []
+    })";
+    const terminal::ChartbookLoadResult refused = terminal::chartbookFromJson(bad);
+    CHECK_FALSE(refused.ok);
+    CHECK(refused.error == "backtest window is invalid");
+}
+
 TEST_CASE("portfolio risk view round trips and a book without it keeps the defaults")
 {
     terminal::CChartbookDocument document = terminal::makeDefaultChartbook("chartbook1");

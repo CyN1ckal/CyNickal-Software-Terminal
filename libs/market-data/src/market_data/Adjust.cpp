@@ -57,4 +57,22 @@ std::vector<Bar> adjustBarsForSplits(std::vector<Bar> bars, std::span<const Corp
     return bars;
 }
 
+double splitFactorBetween(std::span<const CorporateAction> actions,
+                          InstrumentId instrument_id,
+                          UnixSeconds after,
+                          UnixSeconds through) noexcept
+{
+    double factor = 1.0;
+    for (const CorporateAction& action : actions)
+    {
+        if (action.type == CorporateActionType::Split && action.instrument_id == instrument_id &&
+            action.split_ratio.has_value() && *action.split_ratio > 0.0 && action.ex_ts > after &&
+            action.ex_ts <= through)
+        {
+            factor *= *action.split_ratio;
+        }
+    }
+    return factor;
+}
+
 }  // namespace terminal

@@ -302,6 +302,21 @@ void chartbookInsertPayoff(ChartbookLayout& layout, int payoff_id)
     chartbookInsertWindow(layout, payoffWindowId(payoff_id));
 }
 
+void chartbookInsertLedger(ChartbookLayout& layout, int ledger_id)
+{
+    chartbookInsertWindow(layout, ledgerWindowId(ledger_id));
+}
+
+void chartbookInsertBacktest(ChartbookLayout& layout, int backtest_id)
+{
+    chartbookInsertWindow(layout, backtestWindowId(backtest_id));
+}
+
+void chartbookInsertStats(ChartbookLayout& layout, int stats_id)
+{
+    chartbookInsertWindow(layout, statsWindowId(stats_id));
+}
+
 void chartbookInsertData(ChartbookLayout& layout)
 {
     if (layout.root < 0 || layout.nodes.empty())
@@ -363,6 +378,21 @@ bool chartbookPortfolioIsOpen(const CChartbookDocument& document, int portfolio_
 bool chartbookPayoffIsOpen(const CChartbookDocument& document, int payoff_id)
 {
     return chartbookWindowReferenced(document, payoffWindowId(payoff_id));
+}
+
+bool chartbookLedgerIsOpen(const CChartbookDocument& document, int ledger_id)
+{
+    return chartbookWindowReferenced(document, ledgerWindowId(ledger_id));
+}
+
+bool chartbookBacktestIsOpen(const CChartbookDocument& document, int backtest_id)
+{
+    return chartbookWindowReferenced(document, backtestWindowId(backtest_id));
+}
+
+bool chartbookStatsIsOpen(const CChartbookDocument& document, int stats_id)
+{
+    return chartbookWindowReferenced(document, statsWindowId(stats_id));
 }
 
 namespace {
