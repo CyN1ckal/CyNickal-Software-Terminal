@@ -88,7 +88,7 @@ Fills and runs are written by FIGI and read back with `instrument_id`, the curre
 
 ## Domain code
 
-Pure C++ with no ImGui and no SQLite. It lives in `terminal_core` and is tested in `terminal_tests`, like `risk/` and `options/`. It moves to a `libs/` target only if a command-line backtest tool needs it.
+Pure C++ with no ImGui and no SQLite. It lives in `terminal_logic` and is tested in `terminal_tests`, like `risk/` and `options/`. It moves to a `libs/` target only if a command-line backtest tool needs it.
 
 | File | Role |
 |---|---|

@@ -3,13 +3,14 @@
 
 #pragma once
 
-#include "data/IngestWorker.h"
+#include "data/IngestJob.h"
 #include "market_data/Store.h"
 #include "trading/EquityCurve.h"
 #include "trading/Ledger.h"
 #include "trading/TradeStats.h"
 
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -44,7 +45,7 @@ struct LedgerAnalysis
 
 // Daily history for every share instrument the fills traded, plus benchmark_symbol
 // when it is not empty. missing_only skips instruments that already have a daily bar.
-[[nodiscard]] std::vector<IngestWorker::Job> ledgerHistoryFetchJobs(const Store& store,
+[[nodiscard]] std::vector<IngestJob> ledgerHistoryFetchJobs(const Store& store,
                                                                     std::span<const TradeFill> fills,
                                                                     std::string_view benchmark_symbol,
                                                                     SessionDate today,

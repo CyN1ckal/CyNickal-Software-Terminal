@@ -30,10 +30,11 @@ target_link_libraries(terminal_compile INTERFACE
     CURL::libcurl
 )
 
-add_library(terminal_core OBJECT
-    src/platform/vulkan/VulkanUtils.cpp
-    src/platform/window/Window.cpp
-    src/data/IngestWorker.cpp
+# Domain code shared by the app and the tests. It does not use terminal_compile:
+# that interface pulls in Vulkan, GLFW, ImGui, and CURL, which this code does not.
+# An OBJECT library keeps every translation unit, including the study and strategy
+# registrars that nothing calls by name.
+add_library(terminal_logic OBJECT
     src/data/StatementSheet.cpp
     src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
@@ -67,6 +68,19 @@ add_library(terminal_core OBJECT
     src/chart/studies/CBollinger.cpp
     src/chart/studies/CNBarPercentChange.cpp
     src/chart/studies/StudyRegistry.cpp
+)
+target_include_directories(terminal_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(terminal_logic PRIVATE ${CMAKE_SOURCE_DIR}/apps/common)
+target_link_libraries(terminal_logic PUBLIC market-data nlohmann_json)
+target_compile_options(terminal_logic PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
+)
+target_precompile_headers(terminal_logic PRIVATE ${TERMINAL_PCH_STL})
+
+add_library(terminal_core OBJECT
+    src/platform/vulkan/VulkanUtils.cpp
+    src/platform/window/Window.cpp
+    src/data/IngestWorker.cpp
     ${CMAKE_SOURCE_DIR}/apps/common/CurlClient.cpp
 )
 target_link_libraries(terminal_core PRIVATE terminal_compile)
@@ -114,14 +128,12 @@ target_precompile_headers(terminal_gui PRIVATE
 )
 
 if(TERMINAL_ENABLE_CLANG_TIDY)
-    set_target_properties(terminal_core terminal_gui PROPERTIES
+    set_target_properties(terminal_logic terminal_core terminal_gui PROPERTIES
         CXX_CLANG_TIDY "${TERMINAL_CLANG_TIDY}"
     )
 endif()
 
 add_executable(terminal
-    $<TARGET_OBJECTS:terminal_core>
-    $<TARGET_OBJECTS:terminal_gui>
     ${TERMINAL_IMGUI_DIR}/imgui.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_draw.cpp
     ${TERMINAL_IMGUI_DIR}/imgui_tables.cpp
@@ -177,6 +189,9 @@ target_compile_definitions(terminal PRIVATE
 )
 
 target_link_libraries(terminal PRIVATE
+    terminal_logic
+    terminal_core
+    terminal_gui
     market-data
     nlohmann_json
     glfw
@@ -196,39 +211,6 @@ endif()
 if(CYN_TESTING)
     add_executable(terminal_tests
         tests/test_main.cpp
-        src/chart/CChartAxis.cpp
-        src/chart/CChartCommand.cpp
-        src/chart/CChartLoad.cpp
-        src/chart/CSymbolLink.cpp
-        src/chart/CChartTransform.cpp
-        src/chart/CChartTrades.cpp
-        src/chart/CChartbookDocument.cpp
-        src/chart/CChartbookFile.cpp
-        src/chart/CStudyCompute.cpp
-        src/chart/studies/CMovingAverage.cpp
-        src/chart/studies/CVolume.cpp
-        src/chart/studies/CBollinger.cpp
-        src/chart/studies/CNBarPercentChange.cpp
-        src/chart/studies/StudyRegistry.cpp
-        src/data/StatementSheet.cpp
-        src/data/StatementLineLabel.cpp
-        src/data/PortfolioFetch.cpp
-        src/data/LedgerMarks.cpp
-        src/data/LedgerAnalysis.cpp
-        src/risk/HistoricalRisk.cpp
-        src/trading/Ledger.cpp
-        src/trading/EquityCurve.cpp
-        src/trading/TradeStats.cpp
-        src/ui/TradingFormat.cpp
-        src/backtest/Strategy.cpp
-        src/backtest/Engine.cpp
-        src/backtest/BacktestJob.cpp
-        src/backtest/BacktestWorker.cpp
-        src/backtest/strategies/MaCross.cpp
-        src/backtest/strategies/BollingerRevert.cpp
-        src/backtest/strategies/Momentum.cpp
-        src/options/OptionPayoff.cpp
-        src/options/OptionStrategy.cpp
         tests/chart/chart_command_tests.h
         tests/chart/chart_load_tests.h
         tests/chart/chart_study_tests.h
@@ -245,6 +227,7 @@ if(CYN_TESTING)
         ${TERMINAL_CATCH_DIR}
     )
     target_link_libraries(terminal_tests PRIVATE
+        terminal_logic
         market-data
         nlohmann_json
     )

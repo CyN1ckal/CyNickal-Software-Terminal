@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "data/IngestWorker.h"
+#include "data/IngestJob.h"
 #include "market_data/Store.h"
 #include "trading/Ledger.h"
 
@@ -34,7 +34,7 @@ struct LedgerMark
 [[nodiscard]] std::vector<PortfolioHolding> positionsAsHoldings(std::span<const Position> positions,
                                                                 std::span<const TradeFill> fills);
 
-[[nodiscard]] std::vector<IngestWorker::Job> ledgerFetchJobs(const Store& store,
+[[nodiscard]] std::vector<IngestJob> ledgerFetchJobs(const Store& store,
                                                              std::span<const Position> positions,
                                                              std::span<const TradeFill> fills,
                                                              SessionDate today,

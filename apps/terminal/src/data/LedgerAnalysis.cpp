@@ -148,7 +148,7 @@ LedgerAnalysis analyzeLedger(const Store& store,
     return analysis;
 }
 
-std::vector<IngestWorker::Job> ledgerHistoryFetchJobs(const Store& store,
+std::vector<IngestJob> ledgerHistoryFetchJobs(const Store& store,
                                                       std::span<const TradeFill> fills,
                                                       std::string_view benchmark_symbol,
                                                       SessionDate today,
@@ -174,12 +174,12 @@ std::vector<IngestWorker::Job> ledgerHistoryFetchJobs(const Store& store,
     {
         list.push_back(std::move(holding));
     }
-    std::vector<IngestWorker::Job> jobs = portfolioFetchJobs(store, list, today, missing_only);
+    std::vector<IngestJob> jobs = portfolioFetchJobs(store, list, today, missing_only);
     if (benchmark_symbol.empty())
     {
         return jobs;
     }
-    const bool planned = std::ranges::any_of(jobs, [&](const IngestWorker::Job& job) {
+    const bool planned = std::ranges::any_of(jobs, [&](const IngestJob& job) {
         return job.symbol == benchmark_symbol;
     });
     if (planned)
@@ -209,7 +209,7 @@ std::vector<IngestWorker::Job> ledgerHistoryFetchJobs(const Store& store,
     probe.listing_open = true;
     probe.quantity = 1.0;
     // A symbol not in the store yet has no coverage, so plan it without asking.
-    const std::vector<IngestWorker::Job> benchmark_jobs =
+    const std::vector<IngestJob> benchmark_jobs =
         portfolioFetchJobs(store, std::span<const PortfolioHolding>(&probe, 1), today, false);
     jobs.insert(jobs.end(), benchmark_jobs.begin(), benchmark_jobs.end());
     return jobs;

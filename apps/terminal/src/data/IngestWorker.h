@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "data/IngestJob.h"
 #include "market_data/Types.h"
 
 #include <condition_variable>
@@ -18,20 +19,8 @@ namespace terminal {
 class IngestWorker
 {
 public:
-    struct Job
-    {
-        std::string symbol;
-        SessionDate from{};
-        SessionDate to{};
-        int timeframe_s{kTimeframe1m};
-        bool splits_only{false};
-        std::uint64_t serial{0};
-        bool statements{false};
-        StatementKind statement{StatementKind::Income};
-        StatementTimeframe statement_timeframe{StatementTimeframe::Annually};
-        bool options{false};
-        SessionDate option_expiration{0};
-    };
+    // Same type the planners return. Kept so existing call sites can still name the job.
+    using Job = IngestJob;
 
     // `accepted` is false when an identical job is already queued or running.
     // `serial` is that job either way, and Snapshot::finished_serial passes it when the job ends.

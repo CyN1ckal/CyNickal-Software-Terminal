@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "chart/studies/StudyRegistry.h"
+#include "chart/studies/StudyOption.h"
 #include "market_data/Types.h"
 
 #include <optional>

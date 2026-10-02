@@ -4,6 +4,7 @@
 #pragma once
 
 #include "chart/CStudy.h"
+#include "chart/studies/StudyOption.h"
 #include "market_data/Types.h"
 
 #include <cstdint>
@@ -13,27 +14,6 @@
 #include <vector>
 
 namespace terminal {
-
-// One persisted input. An empty choices span is an integer in [min, max].
-// Otherwise the stored value is an index into choices.
-struct StudyChoice
-{
-    const char* token{""};
-    const char* label{""};
-    // Selecting this choice on the price graph moves the study to the pane below it.
-    bool leave_price_scale{false};
-};
-
-struct StudyOption
-{
-    const char* key{""};
-    const char* label{""};
-    int min{0};
-    int max{0};
-    int fallback{0};
-    std::span<const StudyChoice> choices{};
-    bool shown{true};
-};
 
 enum class StudyGraph : std::uint8_t
 {

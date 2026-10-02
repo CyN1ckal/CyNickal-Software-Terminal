@@ -3,6 +3,8 @@
 
 #include "backtest/Strategy.h"
 
+#include "registry/CallbackRegistry.h"
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -16,16 +18,9 @@
 namespace terminal {
 namespace {
 
-struct Registry
+CallbackRegistry<StrategyType>& registry() noexcept
 {
-    static constexpr int kCapacity = 32;
-    const StrategyType* types[kCapacity]{};
-    int count{0};
-};
-
-Registry& registry() noexcept
-{
-    static Registry types;
+    static CallbackRegistry<StrategyType> types;
     return types;
 }
 
@@ -43,41 +38,17 @@ Registry& registry() noexcept
 
 void registerStrategy(const StrategyType& type) noexcept
 {
-    Registry& types = registry();
-    if (type.id == nullptr || type.process == nullptr || types.count >= Registry::kCapacity)
-    {
-        return;
-    }
-    for (int index = 0; index < types.count; ++index)
-    {
-        const StrategyType* existing = types.types[static_cast<std::size_t>(index)];
-        if (existing != nullptr && existing->id != nullptr && type.id == std::string_view{existing->id})
-        {
-            return;
-        }
-    }
-    types.types[static_cast<std::size_t>(types.count)] = &type;
-    ++types.count;
+    registry().add(type);
 }
 
 const StrategyType* findStrategy(std::string_view id) noexcept
 {
-    const Registry& types = registry();
-    for (int index = 0; index < types.count; ++index)
-    {
-        const StrategyType* type = types.types[static_cast<std::size_t>(index)];
-        if (type != nullptr && type->id != nullptr && id == type->id)
-        {
-            return type;
-        }
-    }
-    return nullptr;
+    return registry().find(id);
 }
 
 std::span<const StrategyType* const> strategyTypes() noexcept
 {
-    const Registry& types = registry();
-    return {types.types, static_cast<std::size_t>(types.count)};
+    return registry().all();
 }
 
 std::vector<int> clampStrategyOptions(const StrategyType& type, std::span<const int> options)

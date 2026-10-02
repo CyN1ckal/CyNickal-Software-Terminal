@@ -41,7 +41,7 @@ if(CYN_TESTING)
     enable_testing()
 endif()
 
-# Stable standard headers shared by market-data, terminal_core, and terminal_tests.
+# Stable standard headers shared by market-data, terminal_logic, terminal_core, and terminal_tests.
 set(TERMINAL_PCH_STL
     <algorithm>
     <chrono>

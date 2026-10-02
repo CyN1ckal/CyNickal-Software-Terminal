@@ -122,7 +122,7 @@ void replaceQuotes(terminal::Store& store,
     store.replaceOptionChain(write);
 }
 
-void checkDailyJob(const terminal::IngestWorker::Job& job, std::string_view symbol)
+void checkDailyJob(const terminal::IngestJob& job, std::string_view symbol)
 {
     CHECK(job.symbol == symbol);
     CHECK(job.timeframe_s == terminal::kTimeframe1d);
@@ -134,7 +134,7 @@ void checkDailyJob(const terminal::IngestWorker::Job& job, std::string_view symb
     CHECK(job.option_expiration == 0);
 }
 
-void checkOptionJob(const terminal::IngestWorker::Job& job,
+void checkOptionJob(const terminal::IngestJob& job,
                     std::string_view symbol,
                     terminal::SessionDate expiration)
 {

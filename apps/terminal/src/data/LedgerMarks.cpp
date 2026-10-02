@@ -139,7 +139,7 @@ std::vector<PortfolioHolding> positionsAsHoldings(std::span<const Position> posi
     return holdings;
 }
 
-std::vector<IngestWorker::Job> ledgerFetchJobs(const Store& store,
+std::vector<IngestJob> ledgerFetchJobs(const Store& store,
                                                std::span<const Position> positions,
                                                std::span<const TradeFill> fills,
                                                SessionDate today,

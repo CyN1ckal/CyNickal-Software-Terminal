@@ -16,16 +16,16 @@
 
 namespace terminal {
 
-std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
-                                                std::span<const PortfolioHolding> holdings,
-                                                SessionDate today,
-                                                bool missing_only)
+std::vector<IngestJob> portfolioFetchJobs(const Store& store,
+                                          std::span<const PortfolioHolding> holdings,
+                                          SessionDate today,
+                                          bool missing_only)
 {
     const auto ymd = sessionDateToYmd(today);
     const SessionDate from =
         toSessionDate(std::chrono::sys_days{ymd} - std::chrono::days{kIngestDefaultDailyDays});
 
-    std::vector<IngestWorker::Job> jobs;
+    std::vector<IngestJob> jobs;
     // One options fetch covers every contract on that symbol and expiration date.
     std::vector<std::pair<std::string, SessionDate>> planned_options;
     for (const PortfolioHolding& holding : holdings)
@@ -49,7 +49,7 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
                     continue;
                 }
             }
-            IngestWorker::Job job;
+            IngestJob job;
             job.symbol = symbol;
             job.timeframe_s = kTimeframe1d;
             job.from = from;
@@ -84,7 +84,7 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
             continue;
         }
         planned_options.emplace_back(symbol, expiration);
-        IngestWorker::Job job;
+        IngestJob job;
         job.symbol = symbol;
         job.options = true;
         job.option_expiration = expiration;
@@ -93,8 +93,10 @@ std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store,
     return jobs;
 }
 
-std::vector<IngestWorker::Job> portfolioFetchJobs(const Store& store, PortfolioId id, SessionDate today,
-                                                  bool missing_only)
+std::vector<IngestJob> portfolioFetchJobs(const Store& store,
+                                          PortfolioId id,
+                                          SessionDate today,
+                                          bool missing_only)
 {
     return portfolioFetchJobs(store, store.queryHoldings(id), today, missing_only);
 }

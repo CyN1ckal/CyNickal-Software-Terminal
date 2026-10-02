@@ -943,7 +943,7 @@ def draw_figure3(ctx: cairo.Context) -> None:
         ctx,
         28,
         y + 408,
-        "terminal_gui compiles FinancialsPanel, OptionsChainPanel, ChartbookHost, and the chart TUs.  terminal_core compiles StatementSheet and IngestWorker.",
+        "terminal_gui draws the panels. terminal_logic compiles studies, statements, and planners. terminal_core compiles IngestWorker and the window.",
         10.5,
         color=MUTED,
     )
