@@ -1,0 +1,22 @@
+# Strategy research
+
+One folder per strategy. Each folder holds its rules, code, and raw output in `research/`, and its final report in `report/`. Studies follow the [research protocol](../.claude/skills/quant-research/SKILL.md): the hypothesis and rules are locked before any return is computed, and the status comes from acceptance criteria fixed in advance.
+
+| Study | Idea | Status | Date |
+|---|---|---|---|
+| [qqq-intraday-trend](qqq-intraday-trend/) | Trade QQQ in the direction of the day's move once it leaves a time-of-day noise band (Zarattini, Aziz & Barbon 2024) | Paper-trading candidate | 2026-09-26 |
+| [intraday-channel-trend](intraday-channel-trend/) | 15-minute Donchian breakout with a chandelier trail on QQQ, SPY, and IGV | Rejected | 2026-09-26 |
+| [micro-futures-trend](micro-futures-trend/) | 1/3/12-month trend following (Hurst, Ooi & Pedersen 2017) on 11 CME micro futures with whole contracts in a $100k account | Rejected | 2026-09-26 |
+| [qqq-15m-turtle-overnight](qqq-15m-turtle-overnight/) | Turtle System 2 (55/20 channels, 2N stop) on QQQ 15-minute bars, held overnight | Rejected | 2026-09-26 |
+| [qqq-strategy-portfolio](qqq-strategy-portfolio/) | Combine QQQ buy and hold with the studies above at in-sample max-Sharpe weights, capped at 1× overnight and 2× intraday | Rejected | 2026-09-26 |
+| [qqq-intraday-reversion](qqq-intraday-reversion/) | Fade 5-minute shocks in QQQ that are extreme against both the time of day and the day so far | In progress: not yet in this layout | 2026-09-26 |
+| [qqq-atr-scale-in](qqq-atr-scale-in/) | Scale into a QQQ move of half a prior-day ATR from the open, up to three equal units, and take profit a quarter ATR past the average | Rejected | 2026-09-26 |
+| [low-liq-high-vol-mean-reversion](low-liq-high-vol-mean-reversion/) | One-week quintile reversal on a low-dollar-volume, high-volatility, small-cap screen | Rejected | 2026-09-26 |
+| [qqq-atr-martingale](qqq-atr-martingale/) | Double that QQQ fade at each further half-ATR rung and hold until the round trip covers its cost | Paper-trading candidate | 2026-09-26 |
+| [qqq-bollinger-adding](qqq-bollinger-adding/) | Fade a 5-minute QQQ close outside a session-local 20-bar, 2-SD Bollinger band, add up to two units at each further band SD, and exit at the middle band | Rejected | 2026-09-26 |
+| [small-cap-gap-up-fade](small-cap-gap-up-fade/) | Short the opening auction when a name on the small-cap screen gaps up at least 5%, and cover at the close | Paper-trading candidate | 2026-09-26 |
+| [spy-rsi2-dip-buy](spy-rsi2-dip-buy/) | Buy SPY at the close when RSI(2) < 10 and sell at the first close above the 5-day average (Connors & Alvarez 2008): a negatively skewed, high-win-rate index trade | Paper-trading candidate (timing placebo p = 0.046, seed-sensitive) | 2026-09-26 |
+| [finviz-gap-up-fade](finviz-gap-up-fade/) | The same opening-gap short on a Finviz sample of other small-cap names, with a mid-cap cross book | Inconclusive | 2026-09-26 |
+| [index-opening-pop-fade](index-opening-pop-fade/) | Short SPY at 10:00 after an unusually large first-half-hour rise and cover at the close (Grant, Wolf & Yu 2005), with QQQ as the cross-market test | Rejected | 2026-09-26 |
+| [qqq-return-stack](qqq-return-stack/) | Hold QQQ at 1× and stack every in-sample-positive strategy above on top at 5% in-sample volatility each (return stacking); charts show each strategy's impact | Rejected (failed the 2× cost line; OOS Sharpe 1.70 vs QQQ 1.01 at base cost) | 2026-09-26 |
+| [qqq-atr-band-dip-eod](qqq-atr-band-dip-eod/) | Buy QQQ at the session open minus 1× prior-day ATR(14) on a resting limit and hold to the close | Rejected (negative gross; OOS Sharpe −0.40, 4 of 6 lines fail) | 2026-09-30 |
