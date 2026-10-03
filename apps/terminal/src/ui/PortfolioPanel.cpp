@@ -6,6 +6,7 @@
 #include "IngestDefaults.h"
 #include "data/IngestWorker.h"
 #include "data/PortfolioFetch.h"
+#include "data/PortfolioHoldings.h"
 #include "risk/HistoricalRisk.h"
 #include "ui/ReceivedStamp.h"
 #include "ui/Theme.h"
@@ -367,6 +368,39 @@ void appendGrouped(std::string& out, std::string_view whole)
     return formatFixed(quantity, 4, false, true);
 }
 
+// Ungrouped text for the quantity editor. Grouping commas would move the caret.
+[[nodiscard]] std::string rawQuantity(double quantity)
+{
+    if (!std::isfinite(quantity))
+    {
+        return {};
+    }
+    char raw[96];
+    const int written = std::snprintf(raw, sizeof(raw), "%.4f", quantity);
+    if (written <= 0 || static_cast<std::size_t>(written) >= sizeof(raw))
+    {
+        return {};
+    }
+    std::string text(raw, static_cast<std::size_t>(written));
+    const std::size_t dot = text.find('.');
+    if (dot != std::string::npos)
+    {
+        while (text.size() > dot + 1 && text.back() == '0')
+        {
+            text.pop_back();
+        }
+        if (!text.empty() && text.back() == '.')
+        {
+            text.pop_back();
+        }
+    }
+    if (text.empty() || text == "-" || text == "-0")
+    {
+        return "0";
+    }
+    return text;
+}
+
 // Quotes under a dollar keep the extra places option premiums need. Larger prints are cents.
 [[nodiscard]] int priceDecimals(double amount)
 {
@@ -387,6 +421,53 @@ void drawRight(const char* text, const ImVec4& color)
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + width - text_w);
     }
     ImGui::TextColored(color, "%s", text);
+}
+
+// The whole cell is the hit target. `id` stays put when `text` changes.
+[[nodiscard]] bool drawEditableCell(const char* id, const char* text, bool right_align, const char* tip)
+{
+    if (right_align)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(1.f, 0.f));
+    }
+    std::string label(text);
+    label += "##";
+    label += id;
+    const bool clicked = ImGui::Selectable(label.c_str());
+    if (right_align)
+    {
+        ImGui::PopStyleVar();
+    }
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+        ImGui::SetItemTooltip("%s", tip);
+    }
+    return clicked;
+}
+
+void shiftLineEditor(int& editor, const HoldingAggregate& result)
+{
+    if (editor < 0)
+    {
+        return;
+    }
+    const auto edited = static_cast<std::size_t>(editor);
+    if (result.action == HoldingAggregateAction::Removed)
+    {
+        if (edited == result.index)
+        {
+            editor = -1;
+        }
+        else if (edited > result.index)
+        {
+            --editor;
+        }
+    }
+    else if (edited == result.index)
+    {
+        editor = -1;
+    }
 }
 
 [[nodiscard]] bool accentButton(const char* label)
@@ -711,7 +792,8 @@ void PortfolioPanel::reload(Store& store)
     {
         portfolio_id_ = 0;
         drafts_.clear();
-        quantity_edit_ = -1;
+        closeLineEditors();
+        cancelRetarget();
         book_name_.clear();
         loaded_ = false;
         dirty_ = false;
@@ -722,7 +804,8 @@ void PortfolioPanel::reload(Store& store)
     if (portfolio_id_ == 0)
     {
         drafts_.clear();
-        quantity_edit_ = -1;
+        closeLineEditors();
+        cancelRetarget();
         book_name_.clear();
         loaded_ = true;
         loaded_updated_ = 0;
@@ -732,7 +815,7 @@ void PortfolioPanel::reload(Store& store)
     if (!dirty_ && (!loaded_ || found->updated_at != loaded_updated_))
     {
         drafts_ = store.queryHoldings(portfolio_id_);
-        quantity_edit_ = -1;
+        closeLineEditors();
         marks_valid_ = false;
         book_name_ = found->name;
         loaded_updated_ = found->updated_at;
@@ -772,12 +855,134 @@ bool PortfolioPanel::appendResolved(const Store& store, PortfolioAssetKind kind,
         row.strike = pending_strike_;
         row.right = pending_right_;
     }
-    drafts_.push_back(std::move(row));
+    adopt(std::move(row));
+    return true;
+}
+
+void PortfolioPanel::adopt(PortfolioHolding row)
+{
+    const HoldingAggregate result = aggregateHolding(drafts_, std::move(row));
+    shiftLineEditor(quantity_edit_, result);
+    shiftLineEditor(symbol_edit_, result);
     dirty_ = true;
     marks_valid_ = false;
     error_.clear();
-    status_ = "unsaved";
-    return true;
+    status_ = result.action == HoldingAggregateAction::Removed ? "position is flat" : "unsaved";
+}
+
+void PortfolioPanel::closeLineEditors() noexcept
+{
+    quantity_edit_ = -1;
+    symbol_edit_ = -1;
+}
+
+void PortfolioPanel::cancelRetarget() noexcept
+{
+    if (!pending_retarget_)
+    {
+        return;
+    }
+    pending_ = false;
+    pending_retarget_ = false;
+    ++symbol_epoch_;
+}
+
+bool PortfolioPanel::applyInstrument(std::size_t index, const Instrument& instrument)
+{
+    const HoldingRetarget result = retargetHolding(drafts_, index, instrument);
+    if (result.action == HoldingRetargetAction::Rejected)
+    {
+        const std::optional<std::string> figi = instrument.figi;
+        if (!figi.has_value())
+        {
+            error_ = instrument.symbol + " has no open listing";
+        }
+        else if (index < drafts_.size() && drafts_[index].kind == PortfolioAssetKind::Cash)
+        {
+            error_ = "cash has no symbol";
+        }
+        else
+        {
+            error_ = instrument.symbol + " is " + std::string(toSql(instrument.asset_class));
+        }
+        status_ = error_;
+        return false;
+    }
+    if (result.action != HoldingRetargetAction::Updated)
+    {
+        closeLineEditors();
+    }
+    dirty_ = true;
+    marks_valid_ = false;
+    error_.clear();
+    status_ = result.action == HoldingRetargetAction::Removed ? "position is flat" : "unsaved";
+    return result.action != HoldingRetargetAction::Updated;
+}
+
+bool PortfolioPanel::resolveSymbol(const Store& store, IngestWorker* ingest, std::size_t index, const std::string& symbol)
+{
+    if (index >= drafts_.size())
+    {
+        return false;
+    }
+    const PortfolioHolding& row = drafts_[index];
+    if (row.kind == PortfolioAssetKind::Cash)
+    {
+        return false;
+    }
+    const std::optional<std::string> current = row.symbol;
+    if (symbol.empty())
+    {
+        return false;
+    }
+    if (current.has_value())
+    {
+        const std::string& held = current.value();
+        if (held == symbol)
+        {
+            return false;
+        }
+    }
+    if (pending_ && !pending_retarget_)
+    {
+        error_ = "still fetching " + pending_symbol_;
+        status_ = error_;
+        return false;
+    }
+    const std::optional<Instrument> found = store.findOpenListing(symbol);
+    if (found.has_value())
+    {
+        const Instrument& instrument = found.value();
+        const std::optional<std::string> figi = instrument.figi;
+        if (figi.has_value())
+        {
+            if (pending_retarget_)
+            {
+                pending_ = false;
+                pending_retarget_ = false;
+                ++symbol_epoch_;
+            }
+            return applyInstrument(index, instrument);
+        }
+    }
+    if (ingest == nullptr)
+    {
+        error_ = symbol + " has no open listing";
+        status_ = error_;
+        return false;
+    }
+    ++symbol_epoch_;
+    pending_epoch_ = symbol_epoch_;
+    pending_ = true;
+    pending_retarget_ = true;
+    pending_anchor_ = row;
+    pending_kind_ = row.kind;
+    pending_symbol_ = symbol;
+    enqueueSymbol(*ingest, symbol, pending_serial_);
+    error_.clear();
+    dirty_ = true;
+    status_ = "fetching " + symbol;
+    return false;
 }
 
 void PortfolioPanel::pollPending(Store& store, IngestWorker* ingest)
@@ -792,16 +997,47 @@ void PortfolioPanel::pollPending(Store& store, IngestWorker* ingest)
         return;
     }
     const IngestWorker::SerialFailure failure = ingest->failureForSerial(pending_serial_);
+    const bool retarget = pending_retarget_;
+    const std::uint64_t epoch = pending_epoch_;
+    const PortfolioHolding anchor = pending_anchor_;
+    const std::string symbol = pending_symbol_;
     pending_ = false;
+    pending_retarget_ = false;
     if (failure.failed)
     {
         error_ = failure.message;
         status_ = failure.message;
         return;
     }
+    if (retarget)
+    {
+        if (epoch != symbol_epoch_)
+        {
+            return;
+        }
+        const auto found = std::ranges::find_if(drafts_, [&](const PortfolioHolding& row) {
+            return sameHolding(row, anchor);
+        });
+        if (found == drafts_.end())
+        {
+            status_ = book_name_.empty() ? std::string("select a portfolio") : book_name_;
+            return;
+        }
+        const auto index = static_cast<std::size_t>(found - drafts_.begin());
+        const std::optional<Instrument> instrument = store.findOpenListing(symbol);
+        if (!instrument.has_value())
+        {
+            error_ = symbol + " has no open listing";
+            status_ = error_;
+            return;
+        }
+        const Instrument& resolved = instrument.value();
+        (void)applyInstrument(index, resolved);
+        return;
+    }
     if (!appendResolved(store, pending_kind_, pending_symbol_, pending_quantity_))
     {
-        error_ = pending_symbol_ + " has no open listing";
+        error_ = symbol + " has no open listing";
         status_ = error_;
     }
 }
@@ -827,7 +1063,8 @@ void PortfolioPanel::createBook(Store& store)
     loaded_ = false;
     dirty_ = false;
     drafts_.clear();
-    quantity_edit_ = -1;
+    closeLineEditors();
+    cancelRetarget();
     new_name_[0] = '\0';
     book_name_ = name;
     status_ = name;
@@ -863,7 +1100,8 @@ void PortfolioPanel::deleteBook(Store& store)
     }
     portfolio_id_ = 0;
     drafts_.clear();
-    quantity_edit_ = -1;
+    closeLineEditors();
+    cancelRetarget();
     book_name_.clear();
     loaded_ = false;
     dirty_ = false;
@@ -877,10 +1115,14 @@ void PortfolioPanel::apply(Store& store, IngestWorker* ingest)
     {
         return;
     }
+    cancelRetarget();
+    drafts_ = aggregateHoldings(drafts_);
+    closeLineEditors();
+    marks_valid_ = false;
     if (!withWriter(&store, error_, [&](Store& writer) {
             writer.replaceHoldings(portfolio_id_, drafts_);
             drafts_ = writer.queryHoldings(portfolio_id_);
-            quantity_edit_ = -1;
+            closeLineEditors();
             marks_valid_ = false;
             if (ingest != nullptr)
             {
@@ -1026,7 +1268,7 @@ void PortfolioPanel::requestData(Store* store, IngestWorker* ingest)
     status_ = "fetching";
 }
 
-void PortfolioPanel::drawHoldings(const Store& store)
+void PortfolioPanel::drawHoldings(const Store& store, IngestWorker* ingest)
 {
     if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
@@ -1115,17 +1357,62 @@ void PortfolioPanel::drawHoldings(const Store& store)
         ImGui::TableSetColumnIndex(0);
         const std::string_view kind = toSql(row.kind);
         ImGui::TextUnformatted(kind.data(), kind.data() + kind.size());
+        const int row_index = static_cast<int>(index);
+        ImGuiStorage* const storage = ImGui::GetStateStorage();
+        std::optional<std::string> symbol_commit;
         ImGui::TableSetColumnIndex(1);
-        const std::string symbol = symbolText(row);
-        ImGui::TextUnformatted(symbol.c_str());
+        if (row.kind == PortfolioAssetKind::Cash)
+        {
+            ImGui::TextUnformatted("USD");
+        }
+        else if (symbol_edit_ == row_index)
+        {
+            const ImGuiID focus_id = ImGui::GetID("sym_focus");
+            const bool focus_symbol = storage != nullptr && storage->GetBool(focus_id, false);
+            if (focus_symbol && storage != nullptr)
+            {
+                ImGui::SetKeyboardFocusHere();
+                storage->SetBool(focus_id, false);
+            }
+            ImGui::SetNextItemWidth(-1.f);
+            constexpr ImGuiInputTextFlags symbol_flags =
+                ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_AutoSelectAll;
+            ImGui::InputText("##symbol", symbol_edit_buf_, sizeof(symbol_edit_buf_), symbol_flags);
+            if (!focus_symbol && ImGui::IsItemDeactivated())
+            {
+                symbol_commit = canonicalListingSymbol(trim(symbol_edit_buf_));
+                symbol_edit_ = -1;
+            }
+        }
+        else
+        {
+            const std::string shown = symbolText(row);
+            if (drawEditableCell("sym", shown.c_str(), false, "Switch the instrument. Quantity stays."))
+            {
+                const std::optional<std::string> current = row.symbol;
+                symbol_edit_buf_[0] = '\0';
+                if (current.has_value())
+                {
+                    const std::string& text = current.value();
+                    const std::size_t count = std::min(text.size(), sizeof(symbol_edit_buf_) - 1);
+                    std::copy_n(text.data(), count, symbol_edit_buf_);
+                    symbol_edit_buf_[count] = '\0';
+                }
+                symbol_edit_ = row_index;
+                quantity_edit_ = -1;
+                if (storage != nullptr)
+                {
+                    storage->SetBool(ImGui::GetID("sym_focus"), true);
+                }
+            }
+        }
         ImGui::TableSetColumnIndex(2);
         if (row.figi.has_value())
         {
-            ImGui::TextUnformatted(row.figi->c_str());
+            const std::optional<std::string> figi = row.figi;
+            ImGui::TextUnformatted(figi.value().c_str());
         }
         ImGui::TableSetColumnIndex(3);
-        const int row_index = static_cast<int>(index);
-        ImGuiStorage* const storage = ImGui::GetStateStorage();
         const ImGuiID focus_id = ImGui::GetID("qty_focus");
         const bool focus_qty = storage != nullptr && storage->GetBool(focus_id, false);
         ImFont* const mono = Theme::monoFont();
@@ -1142,7 +1429,8 @@ void PortfolioPanel::drawHoldings(const Store& store)
                 storage->SetBool(focus_id, false);
             }
             ImGui::SetNextItemWidth(-1.f);
-            const bool quantity_changed = ImGui::InputText("##qty", quantity_edit_buf_, sizeof(quantity_edit_buf_));
+            const bool quantity_changed = ImGui::InputText("##qty", quantity_edit_buf_, sizeof(quantity_edit_buf_),
+                                                           ImGuiInputTextFlags_AutoSelectAll);
             if (quantity_changed)
             {
                 double parsed = 0.0;
@@ -1161,11 +1449,12 @@ void PortfolioPanel::drawHoldings(const Store& store)
         else
         {
             const std::string shown = formatQuantity(row.quantity);
-            drawRight(shown.c_str(), Theme::text());
-            if (ImGui::IsItemClicked())
+            if (drawEditableCell("qty", shown.c_str(), true, "Edit quantity."))
             {
-                std::snprintf(quantity_edit_buf_, sizeof(quantity_edit_buf_), "%s", shown.c_str());
+                const std::string raw = rawQuantity(row.quantity);
+                std::snprintf(quantity_edit_buf_, sizeof(quantity_edit_buf_), "%s", raw.c_str());
                 quantity_edit_ = row_index;
+                symbol_edit_ = -1;
                 if (storage != nullptr)
                 {
                     storage->SetBool(focus_id, true);
@@ -1252,17 +1541,29 @@ void PortfolioPanel::drawHoldings(const Store& store)
             ImGui::TextUnformatted(side.data(), side.data() + side.size());
         }
         ImGui::SameLine();
+        bool removed = false;
         if (ImGui::SmallButton("Remove"))
         {
             drafts_.erase(drafts_.begin() + static_cast<std::ptrdiff_t>(index));
-            quantity_edit_ = -1;
+            closeLineEditors();
             dirty_ = true;
             marks_valid_ = false;
             status_ = "unsaved";
-            ImGui::PopID();
-            break;
+            removed = true;
         }
         ImGui::PopID();
+        if (removed)
+        {
+            break;
+        }
+        if (symbol_commit.has_value())
+        {
+            const std::string& typed = symbol_commit.value();
+            if (resolveSymbol(store, ingest, index, typed))
+            {
+                break;
+            }
+        }
     }
     if (!marks_valid_ || lasts_.size() != drafts_.size() || risks_.size() != drafts_.size())
     {
@@ -1478,11 +1779,7 @@ void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
         PortfolioHolding row;
         row.kind = PortfolioAssetKind::Cash;
         row.quantity = quantity;
-        drafts_.push_back(std::move(row));
-        dirty_ = true;
-        marks_valid_ = false;
-        status_ = "unsaved";
-        error_.clear();
+        adopt(std::move(row));
         return;
     }
     const std::string symbol = trim(symbol_);
@@ -1525,6 +1822,7 @@ void PortfolioPanel::drawAdd(Store& store, IngestWorker* ingest)
         return;
     }
     pending_ = true;
+    pending_retarget_ = false;
     pending_kind_ = kind;
     pending_symbol_ = symbol;
     pending_quantity_ = quantity;
@@ -1605,6 +1903,8 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         {
             dirty_ = false;
             loaded_ = false;
+            closeLineEditors();
+            cancelRetarget();
         }
         ImGui::PopStyleColor();
     }
@@ -1699,7 +1999,7 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
     const ImVec2 pane_size(left_w, footer > 0.f ? -footer : 0.f);
     if (ImGui::BeginChild("portfolio_table", pane_size, ImGuiChildFlags_Borders))
     {
-        drawHoldings(*store);
+        drawHoldings(*store, ingest);
     }
     ImGui::EndChild();
     ImGui::SameLine();

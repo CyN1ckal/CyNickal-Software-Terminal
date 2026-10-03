@@ -21,6 +21,8 @@ class IngestWorker;
 class Store;
 
 // One hypothetical book. Holdings are edited here and written with replaceHoldings.
+// Each position is one line. Adding it again adds to that quantity.
+// Quantity and symbol are edited on the line. A new symbol keeps the quantity.
 class PortfolioPanel
 {
 public:
@@ -49,7 +51,7 @@ public:
 private:
     void reload(Store& store);
     void drawBooks(Store& store);
-    void drawHoldings(const Store& store);
+    void drawHoldings(const Store& store, IngestWorker* ingest);
     void drawAllocation() const;
     void refreshMarks(const Store& store);
     void drawAdd(Store& store, IngestWorker* ingest);
@@ -60,6 +62,17 @@ private:
     void deleteBook(Store& store);
     [[nodiscard]] bool appendResolved(const Store& store, PortfolioAssetKind kind, const std::string& symbol,
                                       double quantity);
+    // Inserts the row, or adds its quantity to the matching line already on screen.
+    void adopt(PortfolioHolding row);
+    // Points one line at a resolved listing and keeps its quantity. True when the
+    // line list changed length, so the row being drawn must stop.
+    [[nodiscard]] bool applyInstrument(std::size_t index, const Instrument& instrument);
+    // Resolves `symbol` onto the line. An unknown listing is fetched. True when
+    // the line list changed length.
+    [[nodiscard]] bool resolveSymbol(const Store& store, IngestWorker* ingest, std::size_t index,
+                                     const std::string& symbol);
+    void closeLineEditors() noexcept;
+    void cancelRetarget() noexcept;
 
     // How a row's profit-and-loss sample is built. Cash is a zero exposure.
     // Close uses the share price. Delta scales the underlying move.
@@ -102,12 +115,18 @@ private:
     char quantity_[32]{};
     char quantity_edit_buf_[96]{};
     int quantity_edit_{-1};
+    char symbol_edit_buf_[32]{};
+    int symbol_edit_{-1};
     char expiration_[16]{};
     char strike_[32]{};
     int kind_{0};
     int expiration_type_{0};
     int right_{0};
     bool pending_{false};
+    bool pending_retarget_{false};
+    std::uint64_t symbol_epoch_{0};
+    std::uint64_t pending_epoch_{0};
+    PortfolioHolding pending_anchor_{};
     PortfolioAssetKind pending_kind_{PortfolioAssetKind::Equity};
     std::string pending_symbol_;
     double pending_quantity_{};

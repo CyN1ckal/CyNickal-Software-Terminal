@@ -19,6 +19,7 @@
 #include "data/ledger_analysis_tests.h"
 #include "data/ledger_marks_tests.h"
 #include "data/portfolio_fetch_tests.h"
+#include "data/portfolio_holdings_tests.h"
 #include "risk/historical_risk_tests.h"
 #include "trading/equity_curve_tests.h"
 #include "trading/ledger_tests.h"

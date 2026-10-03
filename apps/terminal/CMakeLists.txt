@@ -38,6 +38,7 @@ add_library(terminal_logic OBJECT
     src/data/StatementSheet.cpp
     src/data/StatementLineLabel.cpp
     src/data/PortfolioFetch.cpp
+    src/data/PortfolioHoldings.cpp
     src/data/LedgerMarks.cpp
     src/data/LedgerAnalysis.cpp
     src/risk/HistoricalRisk.cpp
