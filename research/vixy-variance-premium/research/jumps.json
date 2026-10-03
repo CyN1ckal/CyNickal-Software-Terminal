@@ -1,0 +1,103 @@
+{
+  "note": "Adjusted close ratio above 3 on the same day as the raw close ratio above 3. mdq adjust=True did not remove these jumps. This is not a corrected price series and not a backtest.",
+  "VIXY": [
+    {
+      "date": "2013-06-10",
+      "prev_date": "2013-06-07",
+      "raw_prev_close": 10.26,
+      "raw_close": 50.76,
+      "raw_ratio": 4.947368421052632,
+      "adj_prev_close": 3283.2,
+      "adj_close": 16243.199999999999,
+      "adj_ratio": 4.947368421052632,
+      "raw_volume_prev": 2865600.0,
+      "raw_volume": 685200.0
+    },
+    {
+      "date": "2016-07-25",
+      "prev_date": "2016-07-22",
+      "raw_prev_close": 7.42,
+      "raw_close": 36.85,
+      "raw_ratio": 4.966307277628032,
+      "adj_prev_close": 2374.3999999999996,
+      "adj_close": 11792.0,
+      "adj_ratio": 4.966307277628033,
+      "raw_volume_prev": 2848400.0,
+      "raw_volume": 6519700.0
+    }
+  ],
+  "UVXY": [
+    {
+      "date": "2012-03-08",
+      "prev_date": "2012-03-07",
+      "raw_prev_close": 5.54,
+      "raw_close": 30.51,
+      "raw_ratio": 5.507220216606498,
+      "adj_prev_close": 1384999.9999999995,
+      "adj_close": 7627499.999999997,
+      "adj_ratio": 5.507220216606498,
+      "raw_volume_prev": 10126600.0,
+      "raw_volume": 2151500.0
+    },
+    {
+      "date": "2012-09-07",
+      "prev_date": "2012-09-06",
+      "raw_prev_close": 3.92,
+      "raw_close": 34.72,
+      "raw_ratio": 8.857142857142858,
+      "adj_prev_close": 979999.9999999997,
+      "adj_close": 8679999.999999996,
+      "adj_ratio": 8.857142857142856,
+      "raw_volume_prev": 27813400.0,
+      "raw_volume": 3526400.0
+    },
+    {
+      "date": "2013-06-10",
+      "prev_date": "2013-06-07",
+      "raw_prev_close": 6.25,
+      "raw_close": 61.06,
+      "raw_ratio": 9.7696,
+      "adj_prev_close": 1562499.9999999993,
+      "adj_close": 15264999.999999994,
+      "adj_ratio": 9.7696,
+      "raw_volume_prev": 42314200.0,
+      "raw_volume": 4559200.0
+    },
+    {
+      "date": "2014-01-24",
+      "prev_date": "2014-01-23",
+      "raw_prev_close": 15.48,
+      "raw_close": 72.81,
+      "raw_ratio": 4.703488372093023,
+      "adj_prev_close": 3869999.9999999986,
+      "adj_close": 18202499.999999993,
+      "adj_ratio": 4.703488372093023,
+      "raw_volume_prev": 13044900.0,
+      "raw_volume": 7251100.0
+    },
+    {
+      "date": "2015-05-20",
+      "prev_date": "2015-05-19",
+      "raw_prev_close": 8.23,
+      "raw_close": 41.29,
+      "raw_ratio": 5.017010935601458,
+      "adj_prev_close": 2057499.9999999993,
+      "adj_close": 10322499.999999996,
+      "adj_ratio": 5.017010935601458,
+      "raw_volume_prev": 29606400.0,
+      "raw_volume": 12392000.0
+    },
+    {
+      "date": "2016-07-25",
+      "prev_date": "2016-07-22",
+      "raw_prev_close": 6.1,
+      "raw_close": 30.2,
+      "raw_ratio": 4.950819672131148,
+      "adj_prev_close": 1524999.9999999993,
+      "adj_close": 7549999.999999997,
+      "adj_ratio": 4.950819672131148,
+      "raw_volume_prev": 43777300.0,
+      "raw_volume": 20725300.0
+    }
+  ]
+}

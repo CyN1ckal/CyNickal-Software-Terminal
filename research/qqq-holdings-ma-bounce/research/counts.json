@@ -1,0 +1,940 @@
+{
+  "universe": 101,
+  "calendar_sessions": 1255,
+  "warmup_sessions": 251,
+  "eval_sessions": 1004,
+  "eval_first": "2022-10-03",
+  "eval_last": "2026-10-02",
+  "warmup_first": "2021-10-04",
+  "warmup_last": "2022-09-30",
+  "names": [
+    {
+      "symbol": "NVDA",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AAPL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MSFT",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MU",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AMD",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AMZN",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "META",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "GOOGL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "TSLA",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "SPCX",
+      "bars": 1151,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 900,
+      "warmup_bars": 251,
+      "missing_eval": 104
+    },
+    {
+      "symbol": "GOOG",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "INTC",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AVGO",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "WMT",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CSCO",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "LRCX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "PLTR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AMAT",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "COST",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "PANW",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "NFLX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CRWD",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "KLAC",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "TXN",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "SNDK",
+      "bars": 411,
+      "first": "2025-02-13",
+      "last": "2026-10-02",
+      "eval_bars": 411,
+      "warmup_bars": 0,
+      "missing_eval": 593
+    },
+    {
+      "symbol": "MRVL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "LIN",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AMGN",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ADI",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "QCOM",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "STX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "SHOP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "GILD",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ASML",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "TMUS",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "PEP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "WDC",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ISRG",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ARM",
+      "bars": 766,
+      "first": "2023-09-14",
+      "last": "2026-10-02",
+      "eval_bars": 766,
+      "warmup_bars": 0,
+      "missing_eval": 238
+    },
+    {
+      "symbol": "FTNT",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "VRTX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "BKNG",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "SBUX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ADP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "LITE",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CDNS",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ADBE",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "SNPS",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MAR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "DDOG",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CEG",
+      "bars": 1181,
+      "first": "2022-01-19",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 177,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CSX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MELI",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MNST",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "APP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "WBD",
+      "bars": 1129,
+      "first": "2022-04-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 125,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "DASH",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CTAS",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "INTU",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CMCSA",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MDLZ",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "REGN",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ROST",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MPWR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "TER",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ORLY",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ABNB",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "HON",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AEP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "NXPI",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ALAB",
+      "bars": 637,
+      "first": "2024-03-20",
+      "last": "2026-10-02",
+      "eval_bars": 637,
+      "warmup_bars": 0,
+      "missing_eval": 367
+    },
+    {
+      "symbol": "MSTR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "FAST",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "NBIS",
+      "bars": 489,
+      "first": "2024-10-21",
+      "last": "2026-10-02",
+      "eval_bars": 489,
+      "warmup_bars": 0,
+      "missing_eval": 515
+    },
+    {
+      "symbol": "PCAR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "BKR",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "FANG",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "PDD",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "HONA",
+      "bars": 77,
+      "first": "2026-06-15",
+      "last": "2026-10-02",
+      "eval_bars": 77,
+      "warmup_bars": 0,
+      "missing_eval": 927
+    },
+    {
+      "symbol": "PYPL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "XEL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ADSK",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "RKLB",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "MCHP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CCEP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "EXC",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "KDP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "CRWV",
+      "bars": 381,
+      "first": "2025-03-28",
+      "last": "2026-10-02",
+      "eval_bars": 381,
+      "warmup_bars": 0,
+      "missing_eval": 623
+    },
+    {
+      "symbol": "IDXX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "FER",
+      "bars": 635,
+      "first": "2023-08-01",
+      "last": "2026-10-02",
+      "eval_bars": 635,
+      "warmup_bars": 0,
+      "missing_eval": 369
+    },
+    {
+      "symbol": "TTWO",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ODFL",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "TRI",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "WDAY",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "PAYX",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ROP",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "AXON",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "DXCM",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "ALNY",
+      "bars": 1254,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1003,
+      "warmup_bars": 251,
+      "missing_eval": 1
+    },
+    {
+      "symbol": "GEHC",
+      "bars": 952,
+      "first": "2022-12-15",
+      "last": "2026-10-02",
+      "eval_bars": 952,
+      "warmup_bars": 0,
+      "missing_eval": 52
+    },
+    {
+      "symbol": "CPRT",
+      "bars": 1255,
+      "first": "2021-10-04",
+      "last": "2026-10-02",
+      "eval_bars": 1004,
+      "warmup_bars": 251,
+      "missing_eval": 0
+    },
+    {
+      "symbol": "QQQ",
+      "bars": 1254,
+      "first": "2021-10-04",
+      "last": "2026-10-01",
+      "eval_bars": 1003,
+      "warmup_bars": 251,
+      "missing_eval": 1
+    },
+    {
+      "symbol": "SPY",
+      "bars": 1254,
+      "first": "2021-10-04",
+      "last": "2026-10-01",
+      "eval_bars": 1003,
+      "warmup_bars": 251,
+      "missing_eval": 1
+    }
+  ],
+  "note": "Bar counts and session spans only. No return, forward return, hit rate, or P&L."
+}

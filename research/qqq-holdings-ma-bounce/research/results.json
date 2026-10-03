@@ -1,0 +1,453 @@
+{
+  "kit_schema": 1,
+  "rules_sha256": "a3303e9e97f39135c33d73a5b9a2e165dd742755962d4fdf5c8a6b2c777bba39",
+  "git_head": "738d3e7ec4340e05458317114dfe247d55a1ef16",
+  "git_dirty": true,
+  "strategy_label": "MA bounce, 5 bp",
+  "benchmark_name": "QQQ close-to-close",
+  "return_model": "compound",
+  "samples": {
+    "is_end": "2024-06-28",
+    "oos_start": "2024-07-01",
+    "first": "2022-10-03",
+    "last": "2026-10-02"
+  },
+  "seeds": {
+    "direction": 20261003,
+    "timing": 20261003,
+    "bootstrap": 20261003
+  },
+  "primary": {
+    "full": {
+      "sessions": 1004,
+      "total_return": 1.4550571919689181,
+      "cagr": 0.25286394427926595,
+      "ann_vol": 0.22718614527474895,
+      "sharpe": 1.1060682655093068,
+      "max_dd": -0.1948181551727206,
+      "t_stat": 2.2077430082486433,
+      "trades": 734,
+      "win_rate": 0.48501362397820164,
+      "profit_factor": 1.5103001124563558,
+      "avg_net_bp": 13.040588845558435,
+      "exposure": 0.9840637450199203
+    },
+    "is": {
+      "sessions": 437,
+      "total_return": 0.4838537711035966,
+      "cagr": 0.2555506284069664,
+      "ann_vol": 0.19227838907966951,
+      "sharpe": 1.2799232105820915,
+      "max_dd": -0.13805399769485283,
+      "t_stat": 1.6854829470388604,
+      "trades": 258,
+      "win_rate": 0.5232558139534884,
+      "profit_factor": 1.6347988183097495,
+      "avg_net_bp": 16.314080108031817,
+      "exposure": 0.9633867276887872
+    },
+    "oos": {
+      "sessions": 567,
+      "total_return": 0.6545142383828009,
+      "cagr": 0.25079717838818016,
+      "ann_vol": 0.25096617535776,
+      "sharpe": 1.0171774262432778,
+      "max_dd": -0.19481815517272105,
+      "t_stat": 1.525766139364917,
+      "trades": 476,
+      "win_rate": 0.4642857142857143,
+      "profit_factor": 1.4422280396580611,
+      "avg_net_bp": 11.26630156463799,
+      "exposure": 1.0
+    }
+  },
+  "benchmark_metrics": {
+    "full": {
+      "sessions": 1004,
+      "total_return": 1.7823093616702859,
+      "cagr": 0.29283764405219026,
+      "ann_vol": 0.21647368410880197,
+      "sharpe": 1.294334133519726,
+      "max_dd": -0.24200124703976167,
+      "t_stat": 2.5835269148599367
+    },
+    "is": {
+      "sessions": 437,
+      "total_return": 0.7926738007932346,
+      "cagr": 0.4001797731142598,
+      "ann_vol": 0.1986423640691647,
+      "sharpe": 1.7942491656054071,
+      "max_dd": -0.1144627536429248,
+      "t_stat": 2.362779537368702
+    },
+    "oos": {
+      "sessions": 567,
+      "total_return": 0.5520444156874218,
+      "cagr": 0.21575562300689666,
+      "ann_vol": 0.22937757785319807,
+      "sharpe": 0.9654003957787437,
+      "max_dd": -0.24200124703976178,
+      "t_stat": 1.4481005936681155
+    }
+  },
+  "costs": [
+    {
+      "multiple": 0.0,
+      "full_sharpe": 1.232077565576937,
+      "oos_sharpe": 1.1281788033968327,
+      "full_return": 1.750082521311855
+    },
+    {
+      "multiple": 0.5,
+      "full_sharpe": 1.1690665766777297,
+      "oos_sharpe": 1.0726727686558437,
+      "full_return": 1.5983951421042835
+    },
+    {
+      "multiple": 1.0,
+      "full_sharpe": 1.1060682655093068,
+      "oos_sharpe": 1.0171774262432778,
+      "full_return": 1.4550571919689181
+    },
+    {
+      "multiple": 2.0,
+      "full_sharpe": 0.9801236016236936,
+      "oos_sharpe": 0.9062260277206317,
+      "full_return": 1.1916201778776712
+    },
+    {
+      "multiple": 3.0,
+      "full_sharpe": 0.8542713313873612,
+      "oos_sharpe": 0.795338989608814,
+      "full_return": 0.9563959099106201
+    }
+  ],
+  "delay": {
+    "full_sharpe": 1.0784231315223622,
+    "oos_sharpe": 0.994477202104203,
+    "full_return": 1.3577098065840043,
+    "oos_return": 0.6083284863657425
+  },
+  "grid": [
+    {
+      "params": {
+        "hold": 10
+      },
+      "is_sharpe": 1.368698182732263,
+      "oos_sharpe": 1.0717531320037157,
+      "full_return": 1.851609819895403,
+      "primary": false
+    },
+    {
+      "params": {
+        "hold": 15
+      },
+      "is_sharpe": 0.8565319732715418,
+      "oos_sharpe": 0.8259684808623812,
+      "full_return": 0.9192723661264588,
+      "primary": false
+    },
+    {
+      "params": {
+        "hold": 20
+      },
+      "is_sharpe": 1.2799232105820915,
+      "oos_sharpe": 1.0171774262432778,
+      "full_return": 1.4550571919689181,
+      "primary": true
+    },
+    {
+      "params": {
+        "hold": 30
+      },
+      "is_sharpe": 1.6037186000588468,
+      "oos_sharpe": 1.6724275777566233,
+      "full_return": 2.7050417734981007,
+      "primary": false
+    },
+    {
+      "params": {
+        "hold": 40
+      },
+      "is_sharpe": 1.7023520145320268,
+      "oos_sharpe": 1.5703352135788382,
+      "full_return": 2.459764835905482,
+      "primary": false
+    }
+  ],
+  "placebo": {
+    "direction": {
+      "actual_gross_sharpe": 1.1893580305038518,
+      "null_mean": 0.011270428648953293,
+      "null_p95": 0.7966022164109147,
+      "p": 0.005997001499250375,
+      "draws": 2000,
+      "seed": 20261003,
+      "samples_file": "placebo_direction.npy"
+    },
+    "timing": {
+      "actual_gross_sharpe": 1.1893580305038518,
+      "null_mean": 1.3346168037557307,
+      "null_p95": 1.763801847101114,
+      "p": 0.7245508982035929,
+      "draws": 500,
+      "seed": 20261003,
+      "attempts": 500,
+      "width": 1004,
+      "samples_file": "placebo_timing.npy"
+    }
+  },
+  "bootstrap": {
+    "block": 20,
+    "draws": 2000,
+    "seed": 20261003,
+    "sharpe_lo": 0.21618591222994615,
+    "sharpe_hi": 1.9654424127006789,
+    "share_le_0": 0.007
+  },
+  "by_year": [
+    {
+      "year": 2022,
+      "strategy_return": 0.11541220295047516,
+      "strategy_sharpe": 1.9276016842222796,
+      "strategy_max_dd": -0.08781030014663604,
+      "benchmark_return": -0.0036668412781563076
+    },
+    {
+      "year": 2023,
+      "strategy_return": 0.1659872508868656,
+      "strategy_sharpe": 0.8926184756456509,
+      "strategy_max_dd": -0.13805399769485327,
+      "benchmark_return": 0.5379299984978212
+    },
+    {
+      "year": 2024,
+      "strategy_return": 0.1810976161772846,
+      "strategy_sharpe": 1.0287749445406256,
+      "strategy_max_dd": -0.10002817386755625,
+      "benchmark_return": 0.2483883571009935
+    },
+    {
+      "year": 2025,
+      "strategy_return": 0.1842815331076897,
+      "strategy_sharpe": 0.7902770492542207,
+      "strategy_max_dd": -0.19469492428665824,
+      "benchmark_return": 0.2015100539863881
+    },
+    {
+      "year": 2026,
+      "strategy_return": 0.3495583612061173,
+      "strategy_sharpe": 1.5896037995167929,
+      "strategy_max_dd": -0.11161059634330639,
+      "benchmark_return": 0.210562302608017
+    }
+  ],
+  "by_move_quintile": [
+    {
+      "quintile": 1,
+      "sessions": 201,
+      "mean_strategy_net": -0.0015703183386970624
+    },
+    {
+      "quintile": 2,
+      "sessions": 201,
+      "mean_strategy_net": -0.0005605787921833643
+    },
+    {
+      "quintile": 3,
+      "sessions": 201,
+      "mean_strategy_net": 0.0013505485022686106
+    },
+    {
+      "quintile": 4,
+      "sessions": 201,
+      "mean_strategy_net": 0.0034246920706478435
+    },
+    {
+      "quintile": 5,
+      "sessions": 200,
+      "mean_strategy_net": 0.0023481594279441526
+    }
+  ],
+  "cross_market": [
+    {
+      "symbol": "QQQ",
+      "is_sharpe": 1.3348954798308705,
+      "oos_sharpe": 1.0952340207222475,
+      "full_return": 0.34339456792203116,
+      "full_profit_factor": 3.1437243562236743
+    },
+    {
+      "symbol": "SPY",
+      "is_sharpe": -0.24029367971960497,
+      "oos_sharpe": 0.5191617254208545,
+      "full_return": 0.053650809434875546,
+      "full_profit_factor": 1.5038055525753113
+    }
+  ],
+  "cross_market_applicable": true,
+  "acceptance": [
+    {
+      "id": "1",
+      "name": "oos_edge",
+      "required": "OOS Sharpe >= 0.50 and OOS profit factor >= 1.10",
+      "actual": "Sharpe 1.017, profit factor 1.442",
+      "passed": true
+    },
+    {
+      "id": "2",
+      "name": "direction_placebo",
+      "required": "direction placebo p <= 0.05",
+      "actual": 0.005997001499250375,
+      "passed": true
+    },
+    {
+      "id": "3",
+      "name": "is_plateau",
+      "required": "IS Sharpe > 0.00 and at least 60% of IS grid cells have Sharpe > 0",
+      "actual": "IS Sharpe 1.280, grid 1.000",
+      "passed": true
+    },
+    {
+      "id": "4",
+      "name": "cost_2x",
+      "required": "full-sample total return > 0 at 2\u00d7 cost",
+      "actual": 1.1916201778776712,
+      "passed": true
+    },
+    {
+      "id": "5",
+      "name": "cross_market",
+      "required": "OOS Sharpe > 0 on at least one cross-market instrument",
+      "actual": "QQQ=1.095, SPY=0.519",
+      "passed": true
+    },
+    {
+      "id": "6",
+      "name": "oos_sample",
+      "required": "at least 100 OOS trades",
+      "actual": 476,
+      "passed": true
+    }
+  ],
+  "status": "Paper-trading candidate",
+  "secondaries": [],
+  "study": {
+    "open_positions": 18,
+    "sessions_held": 988,
+    "hold_mean": 15.520435967302452,
+    "hold_median": 20.0,
+    "gross_sharpe_path": 1.232077565576937,
+    "gross_sharpe_completed": 1.1893580305038518,
+    "by_exit": [
+      {
+        "sample": "full",
+        "reason": "trend",
+        "trades": 293,
+        "mean_gross": -0.0051297740650633914,
+        "mean_net": -0.005271365623312923,
+        "profit_factor": 0.019971414282405668
+      },
+      {
+        "sample": "full",
+        "reason": "time",
+        "trades": 441,
+        "mean_gross": 0.005833819942488897,
+        "mean_net": 0.005672764963479991,
+        "profit_factor": 9.346380177422251
+      },
+      {
+        "sample": "is",
+        "reason": "trend",
+        "trades": 88,
+        "mean_gross": -0.005311939790933102,
+        "mean_net": -0.005519486585630773,
+        "profit_factor": 0.02045272967065685
+      },
+      {
+        "sample": "is",
+        "reason": "time",
+        "trades": 170,
+        "mean_gross": 0.005532724093870351,
+        "mean_net": 0.005333047566604287,
+        "profit_factor": 6.422570326991331
+      },
+      {
+        "sample": "oos",
+        "reason": "trend",
+        "trades": 205,
+        "mean_gross": -0.005051576094933954,
+        "mean_net": -0.005164855161439896,
+        "profit_factor": 0.019750455970503674
+      },
+      {
+        "sample": "oos",
+        "reason": "time",
+        "trades": 271,
+        "mean_gross": 0.006022699257120457,
+        "mean_net": 0.0058858718176086604,
+        "profit_factor": 13.034637739897178
+      }
+    ],
+    "full_side": {
+      "trades": 734,
+      "win_rate": 0.48501362397820164,
+      "avg_winner_bp": 79.57577096852957,
+      "avg_loser_bp": -49.622175270255646,
+      "profit_factor": 1.5103001124563558
+    },
+    "is_side": {
+      "trades": 258,
+      "win_rate": 0.5232558139534884,
+      "avg_winner_bp": 80.29282411063294,
+      "avg_loser_bp": -53.906492577749894,
+      "profit_factor": 1.6347988183097495
+    },
+    "oos_side": {
+      "trades": 476,
+      "win_rate": 0.4642857142857143,
+      "avg_winner_bp": 79.13775208081937,
+      "avg_loser_bp": -47.55562221605253,
+      "profit_factor": 1.4422280396580611
+    },
+    "predictions": [
+      {
+        "id": 1,
+        "score": "not consistent",
+        "time_trades": 441,
+        "time_mean_gross": 0.005833819942488897,
+        "trend_trades": 293,
+        "trend_mean_gross": -0.0051297740650633914
+      },
+      {
+        "id": 2,
+        "score": "consistent",
+        "upper_mean": 0.0028864257492959983,
+        "lower_mean": -0.0010654485654402134
+      },
+      {
+        "id": 3,
+        "score": "consistent",
+        "primary_oos_total_return": 0.6545142383828009,
+        "ex_nvda_oos_total_return": 0.6687768706515405
+      }
+    ],
+    "ex_nvda": {
+      "oos_sharpe": 1.0277057800733738,
+      "oos_total_return": 0.6687768706515405,
+      "oos_trades": 466,
+      "full_sharpe": 1.1090085762523625,
+      "full_total_return": 1.4690507506263635
+    },
+    "same_bar_close_upper_bound": {
+      "label": "upper bound, not an acceptance input",
+      "full_sharpe": 1.1702583814590046,
+      "oos_sharpe": 0.9278265831796139,
+      "full_return": 1.588805313728061,
+      "oos_return": 0.5886870857971336
+    },
+    "timing_attempts": 500,
+    "cost_bp_per_side": 5.0,
+    "cross_cost_bp_per_side": 1.0
+  }
+}

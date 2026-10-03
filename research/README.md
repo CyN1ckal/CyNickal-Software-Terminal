@@ -25,3 +25,13 @@ One folder per strategy. Each folder holds its rules, code, and raw output in `r
 | [commodity-etf-momentum](commodity-etf-momentum/) | 12-month cross-sectional momentum on six commodity ETFs, long the top 2 and short the bottom 2 | Inconclusive | 2026-10-02 |
 | [fx-etf-momentum](fx-etf-momentum/) | 63-session time-series momentum on six CurrencyShares ETFs, equal weight, monthly | Rejected | 2026-10-02 |
 | [spdr-sector-momentum](spdr-sector-momentum/) | 12-1 month cross-sectional momentum on the SPDR sector ETFs, long the top 3 and short the bottom 3 | Rejected | 2026-10-02 |
+| [spy-pre-holiday](spy-pre-holiday/) | Buy SPY at the open and sell at the close on the last session before a full-day NYSE closure | Rejected | 2026-10-02 |
+| [eem-us-leadlag](eem-us-leadlag/) | Trade EEM open-to-close in the direction of the prior SPY close-to-close move | Rejected | 2026-10-02 |
+| [country-bab](country-bab/) | Long the 3 lowest-beta country ETFs and short the 3 highest-beta, monthly | Inconclusive | 2026-10-02 |
+| [vixy-variance-premium](vixy-variance-premium/) | Constant short of VIXY, reset monthly to a weight of −1 | Void | 2026-10-02 |
+| [gold-silver-ratio](gold-silver-ratio/) | Dollar-neutral GLD/SLV pair when the ratio is 2 standard deviations from its 60-session mean | Inconclusive | 2026-10-02 |
+| [qqq-holdings-ma-bounce](qqq-holdings-ma-bounce/) | Long a QQQ holding when price dips into the 150–250 session average band and closes back above the faster average | Paper-trading candidate | 2026-10-03 |
+| [qqq-holdings-volume-node](qqq-holdings-volume-node/) | High-volume-node test on QQQ holdings | Not run: no intraday volume profile | 2026-10-03 |
+| [qqq-holdings-obv-divergence](qqq-holdings-obv-divergence/) | Granville OBV swing divergence, long and short, on the current QQQ holdings | Rejected | 2026-10-03 |
+| [qqq-holdings-relative-strength](qqq-holdings-relative-strength/) | 6–1 month excess return versus QQQ, long the top quintile | Paper-trading candidate | 2026-10-03 |
+| [qqq-holdings-earnings](qqq-holdings-earnings/) | Pre- and post-earnings setups on QQQ holdings | Not run: no announcement history | 2026-10-03 |

@@ -1,0 +1,195 @@
+{
+  "end": "2026-10-01",
+  "nyse_sessions_2011-01-04_through_end": 3962,
+  "skipped_closures_in_calendar": [
+    "2012-10-29",
+    "2012-10-30",
+    "2018-12-05"
+  ],
+  "book_sessions": 3959,
+  "gld_slv_both": 3959,
+  "gld_not_slv": [],
+  "slv_not_gld": [],
+  "pplt_not_gld_through_end": [],
+  "gld_not_pplt_through_end": [],
+  "book_not_gld": [],
+  "gld_not_book": [],
+  "has_2024-06-28": true,
+  "has_2024-07-01": true,
+  "pplt_jump": {
+    "symbol": "PPLT",
+    "ex_date": "2026-05-18",
+    "raw": {
+      "prev_session": "2026-05-15",
+      "close_ratio": 0.10050279329608938,
+      "prior_close_ratio": 0.9594768439108061
+    },
+    "adjusted": {
+      "prev_session": "2026-05-15",
+      "close_ratio": 1.0050279329608938,
+      "prior_close_ratio": 0.9594768439108061
+    }
+  },
+  "names": {
+    "GLD": {
+      "symbol": "GLD",
+      "coverage": {
+        "symbol": "GLD",
+        "timeframe": "1d",
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "actions": [],
+      "bars_through_end": 3959,
+      "bars_all": 3959,
+      "first": "2011-01-04",
+      "last_through_end": "2026-10-01",
+      "last_all": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": [],
+      "zero_volume": 0,
+      "raw_count_through_end": 3959
+    },
+    "SLV": {
+      "symbol": "SLV",
+      "coverage": {
+        "symbol": "SLV",
+        "timeframe": "1d",
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "actions": [],
+      "bars_through_end": 3959,
+      "bars_all": 3959,
+      "first": "2011-01-04",
+      "last_through_end": "2026-10-01",
+      "last_all": "2026-10-01",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": [],
+      "zero_volume": 0,
+      "raw_count_through_end": 3959
+    },
+    "PPLT": {
+      "symbol": "PPLT",
+      "coverage": {
+        "symbol": "PPLT",
+        "timeframe": "1d",
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "actions": [
+        {
+          "ex_ts": 1779111000,
+          "type": "split",
+          "split_ratio": 10.0,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2026-05-18"
+        }
+      ],
+      "bars_through_end": 3959,
+      "bars_all": 3960,
+      "first": "2011-01-04",
+      "last_through_end": "2026-10-01",
+      "last_all": "2026-10-02",
+      "duplicate_sessions": [],
+      "nonpositive_ohlc": [],
+      "zero_volume": 0,
+      "raw_count_through_end": 3959
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "label": "post hoc",
+  "rolling_252": {
+    "windows": 3700,
+    "last": 0.26925478543790776,
+    "last_date": "2026-10-01",
+    "min": -1.666980405025609,
+    "max": 2.3346342888420955,
+    "fraction_negative": 0.3327027027027027
+  },
+  "trailing_252": {
+    "start": "2025-10-01",
+    "end": "2026-10-01",
+    "strategy": {
+      "sessions": 252,
+      "total_return": 0.004119041520425082,
+      "sharpe": 0.26925478543790776,
+      "max_dd": -0.008359285791347593,
+      "cagr": 0.004119041520425082,
+      "ending_equity": 1.004119041520425
+    },
+    "open_to_close": {
+      "sessions": 252,
+      "total_return": 0.1310055487856605,
+      "sharpe": 1.039275036046443,
+      "max_dd": -0.06305103403229106,
+      "cagr": 0.1310055487856605,
+      "ending_equity": 1.1310055487856605
+    },
+    "close_to_close": {
+      "sessions": 252,
+      "total_return": 0.15052356020942326,
+      "sharpe": 1.1151310110836896,
+      "max_dd": -0.09550174995696814,
+      "cagr": 0.15052356020942326,
+      "ending_equity": 1.1505235602094233
+    }
+  },
+  "best_10": {
+    "sessions": [
+      {
+        "date": "2012-12-31",
+        "strategy_net": 0.01949067735930108
+      },
+      {
+        "date": "2022-05-27",
+        "strategy_net": 0.017818680591306736
+      },
+      {
+        "date": "2015-01-16",
+        "strategy_net": 0.014188489208633004
+      },
+      {
+        "date": "2011-07-01",
+        "strategy_net": 0.013654190324778414
+      },
+      {
+        "date": "2022-07-01",
+        "strategy_net": 0.012228298279158811
+      },
+      {
+        "date": "2023-01-13",
+        "strategy_net": 0.012197744017072387
+      },
+      {
+        "date": "2026-04-02",
+        "strategy_net": 0.0120066017499729
+      },
+      {
+        "date": "2023-05-26",
+        "strategy_net": 0.01109222545927333
+      },
+      {
+        "date": "2024-12-24",
+        "strategy_net": 0.009967212839257366
+      },
+      {
+        "date": "2016-02-12",
+        "strategy_net": 0.008828979238754342
+      }
+    ],
+    "sum_net": 0.13147309906750837,
+    "sum_all_net": 0.11925523850007849,
+    "share_of_sum": 1.102451353257927,
+    "zeroed_return": -0.01390034368362536,
+    "zeroed_sharpe": -0.05181693349226244,
+    "zeroed_ending_equity": 0.9860996563163746
+  },
+  "worst_10": {
+    "sessions": [
+      {
+        "date": "2022-09-02",
+        "strategy_net": -0.020285939842110377
+      },
+      {
+        "date": "2018-12-24",
+        "strategy_net": -0.01986198125836671
+      },
+      {
+        "date": "2022-04-14",
+        "strategy_net": -0.013186134595874166
+      },
+      {
+        "date": "2011-11-23",
+        "strategy_net": -0.0129890234606588
+      },
+      {
+        "date": "2014-12-31",
+        "strategy_net": -0.011979412471753515
+      },
+      {
+        "date": "2020-09-04",
+        "strategy_net": -0.010485152977205115
+      },
+      {
+        "date": "2025-05-23",
+        "strategy_net": -0.009134990243401498
+      },
+      {
+        "date": "2025-04-17",
+        "strategy_net": -0.008478457196613354
+      },
+      {
+        "date": "2023-06-16",
+        "strategy_net": -0.008235754593472056
+      },
+      {
+        "date": "2018-07-03",
+        "strategy_net": -0.007419555099498009
+      }
+    ],
+    "sum_net": -0.1220564017389536
+  },
+  "by_holiday": [
+    {
+      "holiday": "New Year",
+      "trades": 14,
+      "win_rate": 0.42857142857142855,
+      "mean_net_bp": -3.871138092451316,
+      "mean_gross_bp": -1.8711380924513188,
+      "sum_net": -0.005419593329431842
+    },
+    {
+      "holiday": "MLK Day",
+      "trades": 16,
+      "win_rate": 0.75,
+      "mean_net_bp": 36.583162968577675,
+      "mean_gross_bp": 38.58316296857768,
+      "sum_net": 0.05853306074972428
+    },
+    {
+      "holiday": "Presidents Day",
+      "trades": 16,
+      "win_rate": 0.625,
+      "mean_net_bp": 14.857689542286376,
+      "mean_gross_bp": 16.857689542286376,
+      "sum_net": 0.023772303267658203
+    },
+    {
+      "holiday": "Good Friday",
+      "trades": 16,
+      "win_rate": 0.625,
+      "mean_net_bp": 14.20332021363871,
+      "mean_gross_bp": 16.203320213638712,
+      "sum_net": 0.022725312341821936
+    },
+    {
+      "holiday": "Memorial Day",
+      "trades": 16,
+      "win_rate": 0.5625,
+      "mean_net_bp": 15.968798886447352,
+      "mean_gross_bp": 17.968798886447352,
+      "sum_net": 0.025550078218315765
+    },
+    {
+      "holiday": "Juneteenth",
+      "trades": 5,
+      "win_rate": 0.6,
+      "mean_net_bp": -14.685112321035643,
+      "mean_gross_bp": -12.685112321035641,
+      "sum_net": -0.007342556160517821
+    },
+    {
+      "holiday": "Independence Day",
+      "trades": 16,
+      "win_rate": 0.75,
+      "mean_net_bp": 27.21680547325403,
+      "mean_gross_bp": 29.21680547325403,
+      "sum_net": 0.04354688875720645
+    },
+    {
+      "holiday": "Labor Day",
+      "trades": 16,
+      "win_rate": 0.25,
+      "mean_net_bp": -35.177916864915794,
+      "mean_gross_bp": -33.177916864915794,
+      "sum_net": -0.05628466698386527
+    },
+    {
+      "holiday": "Thanksgiving",
+      "trades": 15,
+      "win_rate": 0.5333333333333333,
+      "mean_net_bp": 4.171581845121342,
+      "mean_gross_bp": 6.171581845121343,
+      "sum_net": 0.006257372767682012
+    },
+    {
+      "holiday": "Christmas",
+      "trades": 15,
+      "win_rate": 0.5333333333333333,
+      "mean_net_bp": 7.2537917106382634,
+      "mean_gross_bp": 9.253791710638263,
+      "sum_net": 0.010880687565957396
+    },
+    {
+      "holiday": "Carter mourning",
+      "trades": 1,
+      "win_rate": 0.0,
+      "mean_net_bp": -29.636486944726535,
+      "mean_gross_bp": -27.636486944726535,
+      "sum_net": -0.0029636486944726536
+    }
+  ],
+  "holiday_other": 0
+}

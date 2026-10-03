@@ -1,0 +1,957 @@
+{
+  "universe": [
+    "EWA",
+    "EWC",
+    "EWG",
+    "EWH",
+    "EWJ",
+    "EWS",
+    "EWU",
+    "EWW",
+    "EWZ",
+    "EWL",
+    "EWT",
+    "EWY"
+  ],
+  "spy": {
+    "n_bars_through_sample_end": 3959,
+    "first": "2011-01-04",
+    "last": "2026-10-01",
+    "n_positive_ohlc": 3959,
+    "n_high_low_ok": 3959,
+    "duplicate_dates": 0,
+    "calendar_sessions": 3962,
+    "calendar_without_spy_bar": [
+      "2012-10-29",
+      "2012-10-30",
+      "2018-12-05"
+    ],
+    "spy_bar_not_on_calendar": [],
+    "bars_after_sample_end": [],
+    "corporate_actions": [],
+    "coverage_1d_needs_attention": [
+      {
+        "session": "2012-10-29",
+        "status": "missing",
+        "bar_count": 0,
+        "expected_count": 1,
+        "note": "no bars: re-run ingest for this session"
+      },
+      {
+        "session": "2012-10-30",
+        "status": "missing",
+        "bar_count": 0,
+        "expected_count": 1,
+        "note": "no bars: re-run ingest for this session"
+      },
+      {
+        "session": "2018-12-05",
+        "status": "missing",
+        "bar_count": 0,
+        "expected_count": 1,
+        "note": "no bars: re-run ingest for this session"
+      }
+    ],
+    "coverage_1d_by_status": {
+      "complete": 4103,
+      "missing": 4,
+      "partial": 1
+    },
+    "coverage_1d_sessions_with_bars": 3959,
+    "coverage_1d_first_last": [
+      "2011-01-04",
+      "2026-10-01"
+    ]
+  },
+  "signal_dates": {
+    "n": 189,
+    "first": "2011-01-31",
+    "last": "2026-09-30",
+    "includes_2026_10_01": false,
+    "n_oos_signal_on_or_after_oos_start": 27,
+    "oos_signals": [
+      "2024-07-31",
+      "2024-08-30",
+      "2024-09-30",
+      "2024-10-31",
+      "2024-11-29",
+      "2024-12-31",
+      "2025-01-31",
+      "2025-02-28",
+      "2025-03-31",
+      "2025-04-30",
+      "2025-05-30",
+      "2025-06-30",
+      "2025-07-31",
+      "2025-08-29",
+      "2025-09-30",
+      "2025-10-31",
+      "2025-11-28",
+      "2025-12-31",
+      "2026-01-30",
+      "2026-02-27",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-29",
+      "2026-06-30",
+      "2026-07-31",
+      "2026-08-31",
+      "2026-09-30"
+    ],
+    "last_spy_session_before_oos": "2024-06-28",
+    "oos_is_a_spy_session": true
+  },
+  "symbols": {
+    "EWA": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWC": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWG": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWH": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWJ": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1478529000,
+          "type": "split",
+          "split_ratio": 0.25,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2016-11-07"
+        }
+      ],
+      "expected_split": {
+        "ex_date": "2016-11-07",
+        "split_ratio": 0.25
+      },
+      "split_continuity": [
+        {
+          "action": {
+            "ex_ts": 1478529000,
+            "type": "split",
+            "split_ratio": 0.25,
+            "amount": null,
+            "currency": null,
+            "source": "mboum",
+            "ex_date": "2016-11-07"
+          },
+          "prev_session": "2016-11-04",
+          "prev_adj_close": 49.52,
+          "prev_raw_close": 12.38,
+          "adj_ohlc": [
+            49.75,
+            49.87,
+            49.7,
+            49.87
+          ],
+          "raw_ohlc": [
+            49.75,
+            49.87,
+            49.7,
+            49.87
+          ],
+          "adj_close_over_prev_adj_close": 1.0070678513731823,
+          "raw_close_over_prev_raw_close": 4.028271405492729,
+          "adj_open_over_prev_adj_close": 1.0046445880452342,
+          "raw_open_over_prev_raw_close": 4.018578352180937
+        }
+      ],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWS": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1478529000,
+          "type": "split",
+          "split_ratio": 0.5,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2016-11-07"
+        }
+      ],
+      "expected_split": {
+        "ex_date": "2016-11-07",
+        "split_ratio": 0.5
+      },
+      "split_continuity": [
+        {
+          "action": {
+            "ex_ts": 1478529000,
+            "type": "split",
+            "split_ratio": 0.5,
+            "amount": null,
+            "currency": null,
+            "source": "mboum",
+            "ex_date": "2016-11-07"
+          },
+          "prev_session": "2016-11-04",
+          "prev_adj_close": 20.54,
+          "prev_raw_close": 10.27,
+          "adj_ohlc": [
+            20.76,
+            20.91,
+            20.76,
+            20.9
+          ],
+          "raw_ohlc": [
+            20.76,
+            20.91,
+            20.76,
+            20.9
+          ],
+          "adj_close_over_prev_adj_close": 1.017526777020448,
+          "raw_close_over_prev_raw_close": 2.035053554040896,
+          "adj_open_over_prev_adj_close": 1.0107108081791627,
+          "raw_open_over_prev_raw_close": 2.0214216163583254
+        }
+      ],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWU": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1478529000,
+          "type": "split",
+          "split_ratio": 0.5,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2016-11-07"
+        }
+      ],
+      "expected_split": {
+        "ex_date": "2016-11-07",
+        "split_ratio": 0.5
+      },
+      "split_continuity": [
+        {
+          "action": {
+            "ex_ts": 1478529000,
+            "type": "split",
+            "split_ratio": 0.5,
+            "amount": null,
+            "currency": null,
+            "source": "mboum",
+            "ex_date": "2016-11-07"
+          },
+          "prev_session": "2016-11-04",
+          "prev_adj_close": 29.46,
+          "prev_raw_close": 14.73,
+          "adj_ohlc": [
+            29.78,
+            29.9,
+            29.74,
+            29.9
+          ],
+          "raw_ohlc": [
+            29.78,
+            29.9,
+            29.74,
+            29.9
+          ],
+          "adj_close_over_prev_adj_close": 1.0149355057705363,
+          "raw_close_over_prev_raw_close": 2.0298710115410725,
+          "adj_open_over_prev_adj_close": 1.0108621860149356,
+          "raw_open_over_prev_raw_close": 2.021724372029871
+        }
+      ],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWW": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWZ": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWL": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWT": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [
+        {
+          "ex_ts": 1478529000,
+          "type": "split",
+          "split_ratio": 0.5,
+          "amount": null,
+          "currency": null,
+          "source": "mboum",
+          "ex_date": "2016-11-07"
+        }
+      ],
+      "expected_split": {
+        "ex_date": "2016-11-07",
+        "split_ratio": 0.5
+      },
+      "split_continuity": [
+        {
+          "action": {
+            "ex_ts": 1478529000,
+            "type": "split",
+            "split_ratio": 0.5,
+            "amount": null,
+            "currency": null,
+            "source": "mboum",
+            "ex_date": "2016-11-07"
+          },
+          "prev_session": "2016-11-04",
+          "prev_adj_close": 30.62,
+          "prev_raw_close": 15.31,
+          "adj_ohlc": [
+            31.3,
+            31.65,
+            31.25,
+            31.65
+          ],
+          "raw_ohlc": [
+            31.3,
+            31.65,
+            31.25,
+            31.65
+          ],
+          "adj_close_over_prev_adj_close": 1.0336381450032657,
+          "raw_close_over_prev_raw_close": 2.0672762900065313,
+          "adj_open_over_prev_adj_close": 1.022207707380797,
+          "raw_open_over_prev_raw_close": 2.044415414761594
+        }
+      ],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    },
+    "EWY": {
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "duplicate_dates": 0,
+      "n_nonpositive_ohlc": 0,
+      "n_high_low_violation": 0,
+      "n_zero_volume": 0,
+      "bars_after_sample_end": [
+        "2026-10-02"
+      ],
+      "missing_on_spy_through_sample_end": [],
+      "bars_not_on_spy_through_sample_end": [],
+      "n_paired_closes_through_sample_end": 3959,
+      "coverage_1d": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded": []
+      },
+      "corporate_actions": [],
+      "expected_split": null,
+      "split_continuity": [],
+      "n_signal_dates_with_253_paired_closes": 177,
+      "first_such_signal": "2012-01-31"
+    }
+  },
+  "eligibility_counts": {
+    "paired_closes_required": 253,
+    "note": "Count of paired closes on or before the signal. Not a return and not a beta.",
+    "names_eligible_histogram": {
+      "0": 12,
+      "12": 177
+    },
+    "signal_dates_with_at_least_6": 177,
+    "first_signal_date_with_at_least_6": "2012-01-31"
+  },
+  "named_closures_absent_from_spy": [
+    "2012-10-29",
+    "2012-10-30",
+    "2018-12-05"
+  ]
+}

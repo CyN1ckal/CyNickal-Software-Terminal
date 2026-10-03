@@ -1,0 +1,463 @@
+{
+  "kit_schema": 1,
+  "rules_sha256": "40e29bd16bef992aca504d1f9e1dbda8f5e4a6ebbcd8f9a222c77f305c7a9c27",
+  "git_head": "738d3e7ec4340e05458317114dfe247d55a1ef16",
+  "git_dirty": true,
+  "strategy_label": "QQQ holdings 6-1",
+  "benchmark_name": "QQQ close-to-close",
+  "return_model": "compound",
+  "samples": {
+    "is_end": "2024-06-28",
+    "oos_start": "2024-07-01",
+    "first": "2022-10-03",
+    "last": "2026-10-02"
+  },
+  "seeds": {
+    "direction": 20261003,
+    "timing": 20261003,
+    "bootstrap": 20261003
+  },
+  "primary": {
+    "full": {
+      "sessions": 1004,
+      "total_return": 6.228780684054076,
+      "cagr": 0.6429407616565466,
+      "ann_vol": 0.37075981641952804,
+      "sharpe": 1.525292458160633,
+      "max_dd": -0.3552716485146249,
+      "t_stat": 3.0445261518175153,
+      "trades": 900,
+      "win_rate": 0.6222222222222222,
+      "profit_factor": 2.4489622750044795,
+      "avg_net_bp": 25.034357159648227,
+      "exposure": 0.99800796812749
+    },
+    "is": {
+      "sessions": 437,
+      "total_return": 0.9766561624971959,
+      "cagr": 0.4813284417651795,
+      "ann_vol": 0.2408404743368701,
+      "sharpe": 1.7527396058953186,
+      "max_dd": -0.12113579087179616,
+      "t_stat": 2.3081171525849875,
+      "trades": 380,
+      "win_rate": 0.6157894736842106,
+      "profit_factor": 2.531394343836362,
+      "avg_net_bp": 20.14238839157344,
+      "exposure": 0.9954233409610984
+    },
+    "oos": {
+      "sessions": 567,
+      "total_return": 2.657075429305638,
+      "cagr": 0.7794334135680494,
+      "ann_vol": 0.4458728996570483,
+      "sharpe": 1.5161909396446391,
+      "max_dd": -0.35527164851462467,
+      "t_stat": 2.2742864094669586,
+      "trades": 520,
+      "win_rate": 0.6269230769230769,
+      "profit_factor": 2.409915350437754,
+      "avg_net_bp": 28.609257413241348,
+      "exposure": 1.0
+    }
+  },
+  "benchmark_metrics": {
+    "full": {
+      "sessions": 1004,
+      "total_return": 1.718531788103677,
+      "cagr": 0.2853346278410116,
+      "ann_vol": 0.21618404926036916,
+      "sharpe": 1.2688301345455193,
+      "max_dd": -0.24200124703976167,
+      "t_stat": 2.5326202238594866
+    },
+    "is": {
+      "sessions": 437,
+      "total_return": 0.7515811793953089,
+      "cagr": 0.3815807250172787,
+      "ann_vol": 0.19793510014723156,
+      "sharpe": 1.7323117587562142,
+      "max_dd": -0.11446275364292469,
+      "t_stat": 2.281216485644181
+    },
+    "oos": {
+      "sessions": 567,
+      "total_return": 0.5520444156874218,
+      "cagr": 0.21575562300689666,
+      "ann_vol": 0.22937757785319807,
+      "sharpe": 0.9654003957787437,
+      "max_dd": -0.24200124703976178,
+      "t_stat": 1.4481005936681155
+    }
+  },
+  "costs": [
+    {
+      "multiple": 0.0,
+      "cost_bp": 0.0,
+      "full_sharpe": 1.5359514556020493,
+      "oos_sharpe": 1.5243722078062871,
+      "is_sharpe": 1.7708181134441454,
+      "full_return": 6.342440651222061,
+      "oos_return": 2.6869239410207535,
+      "is_return": 0.9914814541005292
+    },
+    {
+      "multiple": 0.5,
+      "cost_bp": 2.5,
+      "full_sharpe": 1.530623701221897,
+      "oos_sharpe": 1.5202826346069376,
+      "is_sharpe": 1.7617843718241537,
+      "full_return": 6.285394238669598,
+      "oos_return": 2.671970677522761,
+      "is_return": 0.9840556688716742
+    },
+    {
+      "multiple": 1.0,
+      "cost_bp": 5.0,
+      "full_sharpe": 1.525292458160633,
+      "oos_sharpe": 1.5161909396446391,
+      "is_sharpe": 1.7527396058953186,
+      "full_return": 6.228780684054076,
+      "oos_return": 2.657075429305638,
+      "is_return": 0.9766561624971959
+    },
+    {
+      "multiple": 2.0,
+      "cost_bp": 10.0,
+      "full_sharpe": 1.5146196693194862,
+      "oos_sharpe": 1.5080012617328475,
+      "is_sharpe": 1.7346177537663112,
+      "full_return": 6.116839347032791,
+      "oos_return": 2.627458119481555,
+      "is_return": 0.9619356344353702
+    },
+    {
+      "multiple": 3.0,
+      "cost_bp": 15.0,
+      "full_sharpe": 1.5039334164102218,
+      "oos_sharpe": 1.499803328929841,
+      "is_sharpe": 1.71645406820712,
+      "full_return": 6.0065912676903075,
+      "oos_return": 2.598070300666512,
+      "is_return": 0.9473191689424094
+    }
+  ],
+  "delay": {
+    "full_sharpe": 1.5315291522239847,
+    "oos_sharpe": 1.53949268899335,
+    "full_return": 6.348961053890965,
+    "oos_return": 2.765764477631942,
+    "is_sharpe": 1.7235140684886894
+  },
+  "grid": [
+    {
+      "name": "L63-S0",
+      "params": {
+        "lookback": 63,
+        "skip": 0
+      },
+      "is_sharpe": 1.3295516740456719,
+      "oos_sharpe": 1.663251094001059,
+      "is_return": 0.7230910938646311,
+      "oos_return": 2.5249107765652803,
+      "primary": false
+    },
+    {
+      "name": "L63-S21",
+      "params": {
+        "lookback": 63,
+        "skip": 21
+      },
+      "is_sharpe": 1.525144655888159,
+      "oos_sharpe": 1.7136636778388008,
+      "is_return": 0.8556205733043092,
+      "oos_return": 3.0349414091524407,
+      "primary": false
+    },
+    {
+      "name": "L126-S0",
+      "params": {
+        "lookback": 126,
+        "skip": 0
+      },
+      "is_sharpe": 1.5127243105240542,
+      "oos_sharpe": 1.6051828701432045,
+      "is_return": 0.8395591692037832,
+      "oos_return": 2.837830156910833,
+      "primary": false
+    },
+    {
+      "name": "L126-S21",
+      "params": {
+        "lookback": 126,
+        "skip": 21
+      },
+      "is_sharpe": 1.7527396058953186,
+      "oos_sharpe": 1.5161909396446391,
+      "is_return": 0.9766561624971959,
+      "oos_return": 2.657075429305638,
+      "primary": true
+    },
+    {
+      "name": "L252-S0",
+      "params": {
+        "lookback": 252,
+        "skip": 0
+      },
+      "is_sharpe": 1.60872693691222,
+      "oos_sharpe": 1.809401451342757,
+      "is_return": 0.8459100298486626,
+      "oos_return": 3.6798741848012195,
+      "primary": false
+    },
+    {
+      "name": "L252-S21",
+      "params": {
+        "lookback": 252,
+        "skip": 21
+      },
+      "is_sharpe": 1.526006380170478,
+      "oos_sharpe": 1.7440020686488296,
+      "is_return": 0.7139400860293823,
+      "oos_return": 3.52542591596515,
+      "primary": false
+    }
+  ],
+  "placebo": {
+    "direction": {
+      "actual_gross_sharpe": 1.5359514556020493,
+      "null_mean": 0.007512019657212473,
+      "null_p95": 0.8364028130314086,
+      "p": 0.0009995002498750624,
+      "draws": 2000,
+      "seed": 20261003,
+      "samples_file": "placebo_direction.npy"
+    },
+    "timing": {
+      "actual_gross_sharpe": 1.5359514556020493,
+      "null_mean": 1.4995813843779024,
+      "null_p95": 1.7885713924684863,
+      "p": 0.4171656686626746,
+      "draws": 500,
+      "seed": 20261003,
+      "samples_file": "placebo_timing.npy"
+    }
+  },
+  "bootstrap": {
+    "block": 20,
+    "draws": 2000,
+    "seed": 20261003,
+    "sharpe_lo": 0.7062695649228282,
+    "sharpe_hi": 2.4224015226876596,
+    "share_le_0": 0.0
+  },
+  "by_year": [
+    {
+      "year": 2022,
+      "strategy_return": 0.07676357961834701,
+      "strategy_sharpe": 1.3226395070189005,
+      "strategy_max_dd": -0.07570984189823471,
+      "benchmark_return": -0.026505319343400058
+    },
+    {
+      "year": 2023,
+      "strategy_return": 0.40031795316193075,
+      "strategy_sharpe": 1.5796447990219726,
+      "strategy_max_dd": -0.1172821929770912,
+      "benchmark_return": 0.5379299984978212
+    },
+    {
+      "year": 2024,
+      "strategy_return": 0.5741705126521368,
+      "strategy_sharpe": 1.644038236698731,
+      "strategy_max_dd": -0.27760075331948875,
+      "benchmark_return": 0.2483883571009935
+    },
+    {
+      "year": 2025,
+      "strategy_return": 0.5247896243659493,
+      "strategy_sharpe": 1.2297893168650764,
+      "strategy_max_dd": -0.3552716485146249,
+      "benchmark_return": 0.2015100539863881
+    },
+    {
+      "year": 2026,
+      "strategy_return": 0.9973599313165167,
+      "strategy_sharpe": 1.9889870054814123,
+      "strategy_max_dd": -0.3305576543718174,
+      "benchmark_return": 0.210562302608017
+    }
+  ],
+  "by_move_quintile": [
+    {
+      "quintile": 1,
+      "sessions": 201,
+      "mean_strategy_net": -0.0031028159181690344
+    },
+    {
+      "quintile": 2,
+      "sessions": 201,
+      "mean_strategy_net": 0.0009411765994986075
+    },
+    {
+      "quintile": 3,
+      "sessions": 201,
+      "mean_strategy_net": 0.003903559007958092
+    },
+    {
+      "quintile": 4,
+      "sessions": 201,
+      "mean_strategy_net": 0.006368411012867887
+    },
+    {
+      "quintile": 5,
+      "sessions": 200,
+      "mean_strategy_net": 0.0031145783661753732
+    }
+  ],
+  "cross_market": [
+    {
+      "symbol": "HALF1",
+      "is_sharpe": 1.5913598422849686,
+      "oos_sharpe": 0.8171780791200132,
+      "full_return": 2.127511943342562,
+      "full_profit_factor": 1.835551537702519,
+      "full_sharpe": 1.0330246214473346,
+      "oos_return": 0.723824515132881,
+      "oos_trades": 254
+    },
+    {
+      "symbol": "HALF2",
+      "is_sharpe": 1.6036577264003338,
+      "oos_sharpe": 1.85567990728701,
+      "full_return": 12.708389201184069,
+      "full_profit_factor": 3.0016452829780143,
+      "full_sharpe": 1.7051639209273617,
+      "oos_return": 5.8102444466397625,
+      "oos_trades": 251
+    }
+  ],
+  "cross_market_applicable": true,
+  "acceptance": [
+    {
+      "id": "1",
+      "name": "oos_edge",
+      "required": "OOS Sharpe >= 0.50 and OOS profit factor >= 1.10",
+      "actual": "Sharpe 1.516, profit factor 2.410",
+      "passed": true
+    },
+    {
+      "id": "2",
+      "name": "direction_placebo",
+      "required": "direction placebo p <= 0.05",
+      "actual": 0.0009995002498750624,
+      "passed": true
+    },
+    {
+      "id": "3",
+      "name": "is_plateau",
+      "required": "IS Sharpe > 0.00 and at least 60% of IS grid cells have Sharpe > 0",
+      "actual": "IS Sharpe 1.753, grid 1.000",
+      "passed": true
+    },
+    {
+      "id": "4",
+      "name": "cost_2x",
+      "required": "full-sample total return > 0 at 2\u00d7 cost",
+      "actual": 6.116839347032791,
+      "passed": true
+    },
+    {
+      "id": "5",
+      "name": "cross_market",
+      "required": "OOS Sharpe > 0 on at least one cross-market instrument",
+      "actual": "HALF1=0.817, HALF2=1.856",
+      "passed": true
+    },
+    {
+      "id": "6",
+      "name": "oos_sample",
+      "required": "at least 100 OOS trades",
+      "actual": 520,
+      "passed": true
+    }
+  ],
+  "status": "Paper-trading candidate",
+  "secondaries": [],
+  "study": {
+    "predictions": [
+      {
+        "id": 1,
+        "name": "top_versus_bottom",
+        "score": "consistent",
+        "rebalances": 47,
+        "mean_top": 0.045887024019190696,
+        "mean_bottom": 0.026113416745395253
+      },
+      {
+        "id": 2,
+        "name": "skip_not_uniformly_worse",
+        "score": "consistent",
+        "paired_skip21_below_skip0": [
+          false,
+          false,
+          true
+        ]
+      },
+      {
+        "id": 3,
+        "name": "moves_with_qqq",
+        "score": "consistent",
+        "correlation": 0.02630554750860629,
+        "underwater_sessions": 489,
+        "other_sessions": 78,
+        "mean_held_underwater": 1.0,
+        "mean_held_other": 1.0
+      }
+    ],
+    "close_fill_upper_bound": {
+      "full_sharpe": 1.5340497103788786,
+      "oos_sharpe": 1.5148586486593405,
+      "full_return": 6.453474326296883,
+      "oos_return": 2.7502732497858706,
+      "is_sharpe": 1.856066452483258
+    },
+    "activity": {
+      "trades_per_year": 225.89641434262947,
+      "holding_sessions_mean": 20.866666666666667,
+      "holding_sessions_median": 21.0,
+      "avg_winner": 0.0068001100793348744,
+      "avg_loser": -0.0045734397060564385,
+      "long_trades": 900,
+      "short_trades": 0,
+      "by_exit_reason": [
+        {
+          "exit_reason": "rebalance",
+          "trades": 880,
+          "profit_factor": 2.384267489004376,
+          "avg_net": 0.0024342481008172065
+        },
+        {
+          "exit_reason": "sample_end",
+          "trades": 20,
+          "profit_factor": 15.831856820674316,
+          "avg_net": 0.005547690782459934
+        }
+      ],
+      "sum_trade_net": 2.253092144368341,
+      "sum_daily_net": 2.253092144368341
+    },
+    "grid_spearman": 0.08571428571428573,
+    "grid_primary_is_rank": 1,
+    "grid_best_is_name": "L126-S21",
+    "break_even_cost_multiple": null,
+    "signals": 48,
+    "fills": 48,
+    "first_signal": "2022-10-03",
+    "last_signal": "2026-09-10",
+    "first_fill": "2022-10-04",
+    "last_fill": "2026-09-11",
+    "gross_sharpe_full": 1.5359514556020493,
+    "rules_sha256": "40e29bd16bef992aca504d1f9e1dbda8f5e4a6ebbcd8f9a222c77f305c7a9c27"
+  }
+}

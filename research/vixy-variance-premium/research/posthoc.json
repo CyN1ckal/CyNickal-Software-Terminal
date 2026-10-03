@@ -1,0 +1,149 @@
+{
+  "label": "post hoc",
+  "feeds_verdict": false,
+  "note": "Computed from daily.csv only. Zeroing a day is not a split correction and not a new backtest. Sessions after the freeze stay at 0.",
+  "daily_csv_total_return": -4.191046540796293,
+  "daily_csv_sharpe": -0.003223509118242553,
+  "rolling_sharpe": {
+    "window": 252,
+    "n_sessions": 3940,
+    "n_defined": 592,
+    "min": -1.012098540257143,
+    "max": 2.3541416010641596,
+    "last": null,
+    "last_defined": {
+      "date": "2014-06-09",
+      "sharpe": -0.9999999999999999
+    },
+    "fraction_positive": 0.5743243243243243
+  },
+  "ten_worst": [
+    {
+      "date": "2013-06-10",
+      "strategy_net": -3.902410948648154
+    },
+    {
+      "date": "2011-08-22",
+      "strategy_net": -0.6612297741950657
+    },
+    {
+      "date": "2011-08-18",
+      "strategy_net": -0.6340002066732393
+    },
+    {
+      "date": "2011-08-19",
+      "strategy_net": -0.5106751418868929
+    },
+    {
+      "date": "2011-08-08",
+      "strategy_net": -0.3185990567922341
+    },
+    {
+      "date": "2011-08-10",
+      "strategy_net": -0.2917601166036718
+    },
+    {
+      "date": "2011-08-04",
+      "strategy_net": -0.2352701066981722
+    },
+    {
+      "date": "2011-08-25",
+      "strategy_net": -0.2343350665968573
+    },
+    {
+      "date": "2011-11-09",
+      "strategy_net": -0.1479601021516596
+    },
+    {
+      "date": "2011-09-22",
+      "strategy_net": -0.1392582198222373
+    }
+  ],
+  "ten_best": [
+    {
+      "date": "2011-08-23",
+      "strategy_net": 3.152741098046429
+    },
+    {
+      "date": "2011-08-29",
+      "strategy_net": 0.7449736113339986
+    },
+    {
+      "date": "2011-08-09",
+      "strategy_net": 0.3620096484276449
+    },
+    {
+      "date": "2011-08-24",
+      "strategy_net": 0.3067068093826266
+    },
+    {
+      "date": "2011-08-26",
+      "strategy_net": 0.2542363020056171
+    },
+    {
+      "date": "2012-05-21",
+      "strategy_net": 0.2293631907317237
+    },
+    {
+      "date": "2011-08-15",
+      "strategy_net": 0.1850673839640613
+    },
+    {
+      "date": "2012-12-31",
+      "strategy_net": 0.1668058342931549
+    },
+    {
+      "date": "2011-08-11",
+      "strategy_net": 0.155984159406426
+    },
+    {
+      "date": "2013-01-02",
+      "strategy_net": 0.1489563242626661
+    }
+  ],
+  "zero_20_best_days": {
+    "dates": [
+      "2011-08-23",
+      "2011-08-29",
+      "2011-08-09",
+      "2011-08-24",
+      "2011-08-26",
+      "2012-05-21",
+      "2011-08-15",
+      "2012-12-31",
+      "2011-08-11",
+      "2013-01-02",
+      "2012-04-12",
+      "2011-03-21",
+      "2012-09-06",
+      "2012-02-13",
+      "2011-11-30",
+      "2013-04-19",
+      "2011-10-27",
+      "2012-11-01",
+      "2013-04-16",
+      "2013-02-27"
+    ],
+    "total_return": -1.0363771256836705,
+    "sharpe": -0.4054861249898069
+  },
+  "zero_10_best_oos_days": {
+    "applicable": false,
+    "n_oos": 566,
+    "n_oos_nonzero": 0,
+    "reason": "Every out-of-sample strategy_net is 0, so there is no best out-of-sample day to remove.",
+    "total_return": -4.191046540796293,
+    "sharpe": -0.003223509118242553
+  },
+  "concentration": {
+    "sum_10_best": 5.706844361854348,
+    "sum_positive_days": 14.702107893250684,
+    "sum_10_best_over_positive": 0.38816504431138044,
+    "sum_10_worst": -7.075498740068184,
+    "worst_session": {
+      "date": "2013-06-10",
+      "strategy_net": -3.902410948648154
+    },
+    "worst_over_sum_10_worst": 0.5515386394670672
+  }
+}

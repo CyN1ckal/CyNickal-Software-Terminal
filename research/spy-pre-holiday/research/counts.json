@@ -1,0 +1,260 @@
+{
+  "window": [
+    "2011-01-04",
+    "2026-10-01"
+  ],
+  "nyse_sessions": 3962,
+  "cases": [
+    {
+      "session": "2024-03-28",
+      "weekday": "Thursday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": false,
+      "next_weekday": "2024-03-29",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2024-01-12",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": false,
+      "next_weekday": "2024-01-15",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2024-01-05",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": false,
+      "early_close": false,
+      "next_weekday": "2024-01-08",
+      "next_is_holiday": false
+    },
+    {
+      "session": "2024-11-29",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": false,
+      "early_close": true,
+      "next_weekday": "2024-12-02",
+      "next_is_holiday": false
+    },
+    {
+      "session": "2024-07-03",
+      "weekday": "Wednesday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": true,
+      "next_weekday": "2024-07-04",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2022-06-17",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": false,
+      "next_weekday": "2022-06-20",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2021-12-31",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": false,
+      "early_close": false,
+      "next_weekday": "2022-01-03",
+      "next_is_holiday": false
+    },
+    {
+      "session": "2025-01-08",
+      "weekday": "Wednesday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": false,
+      "next_weekday": "2025-01-09",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2025-01-09",
+      "weekday": "Thursday",
+      "is_nyse_session": false,
+      "is_nyse_holiday": true,
+      "is_pre_holiday": false,
+      "early_close": false,
+      "next_weekday": "2025-01-10",
+      "next_is_holiday": false
+    },
+    {
+      "session": "2024-12-24",
+      "weekday": "Tuesday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": true,
+      "next_weekday": "2024-12-25",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2011-01-14",
+      "weekday": "Friday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": true,
+      "early_close": false,
+      "next_weekday": "2011-01-17",
+      "next_is_holiday": true
+    },
+    {
+      "session": "2011-01-04",
+      "weekday": "Tuesday",
+      "is_nyse_session": true,
+      "is_nyse_holiday": false,
+      "is_pre_holiday": false,
+      "early_close": false,
+      "next_weekday": "2011-01-05",
+      "next_is_holiday": false
+    }
+  ],
+  "symbols": {
+    "SPY": {
+      "coverage_rows": 4108,
+      "sessions_with_bars": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_dates": [],
+      "by_status": {
+        "complete": 4103,
+        "missing": 4,
+        "partial": 1
+      },
+      "zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "nyse_sessions_without_a_bar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "bar_dates_that_are_not_nyse_sessions": [],
+      "corporate_actions": 0,
+      "corporate_action_types": {},
+      "pre_holiday_with_bar": 146,
+      "pre_holiday_is": 123,
+      "pre_holiday_oos": 23,
+      "first_pre_holiday": "2011-01-14",
+      "last_pre_holiday": "2026-09-04",
+      "pre_holiday_without_bar": [],
+      "pre_holiday_early_closes": [
+        "2019-07-03",
+        "2019-12-24",
+        "2020-12-24",
+        "2023-07-03",
+        "2024-07-03",
+        "2024-12-24",
+        "2025-07-03",
+        "2025-12-24"
+      ],
+      "evaluation_sessions_if_window_starts_at_first_pre": 3951,
+      "evaluation_is": 3385,
+      "evaluation_oos": 566
+    },
+    "QQQ": {
+      "coverage_rows": 4108,
+      "sessions_with_bars": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_dates": [],
+      "by_status": {
+        "complete": 4103,
+        "missing": 4,
+        "partial": 1
+      },
+      "zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "nyse_sessions_without_a_bar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "bar_dates_that_are_not_nyse_sessions": [],
+      "corporate_actions": 0,
+      "corporate_action_types": {},
+      "pre_holiday_with_bar": 146,
+      "pre_holiday_is": 123,
+      "pre_holiday_oos": 23,
+      "first_pre_holiday": "2011-01-14",
+      "last_pre_holiday": "2026-09-04",
+      "pre_holiday_without_bar": [],
+      "pre_holiday_early_closes": [
+        "2019-07-03",
+        "2019-12-24",
+        "2020-12-24",
+        "2023-07-03",
+        "2024-07-03",
+        "2024-12-24",
+        "2025-07-03",
+        "2025-12-24"
+      ],
+      "evaluation_sessions_if_window_starts_at_first_pre": 3951,
+      "evaluation_is": 3385,
+      "evaluation_oos": 566
+    },
+    "IWM": {
+      "coverage_rows": 4108,
+      "sessions_with_bars": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "duplicate_dates": [],
+      "by_status": {
+        "complete": 4103,
+        "missing": 4,
+        "partial": 1
+      },
+      "zero_bar_rows": 149,
+      "partial_sessions": [
+        "2021-12-31"
+      ],
+      "nyse_sessions_without_a_bar": [
+        "2012-10-29",
+        "2012-10-30",
+        "2018-12-05"
+      ],
+      "bar_dates_that_are_not_nyse_sessions": [],
+      "corporate_actions": 0,
+      "corporate_action_types": {},
+      "pre_holiday_with_bar": 146,
+      "pre_holiday_is": 123,
+      "pre_holiday_oos": 23,
+      "first_pre_holiday": "2011-01-14",
+      "last_pre_holiday": "2026-09-04",
+      "pre_holiday_without_bar": [],
+      "pre_holiday_early_closes": [
+        "2019-07-03",
+        "2019-12-24",
+        "2020-12-24",
+        "2023-07-03",
+        "2024-07-03",
+        "2024-12-24",
+        "2025-07-03",
+        "2025-12-24"
+      ],
+      "evaluation_sessions_if_window_starts_at_first_pre": 3951,
+      "evaluation_is": 3385,
+      "evaluation_oos": 566
+    }
+  }
+}

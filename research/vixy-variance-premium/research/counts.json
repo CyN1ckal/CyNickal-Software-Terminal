@@ -1,0 +1,368 @@
+{
+  "schema_user_version": 6,
+  "symbols": {
+    "VIXY": {
+      "present": true,
+      "n_bars": 3960,
+      "first": "2011-01-04",
+      "last": "2026-10-02",
+      "n_on_or_before_2026_10_01": 3959,
+      "n_after_2026_10_01": 1,
+      "dates_after_2026_10_01": [
+        "2026-10-02"
+      ],
+      "duplicate_sessions": 0,
+      "nonpositive_ohlc": 0,
+      "high_low_violations": 0,
+      "zero_volume": 0,
+      "action_counts": {
+        "split": 4
+      },
+      "splits": [
+        {
+          "ex_date": "2017-07-17",
+          "split_ratio": 0.25,
+          "type": "split"
+        },
+        {
+          "ex_date": "2021-05-26",
+          "split_ratio": 0.25,
+          "type": "split"
+        },
+        {
+          "ex_date": "2023-06-23",
+          "split_ratio": 0.2,
+          "type": "split"
+        },
+        {
+          "ex_date": "2024-11-07",
+          "split_ratio": 0.25,
+          "type": "split"
+        }
+      ],
+      "coverage": {
+        "sessions_recorded": 4109,
+        "sessions_with_bars": 3960,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 4104,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "minute_bars": 0,
+      "skip_dates_with_bars": [],
+      "split_jump_check": [
+        {
+          "ex_date": "2017-07-17",
+          "prev": "2017-07-14",
+          "split_ratio": 0.25,
+          "reverse_multiple": 4.0,
+          "raw_close_ratio": 3.893,
+          "adjusted_close_ratio": 0.9732499999999998,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2021-05-26",
+          "prev": "2021-05-25",
+          "split_ratio": 0.25,
+          "reverse_multiple": 4.0,
+          "raw_close_ratio": 3.811932555123217,
+          "adjusted_close_ratio": 0.9529831387808041,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2023-06-23",
+          "prev": "2023-06-22",
+          "split_ratio": 0.2,
+          "reverse_multiple": 5.0,
+          "raw_close_ratio": 5.059047619047619,
+          "adjusted_close_ratio": 1.0118095238095237,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2024-11-07",
+          "prev": "2024-11-06",
+          "split_ratio": 0.25,
+          "reverse_multiple": 4.0,
+          "raw_close_ratio": 3.877622377622378,
+          "adjusted_close_ratio": 0.9694055944055945,
+          "adjusted_contains_split_jump": false
+        }
+      ],
+      "bars_used": 3959,
+      "first_used": "2011-01-04",
+      "last_used": "2026-10-01",
+      "signal_dates": 189,
+      "first_signal": "2011-01-31",
+      "last_signal": "2026-09-30",
+      "fills": 189,
+      "first_fill": "2011-02-01",
+      "last_fill": "2026-10-01",
+      "fills_on_or_after_2024_07_01": 28,
+      "month_ends_in_span_missing_bar": [],
+      "nyse_sessions_in_span_to_last": 3959,
+      "span_sessions_missing_bar": 0
+    },
+    "UVXY": {
+      "present": true,
+      "n_bars": 3771,
+      "first": "2011-10-04",
+      "last": "2026-10-02",
+      "n_on_or_before_2026_10_01": 3770,
+      "n_after_2026_10_01": 1,
+      "dates_after_2026_10_01": [
+        "2026-10-02"
+      ],
+      "duplicate_sessions": 0,
+      "nonpositive_ohlc": 0,
+      "high_low_violations": 0,
+      "zero_volume": 0,
+      "action_counts": {
+        "split": 7
+      },
+      "splits": [
+        {
+          "ex_date": "2017-01-12",
+          "split_ratio": 0.2,
+          "type": "split"
+        },
+        {
+          "ex_date": "2017-07-17",
+          "split_ratio": 0.25,
+          "type": "split"
+        },
+        {
+          "ex_date": "2018-09-18",
+          "split_ratio": 0.2,
+          "type": "split"
+        },
+        {
+          "ex_date": "2021-05-26",
+          "split_ratio": 0.1,
+          "type": "split"
+        },
+        {
+          "ex_date": "2023-06-23",
+          "split_ratio": 0.1,
+          "type": "split"
+        },
+        {
+          "ex_date": "2024-04-11",
+          "split_ratio": 0.2,
+          "type": "split"
+        },
+        {
+          "ex_date": "2025-11-20",
+          "split_ratio": 0.2,
+          "type": "split"
+        }
+      ],
+      "coverage": {
+        "sessions_recorded": 3914,
+        "sessions_with_bars": 3771,
+        "first_session": "2011-10-04",
+        "last_session": "2026-10-02",
+        "by_status": {
+          "complete": 3909,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "minute_bars": 0,
+      "skip_dates_with_bars": [],
+      "split_jump_check": [
+        {
+          "ex_date": "2017-01-12",
+          "prev": "2017-01-11",
+          "split_ratio": 0.2,
+          "reverse_multiple": 5.0,
+          "raw_close_ratio": 4.9869281045751634,
+          "adjusted_close_ratio": 0.9973856209150326,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2017-07-17",
+          "prev": "2017-07-14",
+          "split_ratio": 0.25,
+          "reverse_multiple": 4.0,
+          "raw_close_ratio": 3.792056074766355,
+          "adjusted_close_ratio": 0.9480140186915887,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2018-09-18",
+          "prev": "2018-09-17",
+          "split_ratio": 0.2,
+          "reverse_multiple": 5.0,
+          "raw_close_ratio": 4.981226533166458,
+          "adjusted_close_ratio": 0.9962453066332916,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2021-05-26",
+          "prev": "2021-05-25",
+          "split_ratio": 0.1,
+          "reverse_multiple": 10.0,
+          "raw_close_ratio": 9.320293398533007,
+          "adjusted_close_ratio": 0.9320293398533007,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2023-06-23",
+          "prev": "2023-06-22",
+          "split_ratio": 0.1,
+          "reverse_multiple": 10.0,
+          "raw_close_ratio": 10.277777777777779,
+          "adjusted_close_ratio": 1.027777777777778,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2024-04-11",
+          "prev": "2024-04-10",
+          "split_ratio": 0.2,
+          "reverse_multiple": 5.0,
+          "raw_close_ratio": 4.873730043541364,
+          "adjusted_close_ratio": 0.9747460087082729,
+          "adjusted_contains_split_jump": false
+        },
+        {
+          "ex_date": "2025-11-20",
+          "prev": "2025-11-19",
+          "split_ratio": 0.2,
+          "reverse_multiple": 5.0,
+          "raw_close_ratio": 5.645054053813178,
+          "adjusted_close_ratio": 1.1290108107626358,
+          "adjusted_contains_split_jump": false
+        }
+      ],
+      "bars_used": 3770,
+      "first_used": "2011-10-04",
+      "last_used": "2026-10-01",
+      "signal_dates": 180,
+      "first_signal": "2011-10-31",
+      "last_signal": "2026-09-30",
+      "fills": 180,
+      "first_fill": "2011-11-01",
+      "last_fill": "2026-10-01",
+      "fills_on_or_after_2024_07_01": 28,
+      "month_ends_in_span_missing_bar": [],
+      "nyse_sessions_in_span_to_last": 3770,
+      "span_sessions_missing_bar": 0
+    },
+    "SPY": {
+      "present": true,
+      "n_bars": 3959,
+      "first": "2011-01-04",
+      "last": "2026-10-01",
+      "n_on_or_before_2026_10_01": 3959,
+      "n_after_2026_10_01": 0,
+      "dates_after_2026_10_01": [],
+      "duplicate_sessions": 0,
+      "nonpositive_ohlc": 0,
+      "high_low_violations": 0,
+      "zero_volume": 0,
+      "action_counts": {},
+      "splits": [],
+      "coverage": {
+        "sessions_recorded": 4108,
+        "sessions_with_bars": 3959,
+        "first_session": "2011-01-04",
+        "last_session": "2026-10-01",
+        "by_status": {
+          "complete": 4103,
+          "missing": 4,
+          "partial": 1
+        },
+        "needs_attention": [
+          {
+            "session": "2012-10-29",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2012-10-30",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          },
+          {
+            "session": "2018-12-05",
+            "status": "missing",
+            "bar_count": 0,
+            "expected_count": 1,
+            "note": "no bars: re-run ingest for this session"
+          }
+        ],
+        "sessions_not_recorded_n": 0,
+        "sessions_not_recorded_head": []
+      },
+      "minute_bars": 487269,
+      "skip_dates_with_bars": [],
+      "split_jump_check": []
+    }
+  },
+  "instrument_count": 191,
+  "nyse_sessions_2011_01_01_through_2026_10_31_ex_skip": 3981,
+  "skip_in_nyse_calendar": [
+    "2012-10-29",
+    "2012-10-30",
+    "2018-12-05"
+  ],
+  "month_ends_on_or_before_2026_10_01": 189,
+  "october_2026_month_end": "2026-10-30"
+}
