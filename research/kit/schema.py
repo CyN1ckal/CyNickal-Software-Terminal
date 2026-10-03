@@ -38,7 +38,14 @@ _REQUIRED = (
     "secondaries",
     "study",
 )
-_STATUSES = {"Paper-trading candidate", "Rejected", "Inconclusive", "Void"}
+_STATUSES = {
+    "Paper-trading candidate",
+    "Rejected",
+    "Inconclusive",
+    "Void",
+    "Rejected (Survivorship Contaminated)",
+    "Diagnostic Only",
+}
 _COST_MULTIPLES = (0.0, 0.5, 1.0, 2.0, 3.0)
 _PLACEBO_KEYS = (
     "actual_gross_sharpe",
@@ -190,6 +197,13 @@ def validate(doc: dict) -> None:
         problems.append("cross_market must be a list when it applies")
     elif applicable is False and doc.get("cross_market") is not None:
         problems.append("cross_market must be null when it does not apply")
+
+    if "universe" in doc:
+        universe = doc["universe"]
+        if not isinstance(universe, dict):
+            problems.append("universe must be an object")
+        elif universe.get("type") not in {"single_asset", "fixed_basket", "point_in_time", "static_snapshot"}:
+            problems.append("universe.type must be one of 'single_asset', 'fixed_basket', 'point_in_time', 'static_snapshot'")
 
     if problems:
         raise ValueError("results.json failed kit_schema 1:\n- " + "\n- ".join(problems))

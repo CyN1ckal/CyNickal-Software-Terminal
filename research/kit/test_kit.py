@@ -26,12 +26,16 @@ from research.kit import (  # noqa: E402
     Thresholds,
     assemble,
     assert_lock,
+    asset_adjusted_direction_placebo,
     block_bootstrap,
     check_verify,
+    concentration_stress_test,
+    deflated_sharpe_ratio,
     direction_placebo,
     evaluate,
     performance,
     rules_sha256,
+    standardized_timing_placebo,
     status_from,
     write_daily,
     write_lock,
@@ -204,7 +208,9 @@ class KitTests(unittest.TestCase):
             }],
         )
         short = evaluate(oos_sharpe=-1.0, oos_trades=10, **common)
-        self.assertEqual(status_from(short), "Inconclusive")
+        self.assertEqual(status_from(short), "Rejected")
+        inconclusive_sample = evaluate(oos_sharpe=1.0, oos_trades=10, **common)
+        self.assertEqual(status_from(inconclusive_sample), "Inconclusive")
         rejected = evaluate(oos_sharpe=-1.0, oos_trades=100, **common)
         self.assertEqual(status_from(rejected), "Rejected")
         passed = evaluate(oos_sharpe=1.0, oos_trades=100, **common)
@@ -246,7 +252,7 @@ class KitTests(unittest.TestCase):
             write_results(path, doc)
             loaded = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(loaded["kit_schema"], 1)
-            self.assertEqual(loaded["status"], "Inconclusive")
+            self.assertEqual(loaded["status"], "Rejected")
 
     def test_lock_normalizes_newlines_and_refuses_a_changed_file(self) -> None:
         scratch = ROOT / "research" / "_kit_test_scratch"
@@ -355,6 +361,104 @@ class KitTests(unittest.TestCase):
         self.assertIn("40", sample["required"])
         self.assertTrue(sample["passed"])
         self.assertEqual(status_from(lines), "Paper-trading candidate")
+
+    def test_deflated_sharpe_ratio(self) -> None:
+        rng = np.random.default_rng(42)
+        # Insufficient sample
+        self.assertIsNone(deflated_sharpe_ratio(rng.normal(0.001, 0.01, size=20)))
+
+        # 252 sessions with positive mean
+        rets = rng.normal(0.001, 0.01, size=252)
+        dsr_single = deflated_sharpe_ratio(rets, trials_count=1)
+        self.assertIsNotNone(dsr_single)
+        self.assertTrue(0.0 <= dsr_single <= 1.0)
+
+        # Deflated Sharpe with 100 multiple trials should be lower than single trial
+        dsr_multiple = deflated_sharpe_ratio(rets, trials_count=100, trials_variance=0.25)
+        self.assertIsNotNone(dsr_multiple)
+        self.assertLess(dsr_multiple, dsr_single)
+
+    def test_asset_adjusted_direction_placebo(self) -> None:
+        sessions, net, benchmark, trades = _sample_paths(30)
+        pieces = [[(day, val)] for day, val in zip(sessions, net)]
+        result = asset_adjusted_direction_placebo(sessions, pieces, benchmark, seed=42, draws=100)
+        self.assertIn("actual_gross_sharpe", result)
+        self.assertIn("null_mean", result)
+        self.assertIn("p", result)
+        self.assertEqual(result["draws"], 100)
+        self.assertTrue(0.0 <= result["p"] <= 1.0)
+
+    def test_standardized_timing_placebo(self) -> None:
+        sessions, _net, benchmark, trades = _sample_paths(30)
+        durations = [1] * len(trades)
+        result = standardized_timing_placebo(sessions, durations, benchmark, actual_sharpe=1.2, seed=42, draws=100)
+        self.assertIn("actual_sharpe", result)
+        self.assertIn("p", result)
+        self.assertEqual(result["draws"], 100)
+        self.assertTrue(0.0 <= result["p"] <= 1.0)
+
+    def test_concentration_stress_test(self) -> None:
+        sessions = [date(2024, 1, 1) + timedelta(days=i) for i in range(100)]
+        rng = np.random.default_rng(42)
+        rets = rng.normal(0.0001, 0.005, size=100)
+        rets[50] = 0.15  # huge outlier spike
+        res = concentration_stress_test(sessions, rets, top_fraction=0.01, max_influence_limit=0.30)
+        self.assertEqual(res["k_dropped"], 1)
+        self.assertGreater(res["max_session_influence"], 0.30)
+        self.assertGreater(res["outlier_concentration_ratio"], 0.40)
+        self.assertFalse(res["passed"])
+
+    def test_thresholds_risk_limits(self) -> None:
+        grid = _grid()
+        costs = _costs(0.10)
+        common = dict(
+            oos_sharpe=1.50,
+            oos_profit_factor=1.50,
+            placebo_p=0.01,
+            is_sharpe=0.50,
+            grid=grid,
+            costs=costs,
+            oos_trades=100,
+            cross_market=NO_CROSS_MARKET,
+        )
+        # Passing all criteria
+        clean = evaluate(**common)
+        self.assertEqual(status_from(clean), "Paper-trading candidate")
+
+        # Violate gross leverage limit in status_from (default <= 4.0)
+        self.assertEqual(status_from(clean, max_leverage=5.5, leverage_limit=4.0), "Rejected")
+
+        # Violate solvency floor in status_from (min equity <= 0)
+        self.assertEqual(status_from(clean, min_equity=-0.1), "Rejected")
+
+        # Ruined account in status_from
+        self.assertEqual(status_from(clean, ruined=True), "Rejected")
+
+        # Static snapshot universe in status_from
+        self.assertEqual(status_from(clean, universe_type="static_snapshot"), "Rejected (Survivorship Contaminated)")
+
+        # Adding explicit risk limit criteria to evaluate() via extra
+        extra_checks = [
+            Criterion("max_gross_leverage", "gross leverage <= 4.0", 5.5, "<=", 4.0),
+            Criterion("min_equity", "equity > 0", -0.1, ">", 0.0),
+        ]
+        with_extra = evaluate(**common, extra=extra_checks)
+        self.assertEqual(status_from(with_extra), "Rejected")
+        lev_line = next(line for line in with_extra if line["name"] == "max_gross_leverage")
+        self.assertFalse(lev_line["passed"])
+
+    def test_audit_linter(self) -> None:
+        from research.kit.audit import parse_registry, run_audit
+        research_dir = ROOT / "research"
+        registry = parse_registry(research_dir / "README.md")
+        self.assertIn("igv-small-account-fade", registry)
+        self.assertIn("qqq-atr-martingale", registry)
+
+        results = run_audit(research_dir)
+        self.assertGreater(len(results), 25)
+        # Ensure zero errors across the repository
+        errors = [f"{r.slug}: {err}" for r in results for err in r.errors]
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

@@ -67,8 +67,17 @@ When the study is finished, add or update its row in `research/README.md`.
    - most symbols have daily bars only;
    - 1-minute bars cover regular hours only, and the history is short;
    - the instrument universe was hand-picked, so a cross-sectional test is exposed to survivorship and selection bias.
+4. **Phase 0 Data Health Audit:** Before writing or locking rules, run the automated health auditor:
+   ```bash
+   python -m research.kit health <SYMBOLS>
+   ```
+   Resolve or disclose any flagged anomalies:
+   - Unadjusted price jumps $\ge 50\%$ lacking recorded splits in `corporate_action`.
+   - Post-2024 extended-hours daily bar contamination (1d close differing $> 20$ bp from 16:00 ET 1m close).
+   - Missing dividend distributions on fixed-income or dividend-paying ETFs (e.g., TLT, IEF).
+5. **Universe Provenance:** Declare `universe_type` in rules and schema (`point_in_time`, `fixed_basket`, or `static_snapshot`). Static end-of-sample index or screener snapshots are barred from `Paper-trading candidate` status and capped at `Diagnostic Only`.
 
-**Permitted before the lock:** listing instruments; `coverage`; session and bar counts; corporate actions; data-quality checks; and counting how often a signal condition fires, with no outcome measured after it. Disclose each look in `RULES.md` and keep any script you used.
+**Permitted before the lock:** listing instruments; `coverage`; session and bar counts; corporate actions; data-quality checks (`python -m research.kit health`); and counting how often a signal condition fires, with no outcome measured after it. Disclose each look in `RULES.md` and keep any script you used.
 
 **Not permitted before the lock** (for any window the study will evaluate): price charts, returns, forward returns, P&L, hit rates, or any summary of the outcome variable. That applies to quick checks too.
 
@@ -136,14 +145,15 @@ A git commit of `RULES.md` and `RULES.lock` before the first run is the stronges
 
 Fill in [report-template.md](report-template.md) and produce the figures with `charts.py`. If a data-visualization skill is available, load it before writing chart code.
 
-**The status comes from the acceptance table, not from judgement:**
+**The status comes from the acceptance table and risk gates, strictly following this precedence hierarchy:**
 
 | Status | When |
 |---|---|
-| **Paper-trading candidate** | Every acceptance criterion passed. Never "ready for live capital." |
-| **Rejected** | Any criterion failed. |
-| **Inconclusive** | The pre-registered minimum sample was not met. Never promoted. |
 | **Void** | An implementation or data defect was found that cannot be fixed without changing the rules. Explain what happened. |
+| **Rejected** | Any performance criterion failed, peak leverage breached limits (> 4.0× intraday, > 2.0× overnight), or mark-to-market equity hit ≤ 0 (account ruin). Performance failure strictly supersedes sample size. |
+| **Inconclusive** | ALL performance criteria passed, but the pre-registered minimum sample was not met. Never promoted. |
+| **Rejected (Survivorship Contaminated)** | Evaluated on a static end-of-sample constituent snapshot (`static_snapshot`). |
+| **Paper-trading candidate** | Every acceptance criterion and risk limit passed on a valid universe. Never "ready for live capital." |
 
 **Writing rules:**
 
@@ -167,9 +177,10 @@ Before you finish, confirm each item and list any that fail in the report:
 
 - [ ] `RULES.md` hash still matches `RULES.lock`, and `results.json` carries the same hash.
 - [ ] `results.json` has `"kit_schema": 1`, and `python -m research.kit.guard research/<slug>/research/verify.py` prints `ok`.
+- [ ] Repository CI audit passes: `python -m research.kit audit` reports 0 errors across all studies.
 - [ ] Every rerun in `RUNLOG.md` has a permitted reason.
 - [ ] The self-test passes and `verify.py` matches every sampled trade.
-- [ ] The status matches the acceptance table exactly.
+- [ ] The status matches the acceptance table and risk gates exactly (no account ruin masked as Inconclusive).
 - [ ] Every post-hoc number is labelled **(post hoc)** and none feeds the verdict.
 - [ ] The report states prior exposure and the data coverage gaps it excluded.
 - [ ] Scripts reproduce every output from a clean run, from the repo root, with the seeds recorded.
@@ -187,12 +198,16 @@ Use these unless `RULES.md` overrides them, with a reason, before the lock.
 | Returns | Daily simple returns on the NYSE session calendar. Days with no position count as 0 |
 | Sharpe | Mean ÷ sample SD of daily returns × √252, with a zero risk-free rate |
 | Other metrics | Total return; CAGR on a 252-session year; annualized volatility; max drawdown of compounded equity; t-stat of the mean daily return; trades; win rate; profit factor (Σ winning net trades ÷ \|Σ losing net trades\|); average net trade in bp; exposure |
+| Risk & Solvency | Max gross leverage ≤ 4.0× intraday, ≤ 2.0× overnight; mark-to-market equity > 0 at all times; max drawdown ≤ 35% |
 | Costs | 1 bp of notional per side for QQQ/SPY-class liquidity. Thinner names need a stated basis (quoted spread, typical size). Costs scale with leverage |
+| Shorting Frictions | For small-cap / HTB names, apply upfront locate fees (15–50 bp) and restrict availability on >30% gap-ups |
 | Cost sweep | 0, 0.5×, 1×, 2×, and 3× the base cost |
 | Fill delay | Base fill, plus one bar later. Include a same-bar-close fill only as a labelled upper bound |
 | Split | The study picks the IS/OOS dates. Record whether earlier studies have already exposed the OOS window |
-| Direction placebo | Keep each trade's timing and flip its gross return by an independent ±1. 2,000 draws. Compare *gross* Sharpe against the actual gross Sharpe (costs make a coin flip a low bar). p = (1 + #draws ≥ actual) / (N + 1) |
-| Timing placebo | Where it fits: random entry times with the same count per session and the same exit rules. 500 draws |
+| Direction placebo | Asset-adjusted direction placebo centered around asset drift. Keep trade timing, flip gross excess return by independent ±1. 2,000 draws. p = (1 + #draws ≥ actual) / (N + 1) |
+| Timing placebo | Standardized trade-permutation timing placebo. 500 draws |
+| Multi-Testing | Report Deflated Sharpe Ratio (DSR, Bailey & Lopez de Prado 2014) adjusting for trials sharing the OOS window |
+| Concentration Stress | Top 1% session removal & Jackknife sensitivity test to ensure returns do not depend on 1 outlier day |
 | Bootstrap | Circular block bootstrap of daily returns, 20-session blocks, 2,000 draws, 95% interval of the full-sample Sharpe |
 | Plateau grid | 3–5 values per key parameter around the primary, run on IS as a plateau check. Show OOS for selection bias only. Never select from it |
 | Cross-market | Identical rules, unchanged, on 1–2 related instruments |

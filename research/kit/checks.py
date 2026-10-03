@@ -38,6 +38,12 @@ class Thresholds:
     cross_market_oos_sharpe_min_exclusive: float = 0.0
     min_oos_trades: int = 100
 
+    # Risk and Solvency Gates
+    max_gross_leverage: float = 4.0
+    max_overnight_leverage: float = 2.0
+    min_equity_floor: float = 0.0
+    max_drawdown_limit: float = 0.35
+
 
 @dataclass
 class Criterion:
@@ -123,6 +129,168 @@ def placebo_summary(result: dict) -> dict:
 
 def save_samples(path, samples) -> None:
     np.save(path, np.asarray(samples, dtype=float))
+
+
+def asset_adjusted_direction_placebo(
+    sessions,
+    pieces,
+    benchmark_returns,
+    *,
+    seed: int,
+    draws: int = 2000,
+) -> dict:
+    """Flip each trade's idiosyncratic excess return by random sign while preserving benchmark drift.
+
+    `pieces` is a list of trades, where each trade is a list of (session, gross simple return).
+    `benchmark_returns` is a list/array of benchmark daily returns matching sessions.
+    """
+    dates = as_dates(sessions)
+    index = {day: i for i, day in enumerate(dates)}
+    bench = np.asarray(list(benchmark_returns), dtype=float)
+    if len(bench) != len(dates):
+        raise ValueError("benchmark_returns length must match sessions")
+
+    trades_excess = []
+    trade_presence = np.zeros(len(dates), dtype=float)
+    for trade in pieces:
+        rows = []
+        for session, gross in trade:
+            day = as_date(session)
+            if day not in index:
+                raise ValueError(f"placebo piece session {day.isoformat()} is not in the daily path")
+            bar = index[day]
+            excess = float(gross) - bench[bar]
+            rows.append((bar, excess))
+            trade_presence[bar] = 1.0
+        trades_excess.append(rows)
+
+    def path(signs: np.ndarray | None) -> np.ndarray:
+        out = bench * trade_presence
+        for trade_i, rows in enumerate(trades_excess):
+            sign = 1.0 if signs is None else float(signs[trade_i])
+            for bar, excess in rows:
+                out[bar] += sign * excess
+        return out
+
+    actual = sharpe(path(None))
+    if actual is None:
+        raise ValueError("asset-adjusted direction placebo actual Sharpe is undefined")
+    generator = np.random.default_rng(seed)
+    samples = np.empty(draws, dtype=float)
+    for draw in range(draws):
+        signs = generator.choice(np.array([-1.0, 1.0]), size=len(trades_excess))
+        value = sharpe(path(signs))
+        samples[draw] = np.nan if value is None else value
+    finite = _finite(samples)
+    if len(finite) == 0:
+        raise ValueError("asset-adjusted direction placebo produced no finite Sharpe draws")
+    return {
+        "actual_gross_sharpe": actual,
+        "null_mean": float(finite.mean()),
+        "null_p95": float(np.percentile(finite, 95)),
+        "p": pvalue(actual, samples),
+        "draws": int(draws),
+        "seed": int(seed),
+        "samples": samples,
+        "samples_file": PLACEBO_FILE,
+    }
+
+
+def standardized_timing_placebo(
+    sessions,
+    trade_durations: list[int],
+    asset_daily_returns,
+    actual_sharpe: float,
+    *,
+    seed: int,
+    draws: int = 2000,
+) -> dict:
+    """Permutes entry dates across eligible sessions with fixed trade durations."""
+    total_sessions = len(sessions)
+    durations = [int(d) for d in trade_durations]
+    held_sessions = sum(durations)
+    n_trades = len(durations)
+    free_sessions = total_sessions - held_sessions
+    if free_sessions < 0:
+        raise ValueError("Sum of trade durations exceeds total sessions")
+
+    rng = np.random.default_rng(seed)
+    null_sharpes = np.empty(draws, dtype=float)
+    asset_ret = np.asarray(list(asset_daily_returns), dtype=float)
+
+    for d in range(draws):
+        order = rng.permutation(durations)
+        bars = np.sort(rng.choice(free_sessions + n_trades, size=n_trades, replace=False))
+        gaps = np.diff(np.concatenate([[-1], bars, [free_sessions + n_trades]])) - 1
+        mask = np.zeros(total_sessions, dtype=float)
+        at = gaps[0]
+        for j, dur in enumerate(order):
+            mask[at: at + dur] = 1.0
+            at += dur + gaps[j + 1]
+        val = sharpe(asset_ret * mask)
+        null_sharpes[d] = 0.0 if val is None else val
+
+    finite = _finite(null_sharpes)
+    if len(finite) == 0:
+        raise ValueError("timing placebo produced no finite Sharpe draws")
+    return {
+        "actual_sharpe": actual_sharpe,
+        "null_mean": float(finite.mean()),
+        "null_p95": float(np.percentile(finite, 95)),
+        "p": pvalue(actual_sharpe, finite),
+        "draws": int(draws),
+        "seed": int(seed),
+    }
+
+
+def concentration_stress_test(
+    sessions,
+    strategy_net,
+    *,
+    top_fraction: float = 0.01,
+    max_influence_limit: float = 0.40,
+) -> dict:
+    """Evaluates strategy sensitivity to outlier sessions (Leave-k-Out & Jackknife)."""
+    returns = np.asarray(list(strategy_net), dtype=float)
+    n = len(returns)
+    if n < 10:
+        return {"passed": False, "reason": "Insufficient sessions"}
+
+    base_sr = sharpe(returns)
+    if base_sr is None:
+        return {"passed": False, "reason": "Undefined base Sharpe"}
+
+    k = max(1, int(math.ceil(top_fraction * n)))
+    sorted_idx = np.argsort(returns)
+    kept_idx = sorted_idx[:-k]
+    residual_returns = returns[kept_idx]
+    residual_sr = sharpe(residual_returns)
+    residual_sr_val = 0.0 if residual_sr is None else float(residual_sr)
+
+    max_influence = 0.0
+    worst_session_idx = -1
+    for t in range(n):
+        jack_returns = np.delete(returns, t)
+        jack_sr = sharpe(jack_returns) or 0.0
+        influence = base_sr - jack_sr
+        if influence > max_influence:
+            max_influence = float(influence)
+            worst_session_idx = t
+
+    top_k_sum = float(np.sum(returns[sorted_idx[-k:]]))
+    pos_sum = float(np.sum(returns[returns > 0]))
+    ratio = (top_k_sum / pos_sum) if pos_sum > 0 else 1.0
+
+    passed = bool(residual_sr_val > 0.0 and max_influence < max_influence_limit)
+    return {
+        "base_sharpe": float(base_sr),
+        "k_dropped": int(k),
+        "residual_sharpe": residual_sr_val,
+        "max_session_influence": max_influence,
+        "worst_session": str(sessions[worst_session_idx]) if worst_session_idx >= 0 else None,
+        "outlier_concentration_ratio": ratio,
+        "passed": passed,
+    }
 
 
 def block_bootstrap(daily_net, *, seed: int, block: int = 20, draws: int = 2000) -> dict:
@@ -213,7 +381,10 @@ def evaluate(
     doubled_return = doubled.get("full_return")
 
     sharpe_ok = oos_sharpe is not None and float(oos_sharpe) >= limits.oos_sharpe_min
-    factor_ok = oos_profit_factor is not None and float(oos_profit_factor) >= limits.oos_profit_factor_min
+    if oos_profit_factor is None:
+        factor_ok = bool(int(oos_trades) > 0 and oos_sharpe is not None and float(oos_sharpe) > 0)
+    else:
+        factor_ok = float(oos_profit_factor) >= limits.oos_profit_factor_min or math.isinf(float(oos_profit_factor))
     is_ok = is_sharpe is not None and float(is_sharpe) > limits.is_sharpe_min_exclusive
     grid_ok = fraction >= limits.grid_positive_fraction
     cost_ok = doubled_return is not None and float(doubled_return) > limits.full_return_2x_min_exclusive
@@ -294,13 +465,44 @@ def evaluate(
     return lines
 
 
-def status_from(lines, *, void_reason: str | None = None) -> str:
-    """Void, then a short out-of-sample sample, then any other failure, then a pass."""
+def status_from(
+    lines,
+    *,
+    void_reason: str | None = None,
+    min_equity: float | None = None,
+    max_leverage: float | None = None,
+    leverage_limit: float = 4.0,
+    universe_type: str = "single_asset",
+    ruined: bool = False,
+) -> str:
+    """Rigorous verdict hierarchy eliminating the Inconclusive loophole.
+
+    Precedence:
+    1. Void (manual reason or corporate action defect)
+    2. Ruined / Insolvent (min_equity <= 0 or ruined=True) -> Rejected
+    3. Leverage Breach (max_leverage > leverage_limit) -> Rejected
+    4. Active Performance Failure (any non-sample line failed) -> Rejected
+    5. Inadequate Sample (oos_sample failed BUT all performance lines passed) -> Inconclusive
+    6. Point-in-Time Universe Contamination (static_snapshot) -> Rejected (Survivorship Contaminated)
+    7. All Passed -> Paper-trading candidate
+    """
     if void_reason is not None and void_reason.strip():
         return "Void"
-    for line in lines:
-        if line.get("name") == "oos_sample" and not line.get("passed"):
-            return "Inconclusive"
-    if any(not line.get("passed") for line in lines):
+    if ruined or (min_equity is not None and min_equity <= 0.0):
         return "Rejected"
+    if max_leverage is not None and max_leverage > leverage_limit:
+        return "Rejected"
+
+    perf_lines = [line for line in lines if line.get("name") != "oos_sample"]
+    sample_lines = [line for line in lines if line.get("name") == "oos_sample"]
+
+    if any(not line.get("passed", False) for line in perf_lines):
+        return "Rejected"
+
+    if any(not line.get("passed", False) for line in sample_lines):
+        return "Inconclusive"
+
+    if universe_type == "static_snapshot":
+        return "Rejected (Survivorship Contaminated)"
+
     return "Paper-trading candidate"

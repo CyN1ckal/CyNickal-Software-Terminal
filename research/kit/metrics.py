@@ -341,3 +341,51 @@ def trade_keys() -> tuple[str, ...]:
 
 def bench_keys() -> tuple[str, ...]:
     return _BENCH_KEYS
+
+
+def deflated_sharpe_ratio(
+    daily_returns,
+    trials_count: int = 1,
+    trials_variance: float = 0.25,
+) -> float | None:
+    """Bailey & Lopez de Prado (2014) Deflated Sharpe Ratio (DSR).
+
+    Adjusts observed Sharpe ratio for sample size, skewness, kurtosis,
+    and the number of strategy trials sharing the evaluation window.
+    Returns the probability that the true Sharpe > 0 given multiple testing history.
+    """
+    series = _floats(daily_returns)
+    n = len(series)
+    if n < 30:
+        return None
+    mean = float(series.mean())
+    std = float(series.std(ddof=1))
+    if std <= 0.0 or not math.isfinite(std):
+        return None
+    sr_ann = (mean / std) * math.sqrt(ANNUAL)
+
+    diff = series - mean
+    m2 = float(np.mean(diff ** 2))
+    if m2 <= 0.0:
+        return None
+    skew = float(np.mean(diff ** 3) / (m2 ** 1.5))
+    kurt = float(np.mean(diff ** 4) / (m2 ** 2.0))
+
+    var_sr = (1.0 - skew * sr_ann + ((kurt - 1.0) / 4.0) * (sr_ann ** 2)) / (n / ANNUAL)
+    if var_sr <= 0.0 or not math.isfinite(var_sr):
+        return None
+    se_sr = math.sqrt(var_sr)
+
+    euler_mascheroni = 0.5772156649
+    m = max(1, int(trials_count))
+    try:
+        from scipy import stats
+        z1 = float(stats.norm.ppf(1.0 - 1.0 / m)) if m > 1 else 0.0
+        z2 = float(stats.norm.ppf(1.0 - 1.0 / (m * math.e))) if m > 1 else 0.0
+        sr_star = math.sqrt(trials_variance) * ((1.0 - euler_mascheroni) * z1 + euler_mascheroni * z2) if m > 1 else 0.0
+        dsr = float(stats.norm.cdf((sr_ann - sr_star) / se_sr))
+    except Exception:
+        sr_star = math.sqrt(trials_variance) * math.sqrt(2.0 * math.log(m)) if m > 1 else 0.0
+        z = (sr_ann - sr_star) / se_sr
+        dsr = 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+    return _py(dsr)

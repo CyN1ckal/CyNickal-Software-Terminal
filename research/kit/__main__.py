@@ -115,6 +115,29 @@ def main(argv: list[str] | None = None) -> int:
             check_verify(Path(rest[0]))
             print("ok")
             return 0
+        if command == "audit":
+            from research.kit.audit import main as audit_main
+
+            sys.argv = [sys.argv[0]] + rest
+            audit_main()
+            return 0
+        if command == "health":
+            from research.kit.health import DataHealthAuditor
+
+            if not rest:
+                print("usage: python -m research.kit health <SYMBOL> [START] [END]", file=sys.stderr)
+                return 1
+            sym = rest[0].upper()
+            start = rest[1] if len(rest) > 1 else None
+            end = rest[2] if len(rest) > 2 else None
+            with DataHealthAuditor() as auditor:
+                anomalies = auditor.audit_instrument(sym, start, end)
+                if not anomalies:
+                    print(f"Health check for {sym}: CLEAN (no critical anomalies)")
+                    return 0
+                for a in anomalies:
+                    print(f"[{a.severity}] {a.category} @ {a.session}: {a.detail}")
+                return 1 if any(a.severity == "CRITICAL" for a in anomalies) else 0
     except (ValueError, RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
