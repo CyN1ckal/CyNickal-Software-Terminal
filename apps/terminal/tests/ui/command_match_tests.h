@@ -33,4 +33,11 @@ TEST_CASE("command palette matching")
     // A word start beats the same letters inside a word.
     CHECK(commandMatchScore("chart", "Chart New Chart") > commandMatchScore("hart", "Chart New Chart"));
     CHECK(commandMatchScore("opt", "View New Options Chain") > commandMatchScore("opt", "View Close Portfolio"));
+
+    // A letter that only appears in the last place the text can show it still matches.
+    // Both the whole-word scan and the scattered scan stop one character short if their
+    // end test is off by one.
+    CHECK(commandMatchScore("x", "File Adx") > 0);
+    CHECK(commandMatchScore("zx", "File Zqx") > 0);
+    CHECK(commandMatchScore("x", "File Ad") < 0);
 }
