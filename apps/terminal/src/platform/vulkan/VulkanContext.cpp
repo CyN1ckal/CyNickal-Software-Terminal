@@ -72,9 +72,10 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
     uint32_t properties_count = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, nullptr);
+    checkVkResult(vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, nullptr));
     std::vector<VkExtensionProperties> properties(properties_count);
     checkVkResult(vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, properties.data()));
+    properties.resize(properties_count);
 
     if (hasExtension(properties, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
     {
@@ -92,9 +93,10 @@ void VulkanContext::createInstance(std::vector<const char*>& instance_extensions
     std::vector<const char*> enabled_layers;
 #ifndef NDEBUG
     uint32_t layer_count = 0;
-    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+    checkVkResult(vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
     std::vector<VkLayerProperties> layer_properties(layer_count);
     checkVkResult(vkEnumerateInstanceLayerProperties(&layer_count, layer_properties.data()));
+    layer_properties.resize(layer_count);
 
     if (hasLayer(layer_properties, "VK_LAYER_KHRONOS_validation"))
     {
@@ -139,9 +141,11 @@ void VulkanContext::createDevice()
     std::vector<const char*> device_extensions{"VK_KHR_swapchain"};
 
     uint32_t properties_count = 0;
-    vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &properties_count, nullptr);
+    checkVkResult(vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &properties_count, nullptr));
     std::vector<VkExtensionProperties> properties(properties_count);
-    vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &properties_count, properties.data());
+    checkVkResult(vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &properties_count,
+                                                      properties.data()));
+    properties.resize(properties_count);
 
 #ifdef VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
     if (hasExtension(properties, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME))
