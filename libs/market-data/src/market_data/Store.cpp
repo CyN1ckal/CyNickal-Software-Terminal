@@ -1828,14 +1828,17 @@ std::vector<std::size_t> Store::applyListingChanges(std::span<const ListingChang
             break;
         case ListingChange::Kind::Open:
         {
-            const bool symbol_taken = findOpenListing(change.symbol).has_value();
+            // Compare on the canonical spelling: the listing opens under it, so an
+            // uncanonical change.symbol must not slip past the taken check.
+            const std::string symbol = canonicalListingSymbol(change.symbol);
+            const bool symbol_taken = findOpenListing(symbol).has_value();
             if (symbol_taken || impl_->openListingOf(change.instrument_id).has_value())
             {
                 impl_->setVerified(change.instrument_id, std::nullopt);
                 skipped.push_back(i);
                 break;
             }
-            impl_->openListingUnlocked(change.instrument_id, change.symbol, now);
+            impl_->openListingUnlocked(change.instrument_id, symbol, now);
             impl_->clearDelisted(change.instrument_id);
             break;
         }
