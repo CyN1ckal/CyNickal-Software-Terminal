@@ -259,6 +259,7 @@ void InventoryPanel::refreshSummaries()
     }
     try
     {
+        sorted_ = false;
         summaries_ = store_->queryCoverageSummaries(kTimeframe1m);
         const auto daily = store_->queryCoverageSummaries(kTimeframe1d);
         for (const CoverageSummary& row : daily)
@@ -712,6 +713,15 @@ void InventoryPanel::applySortSpecs()
     {
         return;
     }
+    // Sorting is O(n log n) over every name, so it runs when the specs change and when the
+    // rows come back from the store, not on every frame.
+    const bool resort = specs->SpecsDirty || !sorted_;
+    specs->SpecsDirty = false;
+    sorted_ = true;
+    if (!resort)
+    {
+        return;
+    }
     const ImGuiTableColumnSortSpecs& spec = specs->Specs[0];
     const int col = spec.ColumnIndex;
     const bool desc = spec.SortDirection == ImGuiSortDirection_Descending;
@@ -722,9 +732,16 @@ void InventoryPanel::applySortSpecs()
         case kColSymbol:
             delta = a.instrument.symbol.compare(b.instrument.symbol);
             break;
-        case kColFigi:
-            delta = a.instrument.figi.value_or("").compare(b.instrument.figi.value_or(""));
+        case kColFigi: {
+            // Views, not value_or(""): a sort makes thousands of comparisons and each
+            // temporary string would allocate.
+            const std::string_view left =
+                a.instrument.figi.has_value() ? std::string_view(*a.instrument.figi) : std::string_view{};
+            const std::string_view right =
+                b.instrument.figi.has_value() ? std::string_view(*b.instrument.figi) : std::string_view{};
+            delta = left.compare(right);
             break;
+        }
         case kColTimeframe:
             delta = a.timeframe_s - b.timeframe_s;
             break;
@@ -765,7 +782,6 @@ void InventoryPanel::applySortSpecs()
         }
         return desc ? delta > 0 : delta < 0;
     });
-    specs->SpecsDirty = false;
 }
 
 void InventoryPanel::drawSummaryTable()
@@ -851,8 +867,7 @@ void InventoryPanel::drawSummaryTable()
                 refreshDays();
             }
             ImGui::TableNextColumn();
-            const std::string figi = row.instrument.figi.value_or("");
-            ImGui::TextUnformatted(figi.c_str());
+            ImGui::TextUnformatted(row.instrument.figi.has_value() ? row.instrument.figi->c_str() : "");
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(timeframeLabel(row.timeframe_s));
             ImGui::TableNextColumn();

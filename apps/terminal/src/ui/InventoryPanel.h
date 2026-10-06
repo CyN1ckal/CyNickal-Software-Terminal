@@ -96,6 +96,8 @@ private:
     std::vector<ChartbookColumn> columns_;
     std::string sort_column_;
     bool sort_descending_{false};
+    // False until the listed rows have been put in the order the table asks for.
+    bool sorted_{false};
     bool apply_columns_{false};
     bool ignore_settings_dirty_{false};
     int runtime_id_{0};
