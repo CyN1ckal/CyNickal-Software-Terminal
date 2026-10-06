@@ -68,7 +68,8 @@ SqliteDb::~SqliteDb() noexcept
     }
     else if (rc != SQLITE_OK)
     {
-        std::fprintf(stderr, "sqlite3_close: %s\n", sqlite3_errmsg(db_));
+        // db_ is gone here; sqlite3_errstr needs only the code, unlike sqlite3_errmsg.
+        std::fprintf(stderr, "sqlite3_close: %s\n", sqlite3_errstr(rc));
     }
     db_ = nullptr;
 }

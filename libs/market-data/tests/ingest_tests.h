@@ -645,7 +645,8 @@ TEST_CASE("parseMboumV1SplitEvents reads NVDA 10-for-1 and skips bad rows")
           "splits": {
             "1718026200": {"date": 1718026200, "numerator": 10, "denominator": 1, "splitRatio": "10:1"},
             "1": {"date": 1, "numerator": 1, "denominator": 0},
-            "2": {"numerator": 2, "denominator": 1}
+            "2": {"numerator": 2, "denominator": 1},
+            "3": {"date": 1e300, "numerator": 2, "denominator": 1}
           }
         }
       }

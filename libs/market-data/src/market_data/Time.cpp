@@ -5,6 +5,7 @@
 
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -231,7 +232,7 @@ std::optional<double> parseMoneyAmount(std::string_view text)
     }
     double value = 0.0;
     const auto [ptr, ec] = std::from_chars(cleaned.data(), cleaned.data() + cleaned.size(), value);
-    if (ec != std::errc{} || ptr != cleaned.data() + cleaned.size())
+    if (ec != std::errc{} || ptr != cleaned.data() + cleaned.size() || !std::isfinite(value))
     {
         return std::nullopt;
     }

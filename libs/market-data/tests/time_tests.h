@@ -94,6 +94,9 @@ TEST_CASE("money and US date parsers")
     CHECK(terminal::parseMoneyAmount("$0.050") == 0.05);
     CHECK(terminal::parseMoneyAmount("1,234.56") == 1234.56);
     CHECK_FALSE(terminal::parseMoneyAmount("").has_value());
+    // from_chars accepts strtod spellings; a money amount that is not finite is junk.
+    CHECK_FALSE(terminal::parseMoneyAmount("inf").has_value());
+    CHECK_FALSE(terminal::parseMoneyAmount("nan").has_value());
     const auto ex = terminal::parseUsDateToUtcMidnight("09/27/24");
     REQUIRE(ex.has_value());
     CHECK(terminal::parseRfc3339Utc("2020-08-31T04:00:00.000Z").has_value());
