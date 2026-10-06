@@ -16,10 +16,21 @@ namespace {
 constexpr int kBaseWindowWidth = 1280;
 constexpr int kBaseWindowHeight = 800;
 
+// The monitor scale sizes the window at startup and scales every layout number,
+// so it has to be a usable ratio: a headless machine has no primary monitor, and
+// a virtual monitor can report a content scale of 0. Either one used as a scale
+// asks GLFW for a window with no extent.
+[[nodiscard]] float primaryMonitorScale()
+{
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const float scale = monitor != nullptr ? ImGui_ImplGlfw_GetContentScaleForMonitor(monitor) : 1.0f;
+    return scale > 0.0f ? scale : 1.0f;
+}
+
 }  // namespace
 
 Application::Application()
-    : scale_(ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()))
+    : scale_(primaryMonitorScale())
     , window_(static_cast<int>(kBaseWindowWidth * scale_),
               static_cast<int>(kBaseWindowHeight * scale_),
               kWindowTitle)
