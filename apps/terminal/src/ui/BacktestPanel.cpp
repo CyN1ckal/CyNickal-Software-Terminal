@@ -39,6 +39,10 @@ constexpr double kRunsRefreshSeconds = 2.0;
 
 void copyInto(char* buffer, std::size_t size, std::string_view text)
 {
+    if (size == 0)
+    {
+        return;
+    }
     const std::size_t count = text.copy(buffer, size - 1);
     buffer[count] = '\0';
 }
@@ -330,12 +334,28 @@ void BacktestPanel::startRun(const Store& store, IngestWorker* ingest)
         return;
     }
     const int timeframe_s = request->period == ChartBarPeriod::Day1 ? kTimeframe1d : kTimeframe1m;
-    const std::optional<Instrument> instrument = store.resolveSymbol(request->symbol);
+    std::optional<Instrument> instrument;
+    std::vector<CoverageDay> days;
+    try
+    {
+        instrument = store.resolveSymbol(request->symbol);
+        if (instrument.has_value())
+        {
+            days = store.queryCoverageDays(instrument->id, timeframe_s);
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        // A read can fail on a locked or damaged store. Report it; do not leave the click
+        // to unwind out of the frame and take the terminal down with it.
+        error_ = ex.what();
+        status_ = error_;
+        return;
+    }
     bool has_bars = false;
     bool complete = false;
     if (instrument.has_value())
     {
-        const std::vector<CoverageDay> days = store.queryCoverageDays(instrument->id, timeframe_s);
         has_bars = std::ranges::any_of(days, [&](const CoverageDay& day) {
             return day.bar_count > 0 && day.session_date >= request->from && day.session_date <= request->to;
         });
@@ -685,7 +705,7 @@ void BacktestPanel::drawRuns(const Store& store)
             ImGui::EndPopup();
         }
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextUnformatted(run.symbol.value_or(std::string{}).c_str());
+        ImGui::TextUnformatted(run.symbol.has_value() ? run.symbol->c_str() : "");
         ImGui::TableSetColumnIndex(2);
         ImGui::TextUnformatted(periodCodeForSeconds(run.timeframe_s));
         ImGui::TableSetColumnIndex(3);
@@ -707,7 +727,8 @@ void BacktestPanel::drawRuns(const Store& store)
     }
     if (const ImGuiViewport* viewport = ImGui::GetMainViewport(); viewport != nullptr)
     {
-        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+        // The pivot is a fraction of the window, not a layout length: px() would move the dialog.
+        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     }
     if (ImGui::BeginPopupModal("Delete run", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
@@ -767,7 +788,7 @@ bool BacktestPanel::draw(Store* store, std::string_view store_error, IngestWorke
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%.*s", static_cast<int>(store_error.size()), store_error.data());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
