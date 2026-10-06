@@ -792,7 +792,7 @@ bool FinancialsPanel::draw(Store* store, std::string_view store_error, IngestWor
     }
     if (store == nullptr && !store_error.empty())
     {
-        ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
+        ImGui::TextColored(Theme::danger(), "%.*s", static_cast<int>(store_error.size()), store_error.data());
     }
 
     drawToolbar(ingest);

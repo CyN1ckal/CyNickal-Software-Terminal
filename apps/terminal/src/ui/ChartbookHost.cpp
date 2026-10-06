@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <string_view>
 #include <utility>
 
 namespace terminal {
@@ -1011,7 +1012,8 @@ void ChartbookHost::drawTabs(float tabs_right)
         }
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHARTBOOK_TAB"))
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHARTBOOK_TAB");
+                payload != nullptr && std::cmp_equal(payload->DataSize, sizeof(int)))
             {
                 int from = 0;
                 std::memcpy(&from, payload->Data, sizeof(from));
@@ -1148,7 +1150,8 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         pending_modal_ = Modal::None;
     }
 
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+    // The pivot is a fraction of the window, not a layout length: px() would move the dialog.
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Open Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         const std::vector<std::string> names = chartbookStems();
@@ -1197,7 +1200,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Save Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         const std::vector<std::string> names = chartbookStems();
@@ -1215,7 +1218,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         }
         const std::filesystem::path path = chartbookPathForStem(name_);
         const bool named =
-            std::ranges::find(names, std::string(name_)) != names.end();
+            std::ranges::find(names, std::string_view(name_)) != names.end();
         const bool same_file = save_as_index_ >= 0 && std::cmp_less(save_as_index_, books_.size()) &&
                                chartbookPathsEqual(books_[static_cast<std::size_t>(save_as_index_)].path, path);
         if (named && !same_file && !path.empty())
@@ -1322,7 +1325,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Close Chartbook", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         if (close_index_ < 0 || std::cmp_greater_equal(close_index_, books_.size()))
@@ -1374,7 +1377,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Save Chartbooks", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::TextUnformatted("Save changes before quitting?");
@@ -1417,7 +1420,7 @@ void ChartbookHost::drawModals(InventoryPanel& inventory)
         ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(Theme::px(0.5f), Theme::px(0.5f)));
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Chartbooks to Open on Startup", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         if (ImGui::BeginListBox("##startup_list", ImVec2(Theme::px(360.f), Theme::px(180.f))))
@@ -1903,7 +1906,8 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     std::vector<ChartbookFloating> floating;
     const auto consider = [&](std::string_view window_id) {
-        if (std::ranges::find(seen, std::string(window_id)) != seen.end())
+        const auto have = std::ranges::find(seen, window_id);
+        if (have != seen.end())
         {
             return;
         }
@@ -2017,7 +2021,7 @@ void ChartbookHost::captureLayout(ImGuiID dock_id)
             complete = false;
         }
     }
-    if (dataShown(open) && std::ranges::find(seen, std::string("data")) == seen.end())
+    if (dataShown(open) && std::ranges::find(seen, std::string_view("data")) == seen.end())
     {
         complete = false;
     }
