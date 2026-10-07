@@ -4,13 +4,17 @@
 #pragma once
 
 #include <filesystem>
+#include <system_error>
 
 namespace terminal {
 
+// A directory that cannot be read is not a repo root: the walk carries on, and
+// findRepoRoot falls back to the working directory instead of throwing out of the probe.
 [[nodiscard]] inline bool isSuperprojectRoot(const std::filesystem::path& dir)
 {
-    return std::filesystem::is_regular_file(dir / "CMakeLists.txt") &&
-           std::filesystem::is_directory(dir / "libs" / "market-data");
+    std::error_code ec;
+    const bool has_build_file = std::filesystem::is_regular_file(dir / "CMakeLists.txt", ec);
+    return has_build_file && std::filesystem::is_directory(dir / "libs" / "market-data", ec);
 }
 
 [[nodiscard]] inline std::filesystem::path findRepoRoot()
