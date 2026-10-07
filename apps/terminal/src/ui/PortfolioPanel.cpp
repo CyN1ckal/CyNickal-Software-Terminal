@@ -431,7 +431,9 @@ void drawRight(const char* text, const ImVec4& color)
         ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(1.f, 0.f));
     }
     std::string label(text);
-    label += "##";
+    // "###" keeps the identifier on `id` alone. "##" would fold the displayed text
+    // into the hash, so the id would move every time the cell's value changed.
+    label += "###";
     label += id;
     const bool clicked = ImGui::Selectable(label.c_str());
     if (right_align)
@@ -830,7 +832,19 @@ void PortfolioPanel::reload(Store& store)
 bool PortfolioPanel::appendResolved(const Store& store, PortfolioAssetKind kind, const std::string& symbol,
                                     double quantity)
 {
-    const std::optional<Instrument> instrument = store.findOpenListing(symbol);
+    std::optional<Instrument> instrument;
+    try
+    {
+        instrument = store.findOpenListing(symbol);
+    }
+    catch (const std::exception& ex)
+    {
+        // Reported as handled so the caller does not queue a fetch for a symbol
+        // whose listing was never read.
+        error_ = ex.what();
+        status_ = error_;
+        return true;
+    }
     if (!instrument.has_value() || !instrument->figi.has_value())
     {
         return false;
@@ -949,7 +963,17 @@ bool PortfolioPanel::resolveSymbol(const Store& store, IngestWorker* ingest, std
         status_ = error_;
         return false;
     }
-    const std::optional<Instrument> found = store.findOpenListing(symbol);
+    std::optional<Instrument> found;
+    try
+    {
+        found = store.findOpenListing(symbol);
+    }
+    catch (const std::exception& ex)
+    {
+        error_ = ex.what();
+        status_ = error_;
+        return false;
+    }
     if (found.has_value())
     {
         const Instrument& instrument = found.value();
@@ -1172,64 +1196,76 @@ void PortfolioPanel::refreshMarks(const Store& store)
             newest = ts;
         }
     };
-    for (std::size_t index = 0; index < drafts_.size(); ++index)
+    try
     {
-        const PortfolioHolding& row = drafts_[index];
-        if (row.kind == PortfolioAssetKind::Cash)
+        for (std::size_t index = 0; index < drafts_.size(); ++index)
         {
-            lasts_[index] = 1.0;
-            risks_[index].basis = HoldingRiskBasis::Cash;
-            continue;
-        }
-        const std::optional<InstrumentId> instrument_id = row.instrument_id;
-        if (!instrument_id.has_value())
-        {
-            continue;
-        }
-        const InstrumentId instrument = instrument_id.value();
-        if (row.kind == PortfolioAssetKind::Option)
-        {
-            const std::optional<OptionSnapshot> found = optionSnapshot(store, row);
-            if (!found.has_value())
+            const PortfolioHolding& row = drafts_[index];
+            if (row.kind == PortfolioAssetKind::Cash)
+            {
+                lasts_[index] = 1.0;
+                risks_[index].basis = HoldingRiskBasis::Cash;
+                continue;
+            }
+            const std::optional<InstrumentId> instrument_id = row.instrument_id;
+            if (!instrument_id.has_value())
             {
                 continue;
             }
-            const OptionSnapshot quote = found.value();
-            lasts_[index] = quote.last;
-            note(quote.fetched_at);
-            const std::optional<CloseSample> underlying = equitySample(store, instrument);
-            if (!underlying.has_value())
+            const InstrumentId instrument = instrument_id.value();
+            if (row.kind == PortfolioAssetKind::Option)
+            {
+                const std::optional<OptionSnapshot> found = optionSnapshot(store, row);
+                if (!found.has_value())
+                {
+                    continue;
+                }
+                const OptionSnapshot quote = found.value();
+                lasts_[index] = quote.last;
+                note(quote.fetched_at);
+                const std::optional<CloseSample> underlying = equitySample(store, instrument);
+                if (!underlying.has_value())
+                {
+                    continue;
+                }
+                note(underlying->ingested_at);
+                const double spot = underlying->close;
+                if (!(spot > 0.0) || !std::isfinite(quote.delta))
+                {
+                    continue;
+                }
+                risks_[index].basis = HoldingRiskBasis::Delta;
+                risks_[index].unit_exposure = optionDeltaExposure(1.0, kOptionContractMultiplier, quote.delta, spot);
+                risks_[index].closes = dailyCloses(store, instrument);
+                continue;
+            }
+            const std::optional<CloseSample> sample = equitySample(store, instrument);
+            if (!sample.has_value())
             {
                 continue;
             }
-            note(underlying->ingested_at);
-            const double spot = underlying->close;
-            if (!(spot > 0.0) || !std::isfinite(quote.delta))
+            note(sample->ingested_at);
+            const double price = sample->close;
+            lasts_[index] = price;
+            if (!(price > 0.0))
             {
                 continue;
             }
-            risks_[index].basis = HoldingRiskBasis::Delta;
-            risks_[index].unit_exposure = optionDeltaExposure(1.0, kOptionContractMultiplier, quote.delta, spot);
+            risks_[index].basis = HoldingRiskBasis::Close;
+            risks_[index].unit_exposure = price;
             risks_[index].closes = dailyCloses(store, instrument);
-            continue;
         }
-        const std::optional<CloseSample> sample = equitySample(store, instrument);
-        if (!sample.has_value())
-        {
-            continue;
-        }
-        note(sample->ingested_at);
-        const double price = sample->close;
-        lasts_[index] = price;
-        if (!(price > 0.0))
-        {
-            continue;
-        }
-        risks_[index].basis = HoldingRiskBasis::Close;
-        risks_[index].unit_exposure = price;
-        risks_[index].closes = dailyCloses(store, instrument);
+        received_at_ = newest;
     }
-    received_at_ = newest;
+    catch (const std::exception& ex)
+    {
+        // The store is a reader and can answer busy. Price the lines that were
+        // reached and show the error instead of unwinding out of the open window.
+        error_ = ex.what();
+        status_ = error_;
+    }
+    // lasts_ and risks_ are sized to the lines either way, so the tables can index
+    // them. Any edit or a finished fetch marks them stale again.
     marks_valid_ = true;
 }
 
@@ -1873,8 +1909,18 @@ bool PortfolioPanel::draw(Store* store, std::string_view store_error, IngestWork
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     }
 
-    reload(*store);
-    pollPending(*store, ingest);
+    // The window is already open, so a busy store is recorded here and the frame
+    // keeps drawing instead of unwinding past ImGui::End.
+    try
+    {
+        reload(*store);
+        pollPending(*store, ingest);
+    }
+    catch (const std::exception& ex)
+    {
+        error_ = ex.what();
+        status_ = error_;
+    }
     if (ingest != nullptr && ingest->snapshot().finished_serial != priced_serial_)
     {
         priced_serial_ = ingest->snapshot().finished_serial;
