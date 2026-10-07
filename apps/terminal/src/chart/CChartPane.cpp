@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <exception>
 #include <string>
+#include <utility>
 
 namespace terminal {
 namespace {
@@ -456,7 +457,7 @@ void CChartPane::reload(Store* store, std::string_view store_error)
         return;
     }
 
-    const ChartLoadResult incoming = loadChartBars(*store, settings_);
+    ChartLoadResult incoming = loadChartBars(*store, settings_);
     adoptResolvedIdentity(incoming);
     const bool same = settingsIdentityEqual(loaded_settings_, settings_) && !loaded_.bars.empty();
     if ((incoming.status == ChartLoadStatus::Busy || incoming.status == ChartLoadStatus::Error) &&
@@ -472,7 +473,8 @@ void CChartPane::reload(Store* store, std::string_view store_error)
     const bool reset_view = loaded_settings_.symbol != settings_.symbol ||
                             loaded_settings_.period != settings_.period ||
                             chartSessionCount(loaded_settings_) != chartSessionCount(settings_);
-    loaded_ = incoming;
+    // incoming is not read again; a copy would duplicate every bar in the window.
+    loaded_ = std::move(incoming);
     loaded_settings_ = settings_;
     if (reset_view)
     {
