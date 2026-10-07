@@ -191,7 +191,9 @@ inline void clampV1Limits(CChartSettings& s) noexcept
 {
     clampSessionCountField(s.intraday_session_count, kChartMaxIntradaySessionCount);
     clampSessionCountField(s.historical_session_count, kChartMaxHistoricalSessionCount);
-    if (s.bar_spacing_px < kChartMinBarSpacingPx)
+    // The !(v >= min) form keeps a NaN out of the range: with the plain < the
+    // test is false for NaN and it survives into the pixel and scale math.
+    if (!(s.bar_spacing_px >= kChartMinBarSpacingPx))
     {
         s.bar_spacing_px = kChartMinBarSpacingPx;
     }
@@ -199,7 +201,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
     {
         s.bar_spacing_px = kChartMaxBarSpacingPx;
     }
-    if (s.bar_width_frac < 0.10f)
+    if (!(s.bar_width_frac >= 0.10f))
     {
         s.bar_width_frac = 0.10f;
     }
@@ -207,7 +209,7 @@ inline void clampV1Limits(CChartSettings& s) noexcept
     {
         s.bar_width_frac = 1.00f;
     }
-    if (s.scale_padding_pct < 0.0f)
+    if (!(s.scale_padding_pct >= 0.0f))
     {
         s.scale_padding_pct = 0.0f;
     }

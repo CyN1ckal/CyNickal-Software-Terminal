@@ -59,6 +59,7 @@ void CommandPalette::rank(const CommandList& commands)
     ranked_query_ = query;
     ranked_count_ = commands.size();
     matches_.clear();
+    matches_.reserve(commands.size());
     for (int index = 0; std::cmp_less(index, commands.size()); ++index)
     {
         const Command& command = commands[static_cast<std::size_t>(index)];

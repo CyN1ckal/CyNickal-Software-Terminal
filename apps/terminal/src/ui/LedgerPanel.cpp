@@ -60,6 +60,10 @@ constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_RowBg | ImGuiTableFlags_
 
 void copyInto(char* buffer, std::size_t size, std::string_view text)
 {
+    if (size == 0)
+    {
+        return;
+    }
     const std::size_t count = text.copy(buffer, size - 1);
     buffer[count] = '\0';
 }
@@ -305,7 +309,19 @@ void LedgerPanel::requestData(Store* store, IngestWorker* ingest)
         return;
     }
     const SessionDate today = utcToSessionDate(kLedgerTimezone, nowUtc());
-    const std::vector<IngestWorker::Job> jobs = ledgerFetchJobs(*store, book_.positions, fills_, today, false);
+    std::vector<IngestWorker::Job> jobs;
+    try
+    {
+        jobs = ledgerFetchJobs(*store, book_.positions, fills_, today, false);
+    }
+    catch (const std::exception& ex)
+    {
+        // The planner reads prices. A locked or damaged store is a status line, not a
+        // throw that unwinds out of the frame loop.
+        error_ = ex.what();
+        status_ = error_;
+        return;
+    }
     if (jobs.empty())
     {
         return;
@@ -383,7 +399,17 @@ void LedgerPanel::deleteCashFlow(Store& store, LedgerCashFlowId flow_id)
 
 bool LedgerPanel::appendFill(Store& store, const std::string& symbol, TradeFill fill)
 {
-    const std::optional<Instrument> instrument = store.findOpenListing(symbol);
+    std::optional<Instrument> instrument;
+    try
+    {
+        instrument = store.findOpenListing(symbol);
+    }
+    catch (const std::exception& ex)
+    {
+        error_ = ex.what();
+        status_ = error_;
+        return true;  // reported; the caller must not queue a fetch for it
+    }
     if (!instrument.has_value() || !instrument->figi.has_value())
     {
         return false;
@@ -723,7 +749,7 @@ void LedgerPanel::drawFills(Store& store)
         ImGui::TableSetColumnIndex(7);
         drawMoneyCell(fillCashFlow(*fill));
         ImGui::TableSetColumnIndex(8);
-        ImGui::TextUnformatted(fill->note.value_or(std::string{}).c_str());
+        ImGui::TextUnformatted(fill->note.has_value() ? fill->note->c_str() : "");
         ImGui::PopID();
     }
     ImGui::EndTable();
@@ -766,7 +792,7 @@ void LedgerPanel::drawCash(Store& store)
         ImGui::TableSetColumnIndex(1);
         drawMoneyCell(flow->amount, true);
         ImGui::TableSetColumnIndex(2);
-        ImGui::TextUnformatted(flow->note.value_or(std::string{}).c_str());
+        ImGui::TextUnformatted(flow->note.has_value() ? flow->note->c_str() : "");
         ImGui::PopID();
     }
     ImGui::EndTable();
@@ -1006,7 +1032,7 @@ bool LedgerPanel::draw(Store* store, std::string_view store_error, IngestWorker*
     {
         if (!store_error.empty())
         {
-            ImGui::TextColored(Theme::danger(), "%s", std::string(store_error).c_str());
+            ImGui::TextColored(Theme::danger(), "%.*s", static_cast<int>(store_error.size()), store_error.data());
         }
         ImGui::End();
         return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);

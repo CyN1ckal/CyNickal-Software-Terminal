@@ -40,6 +40,9 @@ private:
 
     const VulkanContext& context_;
     ImGui_ImplVulkanH_Window window_data_;
+    // True between a successful vkAcquireNextImageKHR and the present that hands
+    // the image over. An acquire that failed outright leaves nothing to present.
+    bool frame_acquired_ = false;
     bool rebuild_ = false;
 };
 

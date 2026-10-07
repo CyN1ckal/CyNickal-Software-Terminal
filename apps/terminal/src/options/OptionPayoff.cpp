@@ -137,6 +137,7 @@ std::optional<std::int32_t> strategyExpiration(std::span<const PayoffLeg> legs) 
 std::vector<double> legStrikes(std::span<const PayoffLeg> legs)
 {
     std::vector<double> strikes;
+    strikes.reserve(legs.size());
     for (const PayoffLeg& leg : legs)
     {
         if (isOption(leg))

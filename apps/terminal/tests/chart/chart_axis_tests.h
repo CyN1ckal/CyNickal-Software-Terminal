@@ -567,3 +567,24 @@ TEST_CASE("manual horizontal grid decimals follow the step")
     CHECK(terminal::horizontalGridDecimals(0.25) == 2);
     CHECK(terminal::horizontalGridDecimals(0.001) == 3);
 }
+
+TEST_CASE("calendar ticks read an empty window left of the series")
+{
+    // A window that never touches a bar has nothing to label. It must not ask
+    // for marks below index 0, which used to build a wrapped count and throw.
+    const std::vector<terminal::Bar> bars = axisDailyBars(30);
+    terminal::ChartVisibleWindow win;
+    win.first = -40;
+    win.last = -10;
+    win.slot_count = 30;
+    win.x_min = -40.5;
+    win.x_max = -10.5;
+    const terminal::ChartTickMetrics metrics = axisMetrics(8.0f);
+    CHECK(terminal::buildChartTimeTicks(bars, win, "America/New_York", metrics).empty());
+    CHECK(terminal::buildChartVerticalGridTicks(bars, win, "America/New_York", metrics,
+                                                terminal::ChartVerticalGrid::Daily)
+              .empty());
+    CHECK(terminal::buildChartVerticalGridTicks(bars, win, "America/New_York", metrics,
+                                                terminal::ChartVerticalGrid::Monthly)
+              .empty());
+}

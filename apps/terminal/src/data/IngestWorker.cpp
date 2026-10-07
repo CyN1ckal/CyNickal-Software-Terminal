@@ -176,21 +176,13 @@ void IngestWorker::run()
             }
             catch (const std::exception& ex)
             {
-                std::string message = ex.what();
-                const std::scoped_lock<std::mutex> lock(mu_);
-                running_valid_ = false;
-                failures_.push_back(FailedSerial{.serial=job.serial, .message=message});
-                if (failures_.size() > kIngestFailureHistory)
-                {
-                    failures_.pop_front();
-                }
-                snap_.finished_serial = job.serial;
-                snap_.error_serial = job.serial;
-                snap_.running = !jobs_.empty();
-                snap_.queued = static_cast<int>(jobs_.size());
-                snap_.dirty = true;
-                snap_.error = std::move(message);
-                snap_.message = "failed";
+                failJob(job.serial, ex.what());
+            }
+            catch (...)
+            {
+                // An exception that leaves this thread calls std::terminate, so the job is
+                // reported as failed and the queue carries on.
+                failJob(job.serial, "ingest failed");
             }
         }
     }
@@ -201,6 +193,32 @@ void IngestWorker::run()
         snap_.message = "store open failed";
         snap_.running = false;
     }
+    catch (...)
+    {
+        const std::scoped_lock<std::mutex> lock(mu_);
+        snap_.error = "ingest failed";
+        snap_.message = "store open failed";
+        snap_.running = false;
+    }
+}
+
+// Records the failure against the job's serial and leaves the worker ready for the next one.
+void IngestWorker::failJob(std::uint64_t serial, std::string message)
+{
+    const std::scoped_lock<std::mutex> lock(mu_);
+    running_valid_ = false;
+    failures_.push_back(FailedSerial{.serial=serial, .message=message});
+    if (failures_.size() > kIngestFailureHistory)
+    {
+        failures_.pop_front();
+    }
+    snap_.finished_serial = serial;
+    snap_.error_serial = serial;
+    snap_.running = !jobs_.empty();
+    snap_.queued = static_cast<int>(jobs_.size());
+    snap_.dirty = true;
+    snap_.error = std::move(message);
+    snap_.message = "failed";
 }
 
 std::string IngestWorker::runJob(Store& store, CurlClient& http, OpenFigiClient& figi, const Job& job)

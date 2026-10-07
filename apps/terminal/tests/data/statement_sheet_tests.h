@@ -6,6 +6,8 @@
 #include "catch_amalgamated.hpp"
 #include "data/StatementSheet.h"
 
+#include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -104,4 +106,17 @@ TEST_CASE("statement values format as grouped dollars, trimmed reals, and text")
     CHECK(terminal::formatStatementValue(1000.5) == "1,000.5");
     CHECK(terminal::formatStatementValue(std::string{"2025"}) == "2025");
     CHECK(terminal::formatStatementValue(terminal::StatementValue{}).empty());
+}
+
+TEST_CASE("statement values format the integer and real extremes")
+{
+    // The most negative int64 has no positive counterpart, so its magnitude is taken unsigned.
+    CHECK(terminal::formatStatementValue(std::numeric_limits<std::int64_t>::min()) ==
+          "-9,223,372,036,854,775,808");
+    CHECK(terminal::formatStatementValue(std::numeric_limits<std::int64_t>::max()) ==
+          "9,223,372,036,854,775,807");
+    CHECK(terminal::formatStatementValue(1e20) == "100,000,000,000,000,000,000");
+    CHECK(terminal::formatStatementValue(-0.0) == "0");
+    // A fixed-point 1e130 overflows the format buffer, so the exponential form is used.
+    CHECK(terminal::formatStatementValue(1e130) == "1e+130");
 }

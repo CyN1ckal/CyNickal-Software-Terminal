@@ -13,6 +13,7 @@
 #include <cmath>
 #include <exception>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>

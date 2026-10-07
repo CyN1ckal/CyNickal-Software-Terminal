@@ -92,16 +92,33 @@ CBollinger::Bands CBollinger::process(std::span<const Bar> bars) const
     const auto width = static_cast<double>(options_.deviations);
     double sum = 0.0;
     double sum_sq = 0.0;
+    // The running sums stay exact while bars are finite. One inf or NaN bar would poison every
+    // later value, so a window that takes in or drops a non-finite sample re-sums itself.
     for (std::size_t index = 0; index < count; ++index)
     {
         const double sample = bars[index].*desc.field;
-        sum += sample;
-        sum_sq += sample * sample;
-        if (index >= window)
+        const double leaving = index >= window ? bars[index - window].*desc.field : 0.0;
+        if (std::isfinite(sample) && (index < window || std::isfinite(leaving)))
         {
-            const double leaving = bars[index - window].*desc.field;
-            sum -= leaving;
-            sum_sq -= leaving * leaving;
+            sum += sample;
+            sum_sq += sample * sample;
+            if (index >= window)
+            {
+                sum -= leaving;
+                sum_sq -= leaving * leaving;
+            }
+        }
+        else
+        {
+            sum = 0.0;
+            sum_sq = 0.0;
+            const std::size_t first = index + 1 < window ? 0 : index - window + 1;
+            for (std::size_t at = first; at <= index; ++at)
+            {
+                const double value = bars[at].*desc.field;
+                sum += value;
+                sum_sq += value * value;
+            }
         }
         if (index + 1 < window)
         {

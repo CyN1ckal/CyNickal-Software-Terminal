@@ -7,6 +7,7 @@
 
 #include <cctype>
 #include <chrono>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -78,11 +79,87 @@ extern "C" size_t captureResponseHeader(char const* buffer, size_t size, size_t 
     return status == 0 || status == 429 || (status >= 500 && status < 600);
 }
 
+struct CurlGlobalState
+{
+    std::mutex mu;
+    int clients{0};
+};
+
+CurlGlobalState& curlGlobalState()
+{
+    static CurlGlobalState state;
+    return state;
+}
+
+// curl_global_init is not thread-safe and applies to the whole program, so it runs once
+// for the first live client and cleanup waits until the last one is gone. Two clients do
+// coexist here: the ingest tool holds the MBoum client and the OpenFIGI client at once.
+[[nodiscard]] bool curlGlobalAcquire()
+{
+    CurlGlobalState& state = curlGlobalState();
+    const std::scoped_lock<std::mutex> lock(state.mu);
+    if (state.clients != 0)
+    {
+        ++state.clients;
+        return true;
+    }
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+    {
+        return false;
+    }
+    state.clients = 1;
+    return true;
+}
+
+void curlGlobalRelease()
+{
+    CurlGlobalState& state = curlGlobalState();
+    const std::scoped_lock<std::mutex> lock(state.mu);
+    if (--state.clients == 0)
+    {
+        curl_global_cleanup();
+    }
+}
+
+// A curl_slist chain that lives for one request. curl_slist_append returns the chain head,
+// so append adopts its result, and the chain is gone when the request leaves the scope.
+class HeaderChain
+{
+public:
+    HeaderChain() = default;
+    HeaderChain(const HeaderChain&) = delete;
+    HeaderChain& operator=(const HeaderChain&) = delete;
+    HeaderChain(HeaderChain&&) = delete;
+    HeaderChain& operator=(HeaderChain&&) = delete;
+    ~HeaderChain()
+    {
+        if (list_ != nullptr)
+        {
+            curl_slist_free_all(list_);
+        }
+    }
+
+    void append(const char* line)
+    {
+        curl_slist* const next = curl_slist_append(list_, line);
+        if (next == nullptr)
+        {
+            throw std::runtime_error("curl_slist_append failed");
+        }
+        list_ = next;
+    }
+
+    [[nodiscard]] curl_slist* get() const noexcept { return list_; }
+
+private:
+    curl_slist* list_{nullptr};
+};
+
 }  // namespace
 
 CurlClient::CurlClient(std::string_view bearer)
 {
-    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+    if (!curlGlobalAcquire())
     {
         throw std::runtime_error("curl_global_init failed");
     }
@@ -90,7 +167,7 @@ CurlClient::CurlClient(std::string_view bearer)
     easy_ = curl_easy_init();
     if (easy_ == nullptr)
     {
-        curl_global_cleanup();
+        curlGlobalRelease();
         global_inited_ = false;
         throw std::runtime_error("curl_easy_init failed");
     }
@@ -118,7 +195,7 @@ CurlClient::CurlClient(std::string_view bearer)
         headers_ = nullptr;
         curl_easy_cleanup(easy);
         easy_ = nullptr;
-        curl_global_cleanup();
+        curlGlobalRelease();
         global_inited_ = false;
         throw;
     }
@@ -136,7 +213,7 @@ CurlClient::~CurlClient()
     }
     if (global_inited_)
     {
-        curl_global_cleanup();
+        curlGlobalRelease();
     }
 }
 
@@ -183,21 +260,12 @@ HttpResponse CurlClient::post(std::string_view url,
                               const std::vector<std::string>& extra_headers)
 {
     auto* easy = static_cast<CURL*>(easy_);
-    curl_slist* headers = nullptr;
-    auto append = [&headers](const char* line) {
-        curl_slist* next = curl_slist_append(headers, line); // NOLINT(misc-const-correctness)
-        if (next == nullptr)
-        {
-            curl_slist_free_all(headers);
-            throw std::runtime_error("curl_slist_append failed");
-        }
-        headers = next;
-    };
-    append("Accept: application/json");
-    append("Content-Type: application/json");
+    HeaderChain headers;
+    headers.append("Accept: application/json");
+    headers.append("Content-Type: application/json");
     for (const std::string& line : extra_headers)
     {
-        append(line.c_str());
+        headers.append(line.c_str());
     }
 
     std::string response_body;
@@ -205,16 +273,16 @@ HttpResponse CurlClient::post(std::string_view url,
     const std::string owned_body(body);
     HttpResponse response;
     curl_easy_setopt(easy, CURLOPT_URL, owned_url.c_str());
-    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, headers.get());
     curl_easy_setopt(easy, CURLOPT_POSTFIELDS, owned_body.c_str());
     curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(owned_body.size()));
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, &response_body);
     curl_easy_setopt(easy, CURLOPT_HEADERDATA, &response.headers);
     const CURLcode rc = curl_easy_perform(easy);
-    // Restore the GET setup so the next get() is unaffected.
+    // Restore the GET setup so the next get() is unaffected. CURLOPT_HTTPGET drops the POST
+    // method, which is what keeps the stored pointer to owned_body (a local) unreadable.
     curl_easy_setopt(easy, CURLOPT_HTTPGET, 1L);
     curl_easy_setopt(easy, CURLOPT_HTTPHEADER, static_cast<curl_slist*>(headers_));
-    curl_slist_free_all(headers);
     if (rc != CURLE_OK)
     {
         response.status = 0;

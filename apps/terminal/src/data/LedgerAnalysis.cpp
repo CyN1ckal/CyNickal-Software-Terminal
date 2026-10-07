@@ -58,11 +58,13 @@ LedgerAnalysis analyzeLedger(const Store& store,
             continue;
         }
         const InstrumentId instrument = *fill.instrument_id;
-        if (!symbols.contains(instrument))
+        // One lookup: a new instrument joins `shares` in first-traded order, and every fill
+        // leaves its own symbol as the newest one for that instrument.
+        if (const auto added = symbols.insert_or_assign(instrument, fill.symbol.value_or(std::string{}));
+            added.second)
         {
             shares.push_back(instrument);
         }
-        symbols[instrument] = fill.symbol.value_or(std::string{});
     }
 
     std::vector<CorporateAction> actions;

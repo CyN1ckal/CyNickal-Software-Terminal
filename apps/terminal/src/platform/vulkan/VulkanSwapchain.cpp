@@ -35,8 +35,8 @@ VulkanSwapchain::~VulkanSwapchain()
 void VulkanSwapchain::setup(int width, int height)
 {
     VkBool32 supported = VK_FALSE;
-    vkGetPhysicalDeviceSurfaceSupportKHR(context_.physicalDevice(), context_.queueFamily(),
-                                         window_data_.Surface, &supported);
+    checkVkResult(vkGetPhysicalDeviceSurfaceSupportKHR(context_.physicalDevice(), context_.queueFamily(),
+                                                      window_data_.Surface, &supported));
     if (supported != VK_TRUE)
     {
         throw std::runtime_error("Error: no WSI support on physical device 0");
@@ -69,7 +69,11 @@ void VulkanSwapchain::resize(int width, int height)
     ImGui_ImplVulkanH_CreateOrResizeWindow(context_.instance(), context_.physicalDevice(),
                                            context_.device(), &window_data_, context_.queueFamily(),
                                            context_.allocator(), width, height, kMinImageCount, 0);
+    // CreateOrResizeWindow rebuilt every frame resource, so the image it handed
+    // us before the rebuild is gone.
     window_data_.FrameIndex = 0;
+    window_data_.SemaphoreIndex = 0;
+    frame_acquired_ = false;
     rebuild_ = false;
 }
 
@@ -90,17 +94,22 @@ void VulkanSwapchain::render(ImDrawData* draw_data)
     const VkResult err = vkAcquireNextImageKHR(context_.device(), window_data_.Swapchain, UINT64_MAX,
                                                image_acquired_semaphore, VK_NULL_HANDLE,
                                                &window_data_.FrameIndex);
+    // OUT_OF_DATE hands back no image, and anything but a success code leaves
+    // FrameIndex undefined. SUBOPTIMAL is both drawable and presentable, so the
+    // frame still goes out: dropping it here would blank the window and rebuild
+    // the swapchain every frame for as long as the surface stays suboptimal.
+    if (err != VK_SUCCESS && err != VK_SUBOPTIMAL_KHR && err != VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        checkVkResult(err);
+    }
+    frame_acquired_ = err == VK_SUCCESS || err == VK_SUBOPTIMAL_KHR;
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
     {
         rebuild_ = true;
     }
-    if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    if (!frame_acquired_)
     {
         return;
-    }
-    if (err != VK_SUBOPTIMAL_KHR)
-    {
-        checkVkResult(err);
     }
 
     const ImGui_ImplVulkanH_Frame* frame =
@@ -144,10 +153,11 @@ void VulkanSwapchain::render(ImDrawData* draw_data)
 
 void VulkanSwapchain::present()
 {
-    if (rebuild_)
+    if (!frame_acquired_)
     {
         return;
     }
+    frame_acquired_ = false;
 
     const int semaphore_index = static_cast<int>(window_data_.SemaphoreIndex);
     VkSemaphore render_complete_semaphore = window_data_.FrameSemaphores[semaphore_index].RenderCompleteSemaphore;
@@ -178,6 +188,7 @@ void VulkanSwapchain::present()
 
 void VulkanSwapchain::destroy() noexcept
 {
+    frame_acquired_ = false;
     if (window_data_.Swapchain != VK_NULL_HANDLE || window_data_.RenderPass != VK_NULL_HANDLE)
     {
         ImGui_ImplVulkanH_DestroyWindow(context_.instance(), context_.device(), &window_data_,

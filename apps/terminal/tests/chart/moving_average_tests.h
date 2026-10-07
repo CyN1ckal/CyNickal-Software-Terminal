@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <initializer_list>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -118,4 +119,29 @@ TEST_CASE("CMovingAverage longer than the series is all NaN")
         CHECK_FALSE(std::isfinite(value));
     }
     CHECK(average.label() == "MA 4 C");
+}
+
+TEST_CASE("CMovingAverage confines a NaN bar to the windows that hold it")
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const auto bars = movingAverageCloses({1.0, 2.0, nan, 4.0, 5.0});
+    const terminal::CMovingAverage average{{.length = 2}};
+    const std::vector<double> values = average.process(bars);
+    REQUIRE(values.size() == 5);
+    CHECK_FALSE(std::isfinite(values[0]));
+    CHECK(values[1] == Catch::Approx(1.5));
+    CHECK_FALSE(std::isfinite(values[2]));
+    CHECK_FALSE(std::isfinite(values[3]));
+    CHECK(values[4] == Catch::Approx(4.5));
+}
+
+TEST_CASE("CMovingAverage recovers after an infinity bar leaves the window")
+{
+    const auto bars = movingAverageCloses({1.0, 2.0, 3.0, HUGE_VAL, 5.0, 6.0});
+    const terminal::CMovingAverage average{{.length = 2}};
+    const std::vector<double> values = average.process(bars);
+    REQUIRE(values.size() == 6);
+    CHECK(std::isinf(values[3]));
+    CHECK(std::isinf(values[4]));  // the window still holds the inf bar
+    CHECK(values[5] == Catch::Approx(5.5));
 }

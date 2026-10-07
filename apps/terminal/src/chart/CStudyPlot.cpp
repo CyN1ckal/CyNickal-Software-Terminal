@@ -57,7 +57,9 @@ void strokeStudyLine(ImDrawList* draw,
     const float dx = to.x - from.x;
     const float dy = to.y - from.y;
     const float length = std::hypot(dx, dy);
-    if (!(length > 0.0f))
+    // An infinite pixel distance (a blown-out axis limit) would keep the walk
+    // below running until the draw list exhausts memory.
+    if (!(length > 0.0f) || !std::isfinite(length))
     {
         return;
     }

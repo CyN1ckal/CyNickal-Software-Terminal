@@ -230,6 +230,25 @@ TEST_CASE("applyListingChanges closes before opening and reports a blocked open"
     CHECK_FALSE(store.findInstrumentById(b)->verified_at.has_value());
 }
 
+TEST_CASE("applyListingChanges matches a taken symbol on its canonical spelling")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto holder = store.testingInsertInstrument("AAA");
+    const auto moved = store.testingInsertInstrument("BBB");
+    store.closeListing(moved, 50, terminal::ListingCloseReason::Renamed);
+    using Kind = terminal::ListingChange::Kind;
+    const std::vector<terminal::ListingChange> changes = {
+        {.kind = Kind::Open, .instrument_id = moved, .reason = {}, .symbol = "aaa"},
+    };
+    // "aaa" names the open listing "AAA". The open is skipped, not a throw.
+    const auto skipped = store.applyListingChanges(changes, 60);
+    REQUIRE(skipped.size() == 1);
+    CHECK(skipped[0] == 0);
+    CHECK(store.findOpenListing("AAA")->id == holder);
+    CHECK_FALSE(store.findInstrumentById(moved)->listing_open);
+}
+
 TEST_CASE("upsertBars last write wins on close")
 {
     TempDb tmp;

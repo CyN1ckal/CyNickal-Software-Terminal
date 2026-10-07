@@ -67,6 +67,8 @@ public:
 
 private:
     void run();
+    // Marks the job's serial failed and reports it in the snapshot.
+    void failJob(std::uint64_t serial, std::string message);
     // Returns the identity notice (a rename, a recycled ticker, or a grace-window warning), or "".
     std::string runJob(class Store& store, class CurlClient& http, class OpenFigiClient& figi, const Job& job);
 

@@ -96,10 +96,24 @@ namespace {
     }
     if (it->is_number_integer())
     {
+        // get<int64_t> narrows an unsigned value past int64_t. That is not a date.
+        if (it->is_number_unsigned() &&
+            it->get<std::uint64_t>() > static_cast<std::uint64_t>(std::numeric_limits<UnixSeconds>::max()))
+        {
+            return std::nullopt;
+        }
         return it->get<UnixSeconds>();
     }
-    const auto seconds = static_cast<UnixSeconds>(it->get<double>());
-    return seconds;
+    const double seconds = it->get<double>();
+    // Casting a double outside the int64 range (or NaN) is UB; a malformed
+    // vendor number is no date, so the caller skips the row.
+    if (!std::isfinite(seconds) ||
+        seconds >= static_cast<double>(std::numeric_limits<UnixSeconds>::max()) ||
+        seconds <= static_cast<double>(std::numeric_limits<UnixSeconds>::min()))
+    {
+        return std::nullopt;
+    }
+    return static_cast<UnixSeconds>(seconds);
 }
 
 [[nodiscard]] bool trimmedToken(std::string_view text)

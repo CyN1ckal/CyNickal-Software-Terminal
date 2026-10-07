@@ -1223,3 +1223,81 @@ TEST_CASE("chart grid settings persist and older books keep the defaults")
     CHECK_FALSE(bad_spacing.ok);
     CHECK(bad_spacing.error == "horizontal_grid_spacing is not a number");
 }
+
+TEST_CASE("chartbook rejects numbers it cannot store")
+{
+    // A plain one-pane book, edited below.
+    const std::string text = terminal::chartbookToJson(terminal::makeDefaultChartbook("numbers"));
+
+    // static_cast<float>(1e300) is undefined, and an infinite spacing breaks
+    // every pixel calculation after it.
+    nlohmann::json root = nlohmann::json::parse(text);
+    root["panes"][0]["settings"]["bar_spacing_px"] = 1.0e300;
+    const terminal::ChartbookLoadResult px = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(px.ok);
+    CHECK(px.document.panes.empty());
+
+    // get<int> wraps this to -2147483643, which the loaders would then clamp
+    // into a session count the file never asked for.
+    root = nlohmann::json::parse(text);
+    root["panes"][0]["settings"]["intraday_session_count"] = 2147483653LL;
+    const terminal::ChartbookLoadResult sessions = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(sessions.ok);
+    CHECK(sessions.document.panes.empty());
+
+    // A whole number wider than int is out of range even when it stays positive.
+    root = nlohmann::json::parse(text);
+    root["next_pane_id"] = 4294967297ULL;
+    const terminal::ChartbookLoadResult pane_id = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(pane_id.ok);
+    CHECK(pane_id.document.panes.empty());
+
+    // A column width lives on the column object, not on the section around it.
+    root = nlohmann::json::parse(text);
+    root["data"]["columns"] = nlohmann::json::array(
+        {{{"id", "symbol"}, {"width", 120.5}, {"visible", true}, {"order", 0}}});
+    const terminal::ChartbookLoadResult column = terminal::chartbookFromJson(root.dump());
+    REQUIRE(column.ok);
+    REQUIRE(column.document.data.columns.size() == 1);
+    CHECK(column.document.data.columns[0].width == Catch::Approx(120.5f));
+
+    root = nlohmann::json::parse(text);
+    root["layout"]["ratio"] = 1.0e300;
+    const terminal::ChartbookLoadResult ratio = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(ratio.ok);
+    CHECK(ratio.document.panes.empty());
+
+    root = nlohmann::json::parse(text);
+    root["floating"] = nlohmann::json::array(
+        {{{"window", "pane:1"}, {"x", 0}, {"y", 0}, {"w", 1.0e300}, {"h", 400}}});
+    const terminal::ChartbookLoadResult floating = terminal::chartbookFromJson(root.dump());
+    CHECK_FALSE(floating.ok);
+    CHECK(floating.document.panes.empty());
+
+    // A value the parser itself refuses: 1e999 has no double, so it never
+    // reaches the readers. Written out because dump() cannot produce it.
+    const char* inf_book = R"({
+        "format": 1,
+        "name": "inf",
+        "focused_pane": 1,
+        "next_pane_id": 2,
+        "data": {},
+        "layout": {"windows": ["pane:1"], "selected": "pane:1"},
+        "panes": [{
+            "id": 1,
+            "settings": {
+                "symbol": "", "period": "1m", "bar_type": "candlestick",
+                "limit_mode": "session_count", "intraday_session_count": 14,
+                "historical_session_count": 1260, "scale_range": "automatic",
+                "constant_range": 1e999, "user_top": 0, "user_bottom": 0,
+                "bar_spacing_px": 8, "bar_width_frac": 0.6, "scale_padding_pct": 4
+            },
+            "interactive_scale": "move",
+            "next_study_id": 1,
+            "studies": []
+        }]
+    })";
+    const terminal::ChartbookLoadResult infinite = terminal::chartbookFromJson(inf_book);
+    CHECK_FALSE(infinite.ok);
+    CHECK(infinite.document.panes.empty());
+}

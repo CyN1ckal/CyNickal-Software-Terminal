@@ -678,7 +678,9 @@ ChartLocalTime chartLocalTime(std::string_view timezone, UnixSeconds ts)
     ChartLocalTime out;
     try
     {
-        const std::string key(timezone.empty() ? "UTC" : timezone);
+        // locate_zone takes a view: a chartLocalTime call is one visible bar, so
+        // the old std::string key was a heap allocation per bar per frame.
+        const std::string_view key = timezone.empty() ? std::string_view{"UTC"} : timezone;
         const std::chrono::time_zone* zone = std::chrono::locate_zone(key);
         const std::chrono::sys_seconds tp{std::chrono::seconds{ts}};
         const auto local = zone->to_local(tp);
@@ -718,6 +720,12 @@ std::vector<ChartAxisTick> buildChartTimeTicks(std::span<const Bar> bars,
         return {};
     }
     const int last = std::min(win.last, static_cast<int>(bars.size()) - 1);
+    if (last < 0)
+    {
+        // The window sits left of the series. Clamping into it would ask for
+        // [0, negative) and build a mark count that wraps.
+        return {};
+    }
     const int first = std::clamp(win.first, 0, last);
     const ChartTickMetrics metrics = sanitized(metrics_in);
     const std::string_view zone = timezone.empty() ? std::string_view{"UTC"} : timezone;
@@ -749,6 +757,10 @@ std::vector<ChartAxisTick> buildChartVerticalGridTicks(std::span<const Bar> bars
         return {};
     }
     const int last = std::min(win.last, static_cast<int>(bars.size()) - 1);
+    if (last < 0)
+    {
+        return {};
+    }
     const int first = std::clamp(win.first, 0, last);
     const ChartTickMetrics metrics = sanitized(metrics_in);
     const std::string_view zone = timezone.empty() ? std::string_view{"UTC"} : timezone;
