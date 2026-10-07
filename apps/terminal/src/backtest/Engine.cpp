@@ -66,13 +66,14 @@ public:
         return std::trunc(target * units);
     }
 
-    // Trades to reach `desired` at `price` before slippage.
-    void trade(double desired, double price, UnixSeconds ts, const char* note, std::vector<TradeFill>& fills)
+    // Trades to reach `desired` at `price` before slippage. False when nothing filled,
+    // either because the target already holds or the price is unusable.
+    bool trade(double desired, double price, UnixSeconds ts, const char* note, std::vector<TradeFill>& fills)
     {
         const double quantity = desired - shares_;
         if (quantity == 0.0 || !(price > 0.0))
         {
-            return;
+            return false;
         }
         const double slip = price * (config_.slippage_bps / 10'000.0);
         const double filled = quantity > 0.0 ? price + slip : std::max(0.0, price - slip);
@@ -103,6 +104,7 @@ public:
         fill.fees = fees;
         fill.note = note;
         fills.push_back(std::move(fill));
+        return true;
     }
 
     // Stop first, then take-profit. Returns the exit that filled, if any.
@@ -121,7 +123,12 @@ public:
             const bool touched = longs ? bar.low <= level : bar.high >= level;
             if (gapped || touched)
             {
-                trade(0.0, gapped ? bar.open : level, bar.ts, "stop", fills);
+                // A level the bar reaches at a price it did not trade at leaves the
+                // position open: an exit that did not fill must not be recorded.
+                if (!trade(0.0, gapped ? bar.open : level, bar.ts, "stop", fills))
+                {
+                    return ProtectiveExit::None;
+                }
                 return ProtectiveExit::Stop;
             }
         }
@@ -133,7 +140,10 @@ public:
             const bool touched = longs ? bar.high >= level : bar.low <= level;
             if (gapped || touched)
             {
-                trade(0.0, gapped ? bar.open : level, bar.ts, "target", fills);
+                if (!trade(0.0, gapped ? bar.open : level, bar.ts, "target", fills))
+                {
+                    return ProtectiveExit::None;
+                }
                 return ProtectiveExit::Target;
             }
         }
@@ -152,15 +162,19 @@ private:
 [[nodiscard]] std::vector<bool> sessionEnds(std::span<const Bar> bars, const std::string& timezone)
 {
     std::vector<bool> ends(bars.size(), false);
-    for (std::size_t index = 0; index < bars.size(); ++index)
+    if (bars.empty())
     {
-        if (index + 1 == bars.size())
-        {
-            ends[index] = true;
-            continue;
-        }
-        ends[index] = utcToSessionDate(timezone, bars[index].ts) != utcToSessionDate(timezone, bars[index + 1].ts);
+        return ends;
     }
+    // One session date per bar, carried forward: the boundary is where it changes.
+    SessionDate previous = utcToSessionDate(timezone, bars[0].ts);
+    for (std::size_t index = 1; index < bars.size(); ++index)
+    {
+        const SessionDate current = utcToSessionDate(timezone, bars[index].ts);
+        ends[index - 1] = current != previous;
+        previous = current;
+    }
+    ends.back() = true;
     return ends;
 }
 
@@ -192,9 +206,10 @@ BacktestResult runTargets(std::span<const Bar> bars,
     for (std::size_t index = 0; index < bars.size(); ++index)
     {
         const Bar& bar = bars[index];
-        if (pending.has_value())
+        // An untradeable open keeps the order: it waits for the next bar instead of
+        // losing the target change.
+        if (pending.has_value() && sim.trade(*pending, bar.open, bar.ts, "open", result.fills))
         {
-            sim.trade(*pending, bar.open, bar.ts, "open", result.fills);
             pending.reset();
         }
         const ProtectiveExit exit = sim.protect(bar, result.fills);
@@ -225,14 +240,12 @@ BacktestResult runTargets(std::span<const Bar> bars,
         // Size on a new target, or to re-enter from flat (after a session close). A held
         // position is not rebalanced as prices move.
         const bool resize = target != sized_target || (sim.shares() == 0.0 && target != 0.0);
-        if (!last && !blocked.has_value() && resize)
+        if (!last && !blocked.has_value() && resize && bar.close > 0.0)
         {
             const double desired = sim.desiredShares(target, bar.close);
             sized_target = target;
-            if (desired != sim.shares())
-            {
-                pending = desired;
-            }
+            // Sizing replaces any order still waiting from an untradeable open.
+            pending = desired != sim.shares() ? std::optional<double>(desired) : std::nullopt;
         }
         result.position.push_back(sim.shares());
         result.equity.push_back(sim.equityAt(bar.close));

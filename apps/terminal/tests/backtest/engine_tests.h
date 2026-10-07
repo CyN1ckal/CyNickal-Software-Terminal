@@ -252,6 +252,62 @@ TEST_CASE("session flattening closes at each session's last bar and reopens the 
     CHECK(result.position.back() == 1.0);
 }
 
+TEST_CASE("a target change on a bar it cannot trade on is not lost")
+{
+    // Bar 2 has no tradable price. A flip decided there is sized at the next bar that
+    // can decide, not dropped, so the position still turns over.
+    std::vector<terminal::Bar> bars{
+        engineBar(0, 100, 100, 100, 100),
+        engineBar(1, 100, 100, 100, 100),
+        engineBar(2, 0, 0, 0, 0),
+        engineBar(3, 100, 100, 100, 100),
+        engineBar(4, 100, 100, 100, 100),
+    };
+    const std::vector<double> targets{1, 1, -1, -1, -1};
+    const auto result = runEngine(bars, targets, sharesConfig(10));
+    REQUIRE(result.fills.size() == 2);
+    CHECK(result.fills[0].quantity == 10.0);
+    CHECK(result.fills[1].ts == bars[4].ts);
+    CHECK(result.fills[1].quantity == -20.0);
+    CHECK(result.position.back() == -10.0);
+}
+
+TEST_CASE("an order waits for the first bar it can fill on")
+{
+    // The target is decided on bar 0; bar 1 never traded, so the order fills at bar 2's
+    // open rather than being dropped and resized a bar later.
+    std::vector<terminal::Bar> bars{
+        engineBar(0, 100, 100, 100, 100),
+        engineBar(1, 0, 0, 0, 0),
+        engineBar(2, 104, 105, 103, 104),
+        engineBar(3, 108, 109, 107, 108),
+    };
+    const std::vector<double> targets{1, 1, 1, 1};
+    const auto result = runEngine(bars, targets, sharesConfig(10));
+    REQUIRE(result.fills.size() == 1);
+    CHECK(result.fills[0].ts == bars[2].ts);
+    CHECK(result.fills[0].price == 104.0);
+}
+
+TEST_CASE("an exit that cannot fill is not counted")
+{
+    // Bar 2 gaps through the stop at a price the run cannot trade at: the position stays
+    // open, no exit is recorded, and the engine is not left waiting for a target change.
+    auto config = sharesConfig(10);
+    config.stop_loss_pct = 5.0;
+    std::vector<terminal::Bar> bars{
+        engineBar(0, 100, 100, 100, 100),
+        engineBar(1, 100, 101, 99, 100),
+        engineBar(2, 0, 0, 0, 0),
+        engineBar(3, 98, 99, 97, 98),
+    };
+    const std::vector<double> held{1, 1, 1, 1};
+    const auto result = runEngine(bars, held, config);
+    REQUIRE(result.fills.size() == 1);
+    CHECK(result.stop_exits == 0);
+    CHECK(result.position.back() == 10.0);
+}
+
 TEST_CASE("a run is deterministic and its fills reproduce its equity")
 {
     std::vector<terminal::Bar> bars;
