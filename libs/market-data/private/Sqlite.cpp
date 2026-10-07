@@ -68,8 +68,10 @@ SqliteDb::~SqliteDb() noexcept
     }
     else if (rc != SQLITE_OK)
     {
-        // db_ is gone here; sqlite3_errstr needs only the code, unlike sqlite3_errmsg.
-        std::fprintf(stderr, "sqlite3_close: %s\n", sqlite3_errstr(rc));
+        // sqlite3_close frees the handle only on SQLITE_OK, which does not reach
+        // here. SQLITE_BUSY already went through close_v2. The handle is still
+        // open, so errmsg is valid and keeps the specific message.
+        std::fprintf(stderr, "sqlite3_close: %s\n", sqlite3_errmsg(db_));
     }
     db_ = nullptr;
 }
