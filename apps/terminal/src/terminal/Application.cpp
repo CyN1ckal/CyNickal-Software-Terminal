@@ -8,6 +8,7 @@
 #include "imgui_impl_glfw.h"
 
 #include <chrono>
+#include <cmath>
 #include <thread>
 
 namespace terminal {
@@ -24,7 +25,8 @@ constexpr int kBaseWindowHeight = 800;
 {
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const float scale = monitor != nullptr ? ImGui_ImplGlfw_GetContentScaleForMonitor(monitor) : 1.0f;
-    return scale > 0.0f ? scale : 1.0f;
+    // Infinity is usable to the comparison above and still asks GLFW for no extent.
+    return std::isfinite(scale) && scale > 0.0f ? scale : 1.0f;
 }
 
 }  // namespace
