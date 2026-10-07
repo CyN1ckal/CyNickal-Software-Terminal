@@ -361,12 +361,13 @@ struct MinutePageEdge
     const UnixSeconds now = nowUtc();
     for (const MboumV3BarRow& row : page.bars)
     {
-        std::optional<Bar> mapped = mapV3Bar(inst, row, now);
+        const std::optional<Bar> mapped = mapV3Bar(inst, row, now);
         if (!mapped.has_value())
         {
             continue;
         }
-        grouped[utcToSessionDate(inst.timezone, mapped->ts)].push_back(std::move(*mapped));
+        const Bar bar = mapped.value();
+        grouped[utcToSessionDate(inst.timezone, bar.ts)].push_back(bar);
     }
     return grouped;
 }
@@ -716,7 +717,8 @@ IngestSymbolResult ingestDailySymbol(Store& store,
             {
                 continue;
             }
-            const SessionDate session = utcToSessionDate(inst.timezone, mapped->ts);
+            const Bar bar = *mapped;
+            const SessionDate session = utcToSessionDate(inst.timezone, bar.ts);
             if (page_from == 0 || session < page_from)
             {
                 page_from = session;
@@ -725,7 +727,7 @@ IngestSymbolResult ingestDailySymbol(Store& store,
             {
                 page_to = session;
             }
-            bars.push_back(std::move(*mapped));
+            bars.push_back(bar);
         }
         if (bars.empty())
         {
