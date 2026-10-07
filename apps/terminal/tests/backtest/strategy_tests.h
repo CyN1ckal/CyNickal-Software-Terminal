@@ -180,6 +180,12 @@ TEST_CASE("strategy options clamp and round trip through JSON")
     CHECK_FALSE(terminal::strategyOptionsFromJson(type, R"({"direction":"sideways"})").has_value());
     CHECK_FALSE(terminal::strategyOptionsFromJson(type, "[1,2]").has_value());
     CHECK_FALSE(terminal::strategyOptionsFromJson(type, "{nope").has_value());
+
+    // An integer past the stored type's range saturates into the option instead of
+    // narrowing to a negative, which would have clamped to the option's minimum.
+    const auto huge = terminal::strategyOptionsFromJson(type, R"({"fast":18446744073709551615})");
+    REQUIRE(huge.has_value());
+    CHECK(*huge == std::vector<int>{10'000, 30, 0});
 }
 
 TEST_CASE("a moving average crossover follows the trend")

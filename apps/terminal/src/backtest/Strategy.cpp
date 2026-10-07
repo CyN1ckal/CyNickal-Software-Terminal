@@ -105,7 +105,14 @@ std::optional<std::vector<int>> strategyOptionsFromJson(const StrategyType& type
                 {
                     return std::nullopt;
                 }
-                const auto wide = found->get<std::int64_t>();
+                // A number_unsigned past int64_t narrows to a negative when read as one,
+                // and this parser runs on stored text. Saturate; the clamp below brings
+                // the value into the option.
+                const auto wide = found->is_number_unsigned()
+                                      ? static_cast<std::int64_t>(std::min(found->get<std::uint64_t>(),
+                                                                          static_cast<std::uint64_t>(
+                                                                              std::numeric_limits<std::int64_t>::max())))
+                                      : found->get<std::int64_t>();
                 value = static_cast<int>(std::clamp<std::int64_t>(wide, std::numeric_limits<int>::min(),
                                                                   std::numeric_limits<int>::max()));
             }
