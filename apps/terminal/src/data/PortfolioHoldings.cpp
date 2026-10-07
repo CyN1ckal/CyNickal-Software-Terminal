@@ -22,14 +22,14 @@ constexpr double kStrikeTolerance = 0.0001;
 
 [[nodiscard]] bool sameInstrument(const PortfolioHolding& held, const PortfolioHolding& incoming)
 {
-    const std::optional<std::string> held_figi = held.figi;
-    const std::optional<std::string> incoming_figi = incoming.figi;
+    const std::optional<std::string>& held_figi = held.figi;
+    const std::optional<std::string>& incoming_figi = incoming.figi;
     if (held_figi.has_value() && incoming_figi.has_value())
     {
         return held_figi.value() == incoming_figi.value();
     }
-    const std::optional<InstrumentId> held_id = held.instrument_id;
-    const std::optional<InstrumentId> incoming_id = incoming.instrument_id;
+    const std::optional<InstrumentId>& held_id = held.instrument_id;
+    const std::optional<InstrumentId>& incoming_id = incoming.instrument_id;
     if (held_id.has_value() && incoming_id.has_value())
     {
         return held_id.value() == incoming_id.value();
@@ -162,7 +162,7 @@ std::vector<PortfolioHolding> aggregateHoldings(std::span<const PortfolioHolding
 
 HoldingRetarget retargetHolding(std::vector<PortfolioHolding>& holdings, std::size_t index, const Instrument& instrument)
 {
-    const std::optional<std::string> figi = instrument.figi;
+    const std::optional<std::string>& figi = instrument.figi;
     if (index >= holdings.size() || !figi.has_value())
     {
         return HoldingRetarget{
