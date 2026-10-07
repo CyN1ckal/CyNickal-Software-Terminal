@@ -6,6 +6,7 @@
 #include "chart/studies/StudyRegistry.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -82,13 +83,29 @@ std::vector<double> CMovingAverage::process(std::span<const Bar> bars) const
 
     const SourceDesc& desc = describe(options_.source);
     const auto window = static_cast<std::size_t>(length);
+    // The running sum stays exact while bars are finite. One inf or NaN bar would poison every
+    // later value, so a window that takes in or drops a non-finite sample re-sums itself.
     double sum = 0.0;
     for (std::size_t index = 0; index < count; ++index)
     {
-        sum += bars[index].*desc.field;
-        if (index >= window)
+        const double sample = bars[index].*desc.field;
+        const double leaving = index >= window ? bars[index - window].*desc.field : 0.0;
+        if (std::isfinite(sample) && (index < window || std::isfinite(leaving)))
         {
-            sum -= bars[index - window].*desc.field;
+            sum += sample;
+            if (index >= window)
+            {
+                sum -= leaving;
+            }
+        }
+        else
+        {
+            sum = 0.0;
+            const std::size_t first = index + 1 < window ? 0 : index - window + 1;
+            for (std::size_t at = first; at <= index; ++at)
+            {
+                sum += bars[at].*desc.field;
+            }
         }
         if (index + 1 >= window)
         {

@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <initializer_list>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -131,6 +132,37 @@ TEST_CASE("CBollinger longer than the series is all NaN")
     {
         CHECK_FALSE(std::isfinite(value));
     }
+}
+
+TEST_CASE("CBollinger confines a NaN bar to the windows that hold it")
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const auto bars = bollingerCloses({1.0, 2.0, nan, 4.0, 5.0});
+    const terminal::CBollinger study{{.length = 2, .deviations = 2}};
+    const terminal::CBollinger::Bands bands = study.process(bars);
+    REQUIRE(bands.middle.size() == 5);
+    CHECK_FALSE(std::isfinite(bands.middle[2]));
+    CHECK_FALSE(std::isfinite(bands.middle[3]));
+    CHECK_FALSE(std::isfinite(bands.upper[2]));
+    CHECK_FALSE(std::isfinite(bands.lower[3]));
+
+    // The first window after the NaN leaves is fully valued again.
+    const double offset = 2.0 * std::sqrt(0.25);
+    CHECK(bands.middle[4] == Catch::Approx(4.5));
+    CHECK(bands.upper[4] == Catch::Approx(4.5 + offset));
+    CHECK(bands.lower[4] == Catch::Approx(4.5 - offset));
+}
+
+TEST_CASE("CBollinger recovers after an infinity bar leaves the window")
+{
+    const auto bars = bollingerCloses({1.0, 2.0, 3.0, HUGE_VAL, 5.0, 6.0});
+    const terminal::CBollinger study{{.length = 2, .deviations = 2}};
+    const terminal::CBollinger::Bands bands = study.process(bars);
+    REQUIRE(bands.middle.size() == 6);
+    CHECK(std::isinf(bands.middle[3]));
+    CHECK(bands.middle[5] == Catch::Approx(5.5));
+    CHECK(bands.upper[5] == Catch::Approx(6.5));
+    CHECK(bands.lower[5] == Catch::Approx(4.5));
 }
 
 TEST_CASE("bollinger registers three traces from one study")
