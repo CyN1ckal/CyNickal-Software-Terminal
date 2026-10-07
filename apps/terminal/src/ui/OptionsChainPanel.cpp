@@ -11,10 +11,12 @@
 #include "imgui_internal.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -47,25 +49,45 @@ enum class ChainField : std::uint8_t
 
 static_assert(static_cast<int>(ChainField::Count) == kOptionChainColumnCount);
 
-[[nodiscard]] std::string formatGrouped(std::int64_t value)
+// "-1,234,567". The chain draws every count every frame, so the text goes in the
+// caller's buffer rather than a fresh string. INT64_MIN cannot be negated, so the
+// magnitude is taken in unsigned; the widest int64 needs 20 digits, a sign, and
+// six commas, which fits the 32 byte cells below.
+void formatGrouped(char* buf, std::size_t size, std::int64_t value)
 {
+    if (size == 0)
+    {
+        return;
+    }
+    char digits[24];
     const bool negative = value < 0;
-    std::string digits = std::to_string(negative ? -value : value);
-    std::string out;
-    if (negative)
+    const auto magnitude = negative ? ~static_cast<std::uint64_t>(value) + 1ULL
+                                    : static_cast<std::uint64_t>(value);
+    const int length = std::snprintf(digits, sizeof(digits), "%llu",
+                                     static_cast<unsigned long long>(magnitude));
+    if (length <= 0)
     {
-        out.push_back('-');
+        buf[0] = '\0';
+        return;
     }
-    const int lead = static_cast<int>(digits.size() % 3);
-    for (int index = 0; std::cmp_less(index, digits.size()); ++index)
+    const int lead = length % 3;
+    std::size_t out = 0;
+    if (negative && out + 1 < size)
     {
-        if (index > 0 && (index - (lead == 0 ? 3 : lead)) % 3 == 0)
+        buf[out++] = '-';
+    }
+    for (int index = 0; index < length; ++index)
+    {
+        if (index > 0 && (index - (lead == 0 ? 3 : lead)) % 3 == 0 && out + 1 < size)
         {
-            out.push_back(',');
+            buf[out++] = ',';
         }
-        out.push_back(digits[static_cast<std::size_t>(index)]);
+        if (out + 1 < size)
+        {
+            buf[out++] = digits[static_cast<std::size_t>(index)];
+        }
     }
-    return out;
+    buf[out] = '\0';
 }
 
 void writePremium(char* buf, std::size_t size, double value)
@@ -138,66 +160,72 @@ void drawTip(const OptionQuote& quote);
 
 struct FieldText
 {
-    std::string text;
+    char text[32]{};
     // Colors the text up or down when nonzero.
     double sign{0.0};
 };
 
 [[nodiscard]] FieldText formatQuoteField(ChainField field, const OptionQuote& quote)
 {
-    char buf[32];
+    FieldText out;
+    char* buf = out.text;
+    constexpr std::size_t buf_n = sizeof(out.text);
     switch (field)
     {
     case ChainField::Bid:
-        writePremium(buf, sizeof(buf), quote.bid);
-        return {.text = buf};
+        writePremium(buf, buf_n, quote.bid);
+        break;
     case ChainField::Ask:
-        writePremium(buf, sizeof(buf), quote.ask);
-        return {.text = buf};
+        writePremium(buf, buf_n, quote.ask);
+        break;
     case ChainField::Last:
-        writePremium(buf, sizeof(buf), quote.last);
-        return {.text = buf, .sign = quote.price_change};
+        writePremium(buf, buf_n, quote.last);
+        out.sign = quote.price_change;
+        break;
     case ChainField::Change:
-        std::snprintf(buf, sizeof(buf), "%+.2f", quote.price_change);
-        return {.text = buf, .sign = quote.price_change};
+        std::snprintf(buf, buf_n, "%+.2f", quote.price_change);
+        out.sign = quote.price_change;
+        break;
     case ChainField::Percent:
-        std::snprintf(buf, sizeof(buf), "%+.1f", quote.percent_change * 100.0);
-        return {.text = buf, .sign = quote.percent_change};
+        std::snprintf(buf, buf_n, "%+.1f", quote.percent_change * 100.0);
+        out.sign = quote.percent_change;
+        break;
     case ChainField::Mid:
-        writePremium(buf, sizeof(buf), quote.mid);
-        return {.text = buf};
+        writePremium(buf, buf_n, quote.mid);
+        break;
     case ChainField::Iv:
-        std::snprintf(buf, sizeof(buf), "%.1f", quote.implied_vol * 100.0);
-        return {.text = buf};
+        std::snprintf(buf, buf_n, "%.1f", quote.implied_vol * 100.0);
+        break;
     case ChainField::Delta:
-        std::snprintf(buf, sizeof(buf), "%.3f", quote.delta);
-        return {.text = buf};
+        std::snprintf(buf, buf_n, "%.3f", quote.delta);
+        break;
     case ChainField::Theta:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote.theta);
-        return {.text = buf};
+        std::snprintf(buf, buf_n, "%.4f", quote.theta);
+        break;
     case ChainField::Vega:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote.vega);
-        return {.text = buf};
+        std::snprintf(buf, buf_n, "%.4f", quote.vega);
+        break;
     case ChainField::Rho:
-        std::snprintf(buf, sizeof(buf), "%.4f", quote.rho);
-        return {.text = buf};
+        std::snprintf(buf, buf_n, "%.4f", quote.rho);
+        break;
     case ChainField::Volume:
-        return {.text = formatGrouped(quote.volume)};
+        formatGrouped(buf, buf_n, quote.volume);
+        break;
     case ChainField::OpenInterest:
-        return {.text = formatGrouped(quote.open_interest)};
+        formatGrouped(buf, buf_n, quote.open_interest);
+        break;
     case ChainField::OpenInterestChange:
     {
-        std::string text = formatGrouped(quote.open_interest_change);
-        if (quote.open_interest_change > 0)
-        {
-            text.insert(text.begin(), '+');
-        }
-        return {.text = std::move(text), .sign = static_cast<double>(quote.open_interest_change)};
+        char grouped[buf_n];
+        formatGrouped(grouped, sizeof(grouped), quote.open_interest_change);
+        std::snprintf(buf, buf_n, "%s%s", quote.open_interest_change > 0 ? "+" : "", grouped);
+        out.sign = static_cast<double>(quote.open_interest_change);
+        break;
     }
     case ChainField::Count:
         break;
     }
-    return {};
+    return out;
 }
 
 void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
@@ -209,7 +237,7 @@ void drawQuoteField(std::string_view id, const OptionQuote* quote, bool itm)
         return;
     }
     const FieldText cell = formatQuoteField(field, *quote);
-    drawSigned(cell.text.c_str(), cell.sign);
+    drawSigned(cell.text, cell.sign);
     drawTip(*quote);
 }
 
@@ -232,6 +260,8 @@ void drawTip(const OptionQuote& quote)
     {
         return;
     }
+    char oi[32];
+    formatGrouped(oi, sizeof(oi), quote.open_interest_change);
     std::string when = "no trade";
     if (quote.trade_minute.has_value())
     {
@@ -246,8 +276,7 @@ void drawTip(const OptionQuote& quote)
     ImGui::BeginTooltip();
     ImGui::Text("mid %.2f   chg %+.2f   %+.2f%%", quote.mid, quote.price_change, quote.percent_change * 100.0);
     ImGui::Text("theta %.4f   vega %.4f   rho %.4f", quote.theta, quote.vega, quote.rho);
-    ImGui::Text("oi chg %s   %s   %d dte", formatGrouped(quote.open_interest_change).c_str(), when.c_str(),
-                quote.days_to_expiration);
+    ImGui::Text("oi chg %s   %s   %d dte", oi, when.c_str(), quote.days_to_expiration);
     ImGui::EndTooltip();
 }
 
@@ -422,9 +451,12 @@ void OptionsChainPanel::drawChain() const
         }
     }
 
+    const std::span<const OptionQuote> quotes = source_.quotes();
     const int side_count = static_cast<int>(columns_.size());
     std::vector<ChainRow> rows;
-    for (const OptionQuote& quote : source_.quotes())
+    // One row per distinct strike, so the quote count bounds the growth.
+    rows.reserve(quotes.size());
+    for (const OptionQuote& quote : quotes)
     {
         if (rows.empty() || std::fabs(rows.back().strike - quote.strike) > 0.0001)
         {
@@ -458,7 +490,8 @@ void OptionsChainPanel::drawChain() const
         return width;
     }();
     const float cell_pad = (ImGui::GetStyle().CellPadding.x * 2.0f) + 1.0f;
-    std::vector<float> min_widths(static_cast<std::size_t>(side_count), 0.0f);
+    // Only the first side_count entries are used; columns_ cannot hold more than the catalog.
+    std::array<float, kOptionChainColumnCount> min_widths{};
     for (int index = 0; index < side_count; ++index)
     {
         const std::string& id = columns_[static_cast<std::size_t>(index)];
@@ -474,7 +507,7 @@ void OptionsChainPanel::drawChain() const
                 {
                     if (quote != nullptr)
                     {
-                        longest = std::max(longest, formatQuoteField(field, *quote).text.size());
+                        longest = std::max(longest, std::strlen(formatQuoteField(field, *quote).text));
                     }
                 }
             }
@@ -491,9 +524,9 @@ void OptionsChainPanel::drawChain() const
     }
     const float strike_width = std::max(ImGui::CalcTextSize("Strike").x, char_w * static_cast<float>(strike_chars));
     float needed = strike_width + cell_pad;
-    for (const float width : min_widths)
+    for (int index = 0; index < side_count; ++index)
     {
-        needed += 2.0f * (width + cell_pad);
+        needed += 2.0f * (min_widths[static_cast<std::size_t>(index)] + cell_pad);
     }
 
     constexpr ImGuiTableFlags flags =
