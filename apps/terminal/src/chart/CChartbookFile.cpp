@@ -12,8 +12,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -307,13 +309,36 @@ using nlohmann::json;
     return true;
 }
 
+// A whole number that fits in int. get<int> wraps anything wider in silence.
+// The caller has already checked that the value is a whole number.
+[[nodiscard]] bool intFromValue(const json& value, int& out)
+{
+    if (value.is_number_unsigned() &&
+        value.get<std::uint64_t>() > static_cast<std::uint64_t>(std::numeric_limits<int>::max()))
+    {
+        return false;
+    }
+    const std::int64_t wide = value.get<std::int64_t>();
+    if (wide < std::numeric_limits<int>::min() || wide > std::numeric_limits<int>::max())
+    {
+        return false;
+    }
+    out = static_cast<int>(wide);
+    return true;
+}
+
 [[nodiscard]] bool readInt(const json& object, const char* key, int& out, std::string& error)
 {
     if (!object.contains(key) || !object.at(key).is_number_integer())
     {
         return fail(error, std::string(key) + " is missing");
     }
-    out = object.at(key).get<int>();
+    // An id or count outside int would become a different number, so the file
+    // fails instead.
+    if (!intFromValue(object.at(key), out))
+    {
+        return fail(error, std::string(key) + " is out of range");
+    }
     return true;
 }
 
@@ -330,8 +355,8 @@ using nlohmann::json;
     {
         return fail(error, "link_group is not an integer");
     }
-    const int group = value.get<int>();
-    if (!isSymbolLinkGroup(group))
+    int group = 0;
+    if (!intFromValue(value, group) || !isSymbolLinkGroup(group))
     {
         return fail(error, "unknown symbol link group");
     }
@@ -364,6 +389,34 @@ void writeLinkGroup(json& object, int link_group)
         return fail(error, std::string(key) + " is missing");
     }
     out = object.at(key).get<double>();
+    return true;
+}
+
+// A number that survives the trip into float. Outside this range the cast is
+// undefined, and a non-finite pixel or ratio breaks every later calculation.
+// The caller has already checked that value is a number.
+[[nodiscard]] bool readFloatValue(const json& value, float& out)
+{
+    const double number = value.get<double>();
+    if (!std::isfinite(number) || number > static_cast<double>(std::numeric_limits<float>::max()) ||
+        number < -static_cast<double>(std::numeric_limits<float>::max()))
+    {
+        return false;
+    }
+    out = static_cast<float>(number);
+    return true;
+}
+
+[[nodiscard]] bool readFloat(const json& object, const char* key, float& out, std::string& error)
+{
+    if (!object.contains(key) || !object.at(key).is_number())
+    {
+        return fail(error, std::string(key) + " is missing");
+    }
+    if (!readFloatValue(object.at(key), out))
+    {
+        return fail(error, std::string(key) + " is out of range");
+    }
     return true;
 }
 
@@ -495,21 +548,18 @@ void writeLinkGroup(json& object, int link_group)
         return false;
     }
     settings.user_bottom = number;
-    if (!readNumber(*object, "bar_spacing_px", number, error))
+    if (!readFloat(*object, "bar_spacing_px", settings.bar_spacing_px, error))
     {
         return false;
     }
-    settings.bar_spacing_px = static_cast<float>(number);
-    if (!readNumber(*object, "bar_width_frac", number, error))
+    if (!readFloat(*object, "bar_width_frac", settings.bar_width_frac, error))
     {
         return false;
     }
-    settings.bar_width_frac = static_cast<float>(number);
-    if (!readNumber(*object, "scale_padding_pct", number, error))
+    if (!readFloat(*object, "scale_padding_pct", settings.scale_padding_pct, error))
     {
         return false;
     }
-    settings.scale_padding_pct = static_cast<float>(number);
     settings.vertical_grid = ChartVerticalGrid::Daily;
     if (object->contains("vertical_grid"))
     {
@@ -831,7 +881,12 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
             {
                 return fail(error, "region ratio is not a number");
             }
-            pane.region_ratios.push_back(ratio.get<float>());
+            float parsed = 0.f;
+            if (!readFloatValue(ratio, parsed))
+            {
+                return fail(error, "region ratio is out of range");
+            }
+            pane.region_ratios.push_back(parsed);
         }
     }
     if (!readInt(*object, "next_study_id", pane.next_study_id, error) || pane.next_study_id <= 0)
@@ -1857,12 +1912,10 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
         }
         if (column_object->contains("width"))
         {
-            double width = 0.0;
-            if (!readNumber(*column_object, "width", width, error))
+            if (!readFloat(*column_object, "width", column.width, error))
             {
                 return false;
             }
-            column.width = static_cast<float>(width);
         }
         if (column_object->contains("visible") &&
             !readBool(*column_object, "visible", column.visible, error))
@@ -2118,15 +2171,15 @@ struct LayoutWork
         {
             return fail(error, "unknown split");
         }
-        double ratio = 0.0;
-        if (!readNumber(*object, "ratio", ratio, error))
+        float ratio = 0.0f;
+        if (!readFloat(*object, "ratio", ratio, error))
         {
             return false;
         }
         ChartbookLayoutNode node;
         node.is_split = true;
         node.axis = axis;
-        node.ratio = clampSplitRatio(static_cast<float>(ratio));
+        node.ratio = clampSplitRatio(ratio);
         node.first = stack[pos].first;
         node.second = stack[pos].second_index;
         layout.nodes.push_back(std::move(node));
@@ -2873,32 +2926,15 @@ ChartbookLoadResult chartbookFromJson(std::string_view text)
                 return result;
             }
             ChartbookFloating placed;
-            double number = 0.0;
             if (!readString(*item, "window", placed.window, result.error) ||
-                !readNumber(*item, "x", number, result.error))
+                !readFloat(*item, "x", placed.x, result.error) ||
+                !readFloat(*item, "y", placed.y, result.error) ||
+                !readFloat(*item, "w", placed.w, result.error) ||
+                !readFloat(*item, "h", placed.h, result.error))
             {
                 result.document = {};
                 return result;
             }
-            placed.x = static_cast<float>(number);
-            if (!readNumber(*item, "y", number, result.error))
-            {
-                result.document = {};
-                return result;
-            }
-            placed.y = static_cast<float>(number);
-            if (!readNumber(*item, "w", number, result.error))
-            {
-                result.document = {};
-                return result;
-            }
-            placed.w = static_cast<float>(number);
-            if (!readNumber(*item, "h", number, result.error))
-            {
-                result.document = {};
-                return result;
-            }
-            placed.h = static_cast<float>(number);
             result.document.floating.push_back(std::move(placed));
         }
     }
@@ -3079,6 +3115,14 @@ ChartbookLoadResult loadChartbook(const std::filesystem::path& path)
         return result;
     }
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (in.bad())
+    {
+        // The slurp stopped early, so the text is a fragment. Saying so beats
+        // letting the parser blame the file for a read failure.
+        ChartbookLoadResult result;
+        result.error = "cannot read " + path.string();
+        return result;
+    }
     return chartbookFromJson(text);
 }
 
