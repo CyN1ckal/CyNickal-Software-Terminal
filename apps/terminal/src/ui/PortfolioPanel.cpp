@@ -1276,21 +1276,24 @@ void PortfolioPanel::requestData(Store* store, IngestWorker* ingest)
         return;
     }
     std::vector<PortfolioHolding> holdings = drafts_;
-    if (holdings.empty())
+    std::vector<IngestWorker::Job> jobs;
+    try
     {
-        try
+        if (holdings.empty())
         {
             holdings = store->queryHoldings(portfolio_id_);
         }
-        catch (const std::exception& ex)
-        {
-            error_ = ex.what();
-            status_ = error_;
-            return;
-        }
+        // Ctrl+R plans fetches outside draw(). A busy store must stay in the status
+        // line, the same way LedgerPanel::requestData already does.
+        const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
+        jobs = portfolioFetchJobs(*store, holdings, today, false);
     }
-    const SessionDate today = utcToSessionDate("America/New_York", nowUtc());
-    const std::vector<IngestWorker::Job> jobs = portfolioFetchJobs(*store, holdings, today, false);
+    catch (const std::exception& ex)
+    {
+        error_ = ex.what();
+        status_ = error_;
+        return;
+    }
     if (jobs.empty())
     {
         return;
