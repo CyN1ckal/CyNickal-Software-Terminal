@@ -96,6 +96,12 @@ namespace {
     }
     if (it->is_number_integer())
     {
+        // get<int64_t> narrows an unsigned value past int64_t. That is not a date.
+        if (it->is_number_unsigned() &&
+            it->get<std::uint64_t>() > static_cast<std::uint64_t>(std::numeric_limits<UnixSeconds>::max()))
+        {
+            return std::nullopt;
+        }
         return it->get<UnixSeconds>();
     }
     const double seconds = it->get<double>();
