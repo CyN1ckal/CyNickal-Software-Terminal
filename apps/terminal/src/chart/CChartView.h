@@ -99,7 +99,10 @@ struct CChartViewState
     {
         return w;
     }
-    const float spacing = std::clamp(spacing_px, kChartMinBarSpacingPx, kChartMaxBarSpacingPx);
+    // std::clamp lets a NaN through, and a NaN spacing turns the slot count
+    // into a NaN cast to int. An infinite spacing still clamps to the maximum.
+    const float clamped = std::clamp(spacing_px, kChartMinBarSpacingPx, kChartMaxBarSpacingPx);
+    const float spacing = std::isfinite(clamped) ? clamped : kChartDefaultBarSpacingPx;
     const float width = plot_w > 1.0f ? plot_w : 1.0f;
     w.slot_count = std::max(1, static_cast<int>(std::floor(width / spacing)));
     const int max_scroll = std::max(0, bar_count + right_fill - w.slot_count);
@@ -160,7 +163,9 @@ struct CChartViewState
     case ChartScaleRange::ConstantRange:
     {
         double range = view.working_range > 0.0 ? view.working_range : settings.constant_range;
-        if (range <= 0.0)
+        // An infinite range centers the scale on NaN, which no later clamp
+        // recovers, so fall back to the window the bars actually need.
+        if (range <= 0.0 || !std::isfinite(range))
         {
             range = data_range + 2.0 * pad;
         }
@@ -172,7 +177,8 @@ struct CChartViewState
     }
     case ChartScaleRange::UserDefined:
     {
-        if (settings.user_top > settings.user_bottom)
+        if (std::isfinite(settings.user_top) && std::isfinite(settings.user_bottom) &&
+            settings.user_top > settings.user_bottom)
         {
             const double ur = settings.user_top - settings.user_bottom;
             out.min = settings.user_bottom - ur * view.extra_pad_frac + view.move_offset;

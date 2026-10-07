@@ -7,6 +7,8 @@
 #include "chart/CChartView.h"
 #include "market_data/Types.h"
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -211,6 +213,69 @@ TEST_CASE("user defined fallback uses candle high low and ignores overlay")
     const auto y = terminal::computeYLimits(bars, win, settings, view, overlay);
     CHECK(y.min == Catch::Approx(10.0 - 0.4));
     CHECK(y.max == Catch::Approx(20.0 + 0.4));
+}
+
+TEST_CASE("a spoiled bar spacing still gives a usable window")
+{
+    // std::clamp passes NaN through, and computeVisibleWindow would then cast a
+    // NaN slot count to int.
+    const auto nan = terminal::computeVisibleWindow(1000, 800.0f, std::numeric_limits<float>::quiet_NaN(), 0,
+                                                    terminal::kChartRightFillBars);
+    CHECK(nan.slot_count == static_cast<int>(800.0f / terminal::kChartDefaultBarSpacingPx));
+    CHECK(nan.first <= nan.last);
+    CHECK(nan.first >= 0);
+
+    const auto inf = terminal::computeVisibleWindow(1000, 800.0f, std::numeric_limits<float>::infinity(), 0,
+                                                    terminal::kChartRightFillBars);
+    CHECK(inf.slot_count == 6);
+    CHECK(inf.scroll == 0);
+}
+
+TEST_CASE("a non-finite scale range falls back to the bars")
+{
+    std::vector<terminal::Bar> bars(3);
+    for (terminal::Bar& bar : bars)
+    {
+        bar.low = 10.0;
+        bar.high = 20.0;
+    }
+    terminal::ChartVisibleWindow win;
+    win.first = 0;
+    win.last = 2;
+    terminal::CChartViewState view;
+
+    terminal::CChartSettings settings;
+    settings.scale_range = terminal::ChartScaleRange::UserDefined;
+    settings.user_bottom = 0.0;
+    settings.user_top = std::numeric_limits<double>::infinity();
+    const auto user = terminal::computeYLimits(bars, win, settings, view);
+    CHECK(user.min == Catch::Approx(10.0 - 0.4));
+    CHECK(user.max == Catch::Approx(20.0 + 0.4));
+
+    settings.scale_range = terminal::ChartScaleRange::ConstantRange;
+    settings.constant_range = std::numeric_limits<double>::infinity();
+    const auto constant = terminal::computeYLimits(bars, win, settings, view);
+    CHECK(std::isfinite(constant.min));
+    CHECK(std::isfinite(constant.max));
+    CHECK(constant.min < constant.max);
+}
+
+TEST_CASE("clamped limits leave no NaN in the pixel fields")
+{
+    terminal::CChartSettings settings;
+    settings.bar_spacing_px = std::numeric_limits<float>::quiet_NaN();
+    settings.bar_width_frac = std::numeric_limits<float>::quiet_NaN();
+    settings.scale_padding_pct = std::numeric_limits<float>::quiet_NaN();
+    terminal::clampV1Limits(settings);
+    CHECK(settings.bar_spacing_px == terminal::kChartMinBarSpacingPx);
+    CHECK(settings.bar_width_frac == 0.10f);
+    CHECK(settings.scale_padding_pct == 0.0f);
+
+    // A NaN spacing would divide the plot width into a NaN slot count, and
+    // truncating that is undefined.
+    const terminal::ChartVisibleWindow win = terminal::computeVisibleWindow(100, 800.0f, settings.bar_spacing_px, 0,
+                                                                            terminal::kChartRightFillBars);
+    CHECK(win.slot_count >= 1);
 }
 
 TEST_CASE("chart strip scale label")
