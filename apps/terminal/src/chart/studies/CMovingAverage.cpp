@@ -42,11 +42,113 @@ constexpr bool sourceRowsMatchEnum()
 
 static_assert(sourceRowsMatchEnum());
 
+// k = 2 / (length + 1). The first full window of finite samples is an SMA seed, not Wilder.
+// A non-finite sample would poison every later value, so it drops the seed and the next
+// length finite samples start again.
+void exponentialAverage(std::span<const Bar> bars, double Bar::* field, int length, std::span<double> values)
+{
+    const auto window = static_cast<std::size_t>(length);
+    const double k = 2.0 / static_cast<double>(length + 1);
+    double sum = 0.0;
+    double ema = 0.0;
+    std::size_t finite_run = 0;
+    bool seeded = false;
+    for (std::size_t index = 0; index < bars.size(); ++index)
+    {
+        const double price = bars[index].*field;
+        if (!std::isfinite(price))
+        {
+            seeded = false;
+            finite_run = 0;
+            sum = 0.0;
+            continue;
+        }
+        if (!seeded)
+        {
+            sum += price;
+            ++finite_run;
+            if (finite_run < window)
+            {
+                continue;
+            }
+            ema = sum / static_cast<double>(length);
+            values[index] = ema;
+            seeded = true;
+            sum = 0.0;
+            finite_run = 0;
+            continue;
+        }
+        ema = (k * price) + ((1.0 - k) * ema);
+        values[index] = ema;
+    }
+}
+
+// Weights 1..length from the oldest sample to the newest.
+void weightedAverage(std::span<const Bar> bars, double Bar::* field, int length, std::span<double> values)
+{
+    const auto window = static_cast<std::size_t>(length);
+    const double divisor = static_cast<double>(length) * static_cast<double>(length + 1) / 2.0;
+    for (std::size_t index = 0; index < bars.size(); ++index)
+    {
+        if (index + 1 < window)
+        {
+            continue;
+        }
+        double weighted = 0.0;
+        const std::size_t start = index + 1 - window;
+        for (std::size_t offset = 0; offset < window; ++offset)
+        {
+            const auto weight = static_cast<double>(offset + 1);
+            weighted += weight * bars[start + offset].*field;
+        }
+        values[index] = weighted / divisor;
+    }
+}
+
+void simpleAverage(std::span<const Bar> bars, double Bar::* field, int length, std::span<double> values)
+{
+    const auto window = static_cast<std::size_t>(length);
+    // The running sum stays exact while bars are finite. One inf or NaN bar would poison every
+    // later value, so a window that takes in or drops a non-finite sample re-sums itself.
+    double sum = 0.0;
+    for (std::size_t index = 0; index < bars.size(); ++index)
+    {
+        const double sample = bars[index].*field;
+        const double leaving = index >= window ? bars[index - window].*field : 0.0;
+        if (std::isfinite(sample) && (index < window || std::isfinite(leaving)))
+        {
+            sum += sample;
+            if (index >= window)
+            {
+                sum -= leaving;
+            }
+        }
+        else
+        {
+            sum = 0.0;
+            const std::size_t first = index + 1 < window ? 0 : index - window + 1;
+            for (std::size_t at = first; at <= index; ++at)
+            {
+                sum += bars[at].*field;
+            }
+        }
+        if (index + 1 >= window)
+        {
+            values[index] = sum / static_cast<double>(length);
+        }
+    }
+}
+
 }  // namespace
 
 void CMovingAverage::clamp(Options& options) noexcept
 {
     options.length = std::clamp(options.length, kMinLength, kMaxLength);
+    if (options.method != Method::Simple && options.method != Method::Exponential &&
+        options.method != Method::Weighted)
+    {
+        options.method = Method::Simple;
+    }
 }
 
 CMovingAverage::CMovingAverage() noexcept
@@ -81,36 +183,18 @@ std::vector<double> CMovingAverage::process(std::span<const Bar> bars) const
         return values;
     }
 
-    const SourceDesc& desc = describe(options_.source);
-    const auto window = static_cast<std::size_t>(length);
-    // The running sum stays exact while bars are finite. One inf or NaN bar would poison every
-    // later value, so a window that takes in or drops a non-finite sample re-sums itself.
-    double sum = 0.0;
-    for (std::size_t index = 0; index < count; ++index)
+    const auto field = describe(options_.source).field;
+    if (options_.method == Method::Exponential)
     {
-        const double sample = bars[index].*desc.field;
-        const double leaving = index >= window ? bars[index - window].*desc.field : 0.0;
-        if (std::isfinite(sample) && (index < window || std::isfinite(leaving)))
-        {
-            sum += sample;
-            if (index >= window)
-            {
-                sum -= leaving;
-            }
-        }
-        else
-        {
-            sum = 0.0;
-            const std::size_t first = index + 1 < window ? 0 : index - window + 1;
-            for (std::size_t at = first; at <= index; ++at)
-            {
-                sum += bars[at].*desc.field;
-            }
-        }
-        if (index + 1 >= window)
-        {
-            values[index] = sum / static_cast<double>(length);
-        }
+        exponentialAverage(bars, field, length, values);
+    }
+    else if (options_.method == Method::Weighted)
+    {
+        weightedAverage(bars, field, length, values);
+    }
+    else
+    {
+        simpleAverage(bars, field, length, values);
     }
     return values;
 }
@@ -136,7 +220,7 @@ constexpr StudyChoice kInputChoices[] = {
      .leave_price_scale = true,},
 };
 
-// Chartbooks already store a method. The average is always simple, so this choice is kept and not shown.
+// Chartbooks store simple, exponential, or weighted. Chart Settings shows the choice.
 constexpr StudyChoice kMethods[] = {
     {.token = "simple", .label = "Simple"},
     {.token = "exponential", .label = "Exponential"},
@@ -162,7 +246,7 @@ constexpr StudyOption kOptions[] = {
         .label = "Method",
         .fallback = 0,
         .choices = kMethods,
-        .shown = false,
+        .shown = true,
     },
 };
 
@@ -186,6 +270,20 @@ constexpr bool inputChoicesMatchSources()
 
 static_assert(inputChoicesMatchSources());
 
+constexpr bool methodChoicesMatchEnum()
+{
+    return std::size(kMethods) == 3 &&
+           static_cast<int>(CMovingAverage::Method::Simple) == 0 &&
+           static_cast<int>(CMovingAverage::Method::Exponential) == 1 &&
+           static_cast<int>(CMovingAverage::Method::Weighted) == 2 &&
+           std::string_view{kMethods[static_cast<std::size_t>(CMovingAverage::Method::Simple)].token} == "simple" &&
+           std::string_view{kMethods[static_cast<std::size_t>(CMovingAverage::Method::Exponential)].token} ==
+               "exponential" &&
+           std::string_view{kMethods[static_cast<std::size_t>(CMovingAverage::Method::Weighted)].token} == "weighted";
+}
+
+static_assert(methodChoicesMatchEnum());
+
 [[nodiscard]] CMovingAverage::Options optionsFrom(std::span<const int> options)
 {
     CMovingAverage::Options parsed;
@@ -199,6 +297,22 @@ static_assert(inputChoicesMatchSources());
         if (index >= 0 && static_cast<std::size_t>(index) < std::size(CMovingAverage::kSources))
         {
             parsed.source = CMovingAverage::kSources[static_cast<std::size_t>(index)].source;
+        }
+    }
+    if (options.size() > 2)
+    {
+        const int index = options[2];
+        if (index == static_cast<int>(CMovingAverage::Method::Simple))
+        {
+            parsed.method = CMovingAverage::Method::Simple;
+        }
+        else if (index == static_cast<int>(CMovingAverage::Method::Exponential))
+        {
+            parsed.method = CMovingAverage::Method::Exponential;
+        }
+        else if (index == static_cast<int>(CMovingAverage::Method::Weighted))
+        {
+            parsed.method = CMovingAverage::Method::Weighted;
         }
     }
     return parsed;
