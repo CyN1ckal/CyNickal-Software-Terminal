@@ -16,7 +16,14 @@ namespace terminal {
 class SqliteDb
 {
 public:
-    explicit SqliteDb(const std::filesystem::path& path);
+    // ReadWrite is READWRITE|CREATE. ReadOnly does not create the file.
+    enum class Open : std::uint8_t
+    {
+        ReadWrite,
+        ReadOnly
+    };
+
+    explicit SqliteDb(const std::filesystem::path& path, Open open = Open::ReadWrite);
     ~SqliteDb() noexcept;
 
     SqliteDb(const SqliteDb&) = delete;
@@ -34,6 +41,7 @@ public:
 
 private:
     sqlite3* db_ = nullptr;
+    Open open_;
 };
 
 class SqliteStmt

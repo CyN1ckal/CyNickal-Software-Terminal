@@ -6,6 +6,7 @@
 #include "sqlite3.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -38,10 +39,21 @@ void checkOk(int rc, sqlite3* db, std::string_view prefix, std::string_view sql 
 
 }  // namespace
 
-SqliteDb::SqliteDb(const std::filesystem::path& path)
+SqliteDb::SqliteDb(const std::filesystem::path& path, Open open) : open_(open)
 {
-    const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX |
-                      SQLITE_OPEN_URI;
+    if (open_ == Open::ReadOnly && !std::filesystem::exists(path))
+    {
+        throw std::runtime_error("database file does not exist: " + path.string());
+    }
+    int flags = SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_URI;
+    if (open_ == Open::ReadOnly)
+    {
+        flags |= SQLITE_OPEN_READONLY;
+    }
+    else
+    {
+        flags |= SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+    }
     const int rc = sqlite3_open_v2(path.string().c_str(), &db_, flags, nullptr);
     if (rc != SQLITE_OK)
     {
@@ -114,8 +126,16 @@ void SqliteDb::applyConnectionPragmas(int busy_timeout_ms)
 {
     sqlite3_extended_result_codes(db_, 1);
     exec("PRAGMA foreign_keys = ON");
-    exec("PRAGMA journal_mode = WAL");
-    exec("PRAGMA synchronous = NORMAL");
+    if (open_ == Open::ReadOnly)
+    {
+        // journal_mode and synchronous can write the file. A reader stays query-only.
+        exec("PRAGMA query_only = ON");
+    }
+    else
+    {
+        exec("PRAGMA journal_mode = WAL");
+        exec("PRAGMA synchronous = NORMAL");
+    }
     exec("PRAGMA busy_timeout = " + std::to_string(busy_timeout_ms));
 }
 

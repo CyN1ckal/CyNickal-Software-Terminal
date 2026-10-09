@@ -33,6 +33,15 @@ namespace {
 constexpr int kWriterBusyTimeoutMs = 5000;
 constexpr int kReaderBusyTimeoutMs = 0;
 
+[[nodiscard]] constexpr SqliteDb::Open sqliteOpen(StoreMode mode)
+{
+    if (mode == StoreMode::Reader)
+    {
+        return SqliteDb::Open::ReadOnly;
+    }
+    return SqliteDb::Open::ReadWrite;
+}
+
 void bindOptionalText(SqliteStmt& stmt, int idx, const std::optional<std::string>& value)
 {
     if (!value.has_value())
@@ -942,7 +951,7 @@ struct Store::Impl
     }
 
     explicit Impl(std::filesystem::path db_path, StoreMode store_mode)
-        : path(std::move(db_path)), mode(store_mode), db(path)
+        : path(std::move(db_path)), mode(store_mode), db(path, sqliteOpen(store_mode))
     {
     }
 
@@ -1351,54 +1360,67 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
     const int timeout = mode == StoreMode::Writer ? kWriterBusyTimeoutMs : kReaderBusyTimeoutMs;
     impl_->db.applyConnectionPragmas(timeout);
     const int version = impl_->db.userVersion();
-    if (version > kSchemaUserVersion)
-    {
-        throw std::runtime_error("database user_version exceeds this binary");
-    }
-    // Version 4 is the FIGI baseline this binary migrates. Not kSchemaUserVersion.
-    if (version >= 1 && version < 4)
-    {
-        const std::string path = impl_->path.string();
-        throw std::runtime_error("market-data.sqlite is schema v" + std::to_string(version) +
-                                 ". v4 changed instrument identity and does not migrate. Close the terminal, "
-                                 "delete " + path + " and its -wal and -shm files, and re-ingest.");
-    }
-    constexpr std::string_view kV4Tables[] = {"bar",
-                                               "corporate_action",
-                                               "coverage_day",
-                                               "instrument",
-                                               "instrument_listing",
-                                               "option_expiry",
-                                               "option_quote",
-                                               "option_underlying",
-                                               "statement_cell",
-                                               "statement_snapshot",};
-    constexpr std::string_view kV5Tables[] = {"portfolio", "portfolio_holding"};
     constexpr std::string_view kAllViews[] = {"instrument_current"};
-    // A damaged version-4 (or newer) file must fail before user_version moves.
-    if (version >= 4)
+    if (mode == StoreMode::Reader)
     {
-        requireTables(tableNames(), version, kV4Tables);
-        requireTables(viewNames(), version, kAllViews);
-    }
-    if (version >= 5)
-    {
-        requireTables(tableNames(), version, kV5Tables);
-    }
-    if (version == 0 || version == 4 || version == 5)
-    {
-        SqliteTxn txn(impl_->db.handle());
-        if (version == 0)
+        // Leave the file alone. A writer has to migrate before a reader opens it.
+        if (version != kSchemaUserVersion)
         {
-            impl_->db.exec(schemaV4());
+            throw std::runtime_error("database user_version is " + std::to_string(version) +
+                                     " but this binary reads schema v" +
+                                     std::to_string(kSchemaUserVersion) + " and does not migrate");
         }
-        if (version <= 4)
+    }
+    else
+    {
+        if (version > kSchemaUserVersion)
         {
-            impl_->db.exec(schemaV5());
+            throw std::runtime_error("database user_version exceeds this binary");
         }
-        impl_->db.exec(schemaV6());
-        impl_->db.setUserVersion(kSchemaUserVersion);
-        txn.commit();
+        // Version 4 is the FIGI baseline this binary migrates. Not kSchemaUserVersion.
+        if (version >= 1 && version < 4)
+        {
+            const std::string path = impl_->path.string();
+            throw std::runtime_error("market-data.sqlite is schema v" + std::to_string(version) +
+                                     ". v4 changed instrument identity and does not migrate. Close the terminal, "
+                                     "delete " + path + " and its -wal and -shm files, and re-ingest.");
+        }
+        constexpr std::string_view kV4Tables[] = {"bar",
+                                                   "corporate_action",
+                                                   "coverage_day",
+                                                   "instrument",
+                                                   "instrument_listing",
+                                                   "option_expiry",
+                                                   "option_quote",
+                                                   "option_underlying",
+                                                   "statement_cell",
+                                                   "statement_snapshot",};
+        constexpr std::string_view kV5Tables[] = {"portfolio", "portfolio_holding"};
+        // A damaged version-4 (or newer) file must fail before user_version moves.
+        if (version >= 4)
+        {
+            requireTables(tableNames(), version, kV4Tables);
+            requireTables(viewNames(), version, kAllViews);
+        }
+        if (version >= 5)
+        {
+            requireTables(tableNames(), version, kV5Tables);
+        }
+        if (version == 0 || version == 4 || version == 5)
+        {
+            SqliteTxn txn(impl_->db.handle());
+            if (version == 0)
+            {
+                impl_->db.exec(schemaV4());
+            }
+            if (version <= 4)
+            {
+                impl_->db.exec(schemaV5());
+            }
+            impl_->db.exec(schemaV6());
+            impl_->db.setUserVersion(kSchemaUserVersion);
+            txn.commit();
+        }
     }
     constexpr std::string_view kAllTables[] = {"backtest_run",
                                                 "bar",

@@ -357,7 +357,13 @@ ChartbookHost::ChartbookHost()
 {
     try
     {
-        store_ = std::make_unique<Store>(defaultMarketDataDbPath(), StoreMode::Reader);
+        const std::filesystem::path db_path = defaultMarketDataDbPath();
+        std::filesystem::create_directories(db_path.parent_path());
+        {
+            const Store migrate(db_path, StoreMode::Writer);
+            (void)migrate.userVersion();
+        }
+        store_ = std::make_unique<Store>(db_path, StoreMode::Reader);
     }
     catch (const std::exception& ex)
     {

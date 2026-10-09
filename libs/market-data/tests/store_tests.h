@@ -11,7 +11,9 @@
 #include "market_data/Types.h"
 
 #include <chrono>
+#include <filesystem>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
@@ -481,4 +483,68 @@ TEST_CASE("reopening a delisted instrument clears delisted_at")
     const auto row = store.findInstrumentById(id);
     CHECK(row->listing_open);
     CHECK_FALSE(row->delisted_at.has_value());
+}
+
+TEST_CASE("a reader reads a current database and a write throws")
+{
+    TempDb tmp;
+    const auto ts = alignedNowMinus(5);
+    {
+        terminal::Store writer(tmp.path());
+        const auto id = writer.insertInstrument(makeAapl(), 1000);
+        REQUIRE(writer.upsertBars(std::vector<terminal::Bar>{makeBar(id, ts)}).written == 1);
+        CHECK(writer.userVersion() == terminal::kSchemaUserVersion);
+    }
+    terminal::Store reader(tmp.path(), terminal::StoreMode::Reader);
+    CHECK(reader.userVersion() == terminal::kSchemaUserVersion);
+    CHECK(reader.foreignKeysEnabled());
+    const auto found = reader.findOpenListing("aapl");
+    REQUIRE(found.has_value());
+    CHECK(found->symbol == "AAPL");
+    CHECK(found->figi == "BBG000B9XRY4");
+    CHECK(reader.queryBars(found->id, terminal::kTimeframe1m, ts, ts + 60).size() == 1);
+    CHECK_THROWS_AS(
+        reader.insertInstrument(makeStoreInstrument("MSFT", terminal::testingFigiFor("MSFT"))),
+        std::runtime_error);
+    CHECK(reader.listInstruments().size() == 1);
+    CHECK_FALSE(reader.findOpenListing("MSFT").has_value());
+}
+
+TEST_CASE("a reader on a missing path throws")
+{
+    TempDb tmp;
+    try
+    {
+        terminal::Store reader(tmp.path(), terminal::StoreMode::Reader);
+        FAIL("expected a missing-database error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        const std::string what = ex.what();
+        CHECK(what.find("does not exist") != std::string::npos);
+        CHECK(what.find(tmp.path().string()) != std::string::npos);
+    }
+    CHECK_FALSE(std::filesystem::exists(tmp.path()));
+}
+
+TEST_CASE("a reader on an old schema throws and leaves user_version unchanged")
+{
+    TempDb tmp;
+    terminal::Store::testingCreateSchemaV4(tmp.path());
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 4);
+    const auto before = terminal::Store::testingTableNames(tmp.path());
+    try
+    {
+        terminal::Store reader(tmp.path(), terminal::StoreMode::Reader);
+        FAIL("expected a schema-version error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        const std::string what = ex.what();
+        CHECK(what.find("user_version is 4") != std::string::npos);
+        CHECK(what.find("schema v" + std::to_string(terminal::kSchemaUserVersion)) != std::string::npos);
+        CHECK(what.find("does not migrate") != std::string::npos);
+    }
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 4);
+    CHECK(terminal::Store::testingTableNames(tmp.path()) == before);
 }
