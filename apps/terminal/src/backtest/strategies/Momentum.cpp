@@ -32,8 +32,8 @@ constexpr StudyOption kOptions[] = {
     {
         .key = "direction",
         .label = "Direction",
-        .fallback = 0,
         .choices = kDirectionChoices,
+        .fallback = 0,
     },
 };
 

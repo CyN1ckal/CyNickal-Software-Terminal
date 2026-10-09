@@ -32,16 +32,16 @@ constexpr StudyOutput kOutputs[] = {
 constexpr StudyType kType{
     .id = "volume",
     .display_name = "Volume",
-    .default_chart_region = 2,
-    .graph = StudyGraph::Histogram,
-    .anchor_zero = true,
-    .color_by_bar = true,
-    .value_decimals = 0,
     .note = "Each bar's volume. Up and down follow the candle.",
-    .palette_index = 2,
     .outputs = kOutputs,
     .process = &processVolume,
     .label = &labelVolume,
+    .default_chart_region = 2,
+    .value_decimals = 0,
+    .palette_index = 2,
+    .graph = StudyGraph::Histogram,
+    .anchor_zero = true,
+    .color_by_bar = true,
 };
 
 struct Registration

@@ -125,8 +125,8 @@ constexpr StudyOption kOptions[] = {
     {
         .key = "source",
         .label = "Input Data",
-        .fallback = static_cast<int>(CNBarPercentChange::Source::Close),
         .choices = kInputChoices,
+        .fallback = static_cast<int>(CNBarPercentChange::Source::Close),
     },
 };
 
@@ -192,15 +192,15 @@ static_assert(std::string_view{kOutputs[0].key} == "change");
 constexpr StudyType kType{
     .id = "n_bar_percent_change",
     .display_name = "n bar % change",
-    .default_chart_region = 2,
-    .graph = StudyGraph::Line,
-    .anchor_zero = true,
-    .value_decimals = 2,
     .note = "Percent change from the bar n bars ago to this bar. Shown as a label of the latest value.",
     .options = kOptions,
     .outputs = kOutputs,
     .process = &processPercentChange,
     .label = &labelPercentChange,
+    .default_chart_region = 2,
+    .value_decimals = 2,
+    .graph = StudyGraph::Line,
+    .anchor_zero = true,
 };
 
 struct Registration

@@ -22,10 +22,10 @@ struct StudyOption
 {
     const char* key{""};
     const char* label{""};
+    std::span<const StudyChoice> choices{};
     int min{0};
     int max{0};
     int fallback{0};
-    std::span<const StudyChoice> choices{};
     bool shown{true};
 };
 

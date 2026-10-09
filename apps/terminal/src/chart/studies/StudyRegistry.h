@@ -62,20 +62,20 @@ struct StudyType
 {
     const char* id{""};
     const char* display_name{""};
+    const char* note{nullptr};
+    std::span<const StudyOption> options{};
+    std::span<const StudyOutput> outputs{};
+    StudyProcess process{nullptr};
+    StudyLabel label{nullptr};
     int default_chart_region{1};
+    int value_decimals{4};
+    // -1 cycles the chart palette. Any other value is a fixed palette slot.
+    int palette_index{-1};
     StudyGraph graph{StudyGraph::Line};
     bool anchor_zero{false};
     // Histogram uses output 0 when the candle closes up and output 1 when it closes down.
     // process() still emits one trace.
     bool color_by_bar{false};
-    int value_decimals{4};
-    const char* note{nullptr};
-    // -1 cycles the chart palette. Any other value is a fixed palette slot.
-    int palette_index{-1};
-    std::span<const StudyOption> options{};
-    std::span<const StudyOutput> outputs{};
-    StudyProcess process{nullptr};
-    StudyLabel label{nullptr};
 };
 
 // Studies call this from their own static initialization. The first id wins.

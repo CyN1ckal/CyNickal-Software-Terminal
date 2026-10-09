@@ -33,7 +33,7 @@ constexpr StudyOption kOptions[] = {
     {.key = "retrace", .label = "Take profit (% of shock retraced)", .min = 5, .max = 200, .fallback = 50},
     {.key = "extend", .label = "Stop (% extension of shock, 0 = none)", .min = 0, .max = 1000, .fallback = 100},
     {.key = "hold", .label = "Time stop (minutes)", .min = 1, .max = kSlots, .fallback = 30},
-    {.key = "direction", .label = "Direction", .fallback = 1, .choices = kDirectionChoices},
+    {.key = "direction", .label = "Direction", .choices = kDirectionChoices, .fallback = 1},
 };
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();

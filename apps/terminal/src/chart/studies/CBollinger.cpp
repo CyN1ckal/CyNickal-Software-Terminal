@@ -168,8 +168,8 @@ constexpr StudyOption kOptions[] = {
     {
         .key = "source",
         .label = "Input Data",
-        .fallback = static_cast<int>(CBollinger::Source::Close),
         .choices = kInputChoices,
+        .fallback = static_cast<int>(CBollinger::Source::Close),
     },
     {
         .key = "deviations",
@@ -254,13 +254,13 @@ static_assert(std::string_view{kOutputs[2].key} == "lower");
 constexpr StudyType kType{
     .id = "bollinger",
     .display_name = "Bollinger Bands",
-    .default_chart_region = 1,
-    .graph = StudyGraph::Line,
-    .value_decimals = 4,
     .options = kOptions,
     .outputs = kOutputs,
     .process = &processBollinger,
     .label = &labelBollinger,
+    .default_chart_region = 1,
+    .value_decimals = 4,
+    .graph = StudyGraph::Line,
 };
 
 struct Registration

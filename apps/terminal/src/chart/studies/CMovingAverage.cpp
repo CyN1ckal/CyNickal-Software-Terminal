@@ -238,14 +238,14 @@ constexpr StudyOption kOptions[] = {
     {
         .key = "source",
         .label = "Input Data",
-        .fallback = static_cast<int>(CMovingAverage::Source::Close),
         .choices = kInputChoices,
+        .fallback = static_cast<int>(CMovingAverage::Source::Close),
     },
     {
         .key = "method",
         .label = "Method",
-        .fallback = 0,
         .choices = kMethods,
+        .fallback = 0,
         .shown = true,
     },
 };
@@ -340,13 +340,13 @@ constexpr StudyOutput kOutputs[] = {
 constexpr StudyType kType{
     .id = "moving_average",
     .display_name = "Moving Average",
-    .default_chart_region = 1,
-    .graph = StudyGraph::Line,
-    .value_decimals = 4,
     .options = kOptions,
     .outputs = kOutputs,
     .process = &processMovingAverage,
     .label = &labelMovingAverage,
+    .default_chart_region = 1,
+    .value_decimals = 4,
+    .graph = StudyGraph::Line,
 };
 
 struct Registration
