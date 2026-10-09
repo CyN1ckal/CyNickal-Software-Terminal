@@ -30,7 +30,7 @@ backtest engine ─────┘                                              
 | D6 | Fills and cash flows are stored. Round trips, positions, equity curves, and statistics are derived on read. | Same rule as indicators on `bar`: derive, do not densify. A fix to the math fixes every past run. |
 | D7 | A backtest ledger is written once, in one transaction, by `recordBacktestRun`. Its fills cannot be edited. Deleting the ledger deletes the run. | A run is a reproducible artifact: strategy id, parameters, config, range, and engine version are stored beside its fills. |
 | D8 | Quantity is signed: positive buys, negative sells. Fees are a separate non-negative amount. | Matches `portfolio_holding.quantity`. |
-| D9 | Fills are as-traded. Lot matching applies splits from `corporate_action` to open lots. Backtests run on split-adjusted bars (`adjustBarsForSplits`). Dividends are ignored in v1. | Matches the store: `bar` is as-traded and adjusted in memory. |
+| D9 | Fills are as-traded. Lot matching applies splits from `corporate_action` to open lots. Backtests run on split-adjusted bars (`adjustBarsForSplits`). Intraday chart loads also split-adjust in memory. Cash dividends are credited in the equity curve and in the buy-and-hold benchmark. They are not an external cash flow. | Matches the store: `bar` is as-traded and adjusted in memory. |
 | D10 | Starting capital is a cash flow, not a column. A backtest writes its initial cash as the first cash flow of its ledger. | Deposits and withdrawals are needed for return math on a real account anyway. One path serves both. |
 
 ---
@@ -96,8 +96,8 @@ Pure C++ with no ImGui and no SQLite. It lives in `terminal_logic` and is tested
 | `apps/terminal/src/trading/EquityCurve.{h,cpp}` | `equityCurve(fills, cash_flows, actions, marks, points)` replays a `LotBook` to each point: cash, market value, equity, flows, open positions. Returns are time-weighted (flows arrive at the start of a period), so a deposit is not a gain; growth and drawdown come from that index. Shares mark at the latest as-traded close, or at average price before their first mark. Options mark at their last trade in the ledger. `closeMarks` and `markTimes` build marks and session-close points from bars. Callers pass session closes, so intraday ledgers are already grouped before annualizing. |
 | `apps/terminal/src/trading/TradeStats.{h,cpp}` | `tradeStats(round_trips)`: count, win rate, gross profit and loss, fees, average trade (expectancy), average win and loss, payoff ratio, profit factor, largest win and loss, streaks, average holding time. `curveStats(curve)`: total return, net P&L, CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, exposure, and VaR/CVaR of period P&L through `valueAtRisk` from `risk/HistoricalRisk.h`. `buyAndHoldReturn` is the benchmark. MAE/MFE is deferred to the backtest PRs, where bars and entries share a split basis. |
 | `apps/terminal/src/backtest/Engine.{h,cpp}` | `runBacktest(bars, strategy, options, config)` returns fills, equity, and diagnostics. Deterministic. |
-| `apps/terminal/src/backtest/StrategyRegistry.{h,cpp}` | `StrategyType`: id, display name, `StudyOption` inputs, and a `process` callback. Static registration, first id wins. |
-| `apps/terminal/src/backtest/strategies/` | MA crossover, Bollinger mean reversion, N-bar momentum. Each calls the matching study's `process`. Intraday shock reversion (`shock_revert`, 1-minute bars) keeps its own time-of-day volatility profile instead; its rules and QQQ results are in `reports/qqq-intraday-reversion/REPORT.md`. |
+| `apps/terminal/src/backtest/Strategy.{h,cpp}` | `registerStrategy`. `StrategyType`: id, display name, `StudyOption` inputs, and a `process` callback. Static registration, first id wins. There is no `StrategyRegistry.h`. |
+| `apps/terminal/src/backtest/strategies/` | MA crossover, Bollinger mean reversion, N-bar momentum. Each calls the matching study's `process`. Intraday shock reversion (`shock_revert`, 1-minute bars) is `apps/terminal/src/backtest/strategies/ShockRevert.cpp` and keeps its own time-of-day volatility profile instead. Its research notes are not a path in this repo. |
 
 ### Engine rules
 
@@ -143,4 +143,4 @@ The chart pane's right-click menu has **Show Trades**, which picks a ledger (man
 | 7 | `BacktestWorker`, BACKTEST panel, `recordBacktestRun` from the GUI. | Run to ledger to statistics. |
 | 8 | Chart ledger overlay. | Marker to bar index mapping. |
 
-Later: broker CSV import, a command-line backtest with parameter sweeps, rule strategies built from two study instances, walk-forward runs, multi-symbol runs, dividends.
+Later: broker CSV import, a command-line backtest with parameter sweeps, rule strategies built from two study instances, walk-forward runs, multi-symbol runs.

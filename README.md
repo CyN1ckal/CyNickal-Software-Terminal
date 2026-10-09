@@ -12,7 +12,7 @@ Desktop financial terminal. It stores 1-minute and daily US equity OHLCV, financ
 
 - One SQLite store, `data/market-data.sqlite`, with a versioned schema (v6). It holds bars, splits, coverage, statements, option chains, portfolios, ledgers, and backtest runs.
 - 1-minute regular-hours bars and daily bars. Intraday periods above 1m are built from 1m bars, in buckets anchored at the 09:30 ET open.
-- Split adjustment on read. Stored prices stay as traded.
+- Split adjustment on read. Stored prices stay as traded. Daily charts, intraday charts (1m and the 5m/15m/1h composites), backtests, and trade markers all split-adjust in memory with `adjustBarsForSplits`. Dividends are not baked into prices.
 - NYSE session calendar and `America/New_York` session dates, including DST.
 - Per-session coverage: `complete`, `partial`, `missing`, or `error`, with bar counts, so a gap is never mistaken for a quiet market.
 - Instrument identity by FIGI. Every symbol is confirmed with OpenFIGI before it is written, and ticker renames and delistings are tracked as listing history.
@@ -46,16 +46,16 @@ A Vulkan and Dear ImGui desktop app with a custom title bar, dockable windows, a
   - **Show Trades** draws a ledger's buys and sells on the chart, with a tooltip for each fill.
 - **FINANCIALS.** A spreadsheet of income statement, balance sheet, or cash flow, annual or quarterly, for the last four periods.
 - **OPTIONS CHAIN.** Calls left of the strike and puts right. The Columns menu picks which fields are shown.
-- **PORTFOLIO.** A hand-edited book of hypothetical holdings: shares, options, and cash. Each line shows value and one-day historical VaR and CVaR. Share risk comes from daily closes, and option risk from delta.
+- **PORTFOLIO.** A hand-edited book of hypothetical holdings: shares, options, and cash. Each line shows value and one-day historical VaR and CVaR. Share risk comes from daily closes, and option lines use delta times the underlying move. Portfolio VaR is the historical VaR of the book's summed daily P&L on dates shared by every measured line. A line that cannot be measured leaves that book figure blank. It is not the sum of each line's standalone VaR.
 - **PAYOFF WIZARD.** Expiration payoff graph for a multi-leg option position. Legs come from the stored chain or are typed by hand. Recipes: long or short call or put, covered call, protective put, collar, debit and credit spreads, strangle, butterfly, iron butterfly, and iron condor.
 - **LEDGER.** An account made of fills and cash flows. Positions, round trips, and P&L are matched first-in first-out. Splits and the ×100 option multiplier are applied. Tabs show Positions, Closed, Fills, and Cash. On a manual ledger you enter fills and cash yourself.
 - **STATISTICS.** For any ledger, manual or backtest:
-  - Returns: net profit, total return, CAGR, a buy-and-hold benchmark, and exposure.
+  - Returns: net profit, total return, CAGR, a buy-and-hold benchmark, and exposure. Total return and the buy-and-hold benchmark credit cash dividends from `corporate_action`. Dividends increase equity and are not deposits.
   - Risk: volatility, Sharpe, Sortino, Calmar, maximum drawdown and its length, and VaR/CVaR.
   - Trades: win rate, profit factor, payoff ratio, expectancy, streaks, and holding time.
   - Charts: time-weighted return against the benchmark, drawdown, and P&L per trade.
 - **BACKTEST.** Runs a registered C++ strategy on stored bars and records the result as a ledger, which you can open in STATISTICS, LEDGER, or on a chart.
-  - Strategies: MA crossover, Bollinger mean reversion, and N-bar momentum. They call the same study code the charts draw.
+  - Strategies: MA crossover (`ma_cross`), Bollinger mean reversion (`bollinger_revert`), N-bar momentum (`momentum`), and intraday shock reversion (`shock_revert`). MA crossover, Bollinger mean reversion, and N-bar momentum call the same study code the charts draw.
   - Settings: sizing (fixed shares, fixed notional, or a percent of equity), commission, slippage, stop-loss, take-profit, flat at each session end, and close at the end of the run.
   - Orders fill at the next bar's open. A test checks that no strategy uses future bars.
   - Missing bars in the run's range are downloaded before the run.

@@ -4,11 +4,11 @@
 |---|---|
 | Author | terminal |
 | Date | 2026-09-21 (revised) |
-| Status | Draft |
+| Status | Implemented |
 | Audience | First-party C++ in `apps/terminal/` and `libs/market-data` |
 | Related | `docs/market-data-store.md` (Store / `queryBars` / coverage), `docs/design.md` (visual tokens only), `deps/implot/` (vendored ImPlot v1.0) |
 
-This is the **base design** for terminal charting. Implement from this document without guessing types or Store calls. Later PRs (other bar types, drawing tools) must extend these types, not replace them. Studies are specified below; they attach to the pane.
+This document describes the chart surface in the terminal now: `CChartPane`, `CChartBook`, studies, and daily and intraday loads. The types and Store calls below are the ones the code uses. Later work (other bar types, drawing tools) extends these types rather than replacing them. Studies are specified below; they attach to the pane.
 
 Sierra Chart Chart Settings is **inspiration**, not a clone. v1 behavior specified here is terminal’s. Where Sierra details were not verified, they are not claimed.
 
@@ -16,15 +16,15 @@ Sierra Chart Chart Settings is **inspiration**, not a clone. v1 behavior specifi
 
 ## Overview
 
-The terminal is an ImGui dock workspace (`Workspace`) with a left **DATA** inventory panel. There is no chart surface today. Dummy MONITOR/CHART/DETAIL/LOG windows were removed. Market data already lives in SQLite via `terminal::Store`; ingest is the DATA panel / `IngestWorker` path.
+The terminal is an ImGui dock workspace (`Workspace`) with a left **DATA** inventory panel and a chartbook of independent chart panes. `CChartPane`, `CChartBook`, studies, and daily and intraday loads are implemented. Market data lives in SQLite via `terminal::Store`; ingest is the DATA panel / `IngestWorker` path.
 
-This design adds a **chartbook** of independent chart panes:
+The chartbook is:
 
 - `CChartSettings` — per-pane configuration (symbol, bar period, bar type, data limiter), Sierra-style.
 - `CChartPane` — one dockable ImGui chart surface that owns settings, a bar snapshot, a settings popup, and a study list.
 - `CChartBook` — container owned by `Workspace` that creates, focuses, closes, and draws panes.
 
-Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions, plus stored daily bars for Day1. 5m / 15m / 1h candlesticks are `transformChartBars` on the 1-minute result and are not written back. Day1 reads `kTimeframe1d` and split-adjusts that copy in memory. Other bar types and limiters are rejected. Studies are computed from those loaded bars. They are saved in the chartbook file, not in SQLite.
+Store reads are **1-minute** `queryBars` over a **Days to Load** window of NYSE sessions, plus stored daily bars for Day1. 5m / 15m / 1h candlesticks are `transformChartBars` on the 1-minute result and are not written back. Day1 reads `kTimeframe1d`. Daily and intraday loads call `adjustBarsForSplits` on the in-memory bars and do not write them back. Dividends are not applied to prices. Other bar types and limiters are rejected. Studies are computed from those loaded bars. They are saved in the chartbook file, not in SQLite.
 
 Charts never talk to MBoum. They only read the existing Store.
 
@@ -44,7 +44,7 @@ Charts never talk to MBoum. They only read the existing Store.
 | Docking | `apps/terminal/src/ui/ImGuiLayer.cpp` | `ImGuiConfigFlags_DockingEnable` and `ViewportsEnable`. `imgui.ini` gitignored; relative to CWD. |
 | Tests | `apps/terminal/tests/test_main.cpp`, `tests/data/bar_loading_tests.h` | Catch2 target `terminal_tests` links `market-data` only (no ImGui). `bar_loading_tests.h` is a stub `CHECK(true)`. |
 
-`Workspace::draw()` currently ends with `inventory_.draw()` and nothing else. The right 70% of the first-run dock is vacant.
+`Workspace` draws the inventory and the chartbook. Chart panes fill the dock beside DATA.
 
 ### Current market data (do not reinvent)
 
@@ -74,9 +74,9 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 
 ### Pain points
 
-1. There is no chart surface, so ingested 1-minute history cannot be inspected visually.
-2. DATA is coverage/ingest, not a plot. Selecting a row shows session status, not candles.
-3. A later “real” charting stack (studies, multiple timeframes, drawing tools) will fight the UI if v1 does not freeze a pane/settings/container shape.
+1. The chart surface is `CChartPane` inside `CChartBook`. Ingested 1-minute history is drawn there, including 5m, 15m, and 1h composites.
+2. DATA is coverage and ingest. Selecting a row shows session status. Candles are on the chart panes.
+3. Studies and the implemented periods live on the pane and settings types in this document. A new bar type or a drawing tool has to extend those types.
 
 ---
 
@@ -104,7 +104,7 @@ Hungarian leftovers `CBarData` / `CBarSeries` / `GetBarData` were deleted from s
 | Symbol groups across panes | A pane joins group 1–4. The next symbol commit updates the other members of that group. Period, studies, joining a group, and the DATA row stay independent. |
 | DATA row click / double-click driving a chart symbol | Independent in v1. See Key Decisions. |
 | Charts ingesting from MBoum | DATA / `IngestWorker` only. |
-| Schema v2, `queryBars` LIMIT | Daily split adjustment is in-memory after `queryBars`. Intraday stays as-traded. |
+| Schema v2, `queryBars` LIMIT | Split adjustment is in-memory after `queryBars`. Intraday loads call `adjustBarsForSplits` on the in-memory bars and do not write them back. |
 | ImPlot time axis / pan / zoom | Vendored; v1 uses index X and `NoInputs`. |
 | Vulkan plot pipeline | Immediate-mode is enough for ≤ ~100k bars. |
 | Chartbook groups, duplicate-to-chartbook | One file per space. Several books can be loaded; one is visible. |
@@ -760,9 +760,10 @@ flowchart TD
     N -->|no| Nm["queryBars(id, kTimeframe1m)"]
     Nm --> P{chartNeedsBarTransform?}
     P -->|yes| Q["transformChartBars — not stored"]
-    P -->|no| O
+    P -->|no| Adj["adjustBarsForSplits in memory — not written back"]
+    Q --> Adj
     Nd --> O
-    Q --> O[Ready if bars not empty else Empty]
+    Adj --> O[Ready if bars not empty else Empty]
 ```
 
 Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `Busy` or `Error` as above; **never throw**):
@@ -782,7 +783,7 @@ Algorithm for `loadChartBars` (whole body in `try/catch`; on exception return `B
 13. `ts_begin = usRthUtcWindow(tz, oldest).start`  
     `ts_end   = usRthUtcWindow(tz, newest).end`  
     `usRthUtcWindow` is `[09:30, 16:00)` local; `queryBars` is `ts >= begin AND ts < end`. Last RTH minute opens at 15:59 and is included; 16:00 is not.
-14. If the period is Day1: `bars = store.queryBars(id, kTimeframe1d, ts_begin, ts_end)` and skip `transformChartBars`. When `bars` is not empty, replace them with `adjustBarsForSplits(bars, queryCorporateActions(id, 0, last_bar.ts))`. Prices before a split are divided by `split_ratio` (new/old) and volume is multiplied. The ex-date bar (`ex_ts == bar.ts`) is unchanged. `queryBars` stays as-traded. Intraday loads do not adjust, and dividends are not applied. Else `queryBars(id, kTimeframe1m, …)` and, when `chartNeedsBarTransform(settings)`, replace with `transformChartBars`. Composites are not written back to SQLite.
+14. If the period is Day1: `bars = store.queryBars(id, kTimeframe1d, ts_begin, ts_end)` and skip `transformChartBars`. When `bars` is not empty, replace them with `adjustBarsForSplits(bars, queryCorporateActions(id, 0, last_bar.ts))`. Prices before a split are divided by `split_ratio` (new/old) and volume is multiplied. The ex-date bar (`ex_ts == bar.ts`) is unchanged. `queryBars` stays as-traded. Dividends are not applied. Else `queryBars(id, kTimeframe1m, …)` and, when `chartNeedsBarTransform(settings)`, replace with `transformChartBars`. Intraday loads call `adjustBarsForSplits` on the in-memory bars and do not write them back. Composites are not written back to SQLite.
 15. If `bars.empty()` → `Empty`; else `Ready`. Never return `Ready` with empty `bars`. `sessions_used = collected.size()` (may be `< session_count` if history is short — not an error). Message example: `"AAPL  1m  2025-01-02 .. 2025-01-22  5 of 14 sessions  1950 bars"`.
 
 Studies do not add Store calls and do not change this query. They read `loaded_.bars` after the load. Changing a study length or source does not call `loadChartBars`. See **Studies**.
@@ -1071,7 +1072,7 @@ No new CMake target. No link of ImGui into tests.
 
 ## Data Model Changes
 
-**None.** Schema v1 stays frozen. `queryBars` stays as-traded. Day1 `loadChartBars` applies `adjustBarsForSplits` to its in-memory copy. Intraday bars stay as-traded. The Store write grain is still 1-minute RTH plus daily bars. Higher-timeframe composites and study series are not tables.
+**None.** Schema v1 stays frozen. `queryBars` stays as-traded. Day1 and intraday `loadChartBars` call `adjustBarsForSplits` on the in-memory bars and do not write them back. The Store write grain is still 1-minute RTH plus daily bars. Higher-timeframe composites and study series are not tables.
 
 In-memory per pane: `std::vector<Bar>` snapshot (1-minute, or the `transformChartBars` composite). 14 sessions × 390 × ~64 B ≈ **350 KB**. Four panes ≈ 1.4 MB. 252 sessions ≈ 6 MB per pane. `computed_` is one `vector<double>` per enabled study, same length as `loaded_.bars`, and is not written to SQLite. Not a storage project.
 
