@@ -72,8 +72,8 @@ struct StudyType
     const char* note{nullptr};
     // -1 cycles the chart palette. Any other value is a fixed palette slot.
     int palette_index{-1};
-    std::span<const StudyOption> options{};
-    std::span<const StudyOutput> outputs{};
+    std::span<const StudyOption> options;
+    std::span<const StudyOutput> outputs;
     StudyProcess process{nullptr};
     StudyLabel label{nullptr};
 };

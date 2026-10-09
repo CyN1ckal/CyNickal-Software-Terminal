@@ -73,7 +73,7 @@ enum class StudyLineStyle : std::uint8_t
     Value,
 };
 
-[[nodiscard]] inline constexpr const char* studyLineStyleToken(StudyLineStyle style) noexcept
+[[nodiscard]] constexpr const char* studyLineStyleToken(StudyLineStyle style) noexcept
 {
     switch (style)
     {
@@ -89,7 +89,7 @@ enum class StudyLineStyle : std::uint8_t
     return "solid";
 }
 
-[[nodiscard]] inline constexpr const char* studyLineStyleLabel(StudyLineStyle style) noexcept
+[[nodiscard]] constexpr const char* studyLineStyleLabel(StudyLineStyle style) noexcept
 {
     switch (style)
     {

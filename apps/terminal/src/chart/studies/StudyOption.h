@@ -25,7 +25,7 @@ struct StudyOption
     int min{0};
     int max{0};
     int fallback{0};
-    std::span<const StudyChoice> choices{};
+    std::span<const StudyChoice> choices;
     bool shown{true};
 };
 

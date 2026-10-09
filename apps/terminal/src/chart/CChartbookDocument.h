@@ -272,14 +272,7 @@ inline constexpr int kLedgerTabCount = 4;
 
 [[nodiscard]] constexpr bool isLedgerTab(std::string_view tab) noexcept
 {
-    for (const char* known : kLedgerTabs)
-    {
-        if (tab == known)
-        {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kLedgerTabs, [tab](const char* known) { return tab == known; });
 }
 
 // One ledger window. ledger_id is the store id, or 0 when the window has not chosen a ledger.

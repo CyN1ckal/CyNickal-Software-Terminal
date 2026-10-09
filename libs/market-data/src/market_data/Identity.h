@@ -16,9 +16,9 @@
 namespace terminal {
 
 // A verification younger than this is trusted without a network call.
-inline constexpr UnixSeconds kVerifyMaxAge = 24 * 60 * 60;
+inline constexpr UnixSeconds kVerifyMaxAge = static_cast<UnixSeconds>(24) * 60 * 60;
 // When OpenFIGI cannot be reached, a ticker verified within this window keeps ingesting.
-inline constexpr UnixSeconds kVerifyGrace = 7 * 24 * 60 * 60;
+inline constexpr UnixSeconds kVerifyGrace = static_cast<UnixSeconds>(7) * 24 * 60 * 60;
 
 struct ResolvedInstrument
 {

@@ -30,18 +30,18 @@ public:
     // source is the enum value and the index of that row.
     struct SourceDesc
     {
-        Source source;
         const char* token;
         const char* label;
-        char code;
         double Bar::* field;
+        Source source;
+        char code;
     };
 
     static constexpr SourceDesc kSources[] = {
-        {.source = Source::Close, .token = "close", .label = "Close", .code = 'C', .field = &Bar::close},
-        {.source = Source::Open, .token = "open", .label = "Open", .code = 'O', .field = &Bar::open},
-        {.source = Source::High, .token = "high", .label = "High", .code = 'H', .field = &Bar::high},
-        {.source = Source::Low, .token = "low", .label = "Low", .code = 'L', .field = &Bar::low},
+        {.token = "close", .label = "Close", .field = &Bar::close, .source = Source::Close, .code = 'C'},
+        {.token = "open", .label = "Open", .field = &Bar::open, .source = Source::Open, .code = 'O'},
+        {.token = "high", .label = "High", .field = &Bar::high, .source = Source::High, .code = 'H'},
+        {.token = "low", .label = "Low", .field = &Bar::low, .source = Source::Low, .code = 'L'},
     };
 
     static constexpr int kDefaultLength = 1;
