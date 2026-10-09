@@ -517,6 +517,50 @@ TEST_CASE("loadChartBars Day1 applies a stored split and leaves the archive raw"
     CHECK(raw.front().close == 1208.88);
 }
 
+TEST_CASE("loadChartBars intraday applies a stored split and leaves the archive raw")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto id = store.insertInstrument(makeAapl());
+    ingestRth(store, id, 20240607, 5);
+    ingestRth(store, id, 20240610, 5);
+
+    terminal::CorporateAction split;
+    split.instrument_id = id;
+    split.ex_ts = terminal::usRthUtcWindow("America/New_York", 20240610).start;
+    split.type = terminal::CorporateActionType::Split;
+    split.split_ratio = 10.0;
+    split.source = "mboum";
+    store.upsertCorporateAction(split);
+
+    terminal::CChartSettings settings;
+    settings.symbol = "AAPL";
+    settings.intraday_session_count = 10;
+
+    settings.period = terminal::ChartBarPeriod::Minute1;
+    const auto minutes = terminal::loadChartBars(store, settings);
+    REQUIRE(minutes.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(minutes.bars.size() == 10);
+    CHECK(minutes.bars.front().close == 10.5 / 10.0);
+    CHECK(minutes.bars.front().volume == 100.0 * 10.0);
+    CHECK(minutes.bars.back().close == 10.5);
+    CHECK(minutes.bars.back().volume == 100.0);
+
+    settings.period = terminal::ChartBarPeriod::Minute5;
+    const auto composite = terminal::loadChartBars(store, settings);
+    REQUIRE(composite.status == terminal::ChartLoadStatus::Ready);
+    REQUIRE(composite.bars.size() == 2);
+    CHECK(composite.bars.front().close == 10.5 / 10.0);
+    CHECK(composite.bars.front().volume == 500.0 * 10.0);
+    CHECK(composite.bars.back().close == 10.5);
+    CHECK(composite.bars.back().volume == 500.0);
+
+    const auto raw = store.queryBars(id, terminal::kTimeframe1m, 0, 4000000000);
+    REQUIRE(raw.size() == 10);
+    CHECK(raw.front().close == 10.5);
+    CHECK(raw.front().volume == 100.0);
+}
+
 TEST_CASE("loadChartBars Day1 without corporate actions keeps as-traded closes")
 {
     TempDb tmp;
@@ -534,7 +578,7 @@ TEST_CASE("loadChartBars Day1 without corporate actions keeps as-traded closes")
     CHECK(result.bars.front().close == 10.5);
 }
 
-TEST_CASE("loadChartBars Minute5 ignores a stored split")
+TEST_CASE("loadChartBars Minute5 leaves a split after the last bar unapplied")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());

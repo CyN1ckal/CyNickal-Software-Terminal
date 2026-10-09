@@ -203,6 +203,12 @@ ChartLoadResult loadChartBars(const Store& store, const CChartSettings& settings
             {
                 out.bars = transformChartBars(out.bars, settings.period, tz);
             }
+            if (!out.bars.empty())
+            {
+                const std::vector<CorporateAction> actions =
+                    store.queryCorporateActions(id, 0, out.bars.back().ts);
+                out.bars = adjustBarsForSplits(std::move(out.bars), actions);
+            }
         }
         if (out.bars.empty())
         {
