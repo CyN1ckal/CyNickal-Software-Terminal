@@ -601,7 +601,7 @@ namespace {
     {
         return std::nullopt;
     }
-    return *amount;
+    return amount;
 }
 
 [[nodiscard]] std::optional<double> parseOptionPercent(std::string_view text)
