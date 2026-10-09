@@ -254,11 +254,44 @@ TEST_CASE("chartbook file rejects a bad format, an unknown period, and an unknow
         }]
     })";
     const terminal::ChartbookLoadResult studies = terminal::chartbookFromJson(unknown_study);
-    REQUIRE(studies.ok);
-    CHECK(studies.document.panes[0].studies.size() == 1);
-    CHECK(studies.document.data.columns.size() == 1);
-    CHECK(studies.document.data.columns[0].id == "symbol");
-    const terminal::CStudyInstance& legacy = studies.document.panes[0].studies[0];
+    CHECK_FALSE(studies.ok);
+    CHECK(studies.document.panes.empty());
+    CHECK(studies.error.find("rsi") != std::string::npos);
+
+    const char* known_study = R"({
+        "format": 1,
+        "name": "studies",
+        "focused_pane": 1,
+        "next_pane_id": 2,
+        "data": {"columns": [{"id": "nope", "width": 10, "visible": true, "order": 0},
+                             {"id": "symbol", "width": 40, "visible": true, "order": 1}]},
+        "notes": "ignored",
+        "layout": {"windows": ["pane:1"], "selected": "pane:1"},
+        "panes": [{
+            "id": 1,
+            "settings": {
+                "symbol": "", "period": "1m", "bar_type": "candlestick",
+                "limit_mode": "session_count", "intraday_session_count": 14,
+                "historical_session_count": 1260, "scale_range": "automatic",
+                "constant_range": 0, "user_top": 0, "user_bottom": 0,
+                "bar_spacing_px": 8, "bar_width_frac": 0.6, "scale_padding_pct": 4
+            },
+            "interactive_scale": "move",
+            "next_study_id": 2,
+            "studies": [
+                {"id": 1, "kind": "moving_average", "enabled": true, "color": 1,
+                 "chart_region": 1, "source": "close", "length": 10, "method": "simple"}
+            ]
+        }]
+    })";
+    const terminal::ChartbookLoadResult known = terminal::chartbookFromJson(known_study);
+    REQUIRE(known.ok);
+    REQUIRE(known.document.panes.size() == 1);
+    CHECK(known.document.panes[0].studies.size() == 1);
+    CHECK(known.document.data.columns.size() == 1);
+    CHECK(known.document.data.columns[0].id == "symbol");
+    const terminal::CStudyInstance& legacy = known.document.panes[0].studies[0];
+    CHECK(legacy.type_id == "moving_average");
     REQUIRE(legacy.outputs.size() == 1);
     CHECK(legacy.outputs[0].color == 1);
     CHECK(legacy.outputs[0].line == terminal::StudyLineStyle::Solid);

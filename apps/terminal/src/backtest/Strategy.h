@@ -33,8 +33,9 @@ struct StrategyType
     StrategyProcess process{nullptr};
 };
 
-// Strategies call this from their own static initialization. Duplicate ids keep the first.
-void registerStrategy(const StrategyType& type) noexcept;
+// Strategies call this from their own static initialization. The first id wins.
+// A duplicate or a full registry throws.
+void registerStrategy(const StrategyType& type);
 
 [[nodiscard]] const StrategyType* findStrategy(std::string_view id) noexcept;
 

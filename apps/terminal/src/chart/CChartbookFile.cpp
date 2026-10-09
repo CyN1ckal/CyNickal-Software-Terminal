@@ -787,9 +787,8 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     return object;
 }
 
-[[nodiscard]] bool studyFromJson(const json& value, CStudyInstance& study, bool& skip, std::string& error)
+[[nodiscard]] bool studyFromJson(const json& value, CStudyInstance& study, std::string& error)
 {
-    skip = false;
     const json* object = nullptr;
     if (!readObject(value, "study", object, error))
     {
@@ -803,8 +802,7 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     const StudyType* type = findStudy(kind_text);
     if (type == nullptr)
     {
-        skip = true;
-        return true;
+        return fail(error, "unknown study " + kind_text);
     }
     study.type_id = kind_text;
     if (!readInt(*object, "id", study.id, error) || !readBool(*object, "enabled", study.enabled, error) ||
@@ -900,15 +898,11 @@ void writeStudyOutputs(json& object, const CStudyInstance& study, const StudyTyp
     for (const json& study_value : object->at("studies"))
     {
         CStudyInstance study;
-        bool skip = false;
-        if (!studyFromJson(study_value, study, skip, error))
+        if (!studyFromJson(study_value, study, error))
         {
             return false;
         }
-        if (!skip)
-        {
-            pane.studies.push_back(study);
-        }
+        pane.studies.push_back(std::move(study));
     }
     return true;
 }

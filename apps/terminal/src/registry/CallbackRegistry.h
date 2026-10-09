@@ -5,12 +5,14 @@
 
 #include <cstddef>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 
 namespace terminal {
 
 // Fixed table of process callbacks. The first registration of an id wins.
-// A null id, a null process, or a full table is ignored.
+// A null id or a null process is ignored. A duplicate id or a full table throws.
 // Type must have a const char* id and a process pointer.
 template <typename Type>
 struct CallbackRegistry
@@ -19,9 +21,9 @@ struct CallbackRegistry
     const Type* types[kCapacity]{};
     int count{0};
 
-    void add(const Type& type) noexcept
+    void add(const Type& type)
     {
-        if (type.id == nullptr || type.process == nullptr || count >= kCapacity)
+        if (type.id == nullptr || type.process == nullptr)
         {
             return;
         }
@@ -31,8 +33,12 @@ struct CallbackRegistry
             if (existing != nullptr && existing->id != nullptr &&
                 type.id == std::string_view{existing->id})
             {
-                return;
+                throw std::logic_error(std::string("duplicate callback id ") + type.id);
             }
+        }
+        if (count >= kCapacity)
+        {
+            throw std::logic_error("callback registry is full");
         }
         types[static_cast<std::size_t>(count)] = &type;
         ++count;

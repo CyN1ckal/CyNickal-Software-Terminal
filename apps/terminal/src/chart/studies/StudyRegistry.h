@@ -78,8 +78,9 @@ struct StudyType
     StudyLabel label{nullptr};
 };
 
-// Studies call this from their own static initialization. Duplicate ids keep the first.
-void registerStudy(const StudyType& type) noexcept;
+// Studies call this from their own static initialization. The first id wins.
+// A duplicate or a full registry throws.
+void registerStudy(const StudyType& type);
 
 [[nodiscard]] const StudyType* findStudy(std::string_view id) noexcept;
 

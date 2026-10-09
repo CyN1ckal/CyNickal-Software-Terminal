@@ -36,7 +36,7 @@ CallbackRegistry<StrategyType>& registry() noexcept
 
 }  // namespace
 
-void registerStrategy(const StrategyType& type) noexcept
+void registerStrategy(const StrategyType& type)
 {
     registry().add(type);
 }

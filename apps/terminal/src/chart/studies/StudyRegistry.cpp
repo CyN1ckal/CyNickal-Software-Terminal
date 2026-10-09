@@ -16,7 +16,7 @@ CallbackRegistry<StudyType>& registry() noexcept
 
 }  // namespace
 
-void registerStudy(const StudyType& type) noexcept
+void registerStudy(const StudyType& type)
 {
     registry().add(type);
 }
