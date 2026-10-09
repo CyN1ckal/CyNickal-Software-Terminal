@@ -76,8 +76,8 @@ struct StrategyTemplate
     const char* id{""};
     const char* name{""};
     const char* note{""};
-    std::span<const StrikeSlot> slots;
-    std::span<const TemplateLeg> legs;
+    std::span<const StrikeSlot> slots{};
+    std::span<const TemplateLeg> legs{};
 };
 
 [[nodiscard]] std::span<const StrategyTemplate> strategyTemplates() noexcept;
@@ -93,7 +93,7 @@ struct StrategyTemplate
 struct TemplateInputs
 {
     // One strike per slot, ascending.
-    std::span<const double> slot_strikes;
+    std::span<const double> slot_strikes{};
     // Positive multiple of every ratio.
     double quantity{1.0};
     PriceBasis basis{PriceBasis::Mid};

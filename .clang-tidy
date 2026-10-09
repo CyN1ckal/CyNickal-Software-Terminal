@@ -1,5 +1,7 @@
 # First-party checks for src/. deps/imgui/ and deps/implot/ are third-party and are not analyzed.
 # Noisy or C-API-incompatible checks are disabled so remaining findings can be fixed.
+# readability-redundant-member-init rejects an empty span's {}, and
+# -Wmissing-field-initializers requires that default when a designated initializer omits the field.
 Checks: >
   clang-diagnostic-*,
   clang-analyzer-*,
@@ -40,6 +42,7 @@ Checks: >
   -readability-identifier-length,
   -readability-identifier-naming,
   -readability-magic-numbers,
+  -readability-redundant-member-init,
   -readability-uppercase-literal-suffix
 HeaderFilterRegex: '.*/src/.*'
 FormatStyle: none

@@ -29,7 +29,7 @@ struct StrategyType
     const char* id{""};
     const char* display_name{""};
     const char* note{nullptr};
-    std::span<const StudyOption> options;
+    std::span<const StudyOption> options{};
     StrategyProcess process{nullptr};
 };
 
