@@ -8,6 +8,7 @@
 #include "market_data/Adjust.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <map>
 #include <optional>
@@ -29,6 +30,99 @@ void noteReceived(std::optional<UnixSeconds>& newest, const Store& store, Instru
             newest = day.ingested_at;
         }
     }
+}
+
+// Price return when nothing is credited. Otherwise one adjusted share funded at the
+// first mark: dividend cash sits in equity, and the curve's growth is the return.
+// Prices are already split-adjusted, so splits are not replayed. A dividend is
+// as-traded cash; it is divided by every later split adjustBarsForSplits applied.
+[[nodiscard]] std::optional<double> benchmarkTotalReturn(InstrumentId instrument,
+                                                         std::span<const Mark> marks,
+                                                         std::span<const CorporateAction> actions)
+{
+    const Mark* first = nullptr;
+    const Mark* last = nullptr;
+    for (const Mark& mark : marks)
+    {
+        if (first == nullptr || mark.ts < first->ts)
+        {
+            first = &mark;
+        }
+        if (last == nullptr || mark.ts >= last->ts)
+        {
+            last = &mark;
+        }
+    }
+    if (first == nullptr || last == nullptr)
+    {
+        return std::nullopt;
+    }
+    const std::optional<double> price_return = buyAndHoldReturn(marks, first->ts, last->ts);
+    if (!price_return.has_value())
+    {
+        return std::nullopt;
+    }
+
+    std::vector<CorporateAction> dividends;
+    for (const CorporateAction& action : actions)
+    {
+        if (action.type != CorporateActionType::Dividend || !action.amount.has_value() || action.ex_ts <= first->ts ||
+            action.ex_ts > last->ts)
+        {
+            continue;
+        }
+        const double amount = *action.amount;
+        if (!std::isfinite(amount) || amount < 0.0)
+        {
+            continue;
+        }
+        const double factor = splitFactorBetween(actions, instrument, action.ex_ts, kAllTime);
+        CorporateAction scaled = action;
+        scaled.amount = amount / factor;
+        dividends.push_back(std::move(scaled));
+    }
+    if (dividends.empty())
+    {
+        return price_return;
+    }
+
+    TradeFill buy;
+    buy.id = 1;
+    buy.kind = TradeAssetKind::Equity;
+    buy.instrument_id = instrument;
+    buy.ts = first->ts;
+    buy.quantity = 1.0;
+    buy.price = first->price;
+    LedgerCashFlow funding;
+    funding.ts = first->ts;
+    funding.amount = first->price;
+
+    std::vector<UnixSeconds> points;
+    points.reserve(marks.size());
+    for (const Mark& mark : marks)
+    {
+        points.push_back(mark.ts);
+    }
+    std::ranges::sort(points);
+    const auto [duplicate, end] = std::ranges::unique(points);
+    points.erase(duplicate, end);
+    if (points.size() < 2)
+    {
+        return price_return;
+    }
+
+    MarkSeries series;
+    series.instrument_id = instrument;
+    series.marks.assign(marks.begin(), marks.end());
+    const std::vector<TradeFill> fills{buy};
+    const std::vector<LedgerCashFlow> flows{funding};
+    const std::vector<MarkSeries> series_list{std::move(series)};
+    const std::vector<EquityPoint> curve = equityCurve(fills, flows, dividends, series_list, points);
+    if (curve.empty())
+    {
+        return price_return;
+    }
+    return curve.back().growth - 1.0;
 }
 
 }  // namespace
@@ -130,11 +224,11 @@ LedgerAnalysis analyzeLedger(const Store& store,
     if (benchmark.has_value() && !analysis.curve.empty())
     {
         std::vector<Bar> bars = store.queryBars(*benchmark, kTimeframe1d, 0, kAllTime);
+        std::vector<CorporateAction> benchmark_actions;
         if (!bars.empty())
         {
-            const std::vector<CorporateAction> splits =
-                store.queryCorporateActions(*benchmark, 0, bars.back().ts);
-            bars = adjustBarsForSplits(std::move(bars), splits);
+            benchmark_actions = store.queryCorporateActions(*benchmark, 0, bars.back().ts);
+            bars = adjustBarsForSplits(std::move(bars), benchmark_actions);
         }
         const UnixSeconds from = analysis.curve.front().ts;
         const UnixSeconds to = analysis.curve.back().ts;
@@ -145,7 +239,7 @@ LedgerAnalysis analyzeLedger(const Store& store,
                 analysis.benchmark_marks.push_back(mark);
             }
         }
-        analysis.benchmark_return = buyAndHoldReturn(analysis.benchmark_marks, from, to);
+        analysis.benchmark_return = benchmarkTotalReturn(*benchmark, analysis.benchmark_marks, benchmark_actions);
     }
     return analysis;
 }

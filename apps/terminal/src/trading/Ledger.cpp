@@ -82,18 +82,28 @@ LotBook::LotBook(std::span<const CorporateAction> actions)
 {
     for (const CorporateAction& action : actions)
     {
-        if (action.type != CorporateActionType::Split || !action.split_ratio.has_value())
+        if (action.type == CorporateActionType::Split && action.split_ratio.has_value())
         {
-            continue;
+            const double ratio = *action.split_ratio;
+            if (!std::isfinite(ratio) || ratio <= 0.0)
+            {
+                continue;
+            }
+            splits_.push_back(Split{.ex_ts = action.ex_ts, .instrument_id = action.instrument_id, .ratio = ratio});
         }
-        const double ratio = *action.split_ratio;
-        if (!std::isfinite(ratio) || ratio <= 0.0)
+        else if (action.type == CorporateActionType::Dividend && action.amount.has_value())
         {
-            continue;
+            const double amount = *action.amount;
+            if (!std::isfinite(amount) || amount < 0.0)
+            {
+                continue;
+            }
+            dividends_.push_back(
+                Dividend{.ex_ts = action.ex_ts, .instrument_id = action.instrument_id, .amount = amount});
         }
-        splits_.push_back(Split{.ex_ts = action.ex_ts, .instrument_id = action.instrument_id, .ratio = ratio});
     }
     std::ranges::stable_sort(splits_, {}, &Split::ex_ts);
+    std::ranges::stable_sort(dividends_, {}, &Dividend::ex_ts);
 }
 
 void LotBook::advanceTo(UnixSeconds ts)
@@ -103,18 +113,40 @@ void LotBook::advanceTo(UnixSeconds ts)
         throw std::runtime_error("ledger time moved backward");
     }
     time_ = ts;
-    while (next_split_ < splits_.size() && splits_[next_split_].ex_ts <= ts)
+    while (next_split_ < splits_.size() || next_dividend_ < dividends_.size())
     {
-        const Split& split = splits_[next_split_];
-        for (OpenLot& lot : lots_)
+        const bool split_due = next_split_ < splits_.size() && splits_[next_split_].ex_ts <= ts;
+        const bool dividend_due = next_dividend_ < dividends_.size() && dividends_[next_dividend_].ex_ts <= ts;
+        if (!split_due && !dividend_due)
         {
-            if (isShare(lot.key.kind) && lot.key.instrument_id == split.instrument_id)
+            break;
+        }
+        // Same ex_ts: rescale lots before reading the quantity the dividend pays on.
+        if (split_due && (!dividend_due || splits_[next_split_].ex_ts <= dividends_[next_dividend_].ex_ts))
+        {
+            const Split& split = splits_[next_split_];
+            for (OpenLot& lot : lots_)
             {
-                lot.quantity *= split.ratio;
-                lot.price /= split.ratio;
+                if (isShare(lot.key.kind) && lot.key.instrument_id == split.instrument_id)
+                {
+                    lot.quantity *= split.ratio;
+                    lot.price /= split.ratio;
+                }
+            }
+            ++next_split_;
+            continue;
+        }
+        const Dividend& dividend = dividends_[next_dividend_];
+        double quantity = 0.0;
+        for (const OpenLot& lot : lots_)
+        {
+            if (isShare(lot.key.kind) && lot.key.instrument_id == dividend.instrument_id)
+            {
+                quantity += lot.quantity;
             }
         }
-        ++next_split_;
+        dividend_cash_ += quantity * dividend.amount;
+        ++next_dividend_;
     }
 }
 
@@ -246,6 +278,11 @@ double LotBook::tradeCash() const noexcept
     return cash_;
 }
 
+double LotBook::dividendCash() const noexcept
+{
+    return dividend_cash_;
+}
+
 UnixSeconds LotBook::time() const noexcept
 {
     return time_;
@@ -278,6 +315,7 @@ LedgerBook matchLots(std::span<const TradeFill> fills, std::span<const Corporate
     out.realized_pnl = book.realizedPnl();
     out.fees_paid = book.feesPaid();
     out.trade_cash = book.tradeCash();
+    out.dividend_cash = book.dividendCash();
     return out;
 }
 

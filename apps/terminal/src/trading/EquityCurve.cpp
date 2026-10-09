@@ -178,7 +178,7 @@ std::vector<EquityPoint> equityCurve(std::span<const TradeFill> fills,
 
         contributed += point.net_flow;
         point.contributed = contributed;
-        point.cash = contributed + book.tradeCash();
+        point.cash = contributed + book.tradeCash() + book.dividendCash();
         point.equity = point.cash + point.market_value;
 
         const double base = previous_equity + point.net_flow;

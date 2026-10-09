@@ -63,6 +63,16 @@ terminal::CorporateAction lotSplit(terminal::InstrumentId instrument, terminal::
     return action;
 }
 
+terminal::CorporateAction lotDividend(terminal::InstrumentId instrument, terminal::UnixSeconds ex_ts, double amount)
+{
+    terminal::CorporateAction action;
+    action.instrument_id = instrument;
+    action.ex_ts = ex_ts;
+    action.type = terminal::CorporateActionType::Dividend;
+    action.amount = amount;
+    return action;
+}
+
 constexpr terminal::UnixSeconds kLedgerEnd = 1'000'000;
 
 }  // namespace
@@ -173,6 +183,50 @@ TEST_CASE("a split rescales the lot held across it")
     CHECK(book.round_trips[0].entry_price == Catch::Approx(100.0));
     CHECK(book.round_trips[0].gross_pnl == Catch::Approx(400.0));
     CHECK(book.open_lots.empty());
+}
+
+TEST_CASE("dividend cash is share quantity times amount after splits applied by then")
+{
+    const auto buy = lotFill(1, kLedgerAapl, 100, 10, 80.0);
+    const std::vector<terminal::CorporateAction> before{
+        lotSplit(kLedgerAapl, 300, 4.0),
+        lotDividend(kLedgerAapl, 200, 2.0),
+        lotDividend(kLedgerMsft, 200, 9.0),
+    };
+    terminal::LotBook early(before);
+    early.apply(buy);
+    early.advanceTo(200);
+    CHECK(early.dividendCash() == Catch::Approx(20.0));
+    early.advanceTo(400);
+    CHECK(early.dividendCash() == Catch::Approx(20.0));
+
+    // The split at the dividend's own ex_ts is applied first, so the quantity is post-split.
+    const std::vector<terminal::CorporateAction> together{
+        lotDividend(kLedgerAapl, 200, 2.0),
+        lotSplit(kLedgerAapl, 200, 4.0),
+    };
+    terminal::LotBook same_time(together);
+    same_time.apply(buy);
+    same_time.advanceTo(200);
+    CHECK(same_time.dividendCash() == Catch::Approx(80.0));
+
+    terminal::CorporateAction missing = lotDividend(kLedgerAapl, 200, 2.0);
+    missing.amount.reset();
+    terminal::CorporateAction not_finite = lotDividend(kLedgerAapl, 200, 2.0);
+    not_finite.amount = std::numeric_limits<double>::quiet_NaN();
+    const std::vector<terminal::CorporateAction> ignored{
+        lotDividend(kLedgerAapl, 200, -1.0), missing, not_finite,
+    };
+    terminal::LotBook skipped(ignored);
+    skipped.apply(buy);
+    skipped.advanceTo(200);
+    CHECK(skipped.dividendCash() == 0.0);
+
+    const std::vector<terminal::CorporateAction> on_shares{lotDividend(kLedgerAapl, 200, 2.0)};
+    terminal::LotBook option_only(on_shares);
+    option_only.apply(lotOptionFill(1, 100, 100.0, terminal::OptionRight::Call, 1, 5.0));
+    option_only.advanceTo(200);
+    CHECK(option_only.dividendCash() == 0.0);
 }
 
 TEST_CASE("a split on the fill's own timestamp is applied before the fill")

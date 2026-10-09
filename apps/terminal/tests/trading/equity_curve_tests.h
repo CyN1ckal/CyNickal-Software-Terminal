@@ -44,6 +44,16 @@ terminal::MarkSeries curveMarks(std::vector<terminal::Mark> marks)
     return series;
 }
 
+terminal::CorporateAction curveDividend(terminal::InstrumentId instrument, terminal::UnixSeconds ex_ts, double amount)
+{
+    terminal::CorporateAction action;
+    action.instrument_id = instrument;
+    action.ex_ts = ex_ts;
+    action.type = terminal::CorporateActionType::Dividend;
+    action.amount = amount;
+    return action;
+}
+
 }  // namespace
 
 TEST_CASE("a deposit alone is equity with a zero return")
@@ -107,6 +117,51 @@ TEST_CASE("a deposit mid-curve is not a return")
     CHECK(curve[1].contributed == 2'000.0);
     CHECK(curve[1].period_return == Catch::Approx(0.0));
     CHECK(curve[1].growth == Catch::Approx(1.0));
+}
+
+TEST_CASE("a long share position receives quantity times the dividend at the ex point")
+{
+    const std::vector<terminal::TradeFill> fills{curveFill(1, 50, 10, 100.0)};
+    const std::vector<terminal::CorporateAction> actions{curveDividend(kCurveAapl, 150, 2.0)};
+    const std::vector<terminal::MarkSeries> marks{curveMarks({{100, 100.0}, {200, 100.0}, {300, 100.0}})};
+    const std::vector<terminal::UnixSeconds> points{100, 200, 300};
+    const auto curve = terminal::equityCurve(fills, {}, actions, marks, points);
+    REQUIRE(curve.size() == 3);
+    CHECK(curve[0].net_flow == 0.0);
+    CHECK(curve[0].cash == Catch::Approx(-1'000.0));
+    CHECK(curve[0].equity == Catch::Approx(0.0));
+    // 10 shares times 2, and not a deposit.
+    CHECK(curve[1].net_flow == 0.0);
+    CHECK(curve[1].contributed == 0.0);
+    CHECK(curve[1].cash - curve[0].cash == Catch::Approx(20.0));
+    CHECK(curve[1].equity - curve[0].equity == Catch::Approx(20.0));
+    CHECK(curve[1].equity == Catch::Approx(20.0));
+    CHECK(curve[2].cash == Catch::Approx(curve[1].cash));
+    CHECK(curve[2].equity == Catch::Approx(curve[1].equity));
+}
+
+TEST_CASE("no share position on an instrument receives none of its dividend")
+{
+    const std::vector<terminal::LedgerCashFlow> flows{curveFlow(0, 1'000.0)};
+    const std::vector<terminal::TradeFill> fills{curveFill(1, 50, 10, 100.0)};
+    const std::vector<terminal::CorporateAction> actions{curveDividend(8, 150, 5.0)};
+    const std::vector<terminal::MarkSeries> marks{curveMarks({{100, 100.0}, {200, 100.0}})};
+    const std::vector<terminal::UnixSeconds> points{100, 200};
+    const auto curve = terminal::equityCurve(fills, flows, actions, marks, points);
+    REQUIRE(curve.size() == 2);
+    CHECK(curve[1].net_flow == 0.0);
+    CHECK(curve[1].cash == Catch::Approx(0.0));
+    CHECK(curve[1].equity == Catch::Approx(1'000.0));
+
+    // Sold before the ex time: the book is flat, so AAPL's own dividend pays nothing.
+    const std::vector<terminal::TradeFill> closed{curveFill(1, 50, 10, 100.0), curveFill(2, 120, -10, 100.0)};
+    const std::vector<terminal::CorporateAction> own{curveDividend(kCurveAapl, 150, 2.0)};
+    const auto flat = terminal::equityCurve(closed, flows, own, marks, points);
+    REQUIRE(flat.size() == 2);
+    CHECK(flat[1].net_flow == 0.0);
+    CHECK(flat[1].cash == Catch::Approx(1'000.0));
+    CHECK(flat[1].equity == Catch::Approx(1'000.0));
+    CHECK(flat[1].open_positions == 0);
 }
 
 TEST_CASE("a split between points keeps the value of an as-traded mark")

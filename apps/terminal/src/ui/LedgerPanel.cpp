@@ -572,7 +572,7 @@ void LedgerPanel::drawSummary()
         unrealized += unrealizedPnl(position, price);
         open_fees += position.open_fees;
     }
-    const double cash = deposits_ + book_.trade_cash;
+    const double cash = deposits_ + book_.trade_cash + book_.dividend_cash;
     constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerV |
                                       ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings;
     if (!ImGui::BeginTable("ledger_summary", 7, flags))

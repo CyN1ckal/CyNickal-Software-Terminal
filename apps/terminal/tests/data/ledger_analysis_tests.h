@@ -67,6 +67,63 @@ terminal::TradeFill analysisFill(std::string figi, terminal::UnixSeconds ts, dou
     return fill;
 }
 
+void seedClosePrices(terminal::Store& store, terminal::InstrumentId id, std::span<const double> closes)
+{
+    std::vector<terminal::Bar> bars;
+    int day = 0;
+    for (const double close : closes)
+    {
+        terminal::Bar bar;
+        bar.instrument_id = id;
+        bar.timeframe_s = terminal::kTimeframe1d;
+        bar.ts = kAnalysisStart + (day * kAnalysisDay);
+        bar.close = close;
+        bar.open = bar.close;
+        bar.high = bar.close;
+        bar.low = bar.close;
+        bar.volume = 1;
+        bars.push_back(bar);
+        ++day;
+    }
+    REQUIRE(store.upsertBars(bars).written == static_cast<int>(closes.size()));
+}
+
+// A funded share ledger whose daily closes span `days` sessions from kAnalysisStart.
+terminal::LedgerId fundedShareLedger(terminal::Store& store, terminal::InstrumentId id, int days)
+{
+    seedDailyCloses(store, id, days, 50.0, 0.0);
+    const auto ledger = store.createLedger("Account");
+    terminal::LedgerCashFlow deposit;
+    deposit.ts = kAnalysisStart - 3'600;
+    deposit.amount = 10'000.0;
+    (void)store.appendCashFlows(ledger, std::span<const terminal::LedgerCashFlow>(&deposit, 1));
+    const std::vector<terminal::TradeFill> fills{
+        analysisFill(analysisFigi(store, id), kAnalysisStart + 3'600, 10, 50.0),
+    };
+    (void)store.appendFills(ledger, fills);
+    return ledger;
+}
+
+void insertDividend(terminal::Store& store, terminal::InstrumentId id, terminal::UnixSeconds ex_ts, double amount)
+{
+    terminal::CorporateAction action;
+    action.instrument_id = id;
+    action.ex_ts = ex_ts;
+    action.type = terminal::CorporateActionType::Dividend;
+    action.amount = amount;
+    store.upsertCorporateAction(action);
+}
+
+void insertSplit(terminal::Store& store, terminal::InstrumentId id, terminal::UnixSeconds ex_ts, double ratio)
+{
+    terminal::CorporateAction action;
+    action.instrument_id = id;
+    action.ex_ts = ex_ts;
+    action.type = terminal::CorporateActionType::Split;
+    action.split_ratio = ratio;
+    store.upsertCorporateAction(action);
+}
+
 }  // namespace
 
 TEST_CASE("a ledger is evaluated at each stored close and matches its own books")
@@ -169,4 +226,54 @@ TEST_CASE("history fetches cover traded shares without bars and the benchmark")
     const auto refresh = terminal::ledgerHistoryFetchJobs(store, fills, "SPY", 20260924, false);
     CHECK(refresh.size() == 2);
     CHECK(terminal::ledgerHistoryFetchJobs(store, fills, "", 20260924, false).size() == 2);
+}
+
+TEST_CASE("benchmark return over a no-split window equals price return plus dividend/start")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto aapl = store.testingInsertInstrument("AAPL");
+    const auto spy = store.testingInsertInstrument("SPY", terminal::AssetClass::Etf);
+    // Closes 100, 110, 120. The dividend's ex is the second session's open, after the
+    // first close and before the last. Cash is not reinvested, so the curve compounds
+    // to (last + dividend) / first - 1, which is the price return plus dividend/start.
+    seedDailyCloses(store, spy, 3, 100.0, 10.0);
+    insertDividend(store, spy, kAnalysisStart + kAnalysisDay, 2.0);
+    const auto ledger = fundedShareLedger(store, aapl, 3);
+
+    const auto analysis = terminal::analyzeLedger(store, ledger, spy, kAnalysisStart + (30 * kAnalysisDay));
+    REQUIRE(analysis.benchmark_marks.size() == 3);
+    const double first = 100.0;
+    const double last = 120.0;
+    const double dividend = 2.0;
+    const double price_return = last / first - 1.0;
+    REQUIRE(analysis.benchmark_return.has_value());
+    CHECK(*analysis.benchmark_return == Catch::Approx(price_return + (dividend / first)));
+    CHECK(*analysis.benchmark_return == Catch::Approx((last + dividend) / first - 1.0));
+}
+
+TEST_CASE("a split after the dividend scales the benchmark dividend the way prices are scaled")
+{
+    TempDb tmp;
+    terminal::Store store(tmp.path());
+    const auto aapl = store.testingInsertInstrument("AAPL");
+    const auto spy = store.testingInsertInstrument("SPY", terminal::AssetClass::Etf);
+    // As-traded closes 400, 400, 110. A 4-for-1 on the third session's open divides the
+    // earlier prices by 4 and leaves the ex-date close alone: 100, 100, 110. The dividend
+    // is as-traded cash, so one adjusted share receives 8/4.
+    const std::vector<double> closes{400.0, 400.0, 110.0};
+    seedClosePrices(store, spy, closes);
+    constexpr double kSplit = 4.0;
+    insertSplit(store, spy, kAnalysisStart + (2 * kAnalysisDay), kSplit);
+    insertDividend(store, spy, kAnalysisStart + kAnalysisDay, 8.0);
+    const auto ledger = fundedShareLedger(store, aapl, 3);
+
+    const auto analysis = terminal::analyzeLedger(store, ledger, spy, kAnalysisStart + (30 * kAnalysisDay));
+    REQUIRE(analysis.benchmark_marks.size() == 3);
+    CHECK(analysis.benchmark_marks.front().price == Catch::Approx(100.0));
+    CHECK(analysis.benchmark_marks[1].price == Catch::Approx(100.0));
+    CHECK(analysis.benchmark_marks.back().price == Catch::Approx(110.0));
+    const double adjusted_dividend = 8.0 / kSplit;
+    REQUIRE(analysis.benchmark_return.has_value());
+    CHECK(*analysis.benchmark_return == Catch::Approx((110.0 + adjusted_dividend) / 100.0 - 1.0));
 }

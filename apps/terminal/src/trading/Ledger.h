@@ -100,14 +100,18 @@ struct Position
 // with a positive split_ratio) rescale open share lots on their ex_ts: quantity is
 // multiplied by the ratio and price divided by it. A split whose ex_ts equals a
 // fill's ts is applied before that fill, as adjustBarsForSplits treats the first
-// post-split bar. Option lots are not split-adjusted. Dividends are ignored.
+// post-split bar. Option lots are not split-adjusted. A cash dividend
+// (CorporateActionType::Dividend with a finite, non-negative amount) is credited
+// once, at its ex_ts, as open share quantity times amount. Splits at that same
+// ex_ts are applied first. A fill at that ex_ts is matched afterwards, so it does
+// not receive the dividend. Options and a flat position receive nothing.
 class LotBook
 {
 public:
     LotBook() = default;
     explicit LotBook(std::span<const CorporateAction> actions);
 
-    // Applies every split with ex_ts <= ts. Throws when ts is earlier than a time already reached.
+    // Applies every split and dividend with ex_ts <= ts. Throws when ts is earlier than a time already reached.
     void advanceTo(UnixSeconds ts);
     // advanceTo(fill.ts), then matches. Throws on a fill with no instrument_id or a
     // non-finite or zero quantity, a non-finite or negative price, or non-finite or negative fees.
@@ -123,8 +127,10 @@ public:
     [[nodiscard]] double realizedPnl() const noexcept;
     // Every fee applied so far, matched or still on an open lot.
     [[nodiscard]] double feesPaid() const noexcept;
-    // Sum of fillCashFlow over every fill applied.
+    // Sum of fillCashFlow over every fill applied. Dividends are not included.
     [[nodiscard]] double tradeCash() const noexcept;
+    // Cash dividends credited up to the book's time.
+    [[nodiscard]] double dividendCash() const noexcept;
     [[nodiscard]] UnixSeconds time() const noexcept;
 
 private:
@@ -135,14 +141,24 @@ private:
         double ratio{1.0};
     };
 
+    struct Dividend
+    {
+        UnixSeconds ex_ts{};
+        InstrumentId instrument_id{};
+        double amount{};
+    };
+
     std::vector<Split> splits_;
+    std::vector<Dividend> dividends_;
     std::size_t next_split_{0};
+    std::size_t next_dividend_{0};
     std::vector<OpenLot> lots_;
     std::vector<RoundTrip> trips_;
     UnixSeconds time_{std::numeric_limits<UnixSeconds>::min()};
     double realized_{0.0};
     double fees_{0.0};
     double cash_{0.0};
+    double dividend_cash_{0.0};
 };
 
 struct LedgerBook
@@ -153,6 +169,7 @@ struct LedgerBook
     double realized_pnl{};
     double fees_paid{};
     double trade_cash{};
+    double dividend_cash{};
 };
 
 // Sorts fills by ts (ties keep input order), applies them to a LotBook, then

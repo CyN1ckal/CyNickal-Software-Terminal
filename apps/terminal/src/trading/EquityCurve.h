@@ -37,9 +37,11 @@ struct MarkSeries
 
 // The account at one evaluation time.
 //
-// cash is every cash flow plus every fill's fillCashFlow up to ts. market_value
-// is the open positions marked to market. net_flow is the cash flows since the
-// previous point, and contributed their running sum.
+// cash is every cash flow, every fill's fillCashFlow, and every dividend credited
+// up to ts. A dividend is account return: it raises cash and equity and does not
+// raise net_flow or contributed. market_value is the open positions marked to
+// market. net_flow is the cash flows since the previous point, and contributed
+// their running sum.
 //
 // period_return is time-weighted: cash flows are taken to arrive at the start of
 // the period, so r = (equity - previous equity - net_flow) / (previous equity + net_flow).
@@ -61,7 +63,10 @@ struct EquityPoint
 };
 
 // Replays the ledger to each point in `points` (ascending; a repeated or earlier
-// point throws). Fills and cash flows at or before a point count toward it.
+// point throws). Fills and cash flows at or before a point count toward it. A
+// dividend is credited on the first point whose time reaches its ex_ts: after the
+// previous point, or from the beginning on the first. The quantity is the share
+// position LotBook holds at that ex_ts.
 //
 // A share position is marked at its instrument's latest mark at or before the
 // point. One with no mark yet is valued at its average price, so it adds no
