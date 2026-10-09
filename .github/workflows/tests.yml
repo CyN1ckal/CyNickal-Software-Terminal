@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ ninja-build libglfw3-dev libvulkan-dev libcurl4-openssl-dev clang-tidy
+
+      - name: Install CMake 4
+        run: |
+          set -euo pipefail
+          # Ubuntu 24.04 apt cmake is 3.x. The project requires 4.0 or newer.
+          curl -fsSL -o "$RUNNER_TEMP/cmake.sh" \
+            https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-linux-x86_64.sh
+          echo "9c5c78ff9f5c8c1acc5c496a7d27adafacb3a78d5b2d39b3cd4d97103656bf5b  $RUNNER_TEMP/cmake.sh" | sha256sum -c -
+          sudo bash "$RUNNER_TEMP/cmake.sh" --skip-license --prefix=/usr/local
+          cmake --version
+          cmake --version | awk 'NR==1 { split($3, v, "."); if ((v[1] + 0) < 4) { print "CMake " $3 " is older than 4" > "/dev/stderr"; exit 1 } }'
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build tests
+        run: cmake --build build --target terminal_tests market_data_tests
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
