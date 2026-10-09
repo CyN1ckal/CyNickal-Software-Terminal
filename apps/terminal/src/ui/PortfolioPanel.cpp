@@ -27,6 +27,7 @@
 #include <exception>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace terminal {
@@ -263,24 +264,36 @@ struct OptionSnapshot
     return std::nullopt;
 }
 
-[[nodiscard]] std::vector<double> dailyCloses(const Store& store, InstrumentId id)
+struct DailySeries
+{
+    std::vector<double> closes;
+    std::vector<SessionDate> dates;
+};
+
+// Closes stay split-adjusted. Session dates use the listing timezone the bars were stored in.
+[[nodiscard]] DailySeries dailySeries(const Store& store, InstrumentId id)
 {
     constexpr UnixSeconds kAllBarsEnd = std::numeric_limits<UnixSeconds>::max();
     std::vector<Bar> bars = store.queryBars(id, kTimeframe1d, 0, kAllBarsEnd);
     if (!bars.empty())
     {
         // End at the last bar: a split on that bar is left unchanged, so the last close stays as-traded.
-        const std::vector<CorporateAction> actions =
-            store.queryCorporateActions(id, 0, bars.back().ts);
+        const std::vector<CorporateAction> actions = store.queryCorporateActions(id, 0, bars.back().ts);
         bars = adjustBarsForSplits(std::move(bars), actions);
     }
-    std::vector<double> closes;
-    closes.reserve(bars.size());
+    const std::optional<Instrument> instrument = store.findInstrumentById(id);
+    const std::string_view timezone = instrument.has_value() && !instrument->timezone.empty()
+                                           ? std::string_view{instrument->timezone}
+                                           : std::string_view{"America/New_York"};
+    DailySeries series;
+    series.closes.reserve(bars.size());
+    series.dates.reserve(bars.size());
     for (const Bar& bar : bars)
     {
-        closes.push_back(bar.close);
+        series.closes.push_back(bar.close);
+        series.dates.push_back(utcToSessionDate(timezone, bar.ts));
     }
-    return closes;
+    return series;
 }
 
 [[nodiscard]] double lineValue(const PortfolioHolding& row, double last)
@@ -645,8 +658,9 @@ void drawHoldingsHeaders(const HoldingsColumns& columns, int confidence_pct)
                                       " expected shortfall. A loss prints negative.";
     const std::string portfolio_var = "VaR " + pct;
     const std::string portfolio_tip =
-        "Sum of each line's own 1-day " + pct +
-        " historical VaR, from that line's latest daily returns. A loss prints negative.";
+        "The total is the " + pct +
+        " historical VaR of the summed daily P&L on dates shared by every measured line. "
+        "A line that cannot be measured leaves the book figure blank. A loss prints negative.";
 
     ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
     const int count = ImGui::TableGetColumnCount();
@@ -1236,7 +1250,9 @@ void PortfolioPanel::refreshMarks(const Store& store)
                 }
                 risks_[index].basis = HoldingRiskBasis::Delta;
                 risks_[index].unit_exposure = optionDeltaExposure(1.0, kOptionContractMultiplier, quote.delta, spot);
-                risks_[index].closes = dailyCloses(store, instrument);
+                DailySeries underlying_history = dailySeries(store, instrument);
+                risks_[index].closes = std::move(underlying_history.closes);
+                risks_[index].dates = std::move(underlying_history.dates);
                 continue;
             }
             const std::optional<CloseSample> sample = equitySample(store, instrument);
@@ -1253,7 +1269,9 @@ void PortfolioPanel::refreshMarks(const Store& store)
             }
             risks_[index].basis = HoldingRiskBasis::Close;
             risks_[index].unit_exposure = price;
-            risks_[index].closes = dailyCloses(store, instrument);
+            DailySeries history = dailySeries(store, instrument);
+            risks_[index].closes = std::move(history.closes);
+            risks_[index].dates = std::move(history.dates);
         }
         received_at_ = newest;
     }
@@ -1362,13 +1380,11 @@ void PortfolioPanel::drawHoldings(const Store& store, IngestWorker* ingest)
             }
             const double quantity = drafts_[index].quantity;
             const double exposure = quantity * risk.unit_exposure;
-            if (!std::isfinite(quantity) || !std::isfinite(exposure))
-            {
-                continue;
-            }
-            PortfolioLeg leg;
-            leg.closes = risk.closes;
-            leg.signed_exposure = exposure;
+            const PortfolioLeg leg{
+                .closes = risk.closes,
+                .dates = risk.dates,
+                .signed_exposure = exposure,
+            };
             legs.push_back(leg);
             rows.push_back(index);
         }

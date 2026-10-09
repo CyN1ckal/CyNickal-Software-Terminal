@@ -426,64 +426,103 @@ namespace {
 
 struct StoredLeg
 {
+    std::vector<terminal::SessionDate> dates;
     std::vector<double> closes;
     double exposure{0.0};
 
     [[nodiscard]] terminal::PortfolioLeg view() const
     {
-        terminal::PortfolioLeg leg;
-        leg.closes = closes;
-        leg.signed_exposure = exposure;
-        return leg;
+        return terminal::PortfolioLeg{
+            .closes = closes,
+            .dates = dates,
+            .signed_exposure = exposure,
+        };
     }
 };
 
 }  // namespace
 
-TEST_CASE("portfolio VaR sums each line on its own latest closes")
+TEST_CASE("portfolio VaR is the quantile of summed P&L on shared dates")
 {
-    StoredLeg first{{80.0, 100.0, 80.0, 100.0, 120.0}, 1000.0};
-    StoredLeg second{{100.0, 200.0, 100.0, 200.0}, 100.0};
-    StoredLeg cash{{}, 0.0};
+    // Shared P&L is 200, -290, 50, 100. Losses sorted: -200, -100, -50, 290.
+    // At 75% the third order statistic is -50, the day the first line is flat.
+    StoredLeg first{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105},
+        .closes = {100.0, 120.0, 90.0, 90.0, 99.0},
+        .exposure = 1000.0,
+    };
+    StoredLeg second{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105},
+        .closes = {80.0, 80.0, 64.0, 80.0, 80.0},
+        .exposure = 200.0,
+    };
+    // Cash is off the shared calendar and must not shrink it.
+    StoredLeg cash{
+        .dates = {20240101, 20240108},
+        .closes = {1.0, 5.0},
+        .exposure = 0.0,
+    };
+    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.75, .lookback = 10, .minimum_returns = 4};
     const std::vector<terminal::PortfolioLeg> legs{first.view(), second.view(), cash.view()};
-    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.75, .lookback = 10, .minimum_returns = 3};
-    const std::optional<terminal::ValueAtRisk> first_alone = terminal::positionValueAtRisk(first.closes, 1000.0, spec);
-    const std::optional<terminal::ValueAtRisk> second_alone = terminal::positionValueAtRisk(second.closes, 100.0, spec);
-    REQUIRE(first_alone.has_value());
-    REQUIRE(second_alone.has_value());
     const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
     REQUIRE(book.var.has_value());
     REQUIRE(book.component_var.size() == 3);
     REQUIRE(book.component_var[0].has_value());
     REQUIRE(book.component_var[1].has_value());
     REQUIRE(book.component_var[2].has_value());
-    CHECK(book.component_var[0].value() == Catch::Approx(first_alone.value().var));
-    CHECK(book.component_var[1].value() == 50.0);
+    CHECK(book.var.value() == Catch::Approx(-50.0));
+    CHECK(book.component_var[0].value() == Catch::Approx(0.0));
+    CHECK(book.component_var[1].value() == Catch::Approx(-50.0));
     CHECK(book.component_var[2].value() == 0.0);
-    CHECK(book.var.value() == Catch::Approx(first_alone.value().var + 50.0));
+    const double parts =
+        book.component_var[0].value() + book.component_var[1].value() + book.component_var[2].value();
+    CHECK(parts == Catch::Approx(book.var.value()));
+
+    const std::optional<terminal::ValueAtRisk> first_alone =
+        terminal::positionValueAtRisk(first.closes, first.exposure, spec);
+    const std::optional<terminal::ValueAtRisk> second_alone =
+        terminal::positionValueAtRisk(second.closes, second.exposure, spec);
+    REQUIRE(first_alone.has_value());
+    REQUIRE(second_alone.has_value());
+    CHECK(first_alone.value().var == 0.0);
+    CHECK(second_alone.value().var == 0.0);
+    CHECK(book.var.value() != Catch::Approx(first_alone.value().var + second_alone.value().var));
 }
 
-TEST_CASE("a short history on one line does not drop the other line")
+TEST_CASE("a short shared history does not publish the other line")
 {
-    StoredLeg ready{{100.0, 50.0, 50.0, 50.0, 50.0}, 100.0};
-    StoredLeg thin{{100.0, 80.0}, 100.0};
+    StoredLeg ready{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105},
+        .closes = {100.0, 40.0, 40.0, 40.0, 20.0},
+        .exposure = 100.0,
+    };
+    StoredLeg thin{
+        .dates = {20240102, 20240103},
+        .closes = {40.0, 32.0},
+        .exposure = 100.0,
+    };
     const std::vector<terminal::PortfolioLeg> legs{ready.view(), thin.view()};
-    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.95, .lookback = 2, .minimum_returns = 2};
-    const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
+    constexpr terminal::ValueAtRiskSpec needs_two{.confidence = 0.95, .lookback = 4, .minimum_returns = 2};
+    const terminal::PortfolioValueAtRisk hidden = terminal::portfolioValueAtRisk(legs, needs_two);
+    CHECK_FALSE(hidden.var.has_value());
+    REQUIRE(hidden.component_var.size() == 2);
+    CHECK_FALSE(hidden.component_var[0].has_value());
+    CHECK_FALSE(hidden.component_var[1].has_value());
+
+    // One shared step: the ready line is flat and the thin line loses 20. Not each line's own window.
+    constexpr terminal::ValueAtRiskSpec allow_one{.confidence = 0.95, .lookback = 4, .minimum_returns = 1};
+    const std::optional<terminal::ValueAtRisk> ready_alone =
+        terminal::positionValueAtRisk(ready.closes, ready.exposure, allow_one);
+    REQUIRE(ready_alone.has_value());
+    CHECK(ready_alone.value().var == Catch::Approx(60.0));
+    const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, allow_one);
     REQUIRE(book.var.has_value());
     REQUIRE(book.component_var[0].has_value());
-    CHECK(book.component_var[0].value() == 0.0);
-    CHECK_FALSE(book.component_var[1].has_value());
-    CHECK(book.var.value() == 0.0);
-
-    constexpr terminal::ValueAtRiskSpec allow_one{.confidence = 0.95, .lookback = 4, .minimum_returns = 1};
-    const terminal::PortfolioValueAtRisk both = terminal::portfolioValueAtRisk(legs, allow_one);
-    REQUIRE(both.var.has_value());
-    REQUIRE(both.component_var[0].has_value());
-    REQUIRE(both.component_var[1].has_value());
-    CHECK(both.component_var[0].value() == 50.0);
-    CHECK(both.component_var[1].value() == 20.0);
-    CHECK(both.var.value() == 70.0);
+    REQUIRE(book.component_var[1].has_value());
+    CHECK(book.var.value() == Catch::Approx(20.0));
+    CHECK(book.component_var[0].value() == Catch::Approx(0.0));
+    CHECK(book.component_var[1].value() == Catch::Approx(20.0));
+    CHECK(book.var.value() != Catch::Approx(ready_alone.value().var + 20.0));
 }
 
 TEST_CASE("a flat book has zero portfolio VaR")
@@ -492,7 +531,11 @@ TEST_CASE("a flat book has zero portfolio VaR")
     CHECK_FALSE(empty.var.has_value());
     CHECK(empty.component_var.empty());
 
-    StoredLeg cash{{10.0, 11.0, 12.0}, 0.0};
+    StoredLeg cash{
+        .dates = {20240101, 20240102, 20240103},
+        .closes = {10.0, 11.0, 12.0},
+        .exposure = 0.0,
+    };
     const std::vector<terminal::PortfolioLeg> legs{cash.view()};
     const terminal::PortfolioValueAtRisk flat = terminal::portfolioValueAtRisk(legs);
     REQUIRE(flat.var.has_value());
@@ -500,23 +543,182 @@ TEST_CASE("a flat book has zero portfolio VaR")
     REQUIRE(flat.component_var.size() == 1);
     REQUIRE(flat.component_var[0].has_value());
     CHECK(flat.component_var[0].value() == 0.0);
+
+    // A broken path on a flat line still contributes 0 and does not blank the book.
+    StoredLeg broken{
+        .dates = {20240101},
+        .closes = {1.0, 2.0},
+        .exposure = 0.0,
+    };
+    const std::vector<terminal::PortfolioLeg> both{cash.view(), broken.view()};
+    const terminal::PortfolioValueAtRisk still = terminal::portfolioValueAtRisk(both);
+    REQUIRE(still.var.has_value());
+    CHECK(still.var.value() == 0.0);
+    REQUIRE(still.component_var.size() == 2);
+    REQUIRE(still.component_var[0].has_value());
+    REQUIRE(still.component_var[1].has_value());
+    CHECK(still.component_var[0].value() == 0.0);
+    CHECK(still.component_var[1].value() == 0.0);
 }
 
-TEST_CASE("portfolio VaR skips a leg with no measure")
+TEST_CASE("an unmeasurable leg leaves the portfolio blank")
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    StoredLeg broken{{10.0, 11.0, 12.0, 13.0}, nan};
-    StoredLeg ready{{80.0, 100.0, 80.0, 100.0, 120.0}, 1000.0};
+    StoredLeg ready{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105},
+        .closes = {80.0, 100.0, 80.0, 100.0, 120.0},
+        .exposure = 1000.0,
+    };
     constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.75, .lookback = 10, .minimum_returns = 4};
-    const std::vector<terminal::PortfolioLeg> legs{broken.view(), ready.view()};
+    const auto expect_blank = [&](const StoredLeg& broken) {
+        const std::vector<terminal::PortfolioLeg> legs{broken.view(), ready.view()};
+        const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
+        CHECK_FALSE(book.var.has_value());
+        REQUIRE(book.component_var.size() == 2);
+        CHECK_FALSE(book.component_var[0].has_value());
+        CHECK_FALSE(book.component_var[1].has_value());
+    };
+
+    StoredLeg bad_exposure = ready;
+    bad_exposure.exposure = nan;
+    const std::vector<terminal::PortfolioLeg> flipped{ready.view(), bad_exposure.view()};
+    const terminal::PortfolioValueAtRisk skipped = terminal::portfolioValueAtRisk(flipped, spec);
+    CHECK_FALSE(skipped.var.has_value());
+    bad_exposure.exposure = std::numeric_limits<double>::infinity();
+    expect_blank(bad_exposure);
+
+    StoredLeg mismatch = ready;
+    mismatch.dates.pop_back();
+    expect_blank(mismatch);
+
+    StoredLeg repeated = ready;
+    repeated.dates[3] = repeated.dates[2];
+    expect_blank(repeated);
+
+    StoredLeg nan_close = ready;
+    nan_close.closes[2] = nan;
+    expect_blank(nan_close);
+
+    StoredLeg zero_close = ready;
+    zero_close.closes[2] = 0.0;
+    expect_blank(zero_close);
+
+    StoredLeg negative_close = ready;
+    negative_close.closes[0] = -1.0;
+    expect_blank(negative_close);
+
+    // The zero sits off the other line's calendar and is still a previous close.
+    StoredLeg hole{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105, 20240106},
+        .closes = {100.0, 0.0, 110.0, 110.0, 110.0, 110.0},
+        .exposure = 100.0,
+    };
+    StoredLeg other{
+        .dates = {20240101, 20240103, 20240104, 20240105, 20240106, 20240107},
+        .closes = {100.0, 110.0, 110.0, 110.0, 110.0, 100.0},
+        .exposure = 100.0,
+    };
+    const std::vector<terminal::PortfolioLeg> gapped{hole.view(), other.view()};
+    CHECK_FALSE(terminal::portfolioValueAtRisk(gapped, spec).var.has_value());
+
+    StoredLeg ended = ready;
+    ended.closes.back() = 0.0;
+    const std::vector<terminal::PortfolioLeg> last_zero{ended.view()};
+    const terminal::PortfolioValueAtRisk measured = terminal::portfolioValueAtRisk(last_zero, spec);
+    REQUIRE(measured.var.has_value());
+    CHECK(measured.var.value() == Catch::Approx(200.0));
+    REQUIRE(measured.component_var.size() == 1);
+    REQUIRE(measured.component_var[0].has_value());
+    CHECK(measured.component_var[0].value() == Catch::Approx(measured.var.value()));
+
+    StoredLeg cash = ready;
+    cash.closes[1] = 0.0;
+    cash.exposure = 0.0;
+    const std::vector<terminal::PortfolioLeg> legs{cash.view(), ready.view()};
     const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
-    const std::optional<terminal::ValueAtRisk> alone = terminal::positionValueAtRisk(ready.closes, 1000.0, spec);
+    const std::optional<terminal::ValueAtRisk> alone = terminal::positionValueAtRisk(ready.closes, ready.exposure, spec);
     REQUIRE(book.var.has_value());
     REQUIRE(alone.has_value());
-    CHECK_FALSE(book.component_var[0].has_value());
-    REQUIRE(book.component_var[1].has_value());
-    CHECK(book.component_var[1].value() == Catch::Approx(alone.value().var));
     CHECK(book.var.value() == Catch::Approx(alone.value().var));
+    REQUIRE(book.component_var[0].has_value());
+    REQUIRE(book.component_var[1].has_value());
+    CHECK(book.component_var[0].value() == 0.0);
+    CHECK(book.component_var[1].value() == Catch::Approx(book.var.value()));
+}
+
+TEST_CASE("opposite exposures on the same dates hedge portfolio VaR to zero")
+{
+    const std::vector<terminal::SessionDate> dates{20240101, 20240102, 20240103, 20240104, 20240105};
+    const std::vector<double> closes{80.0, 100.0, 80.0, 100.0, 120.0};
+    StoredLeg long_leg{dates, closes, 1000.0};
+    StoredLeg short_leg{dates, closes, -1000.0};
+    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.75, .lookback = 10, .minimum_returns = 4};
+    const std::optional<terminal::ValueAtRisk> long_alone = terminal::positionValueAtRisk(closes, 1000.0, spec);
+    const std::optional<terminal::ValueAtRisk> short_alone = terminal::positionValueAtRisk(closes, -1000.0, spec);
+    REQUIRE(long_alone.has_value());
+    REQUIRE(short_alone.has_value());
+    CHECK(long_alone.value().var == Catch::Approx(-200.0));
+    CHECK(short_alone.value().var == Catch::Approx(250.0));
+
+    const std::vector<terminal::PortfolioLeg> legs{long_leg.view(), short_leg.view()};
+    const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
+    REQUIRE(book.var.has_value());
+    CHECK(book.var.value() == 0.0);
+    REQUIRE(book.component_var.size() == 2);
+    REQUIRE(book.component_var[0].has_value());
+    REQUIRE(book.component_var[1].has_value());
+    CHECK(book.component_var[0].value() + book.component_var[1].value() == Catch::Approx(0.0));
+    CHECK(book.component_var[0].value() == Catch::Approx(-book.component_var[1].value()));
+    CHECK(std::abs(book.component_var[0].value()) > 1.0);
+}
+
+TEST_CASE("the same price paths on different dates are not summed standalone VaRs")
+{
+    const std::vector<double> closes{80.0, 100.0, 80.0, 100.0, 120.0};
+    StoredLeg first{
+        .dates = {20240101, 20240102, 20240103, 20240104, 20240105},
+        .closes = closes,
+        .exposure = 1000.0,
+    };
+    StoredLeg second{
+        .dates = {20240201, 20240202, 20240203, 20240204, 20240205},
+        .closes = closes,
+        .exposure = 1000.0,
+    };
+    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.75, .lookback = 10, .minimum_returns = 4};
+    const std::optional<terminal::ValueAtRisk> alone = terminal::positionValueAtRisk(closes, 1000.0, spec);
+    REQUIRE(alone.has_value());
+    CHECK(alone.value().var == Catch::Approx(-200.0));
+    const std::vector<terminal::PortfolioLeg> legs{first.view(), second.view()};
+    const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
+    CHECK_FALSE(book.var.has_value());
+    REQUIRE(book.component_var.size() == 2);
+    CHECK_FALSE(book.component_var[0].has_value());
+    CHECK_FALSE(book.component_var[1].has_value());
+}
+
+TEST_CASE("portfolio lookback follows the position window")
+{
+    std::vector<double> closes{100.0, 50.0};
+    closes.insert(closes.end(), 10, 50.0);
+    closes.push_back(40.0);
+    std::vector<terminal::SessionDate> dates(closes.size());
+    for (std::size_t index = 0; index < closes.size(); ++index)
+    {
+        dates[index] = static_cast<terminal::SessionDate>(20240101 + static_cast<int>(index));
+    }
+    StoredLeg leg{dates, closes, 1000.0};
+    constexpr terminal::ValueAtRiskSpec spec{.confidence = 0.95, .lookback = 5, .minimum_returns = 5};
+    const std::optional<terminal::ValueAtRisk> alone = terminal::positionValueAtRisk(closes, 1000.0, spec);
+    const std::vector<terminal::PortfolioLeg> legs{leg.view()};
+    const terminal::PortfolioValueAtRisk book = terminal::portfolioValueAtRisk(legs, spec);
+    REQUIRE(alone.has_value());
+    REQUIRE(book.var.has_value());
+    CHECK(book.var.value() == Catch::Approx(alone.value().var));
+    CHECK(book.var.value() == Catch::Approx(200.0));
+    REQUIRE(book.component_var.size() == 1);
+    REQUIRE(book.component_var[0].has_value());
+    CHECK(book.component_var[0].value() == Catch::Approx(book.var.value()));
 }
 
 TEST_CASE("position VaR rejects a non-finite exposure, a short sample, and an empty window")

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "market_data/Types.h"
+
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -74,16 +76,27 @@ struct HoldingValueAtRisk
                                                     double unit_exposure,
                                                     ValueAtRiskSpec spec = {});
 
-// One line, valued on its own closes. Each line keeps its own latest window.
+// One line of a book. `dates` is parallel to `closes`: the same length and strictly
+// increasing. `signed_exposure` is the profit of a +100% simple return and is
+// negative for a short. Zero exposure is cash or flat. It adds no P&L and does not
+// limit the shared calendar.
 struct PortfolioLeg
 {
     std::span<const double> closes;
+    std::span<const SessionDate> dates;
     double signed_exposure{0.0};
 };
 
-// `var` is the sum of the leg VaRs that can be measured. `component_var` is
-// parallel to the input and empty when that leg has no VaR. A short history on
-// one line does not drop the others.
+// Historical VaR of summed daily P&L on the session dates shared by every measured
+// line. Lookback keeps the most recent of those aligned returns, as in
+// positionValueAtRisk. Positive `var` is a loss. `component_var` is parallel to the
+// input and is that line's loss on the single observation chosen as `var`, so the
+// components add up to `var`. A flat line is 0.
+//
+// The result is empty when a non-zero line cannot be measured (length mismatch,
+// dates that do not strictly increase, a non-finite close, or a non-positive
+// previous close), an exposure is not finite, or the shared sample is shorter than
+// the minimum. An empty book has no var. A book whose every exposure is 0 has var 0.
 struct PortfolioValueAtRisk
 {
     std::optional<double> var;

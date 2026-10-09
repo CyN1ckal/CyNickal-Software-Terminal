@@ -88,7 +88,9 @@ private:
     {
         HoldingRiskBasis basis{HoldingRiskBasis::Unavailable};
         double unit_exposure{0.0};
+        // Daily closes and the session date of each, in the listing's timezone.
         std::vector<double> closes;
+        std::vector<SessionDate> dates;
     };
 
     std::vector<Portfolio> books_;
