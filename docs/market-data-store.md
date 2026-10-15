@@ -14,18 +14,21 @@ This is an implementation spec. An engineer should be able to create the databas
 
 ---
 
-## Schema version 6
+## Schema version 7
 
-`user_version` is 6 (`kSchemaUserVersion`). `libs/market-data/schema/v4.sql` is the frozen FIGI baseline. `libs/market-data/schema/v5.sql` adds `portfolio` and `portfolio_holding`. `libs/market-data/schema/v6.sql` adds `ledger`, `trade_fill`, `ledger_cash_flow`, and `backtest_run` (`docs/trading.md`). Neither changes an earlier table. How FIGI and listings work is in `docs/composite-figi-identity.md`.
+`user_version` is 7 (`kSchemaUserVersion`). `libs/market-data/schema/v4.sql` is the frozen FIGI baseline. `libs/market-data/schema/v5.sql` adds `portfolio` and `portfolio_holding`. `libs/market-data/schema/v6.sql` adds `ledger`, `trade_fill`, `ledger_cash_flow`, and `backtest_run` (`docs/trading.md`). `libs/market-data/schema/v7.sql` adds `short_sale_restriction` and `short_sale_restriction_file` (`docs/short-sale-restriction.md`). None of those scripts change an earlier table. How FIGI and listings work is in `docs/composite-figi-identity.md`.
 
-`Store` reads `PRAGMA user_version` on open. Every migration runs in one transaction and stamps 6 only after the last script succeeds.
+`Store` reads `PRAGMA user_version` on open. Every migration runs in one transaction and stamps 7 only after the last script succeeds.
 
-- An empty database (`user_version` 0) applies `v4.sql`, `v5.sql`, then `v6.sql`, and is stamped 6.
-- A healthy version-4 file (the v4 tables and the `instrument_current` view are present) applies `v5.sql` and `v6.sql` and is stamped 6. A version-4 file missing one of those throws and is not stamped.
-- A healthy version-5 file (the version-4 checks plus `portfolio` and `portfolio_holding`) applies `v6.sql` only and is stamped 6. A version-5 file missing one of those throws and is not stamped.
+- An empty database (`user_version` 0) applies `v4.sql`, `v5.sql`, `v6.sql`, then `v7.sql`, and is stamped 7.
+- A healthy version-4 file (the v4 tables and the `instrument_current` view are present) applies `v5.sql`, `v6.sql`, and `v7.sql` and is stamped 7. A version-4 file missing one of those throws and is not stamped.
+- A healthy version-5 file (the version-4 checks plus `portfolio` and `portfolio_holding`) applies `v6.sql` and `v7.sql` and is stamped 7. A version-5 file missing one of those throws and is not stamped.
+- A healthy version-6 file (the version-5 checks plus `ledger`, `trade_fill`, `ledger_cash_flow`, and `backtest_run`) applies `v7.sql` only and is stamped 7. A version-6 file missing one of those throws and is not stamped.
 - Versions 1–3 still get the existing reset message and are not migrated: `market-data.sqlite is schema v<N>. v4 changed instrument identity and does not migrate. Close the terminal, delete <path> and its -wal and -shm files, and re-ingest.`
 - A newer `user_version` is refused (`database user_version exceeds this binary`).
-- A complete file already stamped 6 (every table above and `instrument_current`) is opened without running a script. A stamped-6 file missing one of those throws and does not finish.
+- A complete file already stamped 7 (every table above and `instrument_current`) is opened without running a script. A stamped-7 file missing one of those throws and does not finish.
+
+A binary stamped for version 6 refuses a file at version 7. Rebuild the terminal before opening a store this binary has migrated. Quit the terminal and `ingest` first.
 
 A ledger's fills and a backtest run are written by FIGI, like holdings, and store `instrument_id` with `ON DELETE RESTRICT`. `queryFills` and `findBacktestRun` return the FIGI and the current symbol. Deleting a ledger cascades to its fills, cash flows, and run. A backtest ledger is written once by `recordBacktestRun` and every later edit throws `backtest ledger is read-only`. Re-ingest must not delete an instrument that a fill or a run references.
 

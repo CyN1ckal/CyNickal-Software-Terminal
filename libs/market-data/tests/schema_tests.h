@@ -35,19 +35,24 @@ namespace {
     return count;
 }
 
-constexpr std::string_view kV6TableNames[] = {
-    "backtest_run",      "bar",           "corporate_action",  "coverage_day",      "instrument",
-    "instrument_listing", "ledger",       "ledger_cash_flow",  "option_expiry",     "option_quote",
-    "option_underlying", "portfolio",     "portfolio_holding", "statement_cell",    "statement_snapshot",
-    "trade_fill",
+constexpr std::string_view kV7TableNames[] = {
+    "backtest_run",       "bar",
+    "corporate_action",   "coverage_day",
+    "instrument",         "instrument_listing",
+    "ledger",             "ledger_cash_flow",
+    "option_expiry",      "option_quote",
+    "option_underlying",  "portfolio",
+    "portfolio_holding",  "short_sale_restriction",
+    "short_sale_restriction_file", "statement_cell",
+    "statement_snapshot", "trade_fill",
 };
 
-void checkV6Tables(const std::vector<std::string>& names)
+void checkV7Tables(const std::vector<std::string>& names)
 {
-    REQUIRE(names.size() == std::size(kV6TableNames));
+    REQUIRE(names.size() == std::size(kV7TableNames));
     for (std::size_t i = 0; i < names.size(); ++i)
     {
-        CHECK(names[i] == kV6TableNames[i]);
+        CHECK(names[i] == kV7TableNames[i]);
     }
 }
 
@@ -71,13 +76,13 @@ void checkEmbeddedMatchesFile(std::string_view file_name, std::string_view embed
 
 }  // namespace
 
-TEST_CASE("open empty path applies schema v6")
+TEST_CASE("open empty path applies schema v7")
 {
     TempDb tmp;
     terminal::Store store(tmp.path());
-    CHECK(store.userVersion() == 6);
+    CHECK(store.userVersion() == 7);
     CHECK(store.foreignKeysEnabled());
-    checkV6Tables(store.tableNames());
+    checkV7Tables(store.tableNames());
     const auto views = store.viewNames();
     REQUIRE(views.size() == 1);
     CHECK(views[0] == "instrument_current");
@@ -87,6 +92,8 @@ TEST_CASE("open empty path applies schema v6")
     CHECK(countRows(tmp.path(), "trade_fill") == 0);
     CHECK(countRows(tmp.path(), "ledger_cash_flow") == 0);
     CHECK(countRows(tmp.path(), "backtest_run") == 0);
+    CHECK(countRows(tmp.path(), "short_sale_restriction") == 0);
+    CHECK(countRows(tmp.path(), "short_sale_restriction_file") == 0);
 }
 
 TEST_CASE("second open does not re-run the baseline")
@@ -94,13 +101,13 @@ TEST_CASE("second open does not re-run the baseline")
     TempDb tmp;
     {
         terminal::Store first(tmp.path());
-        CHECK(first.userVersion() == 6);
+        CHECK(first.userVersion() == 7);
         (void)first.testingInsertInstrument("AAPL");
         (void)first.createLedger("Account");
     }
     terminal::Store second(tmp.path());
-    CHECK(second.userVersion() == 6);
-    CHECK(second.tableNames().size() == std::size(kV6TableNames));
+    CHECK(second.userVersion() == 7);
+    CHECK(second.tableNames().size() == std::size(kV7TableNames));
     CHECK(second.findOpenListing("AAPL").has_value());
     CHECK(second.listLedgers().size() == 1);
 }
@@ -137,7 +144,7 @@ TEST_CASE("user_version 99 is refused")
     TempDb tmp;
     {
         terminal::Store store(tmp.path());
-        CHECK(store.userVersion() == 6);
+        CHECK(store.userVersion() == 7);
     }
     terminal::Store::testingSetUserVersion(tmp.path(), 99);
     try
@@ -182,7 +189,7 @@ TEST_CASE("version 4 file migrates and keeps the seeded instrument")
     CHECK(std::find(before.begin(), before.end(), "portfolio_holding") == before.end());
 
     terminal::Store store(tmp.path());
-    CHECK(store.userVersion() == 6);
+    CHECK(store.userVersion() == 7);
     const std::string figi = terminal::testingFigiFor(symbol);
     const auto by_figi = store.findInstrumentByFigi(figi);
     const auto open = store.findOpenListing(symbol);
@@ -193,13 +200,13 @@ TEST_CASE("version 4 file migrates and keeps the seeded instrument")
     CHECK(open->symbol == symbol);
     CHECK(open->listing_open);
     CHECK(by_figi->asset_class == terminal::AssetClass::Equity);
-    checkV6Tables(store.tableNames());
+    checkV7Tables(store.tableNames());
     CHECK(countRows(tmp.path(), "portfolio") == 0);
     CHECK(countRows(tmp.path(), "portfolio_holding") == 0);
     CHECK(countRows(tmp.path(), "ledger") == 0);
 }
 
-TEST_CASE("version 5 file migrates to v6 and keeps its rows")
+TEST_CASE("version 5 file migrates to v7 and keeps its rows")
 {
     TempDb tmp;
     const std::string symbol = "MSFT";
@@ -213,8 +220,8 @@ TEST_CASE("version 5 file migrates to v6 and keeps its rows")
     CHECK_FALSE(hasTable(before, "trade_fill"));
 
     terminal::Store store(tmp.path());
-    CHECK(store.userVersion() == 6);
-    checkV6Tables(store.tableNames());
+    CHECK(store.userVersion() == 7);
+    checkV7Tables(store.tableNames());
     const auto open = store.findOpenListing(symbol);
     REQUIRE(open.has_value());
     CHECK(open->figi == terminal::testingFigiFor(symbol));
@@ -257,6 +264,59 @@ TEST_CASE("user_version 6 missing the ledger tables is refused")
     }
     CHECK(terminal::Store::testingUserVersion(tmp.path()) == 6);
     CHECK_FALSE(hasTable(terminal::Store::testingTableNames(tmp.path()), "ledger"));
+    CHECK_FALSE(hasTable(terminal::Store::testingTableNames(tmp.path()), "short_sale_restriction"));
+}
+
+TEST_CASE("version 6 file migrates to v7 and keeps its rows")
+{
+    TempDb tmp;
+    const std::string symbol = "QQQ";
+    terminal::Store::testingCreateSchemaV4(tmp.path());
+    terminal::Store::testingSeedV4Instrument(tmp.path(), symbol);
+    terminal::Store::testingUpgradeSchemaV4ToV5(tmp.path());
+    terminal::Store::testingUpgradeSchemaV5ToV6(tmp.path());
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 6);
+    const auto before = terminal::Store::testingTableNames(tmp.path());
+    CHECK(hasTable(before, "ledger"));
+    CHECK(hasTable(before, "trade_fill"));
+    CHECK_FALSE(hasTable(before, "short_sale_restriction"));
+    CHECK_FALSE(hasTable(before, "short_sale_restriction_file"));
+
+    terminal::Store store(tmp.path());
+    CHECK(store.userVersion() == 7);
+    checkV7Tables(store.tableNames());
+    const auto open = store.findOpenListing(symbol);
+    REQUIRE(open.has_value());
+    CHECK(open->figi == terminal::testingFigiFor(symbol));
+    CHECK(countRows(tmp.path(), "instrument") == 1);
+    CHECK(countRows(tmp.path(), "short_sale_restriction") == 0);
+    CHECK(countRows(tmp.path(), "short_sale_restriction_file") == 0);
+}
+
+TEST_CASE("user_version 7 missing the short-sale tables is refused")
+{
+    TempDb tmp;
+    {
+        terminal::Store store(tmp.path());
+        CHECK(store.userVersion() == 7);
+    }
+    {
+        terminal::SqliteDb db(tmp.path());
+        db.exec("DROP TABLE short_sale_restriction");
+        db.exec("DROP TABLE short_sale_restriction_file");
+    }
+    try
+    {
+        terminal::Store store(tmp.path());
+        FAIL("expected missing-table error");
+    }
+    catch (const std::runtime_error& ex)
+    {
+        CHECK(std::string(ex.what()).find("missing required table 'short_sale_restriction'") !=
+              std::string::npos);
+    }
+    CHECK(terminal::Store::testingUserVersion(tmp.path()) == 7);
+    CHECK_FALSE(hasTable(terminal::Store::testingTableNames(tmp.path()), "short_sale_restriction"));
 }
 
 TEST_CASE("testing hooks do not restamp a file that is not a bare version 4")
@@ -268,12 +328,13 @@ TEST_CASE("testing hooks do not restamp a file that is not a bare version 4")
     TempDb current;
     {
         terminal::Store store(current.path());
-        CHECK(store.userVersion() == 6);
+        CHECK(store.userVersion() == 7);
     }
     CHECK_THROWS_AS(terminal::Store::testingCreateSchemaV4(current.path()), std::runtime_error);
     CHECK_THROWS_AS(terminal::Store::testingSeedV4Instrument(current.path(), "AAPL"), std::runtime_error);
     CHECK_THROWS_AS(terminal::Store::testingUpgradeSchemaV4ToV5(current.path()), std::runtime_error);
-    CHECK(terminal::Store::testingUserVersion(current.path()) == 6);
+    CHECK_THROWS_AS(terminal::Store::testingUpgradeSchemaV5ToV6(current.path()), std::runtime_error);
+    CHECK(terminal::Store::testingUserVersion(current.path()) == 7);
 }
 
 TEST_CASE("embedded schema matches v4.sql")
@@ -289,4 +350,9 @@ TEST_CASE("embedded schema matches v5.sql")
 TEST_CASE("embedded schema matches v6.sql")
 {
     checkEmbeddedMatchesFile("v6.sql", terminal::schemaV6());
+}
+
+TEST_CASE("embedded schema matches v7.sql")
+{
+    checkEmbeddedMatchesFile("v7.sql", terminal::schemaV7());
 }

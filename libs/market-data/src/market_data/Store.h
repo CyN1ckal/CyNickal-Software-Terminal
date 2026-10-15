@@ -68,6 +68,8 @@ public:
     static void testingCreateSchemaV4(const std::filesystem::path& path);
     // Applies schemaV5() to a bare version-4 file and stamps 5. Does not run schemaV6().
     static void testingUpgradeSchemaV4ToV5(const std::filesystem::path& path);
+    // Applies schemaV6() to a bare version-5 file and stamps 6. Does not run schemaV7().
+    static void testingUpgradeSchemaV5ToV6(const std::filesystem::path& path);
     // One equity (testingFigiFor(symbol)) and an open listing on a version-4 file
     // that has no portfolio table. Leaves user_version at 4.
     static void testingSeedV4Instrument(const std::filesystem::path& path, std::string_view symbol);

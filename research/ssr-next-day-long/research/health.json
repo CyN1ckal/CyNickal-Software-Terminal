@@ -1,0 +1,868 @@
+{
+  "symbols": 258,
+  "passed": false,
+  "critical": 121,
+  "warnings": 0,
+  "by_severity_category": {
+    "CRITICAL:unadjusted_jump": 89,
+    "CRITICAL:zero_dividend_drag": 32
+  },
+  "dividend_rows_in_store": 0,
+  "split_rows_in_store": 107,
+  "symbols_with_1m": [
+    "ADBE",
+    "GOOGL",
+    "IGV",
+    "QQQ",
+    "SPY"
+  ],
+  "anomalies": [
+    {
+      "symbol": "AIP",
+      "session": "2025-08-04",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 62.5% (ratio 1.625) from 9.05 to 14.71 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "APEI",
+      "session": "2023-03-15",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.8% (ratio 0.492) from 9.26 to 4.56 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "ARLP",
+      "session": "2020-03-19",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 72.0% (ratio 1.720) from 3.14 to 5.40 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "AVNW",
+      "session": "2016-06-14",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 1127.3% (ratio 12.273) from 0.28 to 3.38 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BBCP",
+      "session": "2020-06-26",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.1% (ratio 1.501) from 3.65 to 5.48 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BNED",
+      "session": "2024-01-10",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.9% (ratio 0.491) from 224.00 to 110.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BNED",
+      "session": "2024-04-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 64.3% (ratio 0.357) from 70.00 to 25.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BNED",
+      "session": "2024-05-17",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 152.7% (ratio 2.527) from 17.81 to 45.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BNED",
+      "session": "2024-05-21",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 74.2% (ratio 1.742) from 31.00 to 54.01 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BNED",
+      "session": "2024-05-22",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 109.2% (ratio 2.092) from 54.01 to 113.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BXC",
+      "session": "2016-06-14",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 906.8% (ratio 10.068) from 0.73 to 7.35 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "BXC",
+      "session": "2018-03-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 77.5% (ratio 1.775) from 15.79 to 28.03 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CCCC",
+      "session": "2022-04-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.6% (ratio 0.494) from 22.90 to 11.32 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CCCC",
+      "session": "2023-12-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 98.3% (ratio 1.983) from 1.18 to 2.34 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CCCC",
+      "session": "2023-12-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 135.5% (ratio 2.355) from 2.34 to 5.51 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CHEF",
+      "session": "2020-03-18",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 53.1% (ratio 0.469) from 7.67 to 3.60 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CHEF",
+      "session": "2020-03-24",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 55.2% (ratio 1.552) from 6.72 to 10.43 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "CYH",
+      "session": "2023-02-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 52.4% (ratio 1.524) from 5.08 to 7.74 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "DEC",
+      "session": "2023-12-05",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 1907.0% (ratio 20.070) from 0.85 to 17.10 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "EEM",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EEM is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EFA",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EFA is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "ELME",
+      "session": "2026-01-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 83.8% (ratio 0.162) from 17.32 to 2.80 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "EWA",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWA is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWC",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWC is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWG",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWG is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWH",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWH is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWJ",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWJ is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWL",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWL is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWS",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWS is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWT",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWT is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWU",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWU is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWW",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWW is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWY",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWY is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "EWZ",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument EWZ is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "FBYD",
+      "session": "2023-10-18",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 75.4% (ratio 1.754) from 10.21 to 17.91 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "FNKO",
+      "session": "2022-11-04",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 59.4% (ratio 0.406) from 19.50 to 7.92 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GLD",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument GLD is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2016-12-15",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 98.1% (ratio 1.981) from 121.50 to 240.75 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2017-03-28",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 191.5% (ratio 2.915) from 77.25 to 225.15 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2018-06-18",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 63.9% (ratio 0.361) from 378.75 to 136.65 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2019-12-19",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 65.8% (ratio 1.658) from 71.55 to 118.65 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2022-05-23",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 234.2% (ratio 3.342) from 5.70 to 19.05 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2022-09-21",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 74.2% (ratio 0.258) from 29.10 to 7.51 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "GYRE",
+      "session": "2023-01-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 58.3% (ratio 0.417) from 9.45 to 3.94 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "HDSN",
+      "session": "2019-08-26",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 99.5% (ratio 1.995) from 0.31 to 0.62 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "IPX",
+      "session": "2023-06-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 99.1% (ratio 1.991) from 6.63 to 13.21 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "IWM",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument IWM is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "JILL",
+      "session": "2017-10-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 51.1% (ratio 0.489) from 41.69 to 20.40 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "JILL",
+      "session": "2019-05-30",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 53.5% (ratio 0.465) from 18.05 to 8.40 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "JILL",
+      "session": "2021-01-27",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 55.9% (ratio 1.559) from 4.17 to 6.50 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2021-03-23",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 78.0% (ratio 0.220) from 1814.50 to 399.50 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2023-02-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 80.5% (ratio 0.195) from 196.50 to 38.24 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2023-07-14",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 77.5% (ratio 1.775) from 20.00 to 35.49 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2023-11-07",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 59.0% (ratio 1.590) from 15.48 to 24.62 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2023-11-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 68.2% (ratio 1.682) from 24.62 to 41.40 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2024-10-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 93.7% (ratio 1.937) from 39.76 to 77.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "KRRO",
+      "session": "2025-11-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 77.0% (ratio 0.230) from 32.80 to 7.55 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "LE",
+      "session": "2020-03-17",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 60.2% (ratio 1.602) from 4.55 to 7.29 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "NAGE",
+      "session": "2016-04-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 218.2% (ratio 3.182) from 1.32 to 4.20 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "NAGE",
+      "session": "2021-02-25",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 92.4% (ratio 1.924) from 9.74 to 18.74 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "NAGE",
+      "session": "2024-11-01",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 67.9% (ratio 1.679) from 3.49 to 5.86 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "OPI",
+      "session": "2019-01-02",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 295.6% (ratio 3.956) from 6.87 to 27.18 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "OPI",
+      "session": "2024-11-25",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 51.3% (ratio 1.513) from 1.13 to 1.71 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "OPI",
+      "session": "2025-09-11",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 51.1% (ratio 1.511) from 0.27 to 0.41 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "OPI",
+      "session": "2025-09-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 53.8% (ratio 1.538) from 0.41 to 0.63 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "OPI",
+      "session": "2026-06-18",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 11198.8% (ratio 112.988) from 0.27 to 30.36 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PDD",
+      "session": "2022-03-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 56.1% (ratio 1.561) from 27.31 to 42.62 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRAX",
+      "session": "2022-06-06",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 78.1% (ratio 0.219) from 128.85 to 28.20 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRAX",
+      "session": "2023-03-03",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 65.9% (ratio 0.341) from 43.80 to 14.95 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRAX",
+      "session": "2025-10-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 199.5% (ratio 2.995) from 57.35 to 171.75 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2016-11-23",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 68.8% (ratio 1.688) from 48.00 to 81.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2016-12-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.0% (ratio 1.500) from 72.00 to 108.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2017-01-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 286.2% (ratio 3.862) from 87.00 to 336.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2017-06-13",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 3100.0% (ratio 32.000) from 75.00 to 2400.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2017-07-05",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 66.1% (ratio 1.661) from 3630.00 to 6030.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2018-03-20",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 87.5% (ratio 1.875) from 144.00 to 270.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2019-04-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 62.7% (ratio 1.627) from 44.97 to 73.17 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2020-07-30",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 469.1% (ratio 5.691) from 24.60 to 140.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2020-07-31",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 55.1% (ratio 0.449) from 140.00 to 62.80 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "PRPO",
+      "session": "2021-05-03",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 172.0% (ratio 2.720) from 36.40 to 99.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "QQQ",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument QQQ is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "RTB",
+      "session": "2022-08-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 55.1% (ratio 1.551) from 444.50 to 689.50 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "RTB",
+      "session": "2025-06-05",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 83.3% (ratio 1.833) from 13.96 to 25.59 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "RTB",
+      "session": "2025-09-30",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 72.7% (ratio 1.727) from 10.66 to 18.42 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SAR",
+      "session": "2020-03-19",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 57.7% (ratio 1.577) from 8.40 to 13.25 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SLV",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument SLV is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "SMTI",
+      "session": "2018-01-04",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 66.7% (ratio 1.667) from 6.00 to 10.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SMTI",
+      "session": "2018-12-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.0% (ratio 1.500) from 2.00 to 3.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SMTI",
+      "session": "2019-06-10",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 58.8% (ratio 1.588) from 4.25 to 6.75 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SPCX",
+      "session": "2026-06-12",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 657.1% (ratio 7.571) from 22.04 to 166.85 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "SPY",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument SPY is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "TBCH",
+      "session": "2018-05-10",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 64.6% (ratio 1.646) from 6.94 to 11.42 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UNG",
+      "session": "2011-03-09",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 102.9% (ratio 2.029) from 82.56 to 167.52 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UNG",
+      "session": "2012-02-22",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 301.4% (ratio 4.014) from 88.32 to 354.56 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UNG",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument UNG is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "USO",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument USO is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2012-03-08",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 450.7% (ratio 5.507) from 1385000.00 to 7627500.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2012-09-07",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 785.7% (ratio 8.857) from 980000.00 to 8680000.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2013-06-10",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 877.0% (ratio 9.770) from 1562500.00 to 15265000.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2014-01-24",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 370.3% (ratio 4.703) from 3870000.00 to 18202500.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2015-05-20",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 401.7% (ratio 5.017) from 2057500.00 to 10322500.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2016-07-25",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 395.1% (ratio 4.951) from 1525000.00 to 7550000.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2018-02-05",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 66.2% (ratio 1.662) from 172000.00 to 285875.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2020-03-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 57.5% (ratio 1.575) from 143100.00 to 225350.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2020-06-11",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 50.2% (ratio 1.502) from 75850.00 to 113900.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "UVXY",
+      "session": "2024-08-05",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 58.3% (ratio 1.583) from 195.10 to 308.85 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "VIXY",
+      "session": "2013-06-10",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 394.7% (ratio 4.947) from 3283.20 to 16243.20 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "VIXY",
+      "session": "2016-07-25",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 396.6% (ratio 4.966) from 2374.40 to 11792.00 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "XLB",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLB is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLC",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLC is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLE",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLE is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLF",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLF is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLI",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLI is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLK",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLK is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLP",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLP is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLRE",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLRE is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLU",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLU is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLV",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLV is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "XLY",
+      "session": "START",
+      "category": "zero_dividend_drag",
+      "severity": "CRITICAL",
+      "detail": "Instrument XLY is flagged as yield-dependent, but 0 dividend records exist in corporate_action. Total return cannot be evaluated."
+    },
+    {
+      "symbol": "ZH",
+      "session": "2022-03-16",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 79.2% (ratio 1.792) from 8.64 to 15.48 with no split recorded in corporate_action."
+    },
+    {
+      "symbol": "ZH",
+      "session": "2022-03-18",
+      "category": "unadjusted_jump",
+      "severity": "CRITICAL",
+      "detail": "Single-day price dislocation of 54.9% (ratio 1.549) from 12.24 to 18.96 with no split recorded in corporate_action."
+    }
+  ]
+}

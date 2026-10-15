@@ -895,6 +895,117 @@ class MarketData:
         return book
 
 
+    # -- short-sale restrictions -------------------------------------------
+
+    def _require_short_sale_schema(self) -> None:
+        if self.schema_version < 7:
+            raise RuntimeError(
+                f"schema user_version {self.schema_version}; short-sale restrictions need version 7"
+            )
+
+    def short_sale_files(
+        self,
+        source: str | None = None,
+        start: Any = None,
+        end: Any = None,
+    ) -> list[dict[str, Any]]:
+        """Ingested publisher files. A session with no row was not stored."""
+        self._require_short_sale_schema()
+        clauses: list[str] = []
+        params: list[Any] = []
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if start is not None:
+            clauses.append("file_session >= ?")
+            params.append(ymd_int(parse_date(start)))
+        if end is not None:
+            clauses.append("file_session <= ?")
+            params.append(ymd_int(parse_date(end)))
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self.sql(
+            "SELECT source, file_session, file_name, row_count, file_created_at, fetched_at "
+            "FROM short_sale_restriction_file" + where + " ORDER BY source, file_session",
+            params,
+        )
+        for row in rows:
+            row["file_session"] = _format_ymd(row["file_session"])
+            row["file_created_at"] = _iso_utc(row["file_created_at"])
+            row["fetched_at"] = _iso_utc(row["fetched_at"])
+        return rows
+
+    def short_sale_coverage(self, session: Any) -> dict[str, bool]:
+        """Whether each publisher's file for this session was stored."""
+        self._require_short_sale_schema()
+        day = ymd_int(parse_date(session))
+        have = {
+            row["source"]
+            for row in self.sql(
+                "SELECT source FROM short_sale_restriction_file WHERE file_session = ?",
+                (day,),
+            )
+        }
+        return {"nasdaq": "nasdaq" in have, "nyse_group": "nyse_group" in have}
+
+    def short_sale_restrictions(
+        self,
+        symbol: str | None = None,
+        session: Any = None,
+    ) -> list[dict[str, Any]]:
+        """Stored lines for one published symbol, or the lines in force on a session.
+
+        On a session, a Nasdaq line counts only when its file date is that
+        session. An NYSE Group trigger counts from its trigger session until
+        the day before deactivation. The symbol match is exact after strip
+        and upper, and an internal space is kept.
+        """
+        self._require_short_sale_schema()
+        published = _published_symbol(symbol)
+        if published is None and session is None:
+            raise ValueError("pass a symbol, a session, or both")
+        columns = (
+            "source, file_session, symbol, security_name, listing_market, "
+            "trigger_session, trigger_ts, deactivate_session, ssr_state"
+        )
+        if session is None:
+            rows = self.sql(
+                f"SELECT {columns} FROM short_sale_restriction WHERE symbol = ? "
+                "ORDER BY trigger_ts, source, file_session",
+                (published,),
+            )
+        else:
+            day = ymd_int(parse_date(session))
+            params: list[Any] = [day, day, day]
+            symbol_sql = ""
+            if published is not None:
+                symbol_sql = " AND symbol = ?"
+                params.append(published)
+            rows = self.sql(
+                f"SELECT {columns} FROM short_sale_restriction WHERE ("
+                "(source = 'nasdaq' AND file_session = ?) OR "
+                "(source = 'nyse_group' AND trigger_session <= ? AND deactivate_session > ?)"
+                f"){symbol_sql} ORDER BY symbol, source, trigger_ts",
+                params,
+            )
+        for row in rows:
+            row["file_session"] = _format_ymd(row["file_session"])
+            row["trigger_session"] = _format_ymd(row["trigger_session"])
+            if row["deactivate_session"] is not None:
+                row["deactivate_session"] = _format_ymd(row["deactivate_session"])
+            row["trigger_time"] = ny_datetime(row["trigger_ts"]).strftime("%Y-%m-%d %H:%M:%S")
+        return rows
+
+    def short_sale_session(self, session: Any) -> dict[str, Any]:
+        """Lines in force on a session, and whether each source file is stored."""
+        day = parse_date(session)
+        return {
+            "session": day.isoformat(),
+            "files": self.short_sale_coverage(day),
+            "rows": self.short_sale_restrictions(session=day),
+        }
+
+
+
 def _terminal_calendar_misses(day: date) -> bool:
     """NyseCalendar.cpp observes a Saturday New Year's Day on Friday Dec 31.
     NYSE does not, so the terminal treats those real sessions as holidays."""
@@ -1045,6 +1156,34 @@ def match_lots(fills: Sequence[dict[str, Any]],
     }
 
 
+def _format_ymd(value: int) -> str:
+    day = ymd_from_int(value)
+    if day is None:
+        raise ValueError(f"date {value} is empty")
+    return day.isoformat()
+
+
+def _published_symbol(symbol: str | None) -> str | None:
+    if symbol is None:
+        return None
+    published = str(symbol).strip().upper()
+    if not published:
+        raise ValueError("symbol is empty")
+    return published
+
+
+def _note_missing_ssr_files(session: str, files: dict[str, bool]) -> None:
+    if not files["nasdaq"]:
+        sys.stderr.write(
+            f"mdq: no nasdaq file stored for {session}; Nasdaq names that day are uncovered\n"
+        )
+    if not files["nyse_group"]:
+        sys.stderr.write(
+            f"mdq: no nyse_group file stored for {session}; "
+            "triggers published that day are missing\n"
+        )
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -1188,6 +1327,15 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("start")
     s.add_argument("end")
 
+    s = cmd("ssr", help="short-sale restriction lines for a symbol or a session")
+    s.add_argument("symbol", nargs="?", help="published symbol; an internal space is kept")
+    s.add_argument("--session", help="names restricted on this session, plus file coverage")
+
+    s = cmd("ssr-files", help="ingested short-sale restriction files")
+    s.add_argument("--source", choices=("nasdaq", "nyse_group"))
+    s.add_argument("--from", dest="start", help="first file session, inclusive")
+    s.add_argument("--to", dest="end", help="last file session, inclusive")
+
     s = cmd("sql", help="one read-only SQL statement (last resort)")
     s.add_argument("query")
     s.add_argument("params", nargs="*")
@@ -1217,7 +1365,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sys.stdout.write(md.schema())
                 return 0
             rows = _dispatch(md, args)
-    except (LookupError, ValueError, sqlite3.Error) as exc:
+    except (LookupError, ValueError, RuntimeError, sqlite3.Error) as exc:
         sys.stderr.write(f"mdq: {exc}\n")
         return 1
     _emit(rows, args.format, args.out, args.limit)
@@ -1269,6 +1417,21 @@ def _dispatch(md: MarketData, args: argparse.Namespace) -> Any:
         return book
     if cmd == "backtest":
         return md.backtest_run(args.ledger) or {}
+    if cmd == "ssr":
+        if args.symbol is None and args.session is None:
+            raise ValueError("ssr needs a symbol, --session, or both")
+        if args.session is not None:
+            report = md.short_sale_session(args.session)
+            published = _published_symbol(args.symbol)
+            if published is not None:
+                report["rows"] = [row for row in report["rows"] if row["symbol"] == published]
+            _note_missing_ssr_files(report["session"], report["files"])
+            if args.format == "json":
+                return report
+            return report["rows"]
+        return md.short_sale_restrictions(args.symbol)
+    if cmd == "ssr-files":
+        return md.short_sale_files(args.source, args.start, args.end)
     if cmd == "sql":
         return md.sql(args.query, args.params)
     raise ValueError(f"unknown command {cmd}")
