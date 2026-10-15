@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Plan, before the loader runs |
+| Status | Loaded into the local store on 2026-10-14 |
 | Date | 2026-10-14 |
 | Scope | Source the published lists into the market-data store. No strategy return is computed here. |
 
@@ -144,6 +144,15 @@ Overlap between the two sources, if a symbol is ever on both, is kept as two row
 - `market_data_tests` covers empty-to-v7, version 6 to v7 with existing rows kept, a damaged version 6 refused before the stamp, and a version 7 file missing the new tables refused.
 - `agent-data/test_mdq.py` builds the throwaway store through `v7.sql` and checks the session rule on a few inserted lines.
 
-## After the files are in
+## Loaded
 
-The first backfill is part of finishing this change: run the loader against the local store and record the file counts and the session span in the pull request. The sqlite file stays gitignored. The research rules for a strategy that uses these flags come later, in `research/<slug>/`, and they do not get written until this load is done.
+The local store is `data/market-data.sqlite`, `user_version` 7. The file stays gitignored. The load on 2026-10-14 stored every file it could parse. Nothing failed.
+
+| Source | Files | First file | Last file | Lines | Empty files | Weekdays with no file |
+|---|---:|---|---|---:|---:|---:|
+| `nasdaq` | 3932 | 2011-02-25 | 2026-10-14 | 1270748 | 3 | 147 |
+| `nyse_group` | 2907 | 2015-03-25 | 2026-10-14 | 206135 | 0 | 168 |
+
+The NYSE walk started at 2015-01-01. No workbook was published before 2015-03-25. The three empty Nasdaq files are 2011-02-25 (`No data available`) and the Sandy closures 2012-10-29 and 2012-10-30. Distinct symbols: 11054 Nasdaq, 8512 NYSE Group. On 2026-10-14 both source files are stored, with 1029 Nasdaq lines and 203 NYSE Group lines in force.
+
+A later day is `python tools/ssr/load.py`. It skips a file that is already stored. The research rules for a strategy that uses these flags come later, in `research/<slug>/`.
