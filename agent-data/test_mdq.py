@@ -14,7 +14,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -29,11 +29,22 @@ FRI_OPEN = 1654263000  # 2022-06-03 09:30 ET
 MON_OPEN = 1654522200  # 2022-06-06 09:30 ET, split ex-date
 
 
+def _utc(year: int, month: int, day: int, hour: int, minute: int, second: int = 0) -> int:
+    return int(datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc).timestamp())
+
+
+# 2026-10-13 and 2026-10-14 are EDT (UTC-4).
+OLD_TRIGGER = _utc(2026, 10, 13, 13, 30)       # 09:30 ET
+POM_TRIGGER = _utc(2026, 10, 14, 13, 30)       # 09:30 ET
+AHT_TRIGGER = _utc(2026, 10, 13, 16, 26, 40)   # 12:26:40 ET
+DONE_TRIGGER = _utc(2026, 10, 13, 14, 0)       # 10:00 ET
+
+
 def build_store(path: Path) -> None:
     con = sqlite3.connect(path)
-    for version in ("v4", "v5", "v6"):
+    for version in ("v4", "v5", "v6", "v7"):
         con.executescript((SCHEMA / f"{version}.sql").read_text(encoding="utf-8"))
-    con.execute("PRAGMA user_version = 6")
+    con.execute("PRAGMA user_version = 7")
     con.executemany(
         "INSERT INTO instrument (id, figi, asset_class, name, created_at) VALUES (?, ?, ?, ?, 0)",
         [(1, "BBG000BVPV84", "equity", "AMAZON"), (2, "BBG000BDTBL9", "etf", "SPDR")],
@@ -79,6 +90,28 @@ def build_store(path: Path) -> None:
             (2, 1, "equity", None, None, None, None, MON_OPEN + 60, -250, 110.0, 5.0),
             (3, 2, "option", 20220617, "monthly", 400.0, "call", FRI_OPEN, 2, 3.0, 1.0),
             (4, 2, "option", 20220617, "monthly", 400.0, "call", MON_OPEN, -1, 4.0, 1.0),
+        ],
+    )
+    con.executemany(
+        "INSERT INTO short_sale_restriction_file "
+        "(source, file_session, file_name, row_count, file_created_at, fetched_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            ("nasdaq", 20261013, "shorthalts20261013.txt", 1, OLD_TRIGGER, 0),
+            ("nasdaq", 20261014, "shorthalts20261014.txt", 1, POM_TRIGGER, 0),
+            ("nyse_group", 20261013, "NYSEGroupSSRCircuitBreakers20261013.xls", 2, None, 0),
+        ],
+    )
+    con.executemany(
+        "INSERT INTO short_sale_restriction ("
+        "source, file_session, symbol, security_name, listing_market, "
+        "trigger_session, trigger_ts, deactivate_session, ssr_state"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("nasdaq", 20261013, "OLD", "Old Name", "Q", 20261013, OLD_TRIGGER, None, None),
+            ("nasdaq", 20261014, "POM", "Pom Name", "Q", 20261014, POM_TRIGGER, None, None),
+            ("nyse_group", 20261013, "AHT", "Ashford", "NYSE", 20261013, AHT_TRIGGER, 20261015, "A"),
+            ("nyse_group", 20261013, "DONE", "Done Name", "NYSE", 20261013, DONE_TRIGGER, 20261014, "A"),
         ],
     )
     con.commit()
@@ -186,6 +219,54 @@ class StoreTests(unittest.TestCase):
             code = mdq.main(["bars", "NOPE", "--db", str(self.path)])
         self.assertEqual(code, 1)
         self.assertIn("not in the store", err.getvalue())
+
+    def test_ssr_session_rule(self) -> None:
+        report = self.md.short_sale_session("2026-10-14")
+        self.assertEqual(report["session"], "2026-10-14")
+        self.assertEqual(report["files"], {"nasdaq": True, "nyse_group": False})
+        self.assertEqual({row["symbol"] for row in report["rows"]}, {"POM", "AHT"})
+        pom = next(row for row in report["rows"] if row["symbol"] == "POM")
+        self.assertEqual(pom["source"], "nasdaq")
+        self.assertEqual(pom["trigger_time"], "2026-10-14 09:30:00")
+        self.assertIsNone(pom["deactivate_session"])
+        aht = next(row for row in report["rows"] if row["symbol"] == "AHT")
+        self.assertEqual(aht["trigger_time"], "2026-10-13 12:26:40")
+        self.assertEqual(aht["deactivate_session"], "2026-10-15")
+        on_trigger_day = {row["symbol"] for row in self.md.short_sale_restrictions(session="20261013")}
+        self.assertEqual(on_trigger_day, {"OLD", "AHT", "DONE"})
+        self.assertEqual(self.md.short_sale_restrictions("AHT", "2026-10-15"), [])
+        self.assertEqual(self.md.short_sale_restrictions(" pom ")[0]["symbol"], "POM")
+        files = self.md.short_sale_files(source="nasdaq")
+        self.assertEqual([row["file_session"] for row in files], ["2026-10-13", "2026-10-14"])
+
+    def test_ssr_cli_notes_a_missing_nyse_file(self) -> None:
+        out = io.StringIO()
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = mdq.main(["ssr", "--session", "20261014", "--db", str(self.path), "-f", "json"])
+        self.assertEqual(code, 0)
+        payload = json.loads(out.getvalue())
+        self.assertFalse(payload["files"]["nyse_group"])
+        self.assertEqual({row["symbol"] for row in payload["rows"]}, {"AHT", "POM"})
+        self.assertIn("no nyse_group file stored for 2026-10-14", err.getvalue())
+        self.assertNotIn("no nasdaq file", err.getvalue())
+
+    def test_ssr_needs_schema_v7(self) -> None:
+        path = Path(self.tmp.name) / "v6.sqlite"
+        con = sqlite3.connect(path)
+        for version in ("v4", "v5", "v6"):
+            con.executescript((SCHEMA / f"{version}.sql").read_text(encoding="utf-8"))
+        con.execute("PRAGMA user_version = 6")
+        con.commit()
+        con.close()
+        older = mdq.MarketData(path)
+        try:
+            self.assertEqual(older.schema_version, 6)
+            self.assertEqual(older.instruments(), [])
+            with self.assertRaisesRegex(RuntimeError, "version 7"):
+                older.short_sale_restrictions(session="2026-10-14")
+        finally:
+            older.close()
 
 
 class CalendarTests(unittest.TestCase):

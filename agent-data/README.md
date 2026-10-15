@@ -1,6 +1,6 @@
 # agent-data: how agents query the market-data store
 
-Everything the terminal knows lives in one SQLite file, `data/market-data.sqlite`: bars, splits, coverage, financial statements, option chains, portfolios, trade ledgers, and backtest runs. **Read it through `mdq.py` in this directory. Do not open it with `sqlite3` and write SQL by hand.**
+Everything the terminal knows lives in one SQLite file, `data/market-data.sqlite`: bars, splits, coverage, financial statements, option chains, portfolios, trade ledgers, backtest runs, and short-sale restrictions. **Read it through `mdq.py` in this directory. Do not open it with `sqlite3` and write SQL by hand.**
 
 `mdq.py` handles the conventions below for you, so its results match the terminal's charts and statistics. When hand-written SQL gets one of them wrong, you get no error. You just get wrong numbers.
 
@@ -59,6 +59,9 @@ python agent-data/mdq.py coverage SPY --tf 1m
 | `ledgers` | Manual and backtest ledgers, with fill counts and strategy params |
 | `fills L` / `trips L` / `book L` / `backtest L` | Raw fills, FIFO round trips, positions and cash, and backtest config for ledger id or name `L` |
 | `sessions FROM TO` | NYSE sessions with expected 1m bar counts (390, or 211 on an early close) |
+| `ssr SYMBOL` | Stored short-sale restriction lines for that published symbol |
+| `ssr --session D` | Lines in force on session D. JSON also reports whether each source file for D is stored |
+| `ssr-files [--source nasdaq\|nyse_group] [--from D] [--to D]` | Ingested short-sale restriction files |
 | `sql "SELECT ..." [params...]` | One read-only statement with `?` params |
 | `schema` | The live DDL |
 
@@ -83,6 +86,8 @@ with MarketData() as md:                  # or MarketData("path/to/copy.sqlite")
     md.option_chain("META", expiration="2026-10-16")
     md.ledgers(); md.backtest_run(6)
     book = md.ledger_book(6)              # round_trips, positions, realized_pnl, fees_paid, cash
+    md.short_sale_session("2026-10-14")   # files stored that day, and the lines in force
+    md.short_sale_restrictions("AHT")
     md.sql("SELECT ... WHERE x = ?", [value])   # read-only escape hatch
 
 df = to_frame(bars)                       # pandas, indexed by New York time
@@ -118,6 +123,17 @@ Each row records what one ingest found for one instrument, timeframe, and sessio
 - `statement` is `income`, `balance`, or `cashflow`. `timeframe` is `annually`, `quarterly`, or `trailing`. These are three separate series, not views of one another.
 - Line items keep the vendor's spellings (`revenue`, `netinccmn`, `epsdil`, `defferedTaxAssets`). Run `statement SYM` with no `--items` to see them all.
 - A missing cell means **unknown, not zero**. `period_end = 'TTM'` is a column label, not a date. Values are absolute dollars and share counts, and ratios are fractions.
+
+### Short-sale restrictions
+Regulation SHO Rule 201 circuit breakers from the Nasdaq daily file and the NYSE Group daily workbook. Not the threshold list, short volume, or short interest. These commands need `user_version` 7. Older commands still run on a version-6 store.
+
+- The key is the publisher's symbol, not `instrument_id`. `ssr` matches after trim and upper, and keeps an internal space (`AAM WS`).
+- A Nasdaq line restricts a name only on its `file_session`. The next day is not filled in from the trigger time. An NYSE Group trigger is in force while `trigger_session <= D < deactivate_session`.
+- No file row means that file was not stored. `ssr --session` writes a note on stderr when a source file for that day is missing, and `-f json` includes `files`. A missing file is not the same as an empty restricted list.
+- `trigger_time` is the New York clock. `trigger_ts` is Unix seconds UTC. `deactivate_session` and `ssr_state` are set for `nyse_group` and null for `nasdaq`.
+- The same symbol can appear twice on one Nasdaq file, with two trigger times. Both rows stay. A symbol on both sources stays as two rows.
+
+Load the files with `python tools/ssr/load.py`. That writer is separate from mdq, and it does not call MBoum. The contract is [docs/short-sale-restriction.md](../docs/short-sale-restriction.md).
 
 ### Options
 - A chain is a **snapshot from `fetched_at`, not a history**. Each refresh replaces the previous one.
