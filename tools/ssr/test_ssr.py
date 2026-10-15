@@ -175,5 +175,40 @@ class UrlTest(unittest.TestCase):
         )
 
 
+class FetchRetryTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.original = load.fetch_bytes
+        self.delays = load.BUSY_DELAYS
+        load.BUSY_DELAYS = (0, 0, 0)
+
+    def tearDown(self) -> None:
+        load.fetch_bytes = self.original
+        load.BUSY_DELAYS = self.delays
+
+    def test_a_busy_response_is_retried(self) -> None:
+        calls = {"n": 0}
+
+        def fake(url: str) -> bytes:
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise load.FetchError(f"{url} HTTP 503")
+            return b"xls"
+
+        load.fetch_bytes = fake
+        self.assertEqual(load.fetch_retry("https://example.test/file.xls"), b"xls")
+        self.assertEqual(calls["n"], 3)
+
+    def test_a_missing_file_is_not_retried(self) -> None:
+        calls = {"n": 0}
+
+        def fake(url: str) -> bytes:
+            calls["n"] += 1
+            raise load.MissingFile(url)
+
+        load.fetch_bytes = fake
+        self.assertIsNone(load.fetch_retry("https://example.test/missing.xls"))
+        self.assertEqual(calls["n"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

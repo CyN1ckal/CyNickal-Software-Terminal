@@ -27,7 +27,11 @@ DEFAULT_DB = ROOT / "data" / "market-data.sqlite"
 SCHEMA_V7 = ROOT / "libs" / "market-data" / "schema" / "v7.sql"
 USER_AGENT = "CyNickal-Software-Terminal/ssr-load"
 WORKERS = 4
+NYSE_WORKERS = 2
 ATTEMPTS = 4
+# ftp.nyse.com answers 503 when a real workbook is busy. A short retry
+# gives up and the file is left unstored. These pauses are only for that.
+BUSY_DELAYS = (2, 4, 8, 15, 30, 30, 30)
 
 NASDAQ_FLOOR = date(2011, 2, 25)
 NYSE_FLOOR = date(2015, 1, 1)
@@ -123,17 +127,28 @@ def fetch_bytes(url: str) -> bytes:
     return data
 
 
+def _busy(message: str) -> bool:
+    return "HTTP 429" in message or "HTTP 503" in message
+
+
 def fetch_retry(url: str) -> bytes | None:
     delay = 1.0
     last = "unknown error"
-    for attempt in range(ATTEMPTS):
+    attempt = 0
+    busy_attempt = 0
+    while attempt < ATTEMPTS:
         try:
             return fetch_bytes(url)
         except MissingFile:
             return None
         except FetchError as exc:
             last = str(exc)
-            if attempt + 1 == ATTEMPTS:
+            if _busy(last) and busy_attempt < len(BUSY_DELAYS):
+                time.sleep(BUSY_DELAYS[busy_attempt])
+                busy_attempt += 1
+                continue
+            attempt += 1
+            if attempt >= ATTEMPTS:
                 break
             time.sleep(delay)
             delay *= 2
@@ -224,7 +239,8 @@ def load_source(
     stored = 0
     missing = 0
     failures: list[str] = []
-    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+    workers = NYSE_WORKERS if source == "nyse_group" else WORKERS
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         for offset in range(0, len(pending), 32):
             batch = pending[offset : offset + 32]
             futures = [pool.submit(fetch_retry, _url(source, session)) for session in batch]
@@ -234,7 +250,7 @@ def load_source(
                     payload = future.result()
                 except FetchError as exc:
                     failures.append(f"{label} {exc}")
-                    print(f"fail {label}", file=sys.stderr)
+                    print(f"fail {label}: {exc}", file=sys.stderr)
                     continue
                 if payload is None:
                     missing += 1
