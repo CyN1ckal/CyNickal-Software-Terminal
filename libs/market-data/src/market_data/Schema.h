@@ -16,4 +16,7 @@ namespace terminal {
 // schema/v6.sql, ledger and backtest tables only. Does not modify v4 or v5.
 [[nodiscard]] std::string_view schemaV6();
 
+// schema/v7.sql, short-sale restriction tables only. Does not modify v4, v5, or v6.
+[[nodiscard]] std::string_view schemaV7();
+
 }  // namespace terminal

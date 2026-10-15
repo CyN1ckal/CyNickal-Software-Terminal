@@ -1,8 +1,8 @@
-# Store schema reference (user_version 6)
+# Store schema reference (user_version 7)
 
-This page is for agents that need `mdq.py sql`. The authoritative DDL is in `libs/market-data/schema/v4.sql`, `v5.sql`, and `v6.sql`, and each file's header comments carry the vendor details. `python agent-data/mdq.py schema` prints the live DDL.
+This page is for agents that need `mdq.py sql`. The authoritative DDL is in `libs/market-data/schema/v4.sql`, `v5.sql`, `v6.sql`, and `v7.sql`, and each file's header comments carry the vendor details. `python agent-data/mdq.py schema` prints the live DDL.
 
-All tables are `STRICT`. Timestamps are Unix seconds UTC. Integer dates are `YYYYMMDD`. The key on every fact row is `instrument_id → instrument.id`.
+All tables are `STRICT`. Timestamps are Unix seconds UTC. Integer dates are `YYYYMMDD`. The key on every fact row is `instrument_id → instrument.id`, except the short-sale restriction tables, which keep the publisher's symbol.
 
 ## Identity
 
@@ -56,3 +56,14 @@ Read a value with `CASE value_kind WHEN 'int' THEN value_int WHEN 'real' THEN va
 | `backtest_run` | `id` | One per backtest ledger. `strategy_id`, `params_json`, `config_json` (initial_cash, sizing, commissions, slippage_bps, stops, allow_short, flatten_at_session_end, close_at_end), `timeframe_s`, `ts_begin` (first bar open), `ts_end` (last bar close), and `engine_version`. |
 
 A fill moves cash by `-quantity × price × multiplier - fees`, where the multiplier is 1 for shares and 100 for options. Positions and P&L are not stored. Use `mdq.py book` or `trips`.
+
+## Short-sale restrictions (v7)
+
+Regulation SHO Rule 201 circuit-breaker lines. Not the threshold list, short volume, or short interest. The publisher's symbol is the key. There is no `instrument_id`. `docs/short-sale-restriction.md` is the contract for what a row means.
+
+| Table | Key | Notes |
+|---|---|---|
+| `short_sale_restriction_file` | `(source, file_session)` | One fetched file. `source` is `nasdaq` or `nyse_group`. `file_session` is the trade date in the file name. `row_count` is the parsed lines. `file_created_at` is the Nasdaq trailer in Unix seconds UTC, and null for NYSE. No row means that file was not stored. |
+| `short_sale_restriction` | `(source, file_session, symbol, trigger_ts)` | One published line. `symbol` is trimmed and uppercased, and an internal space is kept. `listing_market` is the Nasdaq category or the NYSE primary-exchange code. `trigger_session` is the New York date of `trigger_ts`. `deactivate_session` and `ssr_state` are set for `nyse_group` and null for `nasdaq`. |
+
+A Nasdaq name is restricted on session D when `source = 'nasdaq'` and `file_session = D`. An NYSE Group trigger is in force on D when `trigger_session <= D` and `D < deactivate_session`. A Nasdaq file can list the same symbol twice, with two trigger times. Both rows stay.

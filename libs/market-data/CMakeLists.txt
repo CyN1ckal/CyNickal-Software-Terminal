@@ -41,6 +41,12 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/schema_v6.inc"
     @ONLY
 )
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/schema/v7.sql" MARKET_DATA_SCHEMA_V7)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/market_data/schema_v7.inc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/schema_v7.inc"
+    @ONLY
+)
 
 add_library(market-data STATIC
     src/market_data/SqliteVersion.cpp

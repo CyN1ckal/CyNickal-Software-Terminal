@@ -27,7 +27,7 @@ inline constexpr int kMboumDailyPageLimit = 4000;
 // Newest-N cap on GET /v3/markets/historical?interval=1min. One RTH session is
 // 390 bars; the vendor also returns extended hours, so a full page is several days.
 inline constexpr int kMboumIntradayPageLimit = 4000;
-inline constexpr int kSchemaUserVersion = 6;
+inline constexpr int kSchemaUserVersion = 7;
 
 enum class AssetClass : std::uint8_t
 {

@@ -1396,6 +1396,10 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                    "statement_cell",
                                                    "statement_snapshot",};
         constexpr std::string_view kV5Tables[] = {"portfolio", "portfolio_holding"};
+        constexpr std::string_view kV6Tables[] = {"backtest_run",
+                                                   "ledger",
+                                                   "ledger_cash_flow",
+                                                   "trade_fill",};
         // A damaged version-4 (or newer) file must fail before user_version moves.
         if (version >= 4)
         {
@@ -1406,7 +1410,11 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
         {
             requireTables(tableNames(), version, kV5Tables);
         }
-        if (version == 0 || version == 4 || version == 5)
+        if (version >= 6)
+        {
+            requireTables(tableNames(), version, kV6Tables);
+        }
+        if (version == 0 || version == 4 || version == 5 || version == 6)
         {
             SqliteTxn txn(impl_->db.handle());
             if (version == 0)
@@ -1417,7 +1425,11 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
             {
                 impl_->db.exec(schemaV5());
             }
-            impl_->db.exec(schemaV6());
+            if (version <= 5)
+            {
+                impl_->db.exec(schemaV6());
+            }
+            impl_->db.exec(schemaV7());
             impl_->db.setUserVersion(kSchemaUserVersion);
             txn.commit();
         }
@@ -1435,6 +1447,8 @@ Store::Store(std::filesystem::path db_path, StoreMode mode)
                                                 "option_underlying",
                                                 "portfolio",
                                                 "portfolio_holding",
+                                                "short_sale_restriction",
+                                                "short_sale_restriction_file",
                                                 "statement_cell",
                                                 "statement_snapshot",
                                                 "trade_fill",};
@@ -1544,6 +1558,19 @@ void Store::testingUpgradeSchemaV4ToV5(const std::filesystem::path& path)
     SqliteTxn txn(db.handle());
     db.exec(schemaV5());
     db.setUserVersion(5);
+    txn.commit();
+}
+
+void Store::testingUpgradeSchemaV5ToV6(const std::filesystem::path& path)
+{
+    SqliteDb db(path);
+    if (db.userVersion() != 5)
+    {
+        throw std::runtime_error("testingUpgradeSchemaV5ToV6 requires user_version 5");
+    }
+    SqliteTxn txn(db.handle());
+    db.exec(schemaV6());
+    db.setUserVersion(6);
     txn.commit();
 }
 

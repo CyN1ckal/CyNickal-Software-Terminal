@@ -6,6 +6,7 @@
 #include "schema_v4.inc"
 #include "schema_v5.inc"
 #include "schema_v6.inc"
+#include "schema_v7.inc"
 
 namespace terminal {
 
@@ -22,6 +23,11 @@ std::string_view schemaV5()
 std::string_view schemaV6()
 {
     return kSchemaV6;
+}
+
+std::string_view schemaV7()
+{
+    return kSchemaV7;
 }
 
 }  // namespace terminal
