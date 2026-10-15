@@ -49,6 +49,12 @@ class ParseNasdaqTest(unittest.TestCase):
         self.assertEqual(carry.trigger_session, 20261012)
         self.assertEqual(carry.trigger_ts, utc(2026, 10, 12, 13, 30))
 
+    def test_no_data_available_is_an_empty_session(self) -> None:
+        parsed = parse.parse_nasdaq("\r\nNo data available", 20110225, "shorthalts20110225.txt")
+        self.assertEqual(parsed.rows, ())
+        self.assertIsNone(parsed.file_created_at)
+        self.assertEqual(parsed.file_session, 20110225)
+
     def test_html_and_a_mismatched_trailer_fail(self) -> None:
         with self.assertRaises(parse.ParseError):
             parse.parse_nasdaq("<html>Incapsula</html>", 20261013, "shorthalts20261013.txt")

@@ -106,6 +106,10 @@ def _collapse(rows: list[Restriction]) -> tuple[Restriction, ...]:
 def parse_nasdaq(text: str, file_session: int, file_name: str) -> ParsedFile:
     if text.lstrip().startswith("<") or "Incapsula" in text[:500]:
         raise ParseError(f"{file_name} is an HTML page, not a Nasdaq circuit-breaker file")
+    # The first archive day is this sentence and nothing else. It is a
+    # published session with no restricted names, not a missing file.
+    if text.strip().lower() == "no data available":
+        return ParsedFile("nasdaq", file_session, file_name, None, ())
     grid = [row for row in csv.reader(io.StringIO(text)) if any(cell.strip() for cell in row)]
     if len(grid) < 2:
         raise ParseError(f"{file_name} has no header and trailer")

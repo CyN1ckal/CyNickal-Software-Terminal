@@ -126,7 +126,7 @@ Overlap between the two sources, if a symbol is ever on both, is kept as two row
 - It refuses a `user_version` other than 6 or 7. At 6 it applies `libs/market-data/schema/v7.sql` and stamps 7 before inserting.
 - It does not call MBoum.
 - NYSE `.xls` is read with `xlrd`. The rest of the tool is the Python standard library.
-- Transport errors retry. A 550 or a 404 is a skip. A body with the wrong header is a failure, and that file is not written, so a later run tries it again.
+- Transport errors retry. A 550 or a 404 is a skip. A body with the wrong header is a failure, and that file is not written, so a later run tries it again. A Nasdaq body that says `No data available` is a published session with no names, stored with `row_count` 0.
 
 ## Reads
 
