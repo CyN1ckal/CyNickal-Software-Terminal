@@ -275,6 +275,9 @@ def assemble(
     rules_sha256: str | None = None,
     git_head: str | None = None,
     git_dirty: bool | None = None,
+    universe_type: str = "single_asset",
+    min_equity: float | None = None,
+    max_leverage: float | None = None,
 ) -> dict:
     """Build a kit_schema 1 document. Does not write results.json."""
     if study_dir is not None:
@@ -334,7 +337,13 @@ def assemble(
         extra=extra,
     )
     reason = void_reason if void_reason and void_reason.strip() else None
-    status = status_from(lines, void_reason=reason)
+    status = status_from(
+        lines,
+        void_reason=reason,
+        min_equity=min_equity,
+        max_leverage=max_leverage,
+        universe_type=universe_type,
+    )
     direction = _store_placebo(placebo_direction, "placebo_direction.npy", study_dir)
     timing = _store_placebo(placebo_timing, TIMING_FILE, study_dir)
     applicable = cross_market is not NO_CROSS_MARKET
@@ -368,6 +377,7 @@ def assemble(
         "status": status,
         "secondaries": [],
         "study": study or {},
+        "universe": {"type": universe_type},
     }
     if reason:
         doc["void_reason"] = reason

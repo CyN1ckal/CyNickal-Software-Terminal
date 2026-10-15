@@ -122,7 +122,12 @@ def validate(doc: dict) -> None:
             if not isinstance(line, dict) or any(key not in line for key in ("id", "name", "required", "actual", "passed")):
                 problems.append(f"acceptance[{index}] is missing id, name, required, actual, or passed")
         if status in _STATUSES and status != "Void":
-            expected = status_from(acceptance, void_reason=doc.get("void_reason"))
+            universe = doc.get("universe") if isinstance(doc.get("universe"), dict) else {}
+            expected = status_from(
+                acceptance,
+                void_reason=doc.get("void_reason"),
+                universe_type=universe.get("type", "single_asset"),
+            )
             if status != expected:
                 problems.append(f"status is {status}, acceptance lines say {expected}")
     else:

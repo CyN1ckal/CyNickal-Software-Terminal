@@ -36,3 +36,4 @@ One folder per strategy. Each folder holds its rules, code, and raw output in `r
 | [qqq-holdings-obv-divergence](qqq-holdings-obv-divergence/) | Granville OBV swing divergence, long and short, on the current QQQ holdings | Rejected | 2026-10-03 |
 | [qqq-holdings-relative-strength](qqq-holdings-relative-strength/) | 6–1 month excess return versus QQQ, long the top quintile | Diagnostic (Look-Ahead Universe) | 2026-10-03 |
 | [qqq-holdings-earnings](qqq-holdings-earnings/) | Pre- and post-earnings setups on QQQ holdings | Not run: no announcement history | 2026-10-03 |
+| [ssr-next-day-long](ssr-next-day-long/) | Long the next session after a short-sale restriction begins, equal weight, sold at that session's close | Rejected (OOS Sharpe −1.36, loss at zero cost) | 2026-10-15 |

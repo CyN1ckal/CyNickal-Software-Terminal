@@ -1,0 +1,3309 @@
+{
+  "label": "post hoc",
+  "changes_verdict": false,
+  "primary_hold": 1,
+  "cost_bps_per_side": 10.0,
+  "holds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "dropped_spy_sessions": 1,
+  "episodes_loaded": 4777,
+  "portfolio_rule": "Locked RULES.md book: equal weight, one cohort at a time, 10 bp per side, next-open entry. A new entry session is skipped while any share is open.",
+  "name_level_rule": "Every episode with a fill bar, held on its own at weight 1, same exit and cost. Overlapping episodes are each counted. The mean is not an account path.",
+  "matches_locked_grid": true,
+  "portfolio_oos_sharpe_positive_holds": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    12,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "name_oos_mean_positive_holds": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "highest_portfolio_oos_sharpe": {
+    "hold": 26,
+    "value": 1.4768133103804129
+  },
+  "highest_portfolio_oos_return": {
+    "hold": 25,
+    "value": 158.43912777301455
+  },
+  "highest_name_oos_avg_net_bp": {
+    "hold": 31,
+    "value": 2665.773179714858
+  },
+  "rows": [
+    {
+      "hold": 1,
+      "portfolio": {
+        "cohorts": 1633,
+        "full": {
+          "total_return": -0.9997138235792433,
+          "sharpe": -0.9151834929253351,
+          "max_dd": -0.9997629183027836,
+          "trades": 4131,
+          "profit_factor": 0.8296722041125801,
+          "avg_net_bp": -14.956697269058994,
+          "win_rate": 0.46187363834422657,
+          "exposure": 0.5634920634920635
+        },
+        "is": {
+          "total_return": -0.9951868047901413,
+          "sharpe": -0.7806055104496593,
+          "max_dd": -0.9958846059344767,
+          "trades": 2769,
+          "profit_factor": 0.8441591770552264,
+          "avg_net_bp": -14.276119306372452,
+          "win_rate": 0.4658721560130011,
+          "exposure": 0.5158662092624356
+        },
+        "oos": {
+          "total_return": -0.9405433587712135,
+          "sharpe": -1.36028132609184,
+          "max_dd": -0.9507433862788743,
+          "trades": 1362,
+          "profit_factor": 0.7959860688265613,
+          "avg_net_bp": -16.340339250467984,
+          "win_rate": 0.45374449339207046,
+          "exposure": 0.7597173144876325
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-06-23",
+          "net": 0.2624411764705884,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.2624411764705883
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": -0.0021758145706337302,
+          "median_net": -0.003426124197002115,
+          "mean_gross": -0.00017599056119492435,
+          "avg_net_bp": -21.758145706337302,
+          "median_net_bp": -34.26124197002115,
+          "mean_net_bp_without_largest": -23.693680366314624,
+          "win_rate": 0.46187363834422657,
+          "profit_factor": 0.900835978990933,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2018-03-20",
+            "net": 0.7972,
+            "gross": 0.8,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.0017381601311579728,
+          "median_net": -0.0024647592463362946,
+          "mean_gross": 0.00026210197081284097,
+          "avg_net_bp": -17.381601311579725,
+          "median_net_bp": -24.647592463362948,
+          "mean_net_bp_without_largest": -20.267938595290556,
+          "win_rate": 0.4658721560130011,
+          "profit_factor": 0.91671974358988,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2018-03-20",
+            "net": 0.7972,
+            "gross": 0.8,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": -0.003065583398026074,
+          "median_net": -0.0056125376705387815,
+          "mean_gross": -0.001066650048074148,
+          "avg_net_bp": -30.65583398026074,
+          "median_net_bp": -56.125376705387815,
+          "mean_net_bp_without_largest": -35.03434113807806,
+          "win_rate": 0.45374449339207046,
+          "profit_factor": 0.8728904721405186,
+          "largest": {
+            "symbol": "AIP",
+            "session": "2025-08-04",
+            "net": 0.5928492407809112,
+            "gross": 0.5954446854663775,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 2,
+      "portfolio": {
+        "cohorts": 998,
+        "full": {
+          "total_return": -0.9982082410253663,
+          "sharpe": -0.4651718364357905,
+          "max_dd": -0.9983679696425881,
+          "trades": 2374,
+          "profit_factor": 0.8787282583251589,
+          "avg_net_bp": -15.475685772574842,
+          "win_rate": 0.45282224094355517,
+          "exposure": 0.6887508626639062
+        },
+        "is": {
+          "total_return": -0.9896234627096752,
+          "sharpe": -0.40064772312220265,
+          "max_dd": -0.9918143340665695,
+          "trades": 1589,
+          "profit_factor": 0.8852315578346318,
+          "avg_net_bp": -16.08060903601305,
+          "win_rate": 0.46129641283826306,
+          "exposure": 0.6492281303602059
+        },
+        "oos": {
+          "total_return": -0.8273259253542739,
+          "sharpe": -0.7144093634868637,
+          "max_dd": -0.8412499764055984,
+          "trades": 785,
+          "profit_factor": 0.8606993334195666,
+          "avg_net_bp": -14.251197790914562,
+          "win_rate": 0.4356687898089172,
+          "exposure": 0.8515901060070671
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-06-23",
+          "net": 0.5136129032258067,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294146
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": -0.007624744497485095,
+          "median_net": -0.009511278195488778,
+          "mean_gross": -0.005630374872357451,
+          "avg_net_bp": -76.24744497485095,
+          "median_net_bp": -95.11278195488778,
+          "mean_net_bp_without_largest": -81.16528952555927,
+          "win_rate": 0.4386347131445171,
+          "profit_factor": 0.7723520668941384,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 2.023445054945055,
+            "gross": 2.0274725274725274,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.00969436248412906,
+          "median_net": -0.009623445825932431,
+          "mean_gross": -0.007702064548677736,
+          "avg_net_bp": -96.9436248412906,
+          "median_net_bp": -96.23445825932431,
+          "mean_net_bp_without_largest": -104.28878169616479,
+          "win_rate": 0.4351751534850126,
+          "profit_factor": 0.7210679018273167,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 2.023445054945055,
+            "gross": 2.0274725274725274,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": -0.003417129075299238,
+          "median_net": -0.008699332106862911,
+          "mean_gross": -0.0014185476229221592,
+          "avg_net_bp": -34.17129075299238,
+          "median_net_bp": -86.99332106862911,
+          "mean_net_bp_without_largest": -38.4611730316985,
+          "win_rate": 0.4456681350954479,
+          "profit_factor": 0.8895152093854314,
+          "largest": {
+            "symbol": "AARD",
+            "session": "2025-04-04",
+            "net": 0.580435849056604,
+            "gross": 0.5830188679245285,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 3,
+      "portfolio": {
+        "cohorts": 724,
+        "full": {
+          "total_return": -0.9957700151898612,
+          "sharpe": -0.3042222299709981,
+          "max_dd": -0.9978034681868442,
+          "trades": 1725,
+          "profit_factor": 0.9056985533362818,
+          "avg_net_bp": -14.247531774949165,
+          "win_rate": 0.45217391304347826,
+          "exposure": 0.7505175983436853
+        },
+        "is": {
+          "total_return": -0.9908611468553995,
+          "sharpe": -0.36774905111806583,
+          "max_dd": -0.992696034795374,
+          "trades": 1213,
+          "profit_factor": 0.8817148504938276,
+          "avg_net_bp": -19.444904606520158,
+          "win_rate": 0.4558944765045342,
+          "exposure": 0.7139794168096055
+        },
+        "oos": {
+          "total_return": -0.5371427089144138,
+          "sharpe": -0.0622485526059753,
+          "max_dd": -0.7504730050765999,
+          "trades": 512,
+          "profit_factor": 0.9838225921724293,
+          "avg_net_bp": -1.934224656403047,
+          "win_rate": 0.443359375,
+          "exposure": 0.901060070671378
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-06-23",
+          "net": 0.45674383301707805,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294146
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": -0.0067583405635194315,
+          "median_net": -0.009433035714285689,
+          "mean_gross": -0.004763103667186617,
+          "avg_net_bp": -67.58340563519431,
+          "median_net_bp": -94.33035714285688,
+          "mean_net_bp_without_largest": -71.834623180129,
+          "win_rate": 0.44928588719438395,
+          "profit_factor": 0.8306539759047785,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 1.7489945054945055,
+            "gross": 1.7527472527472527,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.008817006867468473,
+          "median_net": -0.008572368421052596,
+          "mean_gross": -0.0068238306981666386,
+          "avg_net_bp": -88.17006867468473,
+          "median_net_bp": -85.72368421052596,
+          "mean_net_bp_without_largest": -94.52054379159938,
+          "win_rate": 0.4514265077645359,
+          "profit_factor": 0.78793103519844,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 1.7489945054945055,
+            "gross": 1.7527472527472527,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": -0.002572990346460039,
+          "median_net": -0.010797363029636423,
+          "mean_gross": -0.0005735639103704084,
+          "avg_net_bp": -25.72990346460039,
+          "median_net_bp": -107.97363029636422,
+          "mean_net_bp_without_largest": -29.506291178266107,
+          "win_rate": 0.44493392070484583,
+          "profit_factor": 0.929541953055121,
+          "largest": {
+            "symbol": "AARD",
+            "session": "2025-04-25",
+            "net": 0.5113933774834438,
+            "gross": 0.513907284768212,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 4,
+      "portfolio": {
+        "cohorts": 568,
+        "full": {
+          "total_return": -0.5328847683670423,
+          "sharpe": 0.26537507824659723,
+          "max_dd": -0.8666630341037986,
+          "trades": 1352,
+          "profit_factor": 1.1220476602199483,
+          "avg_net_bp": 19.432079805027335,
+          "win_rate": 0.48668639053254437,
+          "exposure": 0.785024154589372
+        },
+        "is": {
+          "total_return": -0.630124666165835,
+          "sharpe": 0.21592892580221734,
+          "max_dd": -0.8574204652911983,
+          "trades": 982,
+          "profit_factor": 1.1130776506022364,
+          "avg_net_bp": 19.90775859610706,
+          "win_rate": 0.4816700610997963,
+          "exposure": 0.7512864493996569
+        },
+        "oos": {
+          "total_return": 0.26289911465788207,
+          "sharpe": 0.4935332331778805,
+          "max_dd": -0.5722728354881218,
+          "trades": 370,
+          "profit_factor": 1.1586427769403873,
+          "avg_net_bp": 18.169602581134665,
+          "win_rate": 0.5,
+          "exposure": 0.9240282685512368
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-06-23",
+          "net": 0.31267552182163183,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294123
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": -0.002055228846321549,
+          "median_net": -0.005540759493670816,
+          "mean_gross": -5.528413045200007e-05,
+          "avg_net_bp": -20.55228846321549,
+          "median_net_bp": -55.407594936708165,
+          "mean_net_bp_without_largest": -24.712374827396506,
+          "win_rate": 0.46961994674412977,
+          "profit_factor": 0.9508316757314451,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 1.7160604395604397,
+            "gross": 1.7197802197802199,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.0059086891699579565,
+          "median_net": -0.006484848484848576,
+          "mean_gross": -0.003912601771729684,
+          "avg_net_bp": -59.08689169957957,
+          "median_net_bp": -64.84848484848575,
+          "mean_net_bp_without_largest": -65.30787843632231,
+          "win_rate": 0.46551101480678947,
+          "profit_factor": 0.8678486727346423,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-12",
+            "net": 1.7160604395604397,
+            "gross": 1.7197802197802199,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.005779008771996521,
+          "median_net": -0.004309518399526528,
+          "mean_gross": 0.007786795567564086,
+          "avg_net_bp": 57.79008771996521,
+          "median_net_bp": -43.09518399526528,
+          "mean_net_bp_without_largest": 53.67564503360888,
+          "win_rate": 0.4779735682819383,
+          "profit_factor": 1.1610636111211972,
+          "largest": {
+            "symbol": "SWIM",
+            "session": "2024-08-05",
+            "net": 0.565754658385093,
+            "gross": 0.5683229813664594,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 5,
+      "portfolio": {
+        "cohorts": 474,
+        "full": {
+          "total_return": -0.995071725558023,
+          "sharpe": -0.3584630775075314,
+          "max_dd": -0.9969483573622627,
+          "trades": 1112,
+          "profit_factor": 0.8634764674075519,
+          "avg_net_bp": -25.579043139315328,
+          "win_rate": 0.47032374100719426,
+          "exposure": 0.8171152518978606
+        },
+        "is": {
+          "total_return": -0.9945854420745447,
+          "sharpe": -0.602466189216198,
+          "max_dd": -0.9959491198068531,
+          "trades": 803,
+          "profit_factor": 0.7677823562000706,
+          "avg_net_bp": -44.34027146299693,
+          "win_rate": 0.45952677459526775,
+          "exposure": 0.7838765008576329
+        },
+        "oos": {
+          "total_return": -0.08981037605898723,
+          "sharpe": 0.3564598620032406,
+          "max_dd": -0.6951736925735008,
+          "trades": 309,
+          "profit_factor": 1.1301653762032622,
+          "avg_net_bp": 23.17586412254982,
+          "win_rate": 0.49838187702265374,
+          "exposure": 0.9540636042402827
+        },
+        "oos_max_trade": {
+          "symbol": "PRPO",
+          "session": "2025-04-16",
+          "net": 0.4541907514450864,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3861365226702125
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.0003898758736593045,
+          "median_net": -0.005329999999999966,
+          "mean_gross": 0.0023922681418011064,
+          "avg_net_bp": 3.89875873659304,
+          "median_net_bp": -53.299999999999656,
+          "mean_net_bp_without_largest": -4.008400187751379,
+          "win_rate": 0.4698620188816267,
+          "profit_factor": 1.0085683313652296,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 3.2660465116279065,
+            "gross": 3.271317829457364,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.003450810122571632,
+          "median_net": -0.006409711075441573,
+          "mean_gross": -0.0014522623849565878,
+          "avg_net_bp": -34.50810122571633,
+          "median_net_bp": -64.09711075441574,
+          "mean_net_bp_without_largest": -46.31986900660677,
+          "win_rate": 0.4644275911881546,
+          "profit_factor": 0.9290869483090742,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 3.2660465116279065,
+            "gross": 3.271317829457364,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.008198142777890922,
+          "median_net": -0.0028532252012175236,
+          "mean_gross": 0.010208351129019943,
+          "avg_net_bp": 81.98142777890922,
+          "median_net_bp": -28.532252012175235,
+          "mean_net_bp_without_largest": 77.31486916459295,
+          "win_rate": 0.48091042584434657,
+          "profit_factor": 1.2097980667518815,
+          "largest": {
+            "symbol": "SWIM",
+            "session": "2024-08-05",
+            "net": 0.6433167701863353,
+            "gross": 0.6459627329192545,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 6,
+      "portfolio": {
+        "cohorts": 401,
+        "full": {
+          "total_return": -0.9728714236024503,
+          "sharpe": -0.059574885690532625,
+          "max_dd": -0.9907342671262334,
+          "trades": 962,
+          "profit_factor": 0.9633311817269677,
+          "avg_net_bp": -7.064640287650641,
+          "win_rate": 0.43347193347193347,
+          "exposure": 0.8295376121463078
+        },
+        "is": {
+          "total_return": -0.9640427186465144,
+          "sharpe": -0.13146739366530216,
+          "max_dd": -0.9862549909495212,
+          "trades": 667,
+          "profit_factor": 0.9319857445727856,
+          "avg_net_bp": -14.582506947410685,
+          "win_rate": 0.43928035982008995,
+          "exposure": 0.8014579759862779
+        },
+        "oos": {
+          "total_return": -0.2455331611181466,
+          "sharpe": 0.2156989750474662,
+          "max_dd": -0.7673818363208968,
+          "trades": 295,
+          "profit_factor": 1.0692224500236995,
+          "avg_net_bp": 9.933383651535598,
+          "win_rate": 0.42033898305084744,
+          "exposure": 0.9452296819787986
+        },
+        "oos_max_trade": {
+          "symbol": "OPI",
+          "session": "2025-09-04",
+          "net": 0.494846903949293,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723903
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.0036474352796717294,
+          "median_net": -0.005488128491620142,
+          "mean_gross": 0.00565308836803977,
+          "avg_net_bp": 36.4743527967173,
+          "median_net_bp": -54.88128491620142,
+          "mean_net_bp_without_largest": 26.898258286292513,
+          "win_rate": 0.4751876059065602,
+          "profit_factor": 1.0767148258844894,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2020-07-23",
+            "net": 3.958574468085107,
+            "gross": 3.964539007092199,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.0013226725888403794,
+          "median_net": -0.00489565217391299,
+          "mean_gross": 0.003325998587427808,
+          "avg_net_bp": 13.226725888403799,
+          "median_net_bp": -48.956521739129904,
+          "mean_net_bp_without_largest": -1.0697040086202914,
+          "win_rate": 0.47815095702419647,
+          "profit_factor": 1.026536092947218,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2020-07-23",
+            "net": 3.958574468085107,
+            "gross": 3.964539007092199,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.008373770001339872,
+          "median_net": -0.0070217042498533925,
+          "mean_gross": 0.010384154155495368,
+          "avg_net_bp": 83.73770001339872,
+          "median_net_bp": -70.21704249853393,
+          "mean_net_bp_without_largest": 75.66841184136743,
+          "win_rate": 0.46916299559471364,
+          "profit_factor": 1.1953220613590507,
+          "largest": {
+            "symbol": "RTB",
+            "session": "2026-06-09",
+            "net": 1.1066038902147972,
+            "gross": 1.1097136038186157,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 7,
+      "portfolio": {
+        "cohorts": 346,
+        "full": {
+          "total_return": -0.9767201919553167,
+          "sharpe": -0.127141812147099,
+          "max_dd": -0.989163853245283,
+          "trades": 793,
+          "profit_factor": 0.9551537731668501,
+          "avg_net_bp": -9.840290974378632,
+          "win_rate": 0.4691046658259773,
+          "exposure": 0.8354037267080745
+        },
+        "is": {
+          "total_return": -0.9640043508668349,
+          "sharpe": -0.19126794815373632,
+          "max_dd": -0.967412408660332,
+          "trades": 542,
+          "profit_factor": 0.9377838956644236,
+          "avg_net_bp": -15.446651860873203,
+          "win_rate": 0.47232472324723246,
+          "exposure": 0.807032590051458
+        },
+        "oos": {
+          "total_return": -0.3532605021634646,
+          "sharpe": 0.1104384364292675,
+          "max_dd": -0.7446462359019363,
+          "trades": 251,
+          "profit_factor": 1.0144210556234778,
+          "avg_net_bp": 2.2658747645857384,
+          "win_rate": 0.46215139442231074,
+          "exposure": 0.9522968197879859
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-06-23",
+          "net": 0.28424098671726766,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723905
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.0006894483466460788,
+          "median_net": -0.008065357142857188,
+          "mean_gross": 0.0026921404871332127,
+          "avg_net_bp": 6.8944834664607875,
+          "median_net_bp": -80.65357142857188,
+          "mean_net_bp_without_largest": 0.038109024144540385,
+          "win_rate": 0.46719922536916003,
+          "profit_factor": 1.012994361840687,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 2.832372093023256,
+            "gross": 2.8372093023255816,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": -0.0028813332644057514,
+          "median_net": -0.009194314592545839,
+          "mean_gross": -0.0008822154798856362,
+          "avg_net_bp": -28.813332644057493,
+          "median_net_bp": -91.9431459254584,
+          "mean_net_bp_without_largest": -39.05630022457652,
+          "win_rate": 0.4618996027446732,
+          "profit_factor": 0.948816373118163,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 2.832372093023256,
+            "gross": 2.8372093023255816,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.007948988934753654,
+          "median_net": -0.005644222854398335,
+          "mean_gross": 0.009958947882636291,
+          "avg_net_bp": 79.48988934753653,
+          "median_net_bp": -56.44222854398335,
+          "mean_net_bp_without_largest": 64.40662277126088,
+          "win_rate": 0.4779735682819383,
+          "profit_factor": 1.1710288305758878,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 2.060781569965871,
+            "gross": 2.064846416382253,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 8,
+      "portfolio": {
+        "cohorts": 307,
+        "full": {
+          "total_return": -0.980423521953319,
+          "sharpe": -0.1298831372979095,
+          "max_dd": -0.9882977104625386,
+          "trades": 682,
+          "profit_factor": 0.8915519345658011,
+          "avg_net_bp": -25.520145367211477,
+          "win_rate": 0.47947214076246336,
+          "exposure": 0.8464458247066943
+        },
+        "is": {
+          "total_return": -0.9760729480524191,
+          "sharpe": -0.20300767116362303,
+          "max_dd": -0.9858709413520292,
+          "trades": 464,
+          "profit_factor": 0.8457503499088335,
+          "avg_net_bp": -41.85501111407903,
+          "win_rate": 0.4525862068965517,
+          "exposure": 0.8203259005145798
+        },
+        "oos": {
+          "total_return": -0.1818265748087622,
+          "sharpe": 0.19927926798846793,
+          "max_dd": -0.6040555098502021,
+          "trades": 218,
+          "profit_factor": 1.0582913330265449,
+          "avg_net_bp": 9.247642277497413,
+          "win_rate": 0.536697247706422,
+          "exposure": 0.9540636042402827
+        },
+        "oos_max_trade": {
+          "symbol": "STRT",
+          "session": "2025-02-10",
+          "net": 0.30480607476635513,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294146
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.006212477882272238,
+          "median_net": -0.006360123483074227,
+          "mean_gross": 0.008220698580853092,
+          "avg_net_bp": 62.124778822722384,
+          "median_net_bp": -63.60123483074227,
+          "mean_net_bp_without_largest": 49.84442553795521,
+          "win_rate": 0.4739772452190753,
+          "profit_factor": 1.116561932739727,
+          "largest": {
+            "symbol": "BNED",
+            "session": "2024-05-13",
+            "net": 5.077998384491114,
+            "gross": 5.085083467959073,
+            "exit_reason": "hold"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.003451070076210597,
+          "median_net": -0.00784552369806912,
+          "mean_gross": 0.005456526602813411,
+          "avg_net_bp": 34.51070076210598,
+          "median_net_bp": -78.4552369806912,
+          "mean_net_bp_without_largest": 16.177798614653284,
+          "win_rate": 0.4694835680751174,
+          "profit_factor": 1.0617614109927398,
+          "largest": {
+            "symbol": "BNED",
+            "session": "2024-05-13",
+            "net": 5.077998384491114,
+            "gross": 5.085083467959073,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.01182652943512443,
+          "median_net": -0.004203743335850154,
+          "mean_gross": 0.013840369804929361,
+          "avg_net_bp": 118.26529435124431,
+          "median_net_bp": -42.037433358501545,
+          "mean_net_bp_without_largest": 94.21690524577555,
+          "win_rate": 0.4831130690161527,
+          "profit_factor": 1.2461151115164046,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 3.28481228668942,
+            "gross": 3.2901023890784984,
+            "exit_reason": "hold"
+          }
+        }
+      }
+    },
+    {
+      "hold": 9,
+      "portfolio": {
+        "cohorts": 281,
+        "full": {
+          "total_return": -0.9802508262330739,
+          "sharpe": -0.20216767305434002,
+          "max_dd": -0.9926943919973042,
+          "trades": 612,
+          "profit_factor": 0.8846146031984361,
+          "avg_net_bp": -28.78491520215124,
+          "win_rate": 0.4673202614379085,
+          "exposure": 0.8719806763285024
+        },
+        "is": {
+          "total_return": -0.9534135817888906,
+          "sharpe": -0.19692058715840016,
+          "max_dd": -0.9615857226083097,
+          "trades": 451,
+          "profit_factor": 0.8876685143394862,
+          "avg_net_bp": -29.564987728125555,
+          "win_rate": 0.48558758314855877,
+          "exposure": 0.8494854202401372
+        },
+        "oos": {
+          "total_return": -0.5760744327363541,
+          "sharpe": -0.22259965433236223,
+          "max_dd": -0.8437293242700017,
+          "trades": 161,
+          "profit_factor": 0.8739445268440426,
+          "avg_net_bp": -26.59974309522936,
+          "win_rate": 0.4161490683229814,
+          "exposure": 0.9646643109540636
+        },
+        "oos_max_trade": {
+          "symbol": "RTB",
+          "session": "2026-06-17",
+          "net": 0.4045048250904705,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-07-17",
+          "strategy_net": 0.23901452058309625
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.028357566950324552,
+          "median_net": -0.00417173913043477,
+          "mean_gross": 0.030387954905229782,
+          "avg_net_bp": 283.57566950324554,
+          "median_net_bp": -41.71739130434769,
+          "mean_net_bp_without_largest": 80.24579336376434,
+          "win_rate": 0.4841442749939482,
+          "profit_factor": 1.5052848928181373,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.004330492636225331,
+          "median_net": -0.0051557749259624214,
+          "mean_gross": 0.006336829465691023,
+          "avg_net_bp": 43.30492636225331,
+          "median_net_bp": -51.55774925962422,
+          "mean_net_bp_without_largest": 31.57925923495159,
+          "win_rate": 0.4810400866738895,
+          "profit_factor": 1.0743991915112165,
+          "largest": {
+            "symbol": "BNED",
+            "session": "2024-05-13",
+            "net": 3.2499951534733436,
+            "gross": 3.2552504038772208,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.07720556164616944,
+          "median_net": -0.0025907208189982107,
+          "mean_gross": 0.07928484649266211,
+          "avg_net_bp": 772.0556164616943,
+          "median_net_bp": -25.907208189982107,
+          "mean_net_bp_without_largest": 155.40322225956453,
+          "win_rate": 0.49045521292217326,
+          "profit_factor": 2.4880248628640524,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 10,
+      "portfolio": {
+        "cohorts": 254,
+        "full": {
+          "total_return": -0.779204028653907,
+          "sharpe": 0.156239458776656,
+          "max_dd": -0.9762235839970105,
+          "trades": 573,
+          "profit_factor": 1.0699045454128928,
+          "avg_net_bp": 17.246087655062425,
+          "win_rate": 0.49214659685863876,
+          "exposure": 0.8726708074534162
+        },
+        "is": {
+          "total_return": -0.9216882294313188,
+          "sharpe": -0.059546578534326045,
+          "max_dd": -0.9762235839970105,
+          "trades": 415,
+          "profit_factor": 0.9325276501931526,
+          "avg_net_bp": -17.88031351708871,
+          "win_rate": 0.4843373493975904,
+          "exposure": 0.8486277873070326
+        },
+        "oos": {
+          "total_return": 1.8194480822324102,
+          "sharpe": 0.9811484783011569,
+          "max_dd": -0.47201453244605684,
+          "trades": 158,
+          "profit_factor": 1.5512326531912308,
+          "avg_net_bp": 109.50847048064924,
+          "win_rate": 0.5126582278481012,
+          "exposure": 0.9717314487632509
+        },
+        "oos_max_trade": {
+          "symbol": "FBYD",
+          "session": "2026-04-16",
+          "net": 0.49795367847411437,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294123
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.03129983704118383,
+          "median_net": -0.0013867403314916035,
+          "mean_gross": 0.03333317021139523,
+          "avg_net_bp": 312.9983704118383,
+          "median_net_bp": -13.867403314916036,
+          "mean_net_bp_without_largest": 109.67561841301301,
+          "win_rate": 0.49382716049382713,
+          "profit_factor": 1.5569451894137738,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.007137463196392633,
+          "median_net": -0.0021326517062808152,
+          "mean_gross": 0.009146609806198832,
+          "avg_net_bp": 71.37463196392632,
+          "median_net_bp": -21.326517062808154,
+          "mean_net_bp_without_largest": 61.82963613843531,
+          "win_rate": 0.48537378114842905,
+          "profit_factor": 1.1226916595971252,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2019-04-05",
+            "net": 2.6491923076923074,
+            "gross": 2.6538461538461533,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.0804229010472241,
+          "median_net": 0.004074764715803646,
+          "mean_gross": 0.08250540645367778,
+          "avg_net_bp": 804.229010472241,
+          "median_net_bp": 40.747647158036465,
+          "mean_net_bp_without_largest": 187.60025579546786,
+          "win_rate": 0.5110132158590308,
+          "profit_factor": 2.5411358176765346,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 11,
+      "portfolio": {
+        "cohorts": 232,
+        "full": {
+          "total_return": 0.13452601348895388,
+          "sharpe": 0.3424983282790207,
+          "max_dd": -0.9368318863942322,
+          "trades": 509,
+          "profit_factor": 1.301580689608626,
+          "avg_net_bp": 71.6813792327658,
+          "win_rate": 0.4931237721021611,
+          "exposure": 0.8743961352657005
+        },
+        "is": {
+          "total_return": -0.03774141731314984,
+          "sharpe": 0.32688864545985374,
+          "max_dd": -0.9071801242583182,
+          "trades": 352,
+          "profit_factor": 1.3184192609422507,
+          "avg_net_bp": 84.54554649398511,
+          "win_rate": 0.4772727272727273,
+          "exposure": 0.8494854202401372
+        },
+        "oos": {
+          "total_return": 0.17902405226783524,
+          "sharpe": 0.42045692028312986,
+          "max_dd": -0.7034183199196634,
+          "trades": 157,
+          "profit_factor": 1.244394895139821,
+          "avg_net_bp": 42.83942460888557,
+          "win_rate": 0.5286624203821656,
+          "exposure": 0.9770318021201413
+        },
+        "oos_max_trade": {
+          "symbol": "FBYD",
+          "session": "2026-04-16",
+          "net": 0.53424795640327,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2026-02-13",
+          "strategy_net": 0.17690946850242284
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.03191515981069868,
+          "median_net": -0.002,
+          "mean_gross": 0.033949108919618304,
+          "avg_net_bp": 319.15159810698685,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 115.83033599380197,
+          "win_rate": 0.4923747276688453,
+          "profit_factor": 1.5487965111222712,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.008062880441548344,
+          "median_net": -0.00332142857142853,
+          "mean_gross": 0.010072953394943289,
+          "avg_net_bp": 80.62880441548346,
+          "median_net_bp": -33.214285714285296,
+          "mean_net_bp_without_largest": 70.20430948599817,
+          "win_rate": 0.48537378114842905,
+          "profit_factor": 1.1344284601265031,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2019-04-05",
+            "net": 2.8935630769230767,
+            "gross": 2.898461538461538,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.08040778945326645,
+          "median_net": 0.003027066206639388,
+          "mean_gross": 0.08249027973299945,
+          "avg_net_bp": 804.0778945326642,
+          "median_net_bp": 30.27066206639388,
+          "mean_net_bp_without_largest": 187.44902882287175,
+          "win_rate": 0.5066079295154186,
+          "profit_factor": 2.4768290900013614,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 12,
+      "portfolio": {
+        "cohorts": 200,
+        "full": {
+          "total_return": 155.59258890342616,
+          "sharpe": 0.36021070258296517,
+          "max_dd": -0.9240893838518232,
+          "trades": 444,
+          "profit_factor": 3.4499557879141745,
+          "avg_net_bp": 581.2392248930204,
+          "win_rate": 0.5382882882882883,
+          "exposure": 0.8850931677018633
+        },
+        "is": {
+          "total_return": 1.0176262337425035,
+          "sharpe": 0.4358662677444475,
+          "max_dd": -0.9240893838518232,
+          "trades": 370,
+          "profit_factor": 1.3589690333381397,
+          "avg_net_bp": 91.42381481662086,
+          "win_rate": 0.527027027027027,
+          "exposure": 0.8606346483704974
+        },
+        "oos": {
+          "total_return": 76.61228828441736,
+          "sharpe": 0.7141660752010759,
+          "max_dd": -0.2895399157082642,
+          "trades": 74,
+          "profit_factor": 21.19582622077307,
+          "avg_net_bp": 3030.3162752750186,
+          "win_rate": 0.5945945945945946,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "OPI",
+          "session": "2025-09-25",
+          "net": 21.000899103139012,
+          "weight": 0.25,
+          "exit_reason": "missing_bar"
+        },
+        "oos_max_day": {
+          "session": "2026-06-18",
+          "strategy_net": 22.43584607317583
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.03284808647292259,
+          "median_net": -0.0015510112359549486,
+          "mean_gross": 0.03488296944236496,
+          "avg_net_bp": 328.4808647292259,
+          "median_net_bp": -15.510112359549487,
+          "mean_net_bp_without_largest": 125.16186151837086,
+          "win_rate": 0.495521665456306,
+          "profit_factor": 1.5498178921488381,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.008763855051754175,
+          "median_net": -0.003148275862068931,
+          "mean_gross": 0.010774629681435612,
+          "avg_net_bp": 87.63855051754174,
+          "median_net_bp": -31.48275862068931,
+          "mean_net_bp_without_largest": 75.89113463467754,
+          "win_rate": 0.4860960635608523,
+          "profit_factor": 1.1419619730076473,
+          "largest": {
+            "symbol": "SKYH",
+            "session": "2022-02-18",
+            "net": 3.260448571428572,
+            "gross": 3.265714285714286,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.08181228383357995,
+          "median_net": 0.006699249866352262,
+          "mean_gross": 0.08389618001359356,
+          "avg_net_bp": 818.1228383357997,
+          "median_net_bp": 66.99249866352261,
+          "mean_net_bp_without_largest": 201.50429220264397,
+          "win_rate": 0.5146842878120411,
+          "profit_factor": 2.4688727488415125,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 13,
+      "portfolio": {
+        "cohorts": 198,
+        "full": {
+          "total_return": -0.9746479339195423,
+          "sharpe": -0.10331728064511107,
+          "max_dd": -0.9896915713870021,
+          "trades": 437,
+          "profit_factor": 0.9157819466232135,
+          "avg_net_bp": -25.846268012939532,
+          "win_rate": 0.4919908466819222,
+          "exposure": 0.8837129054520358
+        },
+        "is": {
+          "total_return": -0.876923326507248,
+          "sharpe": 0.03072567575720684,
+          "max_dd": -0.985355379947351,
+          "trades": 310,
+          "profit_factor": 1.018825875562275,
+          "avg_net_bp": 6.107805611186046,
+          "win_rate": 0.5225806451612903,
+          "exposure": 0.8623499142367067
+        },
+        "oos": {
+          "total_return": -0.7940140453832576,
+          "sharpe": -0.6524710142424177,
+          "max_dd": -0.8618359225063668,
+          "trades": 127,
+          "profit_factor": 0.6067743346395449,
+          "avg_net_bp": -103.84440048127755,
+          "win_rate": 0.41732283464566927,
+          "exposure": 0.9717314487632509
+        },
+        "oos_max_trade": {
+          "symbol": "PRPO",
+          "session": "2025-04-16",
+          "net": 0.21358381502890147,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723903
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.036513005467285,
+          "median_net": -0.002,
+          "mean_gross": 0.03855155702430931,
+          "avg_net_bp": 365.13005467285,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 161.8199253578651,
+          "win_rate": 0.49673202614379086,
+          "profit_factor": 1.606000229965237,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.011900003212950545,
+          "median_net": -0.005853836262323161,
+          "mean_gross": 0.013913917130080626,
+          "avg_net_bp": 119.00003212950546,
+          "median_net_bp": -58.538362623231606,
+          "mean_net_bp_without_largest": 102.76665348288164,
+          "win_rate": 0.4810400866738895,
+          "profit_factor": 1.190191060874832,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2020-07-14",
+            "net": 4.505299212598425,
+            "gross": 4.511811023622047,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.08655221489625131,
+          "median_net": 0.010140376678741342,
+          "mean_gross": 0.08864085575200331,
+          "avg_net_bp": 865.522148962513,
+          "median_net_bp": 101.40376678741342,
+          "mean_net_bp_without_largest": 248.9384296556813,
+          "win_rate": 0.5286343612334802,
+          "profit_factor": 2.558277969812281,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 14,
+      "portfolio": {
+        "cohorts": 185,
+        "full": {
+          "total_return": -0.9261482702957095,
+          "sharpe": 0.061559358836445824,
+          "max_dd": -0.98357040030655,
+          "trades": 417,
+          "profit_factor": 0.9958584664707085,
+          "avg_net_bp": -1.2690062342224124,
+          "win_rate": 0.49160671462829736,
+          "exposure": 0.8868184955141477
+        },
+        "is": {
+          "total_return": -0.9558102300928253,
+          "sharpe": -0.08637276078457727,
+          "max_dd": -0.98357040030655,
+          "trades": 311,
+          "profit_factor": 0.9171773848929748,
+          "avg_net_bp": -28.242888383927188,
+          "win_rate": 0.4983922829581994,
+          "exposure": 0.8674957118353345
+        },
+        "oos": {
+          "total_return": 0.6712404219217225,
+          "sharpe": 0.6644005360909266,
+          "max_dd": -0.5203657109812325,
+          "trades": 106,
+          "profit_factor": 1.3800272486243987,
+          "avg_net_bp": 77.87134611066611,
+          "win_rate": 0.4716981132075472,
+          "exposure": 0.9664310954063604
+        },
+        "oos_max_trade": {
+          "symbol": "FBYD",
+          "session": "2025-01-24",
+          "net": 0.28256413301662703,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723903
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.03620114724488219,
+          "median_net": -0.002,
+          "mean_gross": 0.0382393866315137,
+          "avg_net_bp": 362.01147244882185,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 158.70058802918228,
+          "win_rate": 0.49213265553134833,
+          "profit_factor": 1.5768522972817414,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.008605435869181095,
+          "median_net": -0.009069438301636432,
+          "mean_gross": 0.010616051921102198,
+          "avg_net_bp": 86.05435869181095,
+          "median_net_bp": -90.69438301636431,
+          "mean_net_bp_without_largest": 75.2653609890262,
+          "win_rate": 0.47020585048754066,
+          "profit_factor": 1.1298003554492861,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2019-03-28",
+            "net": 2.995,
+            "gross": 3.0,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.0923043225747767,
+          "median_net": 0.010873126225686147,
+          "mean_gross": 0.09439872129607278,
+          "avg_net_bp": 923.0432257477671,
+          "median_net_bp": 108.73126225686147,
+          "mean_net_bp_without_largest": 306.50177027398837,
+          "win_rate": 0.5367107195301027,
+          "profit_factor": 2.661431161881009,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 15,
+      "portfolio": {
+        "cohorts": 174,
+        "full": {
+          "total_return": -0.8477419180585304,
+          "sharpe": 0.09835834484543726,
+          "max_dd": -0.9519098926149646,
+          "trades": 436,
+          "profit_factor": 1.084072078278677,
+          "avg_net_bp": 22.403840898829277,
+          "win_rate": 0.4610091743119266,
+          "exposure": 0.8951000690131125
+        },
+        "is": {
+          "total_return": -0.8167002603918065,
+          "sharpe": 0.06511270078879051,
+          "max_dd": -0.9519098926149646,
+          "trades": 345,
+          "profit_factor": 1.0726491280315615,
+          "avg_net_bp": 19.75038890968595,
+          "win_rate": 0.4492753623188406,
+          "exposure": 0.8756432246998285
+        },
+        "oos": {
+          "total_return": -0.16934916401450417,
+          "sharpe": 0.23102334854336565,
+          "max_dd": -0.5632605335080165,
+          "trades": 91,
+          "profit_factor": 1.1319116508116138,
+          "avg_net_bp": 32.46363140711993,
+          "win_rate": 0.5054945054945055,
+          "exposure": 0.9752650176678446
+        },
+        "oos_max_trade": {
+          "symbol": "PARK",
+          "session": "2025-12-31",
+          "net": 0.5704788961038961,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-01-10",
+          "strategy_net": 0.24612101963034316
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.04553120346233322,
+          "median_net": -0.0028978968182636344,
+          "mean_gross": 0.047578782244577796,
+          "avg_net_bp": 455.3120346233322,
+          "median_net_bp": -28.978968182636343,
+          "mean_net_bp_without_largest": 252.02374113884377,
+          "win_rate": 0.49019607843137253,
+          "profit_factor": 1.7037317676686774,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.009995386096613662,
+          "median_net": -0.008263322884012572,
+          "mean_gross": 0.012007393490103766,
+          "avg_net_bp": 99.95386096613662,
+          "median_net_bp": -82.63322884012571,
+          "mean_net_bp_without_largest": 86.73583784493033,
+          "win_rate": 0.4712892741061755,
+          "profit_factor": 1.1472417825723913,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 3.668744186046512,
+            "gross": 3.674418604651163,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.11777692907589962,
+          "median_net": 0.013006153303218545,
+          "mean_gross": 0.11989682590180144,
+          "avg_net_bp": 1177.7692907589965,
+          "median_net_bp": 130.06153303218545,
+          "mean_net_bp_without_largest": 561.4149962440797,
+          "win_rate": 0.5286343612334802,
+          "profit_factor": 3.022775263166029,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 16,
+      "portfolio": {
+        "cohorts": 163,
+        "full": {
+          "total_return": -0.9917423417423503,
+          "sharpe": -0.18437394506547455,
+          "max_dd": -0.9949631143602298,
+          "trades": 301,
+          "profit_factor": 0.7952828208800283,
+          "avg_net_bp": -84.46889453898397,
+          "win_rate": 0.46511627906976744,
+          "exposure": 0.8919944789510007
+        },
+        "is": {
+          "total_return": -0.9892498631902181,
+          "sharpe": -0.23723527624303814,
+          "max_dd": -0.9949631143602298,
+          "trades": 231,
+          "profit_factor": 0.7352047902821702,
+          "avg_net_bp": -114.82565174559599,
+          "win_rate": 0.4935064935064935,
+          "exposure": 0.8713550600343053
+        },
+        "oos": {
+          "total_return": -0.2318555192585232,
+          "sharpe": 0.09916360720707632,
+          "max_dd": -0.6076428240352394,
+          "trades": 70,
+          "profit_factor": 1.0457671935849857,
+          "avg_net_bp": 15.70840424283569,
+          "win_rate": 0.37142857142857144,
+          "exposure": 0.9770318021201413
+        },
+        "oos_max_trade": {
+          "symbol": "RTB",
+          "session": "2026-06-17",
+          "net": 0.5183835946924007,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-12-03",
+          "strategy_net": 0.18272040897594155
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.047462692935596094,
+          "median_net": -0.002,
+          "mean_gross": 0.04951220514073684,
+          "avg_net_bp": 474.626929355961,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 271.34331260143205,
+          "win_rate": 0.49406923263132413,
+          "profit_factor": 1.7118943566438718,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.01225127136067789,
+          "median_net": -0.008205806887238279,
+          "mean_gross": 0.014265536897575468,
+          "avg_net_bp": 122.5127136067789,
+          "median_net_bp": -82.05806887238279,
+          "mean_net_bp_without_largest": 110.36598728843211,
+          "win_rate": 0.4774286746117732,
+          "profit_factor": 1.1748610871178562,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 3.3744651162790698,
+            "gross": 3.37984496124031,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.11904890904495624,
+          "median_net": 0.011057918535476628,
+          "mean_gross": 0.12117007912408033,
+          "avg_net_bp": 1190.4890904495624,
+          "median_net_bp": 110.57918535476628,
+          "mean_net_bp_without_largest": 574.1441418565346,
+          "win_rate": 0.5279001468428781,
+          "profit_factor": 2.991613497835844,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 17,
+      "portfolio": {
+        "cohorts": 155,
+        "full": {
+          "total_return": -0.9219758694831952,
+          "sharpe": 0.06554499130605074,
+          "max_dd": -0.9885068817467427,
+          "trades": 414,
+          "profit_factor": 0.9840122582120969,
+          "avg_net_bp": -4.196254525491481,
+          "win_rate": 0.5434782608695652,
+          "exposure": 0.9013112491373361
+        },
+        "is": {
+          "total_return": -0.9606194513825153,
+          "sharpe": -0.1272883279318881,
+          "max_dd": -0.9843725675711861,
+          "trades": 238,
+          "profit_factor": 0.8427666846327246,
+          "avg_net_bp": -58.98414418897986,
+          "win_rate": 0.5168067226890757,
+          "exposure": 0.8812178387650086
+        },
+        "oos": {
+          "total_return": 0.9812860220581712,
+          "sharpe": 0.7650679543262365,
+          "max_dd": -0.6754438243991625,
+          "trades": 176,
+          "profit_factor": 1.6347723997563368,
+          "avg_net_bp": 69.89191445127119,
+          "win_rate": 0.5795454545454546,
+          "exposure": 0.9840989399293286
+        },
+        "oos_max_trade": {
+          "symbol": "OPI",
+          "session": "2025-09-04",
+          "net": 0.5041014139444173,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-09-12",
+          "strategy_net": 0.3809878349299629
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.05011057679247889,
+          "median_net": -0.002503274559194037,
+          "mean_gross": 0.052162739532010914,
+          "avg_net_bp": 501.105767924789,
+          "median_net_bp": -25.032745591940373,
+          "mean_net_bp_without_largest": 297.82856251131784,
+          "win_rate": 0.4918905833938514,
+          "profit_factor": 1.7436457720942566,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.01596788035530992,
+          "median_net": -0.007485243651338392,
+          "mean_gross": 0.01798586622153145,
+          "avg_net_bp": 159.67880355309921,
+          "median_net_bp": -74.85243651338392,
+          "mean_net_bp_without_largest": 145.11145737546093,
+          "win_rate": 0.4770675334055616,
+          "profit_factor": 1.225165668035602,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.0482093023255805,
+            "gross": 4.054263565891472,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.11952403232443258,
+          "median_net": 0.009005702164855267,
+          "mean_gross": 0.12164567800243502,
+          "avg_net_bp": 1195.2403232443257,
+          "median_net_bp": 90.05702164855268,
+          "mean_net_bp_without_largest": 578.8988656379214,
+          "win_rate": 0.5220264317180616,
+          "profit_factor": 2.9852486777057137,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 18,
+      "portfolio": {
+        "cohorts": 145,
+        "full": {
+          "total_return": 26.935465649150228,
+          "sharpe": 0.7575516861778986,
+          "max_dd": -0.8715398021296352,
+          "trades": 345,
+          "profit_factor": 1.7515706519479532,
+          "avg_net_bp": 198.90910902271506,
+          "win_rate": 0.4985507246376812,
+          "exposure": 0.8968253968253969
+        },
+        "is": {
+          "total_return": 3.9515303239029764,
+          "sharpe": 0.5878273408302369,
+          "max_dd": -0.8715398021296352,
+          "trades": 247,
+          "profit_factor": 1.6146747793654384,
+          "avg_net_bp": 179.736025668954,
+          "win_rate": 0.4898785425101215,
+          "exposure": 0.8752144082332761
+        },
+        "oos": {
+          "total_return": 4.641784220586274,
+          "sharpe": 1.4574899399644399,
+          "max_dd": -0.5997806011788445,
+          "trades": 98,
+          "profit_factor": 2.2697146661162444,
+          "avg_net_bp": 247.23310482250065,
+          "win_rate": 0.5204081632653061,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "AARD",
+          "session": "2025-11-17",
+          "net": 0.5921895687061183,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-10-24",
+          "strategy_net": 0.21941633567972474
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.05246158417837918,
+          "median_net": -0.002,
+          "mean_gross": 0.054516100278657845,
+          "avg_net_bp": 524.6158417837918,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 321.344328882151,
+          "win_rate": 0.49213265553134833,
+          "profit_factor": 1.7708571755254472,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.01933167799230581,
+          "median_net": -0.007434270172257348,
+          "mean_gross": 0.021353031023329142,
+          "avg_net_bp": 193.31677992305814,
+          "median_net_bp": -74.34270172257348,
+          "mean_net_bp_without_largest": 176.2059703291542,
+          "win_rate": 0.4770675334055616,
+          "profit_factor": 1.2725925935001832,
+          "largest": {
+            "symbol": "BNED",
+            "session": "2024-04-29",
+            "net": 4.755603773584904,
+            "gross": 4.762366139724629,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.11981599697517592,
+          "median_net": 0.00860549656755908,
+          "mean_gross": 0.12193793491008602,
+          "avg_net_bp": 1198.1599697517593,
+          "median_net_bp": 86.05496567559081,
+          "mean_net_bp_without_largest": 581.8206573668888,
+          "win_rate": 0.5227606461086637,
+          "profit_factor": 2.9251177305158294,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 19,
+      "portfolio": {
+        "cohorts": 139,
+        "full": {
+          "total_return": -0.009396248770662474,
+          "sharpe": 0.36481507436626603,
+          "max_dd": -0.9154478764037991,
+          "trades": 279,
+          "profit_factor": 1.3181925430246497,
+          "avg_net_bp": 105.85647639203867,
+          "win_rate": 0.4982078853046595,
+          "exposure": 0.9064872325741891
+        },
+        "is": {
+          "total_return": -0.3815135788592253,
+          "sharpe": 0.3226131799819995,
+          "max_dd": -0.8781103474330304,
+          "trades": 221,
+          "profit_factor": 1.2944959877042495,
+          "avg_net_bp": 102.5515896587404,
+          "win_rate": 0.49321266968325794,
+          "exposure": 0.8872212692967409
+        },
+        "oos": {
+          "total_return": 0.6016580435221244,
+          "sharpe": 0.6405825925680992,
+          "max_dd": -0.652838027642034,
+          "trades": 58,
+          "profit_factor": 1.4331793450288413,
+          "avg_net_bp": 118.44923446202014,
+          "win_rate": 0.5172413793103449,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "RTB",
+          "session": "2026-06-17",
+          "net": 0.5533305186972256,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-06-23",
+          "strategy_net": 0.26370588235294123
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.05394324808249012,
+          "median_net": -0.0027005610098176855,
+          "mean_gross": 0.055999247329819944,
+          "avg_net_bp": 539.4324808249012,
+          "median_net_bp": -27.005610098176856,
+          "mean_net_bp_without_largest": 336.16455548719284,
+          "win_rate": 0.4916485112563544,
+          "profit_factor": 1.777786826583575,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.019802381612240575,
+          "median_net": -0.008615894039735133,
+          "mean_gross": 0.021824205818058634,
+          "avg_net_bp": 198.02381612240575,
+          "median_net_bp": -86.15894039735133,
+          "mean_net_bp_without_largest": 183.97391882516538,
+          "win_rate": 0.48031780426146625,
+          "profit_factor": 1.2716766419059942,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 3.908813953488372,
+            "gross": 3.9147286821705425,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.12335298321914284,
+          "median_net": 0.005926001468451486,
+          "mean_gross": 0.12547846168082366,
+          "avg_net_bp": 1233.5298321914283,
+          "median_net_bp": 59.260014684514864,
+          "mean_net_bp_without_largest": 617.2165079494232,
+          "win_rate": 0.5146842878120411,
+          "profit_factor": 2.9841700069373958,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 20,
+      "portfolio": {
+        "cohorts": 133,
+        "full": {
+          "total_return": -0.9712796925492988,
+          "sharpe": -0.08976440724279998,
+          "max_dd": -0.9846130647620526,
+          "trades": 280,
+          "profit_factor": 0.8840799102693672,
+          "avg_net_bp": -42.95281674676907,
+          "win_rate": 0.5071428571428571,
+          "exposure": 0.9071773636991028
+        },
+        "is": {
+          "total_return": -0.9417757006779734,
+          "sharpe": -0.1336742448005514,
+          "max_dd": -0.9434571459958989,
+          "trades": 216,
+          "profit_factor": 0.8684912456009555,
+          "avg_net_bp": -48.749961399684516,
+          "win_rate": 0.5046296296296297,
+          "exposure": 0.8880789022298456
+        },
+        "oos": {
+          "total_return": -0.5067298742084455,
+          "sharpe": 0.05143368256965076,
+          "max_dd": -0.7542202249715384,
+          "trades": 64,
+          "profit_factor": 0.9367907545303523,
+          "avg_net_bp": -23.387453543179358,
+          "win_rate": 0.515625,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "PRPO",
+          "session": "2025-04-16",
+          "net": 0.33373329479768765,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723903
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.05483131534441795,
+          "median_net": -0.0016106780982072322,
+          "mean_gross": 0.05688820354796592,
+          "avg_net_bp": 548.3131534441795,
+          "median_net_bp": -16.106780982072323,
+          "mean_net_bp_without_largest": 345.0473783903983,
+          "win_rate": 0.49842653110626967,
+          "profit_factor": 1.7899449865239616,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.01979446699167385,
+          "median_net": -0.0055341981132075325,
+          "mean_gross": 0.0218162832749488,
+          "avg_net_bp": 197.94466991673855,
+          "median_net_bp": -55.341981132075325,
+          "mean_net_bp_without_largest": 183.21576883753832,
+          "win_rate": 0.48898519321054534,
+          "profit_factor": 1.2703448112213689,
+          "largest": {
+            "symbol": "SKYH",
+            "session": "2022-02-18",
+            "net": 4.096754285714285,
+            "gross": 4.102857142857142,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.12606261717169287,
+          "median_net": 0.007256099731861785,
+          "mean_gross": 0.12819080797967253,
+          "avg_net_bp": 1260.6261717169286,
+          "median_net_bp": 72.56099731861785,
+          "mean_net_bp_without_largest": 644.3327566149128,
+          "win_rate": 0.5176211453744494,
+          "profit_factor": 3.044141182321012,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 21,
+      "portfolio": {
+        "cohorts": 127,
+        "full": {
+          "total_return": -0.8367739003801093,
+          "sharpe": 0.040324910200823336,
+          "max_dd": -0.9399502745627365,
+          "trades": 297,
+          "profit_factor": 1.060087768133549,
+          "avg_net_bp": 18.491567943290544,
+          "win_rate": 0.46464646464646464,
+          "exposure": 0.9106280193236715
+        },
+        "is": {
+          "total_return": -0.8440868793626009,
+          "sharpe": -0.02758700958454143,
+          "max_dd": -0.9399502745627365,
+          "trades": 201,
+          "profit_factor": 0.9960059544521673,
+          "avg_net_bp": -1.4668333768321373,
+          "win_rate": 0.4577114427860697,
+          "exposure": 0.8927958833619211
+        },
+        "oos": {
+          "total_return": 0.04690419223600206,
+          "sharpe": 0.3277440130321802,
+          "max_dd": -0.7092617531453428,
+          "trades": 96,
+          "profit_factor": 1.3291468722617612,
+          "avg_net_bp": 60.27947070729738,
+          "win_rate": 0.4791666666666667,
+          "exposure": 0.9840989399293286
+        },
+        "oos_max_trade": {
+          "symbol": "TSLA",
+          "session": "2024-10-14",
+          "net": 0.5873795938763459,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-07-17",
+          "strategy_net": 0.23901452058309602
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.05571622527281068,
+          "median_net": -0.0006352459016392873,
+          "mean_gross": 0.05777399927208276,
+          "avg_net_bp": 557.1622527281069,
+          "median_net_bp": -6.352459016392873,
+          "mean_net_bp_without_largest": 353.8986203133773,
+          "win_rate": 0.4989106753812636,
+          "profit_factor": 1.7874561048153124,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.019540205087208946,
+          "median_net": -0.005321695760598481,
+          "mean_gross": 0.02156176685406301,
+          "avg_net_bp": 195.4020508720895,
+          "median_net_bp": -53.21695760598481,
+          "mean_net_bp_without_largest": 180.03626152025706,
+          "win_rate": 0.48826291079812206,
+          "profit_factor": 1.2631571744598498,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.272790697674417,
+            "gross": 4.27906976744186,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.1292635086016882,
+          "median_net": 0.00900172359152497,
+          "mean_gross": 0.1313949035051934,
+          "avg_net_bp": 1292.635086016882,
+          "median_net_bp": 90.0172359152497,
+          "mean_net_bp_without_largest": 676.3651895881209,
+          "win_rate": 0.5205580029368576,
+          "profit_factor": 3.0310855735069704,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 22,
+      "portfolio": {
+        "cohorts": 121,
+        "full": {
+          "total_return": -0.9158929058197147,
+          "sharpe": 0.060894526676025136,
+          "max_dd": -0.9878320823853075,
+          "trades": 292,
+          "profit_factor": 1.0271503745932706,
+          "avg_net_bp": 9.186041606009285,
+          "win_rate": 0.4691780821917808,
+          "exposure": 0.9075224292615597
+        },
+        "is": {
+          "total_return": -0.9807745580840127,
+          "sharpe": -0.18714576008036082,
+          "max_dd": -0.9878320823853075,
+          "trades": 214,
+          "profit_factor": 0.7652748068724431,
+          "avg_net_bp": -89.5332695329399,
+          "win_rate": 0.4719626168224299,
+          "exposure": 0.888507718696398
+        },
+        "oos": {
+          "total_return": 3.3747808007650884,
+          "sharpe": 1.2386096660291648,
+          "max_dd": -0.4699653478416247,
+          "trades": 78,
+          "profit_factor": 2.272333808454285,
+          "avg_net_bp": 280.03133114107493,
+          "win_rate": 0.46153846153846156,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "NUCL",
+          "session": "2026-03-24",
+          "net": 0.7943203883495145,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-10-16",
+          "strategy_net": 0.5153713248510914
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.059198160991778125,
+          "median_net": 0.0019065164450663833,
+          "mean_gross": 0.061259420412190325,
+          "avg_net_bp": 591.9816099177813,
+          "median_net_bp": 19.065164450663833,
+          "mean_net_bp_without_largest": 388.7264083401438,
+          "win_rate": 0.505204550956185,
+          "profit_factor": 1.8357136677080703,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.023843287706940185,
+          "median_net": -0.002,
+          "mean_gross": 0.02586915686380399,
+          "avg_net_bp": 238.43287706940185,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 221.76768865121713,
+          "win_rate": 0.49584687612856626,
+          "profit_factor": 1.321856318001737,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.636767441860465,
+            "gross": 4.6434108527131785,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.13107602011491784,
+          "median_net": 0.009744852827189638,
+          "mean_gross": 0.1332092293442621,
+          "avg_net_bp": 1310.7602011491783,
+          "median_net_bp": 97.44852827189638,
+          "mean_net_bp_without_largest": 694.5036222186777,
+          "win_rate": 0.5242290748898678,
+          "profit_factor": 3.040471837474991,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 23,
+      "portfolio": {
+        "cohorts": 116,
+        "full": {
+          "total_return": -0.9255349250129125,
+          "sharpe": 0.09289506004608002,
+          "max_dd": -0.9809885954830572,
+          "trades": 239,
+          "profit_factor": 1.055993063101394,
+          "avg_net_bp": 23.973510801555786,
+          "win_rate": 0.4476987447698745,
+          "exposure": 0.9095928226363009
+        },
+        "is": {
+          "total_return": -0.9268753348722034,
+          "sharpe": 0.038008961699471364,
+          "max_dd": -0.9809885954830572,
+          "trades": 165,
+          "profit_factor": 1.0459522401061538,
+          "avg_net_bp": 22.420849616274122,
+          "win_rate": 0.4303030303030303,
+          "exposure": 0.8919382504288165
+        },
+        "oos": {
+          "total_return": 0.018330475181641992,
+          "sharpe": 0.3562872044624968,
+          "max_dd": -0.6821700504919193,
+          "trades": 74,
+          "profit_factor": 1.0930358933328719,
+          "avg_net_bp": 27.43552560657573,
+          "win_rate": 0.4864864864864865,
+          "exposure": 0.9823321554770318
+        },
+        "oos_max_trade": {
+          "symbol": "SNDK",
+          "session": "2025-10-14",
+          "net": 0.43073318897637797,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-02-07",
+          "strategy_net": 0.26131328136630394
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.060282262940880786,
+          "median_net": 0.00016625263157896554,
+          "mean_gross": 0.06234460754842922,
+          "avg_net_bp": 602.8226294088078,
+          "median_net_bp": 1.6625263157896555,
+          "mean_net_bp_without_largest": 399.5700527753571,
+          "win_rate": 0.5010893246187363,
+          "profit_factor": 1.8531580700793504,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.024952793022804835,
+          "median_net": -0.0024476307830177063,
+          "mean_gross": 0.026979772795600435,
+          "avg_net_bp": 249.52793022804835,
+          "median_net_bp": -24.476307830177063,
+          "mean_net_bp_without_largest": 231.6916930069821,
+          "win_rate": 0.49006861682918024,
+          "profit_factor": 1.3380577985606177,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.962023255813953,
+            "gross": 4.9689922480620154,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.1321084760122114,
+          "median_net": 0.00895154019301271,
+          "mean_gross": 0.13424271873094235,
+          "avg_net_bp": 1321.0847601221137,
+          "median_net_bp": 89.51540193012711,
+          "mean_net_bp_without_largest": 704.8357672011455,
+          "win_rate": 0.5234948604992657,
+          "profit_factor": 3.056331802083159,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-25",
+            "net": 84.00359641255605,
+            "gross": 84.08968609865471,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 24,
+      "portfolio": {
+        "cohorts": 111,
+        "full": {
+          "total_return": -0.8130239009098581,
+          "sharpe": 0.24223767227838977,
+          "max_dd": -0.958927869712756,
+          "trades": 245,
+          "profit_factor": 1.1339823568798144,
+          "avg_net_bp": 53.6440757783849,
+          "win_rate": 0.4530612244897959,
+          "exposure": 0.9102829537612146
+        },
+        "is": {
+          "total_return": -0.8272069949118811,
+          "sharpe": 0.20588487109496786,
+          "max_dd": -0.958927869712756,
+          "trades": 179,
+          "profit_factor": 1.0915172116604284,
+          "avg_net_bp": 38.764479345662004,
+          "win_rate": 0.45251396648044695,
+          "exposure": 0.8910806174957119
+        },
+        "oos": {
+          "total_return": 0.08208141292982485,
+          "sharpe": 0.44823389936796465,
+          "max_dd": -0.7003468943145086,
+          "trades": 66,
+          "profit_factor": 1.2785362427381848,
+          "avg_net_bp": 93.99934489137573,
+          "win_rate": 0.45454545454545453,
+          "exposure": 0.9893992932862191
+        },
+        "oos_max_trade": {
+          "symbol": "KRRO",
+          "session": "2025-09-15",
+          "net": 0.5454691829909221,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-05-02",
+          "strategy_net": 0.2201747255620048
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.09668217314680061,
+          "median_net": -0.0010841864018333429,
+          "mean_gross": 0.09878095410090151,
+          "avg_net_bp": 966.821731468006,
+          "median_net_bp": -10.841864018333428,
+          "mean_net_bp_without_largest": 611.4230729704966,
+          "win_rate": 0.4969740982812878,
+          "profit_factor": 2.3353492191383145,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.025371077162821117,
+          "median_net": -0.0024162465992925175,
+          "mean_gross": 0.027398475638459582,
+          "avg_net_bp": 253.71077162821123,
+          "median_net_bp": -24.162465992925174,
+          "mean_net_bp_without_largest": 237.16301288358838,
+          "win_rate": 0.48970747562296857,
+          "profit_factor": 1.33665423441048,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.6057906976744185,
+            "gross": 4.612403100775194,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.2416604585944065,
+          "median_net": 0.006340143524410417,
+          "mean_gross": 0.24390436295736387,
+          "avg_net_bp": 2416.6045859440646,
+          "median_net_bp": 63.40143524410417,
+          "mean_net_bp_without_largest": 1339.2007088388202,
+          "win_rate": 0.5117474302496329,
+          "profit_factor": 4.6403501515736005,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 25,
+      "portfolio": {
+        "cohorts": 100,
+        "full": {
+          "total_return": 193.09702426577994,
+          "sharpe": 0.31622686725404425,
+          "max_dd": -0.8036856867947111,
+          "trades": 244,
+          "profit_factor": 12.370059647308944,
+          "avg_net_bp": 3155.243123079268,
+          "win_rate": 0.4959016393442623,
+          "exposure": 0.9147688060731539
+        },
+        "is": {
+          "total_return": 0.21737384653851866,
+          "sharpe": 0.3631621068851597,
+          "max_dd": -0.8036856867947111,
+          "trades": 182,
+          "profit_factor": 1.414715211043268,
+          "avg_net_bp": 134.38173323331995,
+          "win_rate": 0.5274725274725275,
+          "exposure": 0.8970840480274442
+        },
+        "oos": {
+          "total_return": 158.43912777301455,
+          "sharpe": 0.6876856606312689,
+          "max_dd": -0.5569862959313324,
+          "trades": 62,
+          "profit_factor": 86.31821084272873,
+          "avg_net_bp": 12022.93300940125,
+          "win_rate": 0.4032258064516129,
+          "exposure": 0.9876325088339223
+        },
+        "oos_max_trade": {
+          "symbol": "OPI",
+          "session": "2025-09-04",
+          "net": 73.43816406630911,
+          "weight": 0.5,
+          "exit_reason": "missing_bar"
+        },
+        "oos_max_day": {
+          "session": "2026-06-18",
+          "strategy_net": 53.08364888554292
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.09858321004595694,
+          "median_net": 0.0008706896551725488,
+          "mean_gross": 0.10068389393989685,
+          "avg_net_bp": 985.8321004595695,
+          "median_net_bp": 8.706896551725489,
+          "mean_net_bp_without_largest": 630.4380449569733,
+          "win_rate": 0.5027838295812151,
+          "profit_factor": 2.3394968874401525,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.027968806397729286,
+          "median_net": 0.00036170212765946697,
+          "mean_gross": 0.02999880520293222,
+          "avg_net_bp": 279.68806397729287,
+          "median_net_bp": 3.6170212765946697,
+          "mean_net_bp_without_largest": 264.38070232544976,
+          "win_rate": 0.5009028530155291,
+          "profit_factor": 1.3673421941573132,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.265046511627906,
+            "gross": 4.271317829457364,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.24214509235281625,
+          "median_net": 0.0054020909001130666,
+          "mean_gross": 0.24438948183465092,
+          "avg_net_bp": 2421.4509235281625,
+          "median_net_bp": 54.02090900113067,
+          "mean_net_bp_without_largest": 1344.0506072881522,
+          "win_rate": 0.5066079295154186,
+          "profit_factor": 4.538527109384513,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 26,
+      "portfolio": {
+        "cohorts": 103,
+        "full": {
+          "total_return": -0.1823622836934954,
+          "sharpe": 0.31286930902681753,
+          "max_dd": -0.969308730502744,
+          "trades": 212,
+          "profit_factor": 1.5878754879420514,
+          "avg_net_bp": 238.0996853087615,
+          "win_rate": 0.49528301886792453,
+          "exposure": 0.9137336093857833
+        },
+        "is": {
+          "total_return": -0.8367802508576727,
+          "sharpe": 0.2272342125401062,
+          "max_dd": -0.969308730502744,
+          "trades": 152,
+          "profit_factor": 1.4431763984753698,
+          "avg_net_bp": 221.7927837275673,
+          "win_rate": 0.48026315789473684,
+          "exposure": 0.8975128644939966
+        },
+        "oos": {
+          "total_return": 4.009428825880188,
+          "sharpe": 1.4768133103804129,
+          "max_dd": -0.42161131944787344,
+          "trades": 60,
+          "profit_factor": 2.7118156461457774,
+          "avg_net_bp": 279.41050264778676,
+          "win_rate": 0.5333333333333333,
+          "exposure": 0.980565371024735
+        },
+        "oos_max_trade": {
+          "symbol": "TSLA",
+          "session": "2024-10-14",
+          "net": 0.5419973197655932,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-08-07",
+          "strategy_net": 0.3387482493793825
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10322291028718426,
+          "median_net": 0.0017876777251183006,
+          "mean_gross": 0.10532823852570998,
+          "avg_net_bp": 1032.2291028718428,
+          "median_net_bp": 17.876777251183007,
+          "mean_net_bp_without_largest": 676.8462815102663,
+          "win_rate": 0.504236262406197,
+          "profit_factor": 2.3793144786538827,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.030307788575727024,
+          "median_net": -0.002,
+          "mean_gross": 0.03234012870443145,
+          "avg_net_bp": 303.0778857572702,
+          "median_net_bp": -20.0,
+          "mean_net_bp_without_largest": 287.06642093998596,
+          "win_rate": 0.49440231130371975,
+          "profit_factor": 1.3857536214619688,
+          "largest": {
+            "symbol": "PRPO",
+            "session": "2020-06-24",
+            "net": 4.46228125,
+            "gross": 4.468750000000001,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.2514622436344861,
+          "median_net": 0.010699000043058855,
+          "mean_gross": 0.25371595959408016,
+          "avg_net_bp": 2514.6224363448614,
+          "median_net_bp": 106.99000043058855,
+          "mean_net_bp_without_largest": 1437.2905782332978,
+          "win_rate": 0.5242290748898678,
+          "profit_factor": 4.739193104220169,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 27,
+      "portfolio": {
+        "cohorts": 99,
+        "full": {
+          "total_return": -0.8774068198263402,
+          "sharpe": 0.1666106357790584,
+          "max_dd": -0.9848136731797862,
+          "trades": 196,
+          "profit_factor": 1.2066527702190344,
+          "avg_net_bp": 92.37674416249983,
+          "win_rate": 0.4336734693877551,
+          "exposure": 0.9130434782608695
+        },
+        "is": {
+          "total_return": -0.8843399940164665,
+          "sharpe": 0.018294790608079946,
+          "max_dd": -0.9812791449220061,
+          "trades": 153,
+          "profit_factor": 1.004078196694754,
+          "avg_net_bp": 1.8506344599110733,
+          "win_rate": 0.40522875816993464,
+          "exposure": 0.8953687821612349
+        },
+        "oos": {
+          "total_return": 0.059944439144445916,
+          "sharpe": 0.673416801892613,
+          "max_dd": -0.9010470989905288,
+          "trades": 43,
+          "profit_factor": 1.9800592188222192,
+          "avg_net_bp": 414.4812740345017,
+          "win_rate": 0.5348837209302325,
+          "exposure": 0.9858657243816255
+        },
+        "oos_max_trade": {
+          "symbol": "FBYD",
+          "session": "2026-03-19",
+          "net": 0.7717690582959641,
+          "weight": 0.5,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-10-24",
+          "strategy_net": 0.21941633567972474
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10060103156879349,
+          "median_net": -0.000531889879494425,
+          "mean_gross": 0.10270373530409758,
+          "avg_net_bp": 1006.0103156879351,
+          "median_net_bp": -5.31889879494425,
+          "mean_net_bp_without_largest": 650.6211459517377,
+          "win_rate": 0.4991527475187606,
+          "profit_factor": 2.2972342399710834,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.026125992059720684,
+          "median_net": -0.005492055565643604,
+          "mean_gross": 0.02815414620592661,
+          "avg_net_bp": 261.2599205972068,
+          "median_net_bp": -54.92055565643604,
+          "mean_net_bp_without_largest": 246.5334299447811,
+          "win_rate": 0.4835680751173709,
+          "profit_factor": 1.320991099449059,
+          "largest": {
+            "symbol": "CCCC",
+            "session": "2023-12-07",
+            "net": 4.102418604651163,
+            "gross": 4.108527131782946,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.2520117396456089,
+          "median_net": 0.014357111935683512,
+          "mean_gross": 0.2542660056512602,
+          "avg_net_bp": 2520.1173964560885,
+          "median_net_bp": 143.5711193568351,
+          "mean_net_bp_without_largest": 1442.7895757876643,
+          "win_rate": 0.5308370044052864,
+          "profit_factor": 4.613537783203655,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 28,
+      "portfolio": {
+        "cohorts": 91,
+        "full": {
+          "total_return": 9.443215585413883,
+          "sharpe": 0.31392005990260885,
+          "max_dd": -0.8881497480600016,
+          "trades": 190,
+          "profit_factor": 3.8463833443088418,
+          "avg_net_bp": 1021.6862041261735,
+          "win_rate": 0.531578947368421,
+          "exposure": 0.9237405106970324
+        },
+        "is": {
+          "total_return": -0.15507000478351096,
+          "sharpe": 0.2873509399476142,
+          "max_dd": -0.8881497480600016,
+          "trades": 155,
+          "profit_factor": 1.3682104859555508,
+          "avg_net_bp": 131.78574125080783,
+          "win_rate": 0.5290322580645161,
+          "exposure": 0.9069468267581475
+        },
+        "oos": {
+          "total_return": 11.35985897593578,
+          "sharpe": 0.6613172834576494,
+          "max_dd": -0.7269889746799237,
+          "trades": 35,
+          "profit_factor": 14.651821041726315,
+          "avg_net_bp": 4962.673968288507,
+          "win_rate": 0.5428571428571428,
+          "exposure": 0.9929328621908127
+        },
+        "oos_max_trade": {
+          "symbol": "OPI",
+          "session": "2025-09-17",
+          "net": 17.74398989412897,
+          "weight": 0.5,
+          "exit_reason": "missing_bar"
+        },
+        "oos_max_day": {
+          "session": "2026-06-18",
+          "strategy_net": 21.6679862413253
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10464230203300547,
+          "median_net": 0.0014597402597404088,
+          "mean_gross": 0.10674905108408955,
+          "avg_net_bp": 1046.4230203300547,
+          "median_net_bp": 14.597402597404088,
+          "mean_net_bp_without_largest": 691.0436357523665,
+          "win_rate": 0.504236262406197,
+          "profit_factor": 2.348614313291608,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.03058877368092567,
+          "median_net": -0.003635024549918246,
+          "mean_gross": 0.032621395076001675,
+          "avg_net_bp": 305.8877368092567,
+          "median_net_bp": -36.35024549918246,
+          "mean_net_bp_without_largest": 274.30812223817435,
+          "win_rate": 0.49006861682918024,
+          "profit_factor": 1.3769761447997186,
+          "largest": {
+            "symbol": "AVNW",
+            "session": "2016-05-05",
+            "net": 8.771826086956523,
+            "gross": 8.782608695652174,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.255196061215758,
+          "median_net": 0.014427521479188923,
+          "mean_gross": 0.2574535147304885,
+          "avg_net_bp": 2551.96061215758,
+          "median_net_bp": 144.27521479188923,
+          "mean_net_bp_without_largest": 1474.6561884147259,
+          "win_rate": 0.5330396475770925,
+          "profit_factor": 4.626223605821532,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 29,
+      "portfolio": {
+        "cohorts": 94,
+        "full": {
+          "total_return": 28.96255717393451,
+          "sharpe": 0.7798140315257482,
+          "max_dd": -0.8093649766188189,
+          "trades": 250,
+          "profit_factor": 1.8951523390172103,
+          "avg_net_bp": 238.60872281364925,
+          "win_rate": 0.576,
+          "exposure": 0.9285714285714286
+        },
+        "is": {
+          "total_return": 4.924335276543993,
+          "sharpe": 0.6285206644937317,
+          "max_dd": -0.8093649766188189,
+          "trades": 198,
+          "profit_factor": 1.760496365928408,
+          "avg_net_bp": 203.35749263315498,
+          "win_rate": 0.5858585858585859,
+          "exposure": 0.9133790737564322
+        },
+        "oos": {
+          "total_return": 4.057539078276694,
+          "sharpe": 1.2620632959649527,
+          "max_dd": -0.4736882762935144,
+          "trades": 52,
+          "profit_factor": 2.415785452268921,
+          "avg_net_bp": 372.8345608086084,
+          "win_rate": 0.5384615384615384,
+          "exposure": 0.991166077738516
+        },
+        "oos_max_trade": {
+          "symbol": "PRPO",
+          "session": "2025-04-16",
+          "net": 0.914231213872832,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2025-04-23",
+          "strategy_net": 0.3875250008723903
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10584608581512364,
+          "median_net": 0.0001764705882354343,
+          "mean_gross": 0.10795403985497863,
+          "avg_net_bp": 1058.4608581512364,
+          "median_net_bp": 1.764705882354343,
+          "mean_net_bp_without_largest": 703.0843883042556,
+          "win_rate": 0.5001210360687485,
+          "profit_factor": 2.3488791314136797,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.030409119923786046,
+          "median_net": -0.004757129714811228,
+          "mean_gross": 0.03244156148527132,
+          "avg_net_bp": 304.09119923786045,
+          "median_net_bp": -47.57129714811228,
+          "mean_net_bp_without_largest": 273.76627616646175,
+          "win_rate": 0.48645720476706394,
+          "profit_factor": 1.36942020008118,
+          "largest": {
+            "symbol": "AVNW",
+            "session": "2016-05-05",
+            "net": 8.424347826086958,
+            "gross": 8.434782608695652,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.25921242836513375,
+          "median_net": 0.014781281877794757,
+          "mean_gross": 0.2614739022674012,
+          "avg_net_bp": 2592.124283651338,
+          "median_net_bp": 147.81281877794757,
+          "mean_net_bp_without_largest": 1514.8493703210434,
+          "win_rate": 0.5279001468428781,
+          "profit_factor": 4.66895018446499,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 30,
+      "portfolio": {
+        "cohorts": 90,
+        "full": {
+          "total_return": -0.26679526863917935,
+          "sharpe": 0.29290515544753554,
+          "max_dd": -0.8933789347564657,
+          "trades": 212,
+          "profit_factor": 1.2821324103416527,
+          "avg_net_bp": 108.83350065570292,
+          "win_rate": 0.5424528301886793,
+          "exposure": 0.916839199447895
+        },
+        "is": {
+          "total_return": -0.3800957397870188,
+          "sharpe": 0.249694281550646,
+          "max_dd": -0.8933789347564657,
+          "trades": 125,
+          "profit_factor": 1.2135126556507292,
+          "avg_net_bp": 110.03340724878404,
+          "win_rate": 0.56,
+          "exposure": 0.9013722126929674
+        },
+        "oos": {
+          "total_return": 0.18277091870430828,
+          "sharpe": 0.46104300559207667,
+          "max_dd": -0.6180051256902954,
+          "trades": 87,
+          "profit_factor": 1.5367461314756083,
+          "avg_net_bp": 107.10949693001156,
+          "win_rate": 0.5172413793103449,
+          "exposure": 0.980565371024735
+        },
+        "oos_max_trade": {
+          "symbol": "PDD",
+          "session": "2024-08-27",
+          "net": 0.4462961296129615,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-07-17",
+          "strategy_net": 0.23901452058309625
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10631406659111231,
+          "median_net": 0.0003757431629011674,
+          "mean_gross": 0.1084224890801925,
+          "avg_net_bp": 1063.140665911123,
+          "median_net_bp": 3.757431629011674,
+          "mean_net_bp_without_largest": 707.7653291895078,
+          "win_rate": 0.5010893246187363,
+          "profit_factor": 2.3374852531004104,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.029361485324617725,
+          "median_net": -0.00466874443455036,
+          "mean_gross": 0.031392878202820544,
+          "avg_net_bp": 293.61485324617723,
+          "median_net_bp": -46.6874443455036,
+          "mean_net_bp_without_largest": 263.8615097808697,
+          "win_rate": 0.4860960635608523,
+          "profit_factor": 1.3504260857362347,
+          "largest": {
+            "symbol": "AVNW",
+            "session": "2016-05-05",
+            "net": 8.265086956521742,
+            "gross": 8.275362318840582,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.26276171528929404,
+          "median_net": 0.015018850483977348,
+          "mean_gross": 0.26502674203132537,
+          "avg_net_bp": 2627.61715289294,
+          "median_net_bp": 150.1885048397735,
+          "mean_net_bp_without_largest": 1550.368318085233,
+          "win_rate": 0.5315712187958884,
+          "profit_factor": 4.7141508400946694,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    },
+    {
+      "hold": 31,
+      "portfolio": {
+        "cohorts": 87,
+        "full": {
+          "total_return": -0.9480214459396722,
+          "sharpe": 0.05175090498555018,
+          "max_dd": -0.9724756051651812,
+          "trades": 165,
+          "profit_factor": 1.077769573611402,
+          "avg_net_bp": 42.97763144377983,
+          "win_rate": 0.4484848484848485,
+          "exposure": 0.9192546583850931
+        },
+        "is": {
+          "total_return": -0.9561897555792391,
+          "sharpe": -0.02528284441199822,
+          "max_dd": -0.9724756051651812,
+          "trades": 121,
+          "profit_factor": 1.0339699861572542,
+          "avg_net_bp": 21.26975824782994,
+          "win_rate": 0.4462809917355372,
+          "exposure": 0.8996569468267581
+        },
+        "oos": {
+          "total_return": 0.18644747929541983,
+          "sharpe": 0.44622167117908906,
+          "max_dd": -0.558772387701634,
+          "trades": 44,
+          "profit_factor": 1.292948056309374,
+          "avg_net_bp": 102.674282732642,
+          "win_rate": 0.45454545454545453,
+          "exposure": 1.0
+        },
+        "oos_max_trade": {
+          "symbol": "NBIS",
+          "session": "2024-10-22",
+          "net": 0.6648413340070743,
+          "weight": 1.0,
+          "exit_reason": "hold"
+        },
+        "oos_max_day": {
+          "session": "2024-10-28",
+          "strategy_net": 0.21380844502437557
+        }
+      },
+      "name_level": {
+        "full": {
+          "trades": 4131,
+          "mean_net": 0.10821357784168613,
+          "median_net": 0.0023220024721879434,
+          "mean_gross": 0.11032390174342956,
+          "avg_net_bp": 1082.1357784168613,
+          "median_net_bp": 23.220024721879433,
+          "mean_net_bp_without_largest": 726.7650409960949,
+          "win_rate": 0.504720406681191,
+          "profit_factor": 2.3507020850806075,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        },
+        "is": {
+          "trades": 2769,
+          "mean_net": 0.030318520399726143,
+          "median_net": -0.004663999999999929,
+          "mean_gross": 0.032350871270997145,
+          "avg_net_bp": 303.18520399726145,
+          "median_net_bp": -46.63999999999928,
+          "mean_net_bp_without_largest": 272.02305992356105,
+          "win_rate": 0.4911520404478151,
+          "profit_factor": 1.3574727631561845,
+          "largest": {
+            "symbol": "AVNW",
+            "session": "2016-05-05",
+            "net": 8.656000000000002,
+            "gross": 8.666666666666668,
+            "exit_reason": "hold"
+          }
+        },
+        "oos": {
+          "trades": 1362,
+          "mean_net": 0.2665773179714858,
+          "median_net": 0.016794585987261072,
+          "mean_gross": 0.26884616413562146,
+          "avg_net_bp": 2665.773179714858,
+          "median_net_bp": 167.94585987261073,
+          "mean_net_bp_without_largest": 1588.5523801950442,
+          "win_rate": 0.5323054331864905,
+          "profit_factor": 4.7776264623768645,
+          "largest": {
+            "symbol": "OPI",
+            "session": "2025-09-04",
+            "net": 146.87632813261823,
+            "gross": 147.02535348610434,
+            "exit_reason": "missing_bar"
+          }
+        }
+      }
+    }
+  ]
+}
